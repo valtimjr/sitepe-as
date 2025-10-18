@@ -11,7 +11,7 @@ const Index = () => {
         Bem-vindo ao Gerenciador de Peças
       </h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-2xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-4xl">
         <Card className="text-center">
           <CardHeader>
             <CardTitle className="text-2xl">Pesquisar Peças</CardTitle>
@@ -36,6 +36,20 @@ const Index = () => {
             </p>
             <Link to="/parts-list">
               <Button className="w-full">Ir para Lista</Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="text-center">
+          <CardHeader>
+            <CardTitle className="text-2xl">Ordens de Serviço</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-6 text-gray-600 dark:text-gray-300">
+              Visualize e gerencie as ordens de serviço com suas peças associadas.
+            </p>
+            <Link to="/service-orders">
+              <Button className="w-full">Ir para Ordens</Button>
             </Link>
           </CardContent>
         </Card>
