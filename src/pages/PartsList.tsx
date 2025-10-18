@@ -28,7 +28,6 @@ const PartsList = () => {
 
   useEffect(() => {
     loadListItems();
-    // Não há mais listener de autenticação do Supabase, pois a lista é local e não depende de usuário logado.
   }, []);
 
   return (

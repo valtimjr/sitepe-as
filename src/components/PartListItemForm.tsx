@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
-import AfSearchInput from './AfSearchInput'; // Caminho de importação corrigido
+import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 
 interface PartListItemFormProps {
