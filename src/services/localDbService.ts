@@ -56,20 +56,24 @@ export const getLocalParts = async (): Promise<Part[]> => {
 
 export const searchLocalParts = async (query: string): Promise<Part[]> => {
   console.log('Searching local parts with query:', query);
-  if (!query) {
-    const all = await localDb.parts.toArray();
-    console.log('Returning all parts (empty query):', all);
-    return all;
-  }
   const lowerCaseQuery = query.toLowerCase();
-  const results = await localDb.parts
-    .where('codigo')
-    .startsWithIgnoreCase(lowerCaseQuery)
-    .or('descricao')
-    .startsWithIgnoreCase(lowerCaseQuery)
-    .or('tags')
-    .startsWithIgnoreCase(lowerCaseQuery)
-    .toArray();
+
+  // Para permitir a busca por tags em qualquer parte da string,
+  // vamos buscar todas as peças e depois filtrar em memória.
+  // Isso é menos eficiente para datasets muito grandes, mas funciona bem para este caso.
+  const allParts = await localDb.parts.toArray();
+
+  if (!query) {
+    console.log('Returning all parts (empty query):', allParts);
+    return allParts;
+  }
+
+  const results = allParts.filter(part =>
+    part.codigo.toLowerCase().startsWith(lowerCaseQuery) ||
+    part.descricao.toLowerCase().startsWith(lowerCaseQuery) ||
+    (part.tags && part.tags.toLowerCase().includes(lowerCaseQuery)) // Usa .includes para buscar substrings nas tags
+  );
+
   console.log('Search results for query:', query, results);
   return results;
 };
