@@ -57,10 +57,10 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           </Button>
         </PopoverTrigger>
         <PopoverContent 
-          className="w-80 p-0" // Define uma largura fixa para o popover
+          className="w-80 p-0 -translate-x-[275px]" // Define uma largura fixa para o popover
           side="bottom"        // Abre o popover abaixo do gatilho
           align="start"        // Alinha o popover com o início do gatilho
-          alignOffset={-60}    // Desloca o popover para a esquerda para alinhar com o campo de busca
+          alignOffset={0}    // Desloca o popover para a esquerda para alinhar com o campo de busca
         >
           <div className="max-h-96 overflow-y-auto">
             {allParts.length === 0 ? (
