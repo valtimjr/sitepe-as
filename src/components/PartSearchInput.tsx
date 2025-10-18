@@ -36,7 +36,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           className="w-full"
         />
         {searchQuery && searchResults.length > 0 && (
-          <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto">
+          <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto">
             {searchResults.map((part) => (
               <li
                 key={part.codigo}
@@ -56,8 +56,13 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
             <ChevronDown className="h-4 w-4" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-          <div className="max-h-60 overflow-y-auto">
+        <PopoverContent 
+          className="w-80 p-0" // Define uma largura fixa para o popover
+          side="bottom"        // Abre o popover abaixo do gatilho
+          align="start"        // Alinha o popover com o início do gatilho
+          alignOffset={-48}    // Desloca o popover para a esquerda para alinhar com o campo de busca
+        >
+          <div className="max-h-96 overflow-y-auto">
             {allParts.length === 0 ? (
               <p className="p-4 text-center text-gray-500">Nenhuma peça disponível.</p>
             ) : (
