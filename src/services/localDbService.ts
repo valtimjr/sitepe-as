@@ -55,9 +55,14 @@ export const getLocalParts = async (): Promise<Part[]> => {
 };
 
 export const searchLocalParts = async (query: string): Promise<Part[]> => {
-  if (!query) return localDb.parts.toArray();
+  console.log('Searching local parts with query:', query);
+  if (!query) {
+    const all = await localDb.parts.toArray();
+    console.log('Returning all parts (empty query):', all);
+    return all;
+  }
   const lowerCaseQuery = query.toLowerCase();
-  return localDb.parts
+  const results = await localDb.parts
     .where('codigo')
     .startsWithIgnoreCase(lowerCaseQuery)
     .or('descricao')
@@ -65,6 +70,8 @@ export const searchLocalParts = async (query: string): Promise<Part[]> => {
     .or('tags')
     .startsWithIgnoreCase(lowerCaseQuery)
     .toArray();
+  console.log('Search results for query:', query, results);
+  return results;
 };
 
 export const updateLocalPart = async (updatedPart: Part): Promise<void> => {

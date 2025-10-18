@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Part, getParts, searchParts as searchPartsService } from '@/services/partListService';
+import { Part, searchParts as searchPartsService } from '@/services/partListService';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -15,18 +15,9 @@ const SearchParts = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadParts = async () => {
-      setIsLoading(true);
-      const parts = await getParts();
-      setDisplayedParts(parts);
-      setIsLoading(false);
-    };
-    loadParts();
-  }, []);
-
-  useEffect(() => {
     const performSearch = async () => {
       setIsLoading(true);
+      // Sempre chama searchPartsService, mesmo com uma query vazia, para garantir dados atualizados
       const results = await searchPartsService(searchQuery);
       setDisplayedParts(results);
       setIsLoading(false);
@@ -81,7 +72,7 @@ const SearchParts = () => {
                     <TableRow>
                       <TableHead>Código</TableHead>
                       <TableHead>Descrição</TableHead>
-                      <TableHead>Tags</TableHead> {/* Nova coluna para Tags */}
+                      <TableHead>Tags</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -89,7 +80,7 @@ const SearchParts = () => {
                       <TableRow key={part.id}>
                         <TableCell className="font-medium">{part.codigo}</TableCell>
                         <TableCell>{part.descricao}</TableCell>
-                        <TableCell>{part.tags || 'N/A'}</TableCell> {/* Exibe as tags */}
+                        <TableCell>{part.tags || 'N/A'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
