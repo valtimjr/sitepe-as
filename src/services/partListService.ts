@@ -1,4 +1,4 @@
-import { staticParts, Part } from '@/data/parts'; // Importa as peças estáticas
+import Papa from 'papaparse';
 import {
   getLocalListItems,
   addLocalItemToList,
@@ -6,26 +6,66 @@ import {
   deleteLocalListItem,
   clearLocalList,
   getLocalUniqueAfs,
-  ListItem as LocalListItem // Renomeia para evitar conflito se Part e ListItem forem diferentes
-} from '@/services/localDbService'; // Importa as funções do IndexedDB local
+  ListItem as LocalListItem
+} from '@/services/localDbService';
 
-// Re-exporta a interface Part do arquivo de dados estáticos
-export type { Part };
+export interface Part {
+  id: string;
+  codigo: string;
+  descricao: string;
+}
 
 // Define a interface ListItem para ser compatível com o IndexedDB local
 export interface ListItem extends LocalListItem {}
 
-// --- Parts Management (Static File) ---
+let cachedParts: Part[] | null = null;
+
+const fetchAndParseCsv = async (): Promise<Part[]> => {
+  if (cachedParts) {
+    return cachedParts;
+  }
+  try {
+    const response = await fetch('/parts.csv');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const csvText = await response.text();
+    return new Promise((resolve, reject) => {
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const parsedParts: Part[] = results.data.map((row: any) => ({
+            id: row.id,
+            codigo: row.codigo,
+            descricao: row.descricao,
+          }));
+          cachedParts = parsedParts; // Cache the parsed data
+          resolve(parsedParts);
+        },
+        error: (error) => {
+          reject(error);
+        }
+      });
+    });
+  } catch (error) {
+    console.error("Failed to fetch or parse parts.csv:", error);
+    return []; // Return empty array on error
+  }
+};
+
+// --- Parts Management (CSV File) ---
 
 export const getParts = async (): Promise<Part[]> => {
-  return staticParts;
+  return fetchAndParseCsv();
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  if (!query) return staticParts;
+  const allParts = await fetchAndParseCsv();
+  if (!query) return allParts;
 
   const lowerCaseQuery = query.toLowerCase();
-  return staticParts.filter(part =>
+  return allParts.filter(part =>
     part.codigo.toLowerCase().includes(lowerCaseQuery) ||
     part.descricao.toLowerCase().includes(lowerCaseQuery)
   );
