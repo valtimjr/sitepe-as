@@ -24,7 +24,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
         )
       );
     } else {
-      setFilteredAfs([]);
+      setFilteredAfs(availableAfs); // Mostra todos os AFs quando o input está vazio
     }
   }, [value, availableAfs]);
 
@@ -32,6 +32,8 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
     onSelectAf(af);
     setIsPopoverOpen(false);
   };
+
+  const shouldShowDropdown = value.length === 0 || filteredAfs.length > 0;
 
   return (
     <div className="relative flex w-full items-center space-x-2">
@@ -46,17 +48,21 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
           className="w-full"
           required
         />
-        {value.length > 0 && filteredAfs.length > 0 && (
+        {shouldShowDropdown && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto">
-            {filteredAfs.map((af) => (
-              <li
-                key={af}
-                className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                onClick={() => handleSelectAndClose(af)}
-              >
-                {af}
-              </li>
-            ))}
+            {filteredAfs.length === 0 && value.length > 0 ? (
+              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhum AF encontrado.</li>
+            ) : (
+              filteredAfs.map((af) => (
+                <li
+                  key={af}
+                  className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => handleSelectAndClose(af)}
+                >
+                  {af}
+                </li>
+              ))
+            )}
           </ul>
         )}
       </div>
