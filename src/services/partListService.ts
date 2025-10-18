@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { loadPartsFromCsv } from '@/utils/csvParser'; // Importa o novo utilitário
 
 export interface Part {
   codigo: string;
@@ -89,18 +90,27 @@ export const getUniqueAfs = (): string[] => {
   return Array.from(afs).sort();
 };
 
-// Initialize with some dummy data if empty
-(() => {
+// Inicializa com dados do CSV se o localStorage estiver vazio
+(async () => {
   if (getParts().length === 0) {
-    insertPart({ codigo: 'P001', descricao: 'Filtro de Óleo' });
-    insertPart({ codigo: 'P002', descricao: 'Vela de Ignição' });
-    insertPart({ codigo: 'P003', descricao: 'Pastilha de Freio' });
-    insertPart({ codigo: 'P004', descricao: 'Correia Dentada' });
-    insertPart({ codigo: 'P005', descricao: 'Bateria 12V' });
-    insertPart({ codigo: 'P006', descricao: 'Pneu Aro 15' });
-    insertPart({ codigo: 'P007', descricao: 'Amortecedor Dianteiro' });
-    insertPart({ codigo: 'P008', descricao: 'Lâmpada H4' });
-    insertPart({ codigo: 'P009', descricao: 'Óleo Motor 5W30' });
-    insertPart({ codigo: 'P010', descricao: 'Disco de Freio' });
+    console.log('Loading parts from CSV...');
+    const partsFromCsv = await loadPartsFromCsv('/parts.csv');
+    if (partsFromCsv.length > 0) {
+      partsFromCsv.forEach(part => insertPart(part));
+      console.log(`Loaded ${partsFromCsv.length} parts from CSV.`);
+    } else {
+      console.warn('No parts loaded from CSV. Initializing with dummy data as fallback.');
+      // Fallback para dados dummy se o carregamento do CSV falhar ou estiver vazio
+      insertPart({ codigo: 'P001', descricao: 'Filtro de Óleo' });
+      insertPart({ codigo: 'P002', descricao: 'Vela de Ignição' });
+      insertPart({ codigo: 'P003', descricao: 'Pastilha de Freio' });
+      insertPart({ codigo: 'P004', descricao: 'Correia Dentada' });
+      insertPart({ codigo: 'P005', descricao: 'Bateria 12V' });
+      insertPart({ codigo: 'P006', descricao: 'Pneu Aro 15' });
+      insertPart({ codigo: 'P007', descricao: 'Amortecedor Dianteiro' });
+      insertPart({ codigo: 'P008', descricao: 'Lâmpada H4' });
+      insertPart({ codigo: 'P009', descricao: 'Óleo Motor 5W30' });
+      insertPart({ codigo: 'P010', descricao: 'Disco de Freio' });
+    }
   }
 })();
