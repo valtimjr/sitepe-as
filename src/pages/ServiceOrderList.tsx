@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import PartListItemForm from '@/components/PartListItemForm';
+import ServiceOrderForm from '@/components/ServiceOrderForm'; // Importar o novo formulário
 import PartsListDisplay from '@/components/PartsListDisplay';
 import { getListItems, ListItem } from '@/services/partListService';
 import { Link } from 'react-router-dom';
@@ -46,7 +46,7 @@ const ServiceOrderList = () => {
         <p className="text-center text-gray-500 dark:text-gray-400 py-8">Carregando sua lista de ordens de serviço...</p>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
-          <PartListItemForm onItemAdded={loadListItems} />
+          <ServiceOrderForm onItemAdded={loadListItems} /> {/* Usando o novo formulário */}
           <PartsListDisplay listItems={listItems} onListChanged={loadListItems} />
         </div>
       )}
