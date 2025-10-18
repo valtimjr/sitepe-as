@@ -1,4 +1,4 @@
-import { jsPDF } from 'jspdf'; // Alterado para importação nomeada
+import jsPDF from 'jspdf'; // Alterado para importação padrão
 import 'jspdf-autotable';
 import { ListItem } from '@/services/partListService';
 
@@ -23,7 +23,6 @@ export const generatePartsListPdf = (listItems: ListItem[], title: string = 'Lis
 
   // O cast para 'any' é mantido porque jspdf-autotable estende o protótipo em tempo de execução,
   // e o TypeScript pode não reconhecer isso sem declarações de tipo personalizadas.
-  // No entanto, o erro em tempo de execução deve ser corrigido pela importação correta.
   (doc as any).autoTable({
     head: [tableColumn],
     body: tableRows,
