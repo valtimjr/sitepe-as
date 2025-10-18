@@ -131,6 +131,14 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     }
   };
 
+  const handlePartInputFocus = () => {
+    if (selectedPart) {
+      setSelectedPart(null); // Limpa a peça selecionada
+      setSearchQuery(''); // Limpa a query de busca para iniciar uma nova pesquisa
+      setSearchResults([]); // Limpa os resultados da busca anterior
+    }
+  };
+
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags;
 
   return (
@@ -149,6 +157,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               searchQuery={searchQuery}
               allParts={allAvailableParts}
               isLoading={isLoadingParts}
+              onInputFocus={handlePartInputFocus} {/* Passa a nova função aqui */}
             />
           </div>
           <div>
