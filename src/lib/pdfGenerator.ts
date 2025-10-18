@@ -1,6 +1,9 @@
-import jsPDF from 'jspdf'; // Importação padrão, que é a mais comum para jspdf-autotable
-import 'jspdf-autotable';
+import jsPDF from 'jspdf';
+import { applyPlugin } from 'jspdf-autotable'; // Importa a função applyPlugin
 import { ListItem } from '@/services/partListService';
+
+// Aplica o plugin explicitamente ao jsPDF
+applyPlugin(jsPDF);
 
 export const generatePartsListPdf = (listItems: ListItem[], title: string = 'Lista de Peças'): void => {
   const doc = new jsPDF();
@@ -21,8 +24,7 @@ export const generatePartsListPdf = (listItems: ListItem[], title: string = 'Lis
     tableRows.push(itemData);
   });
 
-  // O cast para 'any' é mantido para compatibilidade com a tipagem,
-  // mas a funcionalidade autoTable deve estar disponível após a correção da dependência.
+  // Agora, doc.autoTable deve estar disponível
   (doc as any).autoTable({
     head: [tableColumn],
     body: tableRows,
