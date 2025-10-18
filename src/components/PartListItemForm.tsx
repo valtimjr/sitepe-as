@@ -7,6 +7,7 @@ import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchParts
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
+import { Save } from 'lucide-react';
 
 interface PartListItemFormProps {
   onItemAdded: () => void;
@@ -22,7 +23,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
-  const [editedTags, setEditedTags] = useState<string>(''); // Novo estado para tags editáveis
+  const [editedTags, setEditedTags] = useState<string>('');
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -56,7 +57,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // Atualiza editedTags quando selectedPart muda
   useEffect(() => {
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
@@ -75,6 +75,30 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     setAf(selectedAf);
   };
 
+  const handleUpdateTags = async () => {
+    if (!selectedPart) {
+      showError('Nenhuma peça selecionada para atualizar as tags.');
+      return;
+    }
+    if (selectedPart.tags === editedTags) {
+      showError('As tags não foram alteradas.');
+      return;
+    }
+
+    try {
+      await updatePart({ ...selectedPart, tags: editedTags });
+      showSuccess('Tags da peça atualizadas com sucesso!');
+      // Atualiza a lista de peças disponíveis para refletir a mudança
+      const updatedParts = await getParts();
+      setAllAvailableParts(updatedParts);
+      // Atualiza a peça selecionada para refletir as novas tags
+      setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
+    } catch (error) {
+      showError('Erro ao atualizar as tags da peça.');
+      console.error('Failed to update part tags:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPart || quantidade <= 0 || !af) {
@@ -83,15 +107,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     }
 
     try {
-      // Verifica se as tags foram editadas e as atualiza no IndexedDB
-      if (selectedPart.tags !== editedTags) {
-        await updatePart({ ...selectedPart, tags: editedTags });
-        showSuccess('Tags da peça atualizadas!');
-        // Atualiza a lista de peças disponíveis para refletir a mudança
-        const updatedParts = await getParts();
-        setAllAvailableParts(updatedParts);
-      }
-
       await addItemToList({
         codigo_peca: selectedPart.codigo,
         descricao: selectedPart.descricao,
@@ -102,15 +117,17 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       setSelectedPart(null);
       setQuantidade(1);
       setAf('');
-      setEditedTags(''); // Limpa as tags editadas
+      setEditedTags('');
       onItemAdded();
       const updatedAfs = await getUniqueAfs();
       setAllAvailableAfs(updatedAfs);
     } catch (error) {
-      showError('Erro ao adicionar item à lista ou atualizar tags.');
-      console.error('Failed to add item or update tags:', error);
+      showError('Erro ao adicionar item à lista.');
+      console.error('Failed to add item to list:', error);
     }
   };
+
+  const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags;
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -152,16 +169,28 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               className="bg-gray-100 dark:bg-gray-700"
             />
           </div>
-          {selectedPart && ( // Mostra o campo de tags apenas se uma peça estiver selecionada
+          {selectedPart && (
             <div>
               <Label htmlFor="tags">Tags (separadas por ';')</Label>
-              <Input
-                id="tags"
-                type="text"
-                value={editedTags}
-                onChange={(e) => setEditedTags(e.target.value)}
-                placeholder="Adicione tags separadas por ';'"
-              />
+              <div className="flex items-center space-x-2">
+                <Input
+                  id="tags"
+                  type="text"
+                  value={editedTags}
+                  onChange={(e) => setEditedTags(e.target.value)}
+                  placeholder="Adicione tags separadas por ';'"
+                />
+                <Button
+                  type="button"
+                  onClick={handleUpdateTags}
+                  disabled={isUpdateTagsDisabled}
+                  variant="outline"
+                  size="icon"
+                  aria-label="Atualizar Tags"
+                >
+                  <Save className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
           <div>
