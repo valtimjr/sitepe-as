@@ -1,7 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
 
 export interface Part {
-  id: string; // Adicionado id para consistência com o banco de dados e para chaves React
   codigo: string;
   descricao: string;
 }
@@ -20,7 +19,7 @@ export interface ListItem {
 export const getParts = async (): Promise<Part[]> => {
   const { data, error } = await supabase
     .from('parts')
-    .select('id, codigo, descricao'); // Seleciona o id também
+    .select('codigo, descricao');
 
   if (error) {
     console.error('Error fetching parts:', error);
@@ -41,33 +40,13 @@ export const insertPart = async (part: Part): Promise<void> => {
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  if (!query || query.trim() === '') {
-    return getParts(); // Retorna todas as peças se a query estiver vazia
-  }
+  if (!query) return getParts(); // Retorna todas as peças se a query estiver vazia
 
-  const trimmedQuery = query.trim();
-  const keywords = trimmedQuery.split('%').map(k => k.trim()).filter(k => k.length > 0);
-
-  if (keywords.length === 0) {
-    return getParts(); // Se não houver palavras-chave válidas após a divisão, retorna todas as peças
-  }
-
-  let queryBuilder = supabase
+  const lowerCaseQuery = query.toLowerCase();
+  const { data, error } = await supabase
     .from('parts')
-    .select('id, codigo, descricao'); // Seleciona o id também
-
-  if (keywords.length > 0) {
-    const andConditions: string[] = [];
-    keywords.forEach(keyword => {
-      const lowerCaseKeyword = keyword.toLowerCase();
-      // Para cada palavra-chave, criamos uma condição OR para 'codigo' ou 'descricao'
-      andConditions.push(`or(codigo.ilike.%${lowerCaseKeyword}%,descricao.ilike.%${lowerCaseKeyword}%)`);
-    });
-    // Em seguida, combinamos todas as condições de palavra-chave com AND, passando o array diretamente
-    queryBuilder = queryBuilder.and(andConditions);
-  }
-
-  const { data, error } = await queryBuilder;
+    .select('codigo, descricao')
+    .or(`codigo.ilike.%${lowerCaseQuery}%,descricao.ilike.%${lowerCaseQuery}%`);
 
   if (error) {
     console.error('Error searching parts:', error);
