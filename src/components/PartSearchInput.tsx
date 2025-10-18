@@ -44,7 +44,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
             ) : searchResults.length > 0 ? ( // Se não estiver carregando e houver resultados, mostra os resultados
               searchResults.map((part) => (
                 <li
-                  key={part.id}
+                  key={part.id} {/* Changed key back to part.id */}
                   className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleSelectAndClose(part)}
                 >
@@ -77,7 +77,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
               <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                 {allParts.map((part) => (
                   <li
-                    key={part.id}
+                    key={part.id} {/* Changed key back to part.id */}
                     className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                     onClick={() => handleSelectAndClose(part)}
                   >

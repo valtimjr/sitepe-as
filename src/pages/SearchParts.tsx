@@ -85,7 +85,7 @@ const SearchParts = () => {
                   </TableHeader>
                   <TableBody>
                     {displayedParts.map((part) => (
-                      <TableRow key={part.codigo}>
+                      <TableRow key={part.id}> {/* Changed key back to part.id */}
                         <TableCell className="font-medium">{part.codigo}</TableCell>
                         <TableCell>{part.descricao}</TableCell>
                       </TableRow>
