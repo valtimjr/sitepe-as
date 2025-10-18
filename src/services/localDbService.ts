@@ -14,6 +14,8 @@ export interface ListItem {
   descricao: string;
   quantidade: number;
   af: string;
+  os?: number; // Novo campo: Ordem de Serviço (opcional, número)
+  servico_executado?: string; // Novo campo: Serviço Executado (opcional, texto)
 }
 
 export interface Af {
@@ -29,7 +31,7 @@ class LocalDexieDb extends Dexie {
   constructor() {
     super('PartsListDatabase');
     this.version(1).stores({
-      listItems: '++id, codigo_peca, af',
+      listItems: '++id, codigo_peca, af, os, servico_executado', // Adiciona os novos campos ao store
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number', // Adiciona a tabela de AFs
     });

@@ -55,7 +55,15 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       textToCopy += `${af_number}\n`; // Adiciona o número do AF
       groupedByAf[af_number].forEach(item => {
         // Formato: Quantidade-Descrição Código da Peça
-        textToCopy += `${item.quantidade}-${item.descricao} ${item.codigo_peca}\n`;
+        let itemLine = `${item.quantidade}-${item.descricao} ${item.codigo_peca}`;
+        if (item.os) {
+          itemLine += ` (OS: ${item.os})`;
+        }
+        textToCopy += `${itemLine}\n`;
+
+        if (item.servico_executado) {
+          textToCopy += `Serviço: ${item.servico_executado}\n`;
+        }
       });
       textToCopy += '\n'; // Adiciona uma linha em branco entre os grupos de AFs
     }
@@ -138,6 +146,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   <TableHead>Descrição</TableHead>
                   <TableHead>Quantidade</TableHead>
                   <TableHead>AF</TableHead>
+                  <TableHead>OS</TableHead> {/* Nova coluna */}
+                  <TableHead>Serviço Executado</TableHead> {/* Nova coluna */}
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -148,6 +158,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                     <TableCell>{item.descricao}</TableCell>
                     <TableCell>{item.quantidade}</TableCell>
                     <TableCell>{item.af}</TableCell>
+                    <TableCell>{item.os || 'N/A'}</TableCell> {/* Exibe OS ou 'N/A' */}
+                    <TableCell>{item.servico_executado || 'N/A'}</TableCell> {/* Exibe Serviço Executado ou 'N/A' */}
                     <TableCell className="text-right">
                       <Tooltip>
                         <TooltipTrigger asChild>

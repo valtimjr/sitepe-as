@@ -8,6 +8,7 @@ import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea'; // Importar Textarea
 
 interface PartListItemFormProps {
   onItemAdded: () => void;
@@ -17,6 +18,8 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
+  const [os, setOs] = useState<number | undefined>(undefined); // Novo estado para OS
+  const [servicoExecutado, setServicoExecutado] = useState<string>(''); // Novo estado para Serviço Executado
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
@@ -113,11 +116,15 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
         descricao: selectedPart.descricao,
         quantidade,
         af,
+        os: os, // Inclui OS
+        servico_executado: servicoExecutado, // Inclui Serviço Executado
       });
       showSuccess('Item adicionado à lista!');
       setSelectedPart(null);
       setQuantidade(1);
       setAf('');
+      setOs(undefined); // Limpa o campo OS
+      setServicoExecutado(''); // Limpa o campo Serviço Executado
       setEditedTags('');
       onItemAdded();
       // Recarrega os AFs para garantir que a lista de sugestões esteja atualizada, caso um novo AF tenha sido digitado e adicionado à lista de itens.
@@ -220,6 +227,32 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
                 onSelectAf={handleSelectAf}
               />
             )}
+          </div>
+          {/* Novo campo para OS */}
+          <div>
+            <Label htmlFor="os">OS (Opcional)</Label>
+            <Input
+              id="os"
+              type="number"
+              value={os === undefined ? '' : os}
+              onChange={(e) => {
+                const value = e.target.value;
+                setOs(value === '' ? undefined : parseInt(value));
+              }}
+              placeholder="Número da Ordem de Serviço"
+              min="0"
+            />
+          </div>
+          {/* Novo campo para Serviço Executado */}
+          <div>
+            <Label htmlFor="servico_executado">Serviço Executado (Opcional)</Label>
+            <Textarea
+              id="servico_executado"
+              value={servicoExecutado}
+              onChange={(e) => setServicoExecutado(e.target.value)}
+              placeholder="Descreva o serviço executado"
+              rows={3}
+            />
           </div>
           <Button type="submit" className="w-full" disabled={isLoadingParts || isLoadingAfs || !selectedPart}>Adicionar à Lista</Button>
         </form>

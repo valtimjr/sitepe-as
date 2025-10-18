@@ -11,8 +11,8 @@ export const generatePartsListPdf = (listItems: ListItem[], title: string = 'Lis
   doc.setFontSize(18);
   doc.text(title, 14, 22);
 
-  const tableColumn = ["Código da Peça", "Descrição", "Quantidade", "AF"];
-  const tableRows: (string | number)[][] = [];
+  const tableColumn = ["Código da Peça", "Descrição", "Quantidade", "AF", "OS", "Serviço Executado"]; // Adiciona novas colunas
+  const tableRows: (string | number | undefined)[][] = []; // Permite undefined para campos opcionais
 
   listItems.forEach(item => {
     const itemData = [
@@ -20,6 +20,8 @@ export const generatePartsListPdf = (listItems: ListItem[], title: string = 'Lis
       item.descricao,
       item.quantidade,
       item.af,
+      item.os || '', // Adiciona OS, vazio se undefined
+      item.servico_executado || '', // Adiciona Serviço Executado, vazio se undefined
     ];
     tableRows.push(itemData);
   });
