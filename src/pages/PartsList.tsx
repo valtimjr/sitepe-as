@@ -3,19 +3,43 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import PartListItemForm from '@/components/PartListItemForm';
 import PartsListDisplay from '@/components/PartsListDisplay';
 import { getListItems, ListItem } from '@/services/partListService';
-import { Link } from 'react-router-dom'; // Importar Link
-import { Button } from '@/components/ui/button'; // Importar Button
-import { ArrowLeft } from 'lucide-react'; // Importar ícone
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
+import { showSuccess, showError } from '@/utils/toast';
 
 const PartsList = () => {
   const [listItems, setListItems] = useState<ListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const loadListItems = () => {
-    setListItems(getListItems());
+  const loadListItems = async () => {
+    setIsLoading(true);
+    try {
+      const items = await getListItems();
+      setListItems(items);
+    } catch (error) {
+      showError('Erro ao carregar a lista de peças.');
+      console.error('Failed to load list items:', error);
+      setListItems([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
     loadListItems();
+
+    // Monitora mudanças de autenticação para recarregar a lista
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        loadListItems();
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   return (
@@ -30,10 +54,14 @@ const PartsList = () => {
       <h1 className="text-4xl font-extrabold mb-8 text-center text-blue-600 dark:text-blue-400">
         Lista de Peças
       </h1>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
-        <PartListItemForm onItemAdded={loadListItems} />
-        <PartsListDisplay listItems={listItems} onListChanged={loadListItems} />
-      </div>
+      {isLoading ? (
+        <p className="text-center text-gray-500 dark:text-gray-400 py-8">Carregando sua lista de peças...</p>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
+          <PartListItemForm onItemAdded={loadListItems} />
+          <PartsListDisplay listItems={listItems} onListChanged={loadListItems} />
+        </div>
+      )}
       <MadeWithDyad />
     </div>
   );

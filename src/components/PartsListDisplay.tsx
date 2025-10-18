@@ -35,16 +35,26 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     showSuccess('PDF gerado com sucesso!');
   };
 
-  const handleClearList = () => {
-    clearList();
-    onListChanged();
-    showSuccess('Lista limpa com sucesso!');
+  const handleClearList = async () => {
+    try {
+      await clearList();
+      onListChanged();
+      showSuccess('Lista limpa com sucesso!');
+    } catch (error) {
+      showError('Erro ao limpar a lista.');
+      console.error('Failed to clear list:', error);
+    }
   };
 
-  const handleDeleteItem = (id: string) => {
-    deleteListItem(id);
-    onListChanged();
-    showSuccess('Item removido da lista.');
+  const handleDeleteItem = async (id: string) => {
+    try {
+      await deleteListItem(id);
+      onListChanged();
+      showSuccess('Item removido da lista.');
+    } catch (error) {
+      showError('Erro ao remover item da lista.');
+      console.error('Failed to delete item:', error);
+    }
   };
 
   return (

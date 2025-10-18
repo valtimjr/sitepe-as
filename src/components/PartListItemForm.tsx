@@ -20,23 +20,38 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]);
+  const [isLoadingParts, setIsLoadingParts] = useState(true);
+  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
 
   useEffect(() => {
-    setAllAvailableParts(getParts());
-    setAllAvailableAfs(getUniqueAfs());
+    const loadInitialData = async () => {
+      setIsLoadingParts(true);
+      const parts = await getParts();
+      setAllAvailableParts(parts);
+      setIsLoadingParts(false);
+
+      setIsLoadingAfs(true);
+      const afs = await getUniqueAfs();
+      setAllAvailableAfs(afs);
+      setIsLoadingAfs(false);
+    };
+    loadInitialData();
   }, []);
 
-  // Atualiza os resultados da busca quando a query muda
   useEffect(() => {
-    if (searchQuery.length > 1) {
-      setSearchResults(getParts().filter(
-        (part) =>
-          part.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          part.descricao.toLowerCase().includes(searchQuery.toLowerCase())
-      ));
-    } else {
-      setSearchResults([]);
-    }
+    const fetchSearchResults = async () => {
+      if (searchQuery.length > 1) {
+        const results = await getParts(); // Busca todas as peças e filtra localmente
+        setSearchResults(results.filter(
+          (part) =>
+            part.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            part.descricao.toLowerCase().includes(searchQuery.toLowerCase())
+        ));
+      } else {
+        setSearchResults([]);
+      }
+    };
+    fetchSearchResults();
   }, [searchQuery]);
 
   const handleSearch = (query: string) => {
@@ -45,37 +60,40 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
 
   const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
-    setSearchQuery(''); // Limpa a query de busca após selecionar
-    setSearchResults([]); // Limpa os resultados da busca
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   const handleSelectAf = (selectedAf: string) => {
     setAf(selectedAf);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPart || quantidade <= 0 || !af) {
       showError('Por favor, selecione uma peça, insira a quantidade e o AF.');
       return;
     }
 
-    // Não chamamos insertPart aqui, pois a lista de peças é considerada imutável
-    // e só podemos adicionar peças existentes.
-
-    addItemToList({
-      codigo_peca: selectedPart.codigo,
-      descricao: selectedPart.descricao,
-      quantidade,
-      af,
-    });
-    showSuccess('Item adicionado à lista!');
-    setSelectedPart(null); // Limpa a peça selecionada
-    setQuantidade(1);
-    setAf('');
-    onItemAdded();
-    setAllAvailableParts(getParts()); // Atualiza a lista de peças disponíveis (se houver alguma mudança externa)
-    setAllAvailableAfs(getUniqueAfs()); // Atualiza todos os AFs após adicionar um novo item
+    try {
+      await addItemToList({
+        codigo_peca: selectedPart.codigo,
+        descricao: selectedPart.descricao,
+        quantidade,
+        af,
+      });
+      showSuccess('Item adicionado à lista!');
+      setSelectedPart(null);
+      setQuantidade(1);
+      setAf('');
+      onItemAdded();
+      // Recarrega os AFs únicos após adicionar um novo item
+      const updatedAfs = await getUniqueAfs();
+      setAllAvailableAfs(updatedAfs);
+    } catch (error) {
+      showError('Erro ao adicionar item à lista.');
+      console.error('Failed to add item to list:', error);
+    }
   };
 
   return (
@@ -87,13 +105,17 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="search-part">Buscar Peça</Label>
-            <PartSearchInput
-              onSearch={handleSearch}
-              searchResults={searchResults}
-              onSelectPart={handleSelectPart}
-              searchQuery={searchQuery}
-              allParts={allAvailableParts}
-            />
+            {isLoadingParts ? (
+              <Input value="Carregando peças..." readOnly className="bg-gray-100 dark:bg-gray-700" />
+            ) : (
+              <PartSearchInput
+                onSearch={handleSearch}
+                searchResults={searchResults}
+                onSelectPart={handleSelectPart}
+                searchQuery={searchQuery}
+                allParts={allAvailableParts}
+              />
+            )}
           </div>
           <div>
             <Label htmlFor="codigo_peca">Código da Peça</Label>
@@ -102,7 +124,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               type="text"
               value={selectedPart?.codigo || ''}
               placeholder="Código da peça selecionada"
-              readOnly // Campo somente leitura
+              readOnly
               className="bg-gray-100 dark:bg-gray-700"
             />
           </div>
@@ -113,7 +135,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               type="text"
               value={selectedPart?.descricao || ''}
               placeholder="Descrição da peça selecionada"
-              readOnly // Campo somente leitura
+              readOnly
               className="bg-gray-100 dark:bg-gray-700"
             />
           </div>
@@ -130,14 +152,18 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
           </div>
           <div>
             <Label htmlFor="af">AF (Número de Frota)</Label>
-            <AfSearchInput
-              value={af}
-              onChange={setAf}
-              availableAfs={allAvailableAfs}
-              onSelectAf={handleSelectAf}
-            />
+            {isLoadingAfs ? (
+              <Input value="Carregando AFs..." readOnly className="bg-gray-100 dark:bg-gray-700" />
+            ) : (
+              <AfSearchInput
+                value={af}
+                onChange={setAf}
+                availableAfs={allAvailableAfs}
+                onSelectAf={handleSelectAf}
+              />
+            )}
           </div>
-          <Button type="submit" className="w-full">Adicionar à Lista</Button>
+          <Button type="submit" className="w-full" disabled={isLoadingParts || isLoadingAfs}>Adicionar à Lista</Button>
         </form>
       </CardContent>
     </Card>

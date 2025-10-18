@@ -11,7 +11,7 @@ interface PartSearchInputProps {
   searchResults: Part[];
   onSelectPart: (part: Part) => void;
   searchQuery: string;
-  allParts: Part[]; // Nova propriedade para todas as peças
+  allParts: Part[];
 }
 
 const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts }) => {
@@ -19,8 +19,8 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
 
   const handleSelectAndClose = (part: Part) => {
     onSelectPart(part);
-    setIsPopoverOpen(false); // Fecha o popover após a seleção
-    onSearch(''); // Limpa a consulta de busca ao selecionar de todas as peças
+    setIsPopoverOpen(false);
+    onSearch('');
   };
 
   return (
@@ -56,11 +56,11 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
             <ChevronDown className="h-4 w-4" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent 
-          className="w-80 p-0 -translate-x-[275px]" // Define uma largura fixa para o popover
-          side="bottom"        // Abre o popover abaixo do gatilho
-          align="start"        // Alinha o popover com o início do gatilho
-          alignOffset={0}    // Desloca o popover para a esquerda para alinhar com o campo de busca
+        <PopoverContent
+          className="w-80 p-0 -translate-x-[275px]"
+          side="bottom"
+          align="start"
+          alignOffset={0}
         >
           <div className="max-h-96 overflow-y-auto">
             {allParts.length === 0 ? (

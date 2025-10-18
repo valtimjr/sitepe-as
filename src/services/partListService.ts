@@ -1,5 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
-import { loadPartsFromCsv } from '@/utils/csvParser'; // Importa o novo utilitário
+import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
 
 export interface Part {
   codigo: string;
@@ -12,105 +11,161 @@ export interface ListItem {
   descricao: string;
   quantidade: number;
   af: string;
+  user_id?: string; // Adiciona user_id para associar itens a usuários
 }
 
-const PARTS_STORAGE_KEY = 'parts_data';
-const LIST_ITEMS_STORAGE_KEY = 'list_items_data';
+// --- Parts Management (Supabase) ---
 
-// --- Parts Management ---
+export const getParts = async (): Promise<Part[]> => {
+  const { data, error } = await supabase
+    .from('parts')
+    .select('codigo, descricao');
 
-export const getParts = (): Part[] => {
-  const partsJson = localStorage.getItem(PARTS_STORAGE_KEY);
-  return partsJson ? JSON.parse(partsJson) : [];
-};
-
-export const insertPart = (part: Part): void => {
-  const parts = getParts();
-  const existingPart = parts.find(p => p.codigo === part.codigo);
-  if (existingPart) {
-    // Update existing part if found
-    Object.assign(existingPart, part);
-  } else {
-    parts.push(part);
+  if (error) {
+    console.error('Error fetching parts:', error);
+    return [];
   }
-  localStorage.setItem(PARTS_STORAGE_KEY, JSON.stringify(parts));
+  return data || [];
 };
 
-export const searchParts = (query: string): Part[] => {
-  const parts = getParts();
-  if (!query) return parts;
+export const insertPart = async (part: Part): Promise<void> => {
+  const { error } = await supabase
+    .from('parts')
+    .upsert(part, { onConflict: 'codigo' }); // Usa upsert para inserir ou atualizar
+
+  if (error) {
+    console.error('Error inserting/updating part:', error);
+    throw error;
+  }
+};
+
+export const searchParts = async (query: string): Promise<Part[]> => {
+  if (!query) return getParts(); // Retorna todas as peças se a query estiver vazia
+
   const lowerCaseQuery = query.toLowerCase();
-  return parts.filter(
-    (part) =>
-      part.codigo.toLowerCase().includes(lowerCaseQuery) ||
-      part.descricao.toLowerCase().includes(lowerCaseQuery)
-  );
+  const { data, error } = await supabase
+    .from('parts')
+    .select('codigo, descricao')
+    .or(`codigo.ilike.%${lowerCaseQuery}%,descricao.ilike.%${lowerCaseQuery}%`);
+
+  if (error) {
+    console.error('Error searching parts:', error);
+    return [];
+  }
+  return data || [];
 };
 
-// --- List Items Management ---
+// --- List Items Management (Supabase) ---
 
-export const getListItems = (): ListItem[] => {
-  const listItemsJson = localStorage.getItem(LIST_ITEMS_STORAGE_KEY);
-  return listItemsJson ? JSON.parse(listItemsJson) : [];
+export const getListItems = async (): Promise<ListItem[]> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.warn('No authenticated user found for list items.');
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('list_items')
+    .select('id, codigo_peca, descricao, quantidade, af, user_id')
+    .eq('user_id', user.id); // Filtra por user_id
+
+  if (error) {
+    console.error('Error fetching list items:', error);
+    return [];
+  }
+  return data || [];
 };
 
-export const addItemToList = (item: Omit<ListItem, 'id'>): void => {
-  const listItems = getListItems();
-  listItems.push({ ...item, id: uuidv4() });
-  localStorage.setItem(LIST_ITEMS_STORAGE_KEY, JSON.stringify(listItems));
-};
+export const addItemToList = async (item: Omit<ListItem, 'id' | 'user_id'>): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('User not authenticated. Cannot add item to list.');
+  }
 
-export const updateListItem = (updatedItem: ListItem): void => {
-  const listItems = getListItems();
-  const index = listItems.findIndex(item => item.id === updatedItem.id);
-  if (index !== -1) {
-    listItems[index] = updatedItem;
-    localStorage.setItem(LIST_ITEMS_STORAGE_KEY, JSON.stringify(listItems));
+  const { error } = await supabase
+    .from('list_items')
+    .insert({ ...item, user_id: user.id });
+
+  if (error) {
+    console.error('Error adding item to list:', error);
+    throw error;
   }
 };
 
-export const deleteListItem = (id: string): void => {
-  const listItems = getListItems();
-  const updatedList = listItems.filter(item => item.id !== id);
-  localStorage.setItem(LIST_ITEMS_STORAGE_KEY, JSON.stringify(updatedList));
+export const updateListItem = async (updatedItem: ListItem): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('User not authenticated. Cannot update item.');
+  }
+
+  const { error } = await supabase
+    .from('list_items')
+    .update(updatedItem)
+    .eq('id', updatedItem.id)
+    .eq('user_id', user.id); // Garante que o usuário só atualize seus próprios itens
+
+  if (error) {
+    console.error('Error updating list item:', error);
+    throw error;
+  }
 };
 
-export const clearList = (): void => {
-  localStorage.removeItem(LIST_ITEMS_STORAGE_KEY);
+export const deleteListItem = async (id: string): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('User not authenticated. Cannot delete item.');
+  }
+
+  const { error } = await supabase
+    .from('list_items')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id); // Garante que o usuário só delete seus próprios itens
+
+  if (error) {
+    console.error('Error deleting list item:', error);
+    throw error;
+  }
 };
 
-export const getUniqueAfs = (): string[] => {
-  const listItems = getListItems();
+export const clearList = async (): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('User not authenticated. Cannot clear list.');
+  }
+
+  const { error } = await supabase
+    .from('list_items')
+    .delete()
+    .eq('user_id', user.id); // Limpa apenas os itens do usuário atual
+
+  if (error) {
+    console.error('Error clearing list:', error);
+    throw error;
+  }
+};
+
+export const getUniqueAfs = async (): Promise<string[]> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.warn('No authenticated user found for unique AFs.');
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('list_items')
+    .select('af')
+    .eq('user_id', user.id);
+
+  if (error) {
+    console.error('Error fetching unique AFs:', error);
+    return [];
+  }
   const afs = new Set<string>();
-  listItems.forEach(item => {
+  data?.forEach(item => {
     if (item.af) {
       afs.add(item.af);
     }
   });
   return Array.from(afs).sort();
 };
-
-// Inicializa com dados do CSV se o localStorage estiver vazio
-(async () => {
-  if (getParts().length === 0) {
-    console.log('Loading parts from CSV...');
-    const partsFromCsv = await loadPartsFromCsv('/parts.csv');
-    if (partsFromCsv.length > 0) {
-      partsFromCsv.forEach(part => insertPart(part));
-      console.log(`Loaded ${partsFromCsv.length} parts from CSV.`);
-    } else {
-      console.warn('No parts loaded from CSV. Initializing with dummy data as fallback.');
-      // Fallback para dados dummy se o carregamento do CSV falhar ou estiver vazio
-      insertPart({ codigo: 'P001', descricao: 'Filtro de Óleo' });
-      insertPart({ codigo: 'P002', descricao: 'Vela de Ignição' });
-      insertPart({ codigo: 'P003', descricao: 'Pastilha de Freio' });
-      insertPart({ codigo: 'P004', descricao: 'Correia Dentada' });
-      insertPart({ codigo: 'P005', descricao: 'Bateria 12V' });
-      insertPart({ codigo: 'P006', descricao: 'Pneu Aro 15' });
-      insertPart({ codigo: 'P007', descricao: 'Amortecedor Dianteiro' });
-      insertPart({ codigo: 'P008', descricao: 'Lâmpada H4' });
-      insertPart({ codigo: 'P009', descricao: 'Óleo Motor 5W30' });
-      insertPart({ codigo: 'P010', descricao: 'Disco de Freio' });
-    }
-  }
-})();
