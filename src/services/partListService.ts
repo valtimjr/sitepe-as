@@ -14,6 +14,7 @@ export interface Part {
   id: string;
   codigo: string;
   descricao: string;
+  tags?: string; // Adiciona o campo tags
 }
 
 // Define a interface ListItem para ser compatível com o IndexedDB local
@@ -40,6 +41,7 @@ const fetchAndParseCsv = async (): Promise<Part[]> => {
             id: row.id || uuidv4(), // Gera um ID se row.id estiver vazio
             codigo: row.codigo,
             descricao: row.descricao,
+            tags: row.tags, // Lê o campo tags
           }));
           cachedParts = parsedParts; // Cache the parsed data
           resolve(parsedParts);
@@ -68,7 +70,8 @@ export const searchParts = async (query: string): Promise<Part[]> => {
   const lowerCaseQuery = query.toLowerCase();
   return allParts.filter(part =>
     part.codigo.toLowerCase().includes(lowerCaseQuery) ||
-    part.descricao.toLowerCase().includes(lowerCaseQuery)
+    part.descricao.toLowerCase().includes(lowerCaseQuery) ||
+    (part.tags && part.tags.toLowerCase().includes(lowerCaseQuery)) // Inclui a busca por tags
   );
 };
 

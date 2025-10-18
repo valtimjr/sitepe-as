@@ -1,11 +1,13 @@
-id,codigo,descricao
-1,P001,Filtro de Óleo
-2,P002,Vela de Ignição
-3,P003,Pastilha de Freio Dianteira
-4,P004,Amortecedor Traseiro
-5,P005,Bateria 12V 60Ah
-6,P006,Correia Dentada
-7,P007,Bomba de Combustível
-8,P008,Radiador de Água
-9,P009,Pneu Aro 15
-10,P010,Lâmpada H4
+id,codigo,descricao,tags
+1,P001,Filtro de Óleo,motor,lubrificante,manutenção
+2,P002,Vela de Ignição,motor,ignição,combustão
+3,P003,Pastilha de Freio Dianteira,freio,segurança,dianteiro
+4,P004,Amortecedor Traseiro,suspensão,conforto,traseiro
+5,P005,Bateria 12V 60Ah,elétrica,energia,arranque
+6,P006,Correia Dentada,motor,transmissão,sincronismo
+7,P007,Bomba de Combustível,combustível,alimentação,motor
+8,P008,Radiador de Água,arrefecimento,motor,temperatura
+9,P009,Pneu Aro 15,roda,borracha,rodagem
+10,P010,Lâmpada H4,iluminação,farol,luz
+11,P011,Óleo de Motor 5W30,lubrificante,motor,sintético
+12,P012,Disco de Freio,freio,segurança,pastilha
