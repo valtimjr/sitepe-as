@@ -57,13 +57,14 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     .select('id, codigo, descricao'); // Seleciona o id também
 
   if (keywords.length > 0) {
-    const keywordConditions = keywords.map(keyword => {
+    const andConditions: string[] = [];
+    keywords.forEach(keyword => {
       const lowerCaseKeyword = keyword.toLowerCase();
       // Para cada palavra-chave, criamos uma condição OR para 'codigo' ou 'descricao'
-      return `or(codigo.ilike.%${lowerCaseKeyword}%,descricao.ilike.%${lowerCaseKeyword}%)`;
+      andConditions.push(`or(codigo.ilike.%${lowerCaseKeyword}%,descricao.ilike.%${lowerCaseKeyword}%)`);
     });
-    // Em seguida, combinamos todas as condições de palavra-chave com AND
-    queryBuilder = queryBuilder.and(keywordConditions.join(','));
+    // Em seguida, combinamos todas as condições de palavra-chave com AND, passando o array diretamente
+    queryBuilder = queryBuilder.and(andConditions);
   }
 
   const { data, error } = await queryBuilder;
