@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
 
 export interface Part {
+  id: string; // Adicionado id para consistência com o banco de dados e para chaves React
   codigo: string;
   descricao: string;
 }
@@ -19,7 +20,7 @@ export interface ListItem {
 export const getParts = async (): Promise<Part[]> => {
   const { data, error } = await supabase
     .from('parts')
-    .select('codigo, descricao');
+    .select('id, codigo, descricao'); // Seleciona o id também
 
   if (error) {
     console.error('Error fetching parts:', error);
@@ -40,13 +41,33 @@ export const insertPart = async (part: Part): Promise<void> => {
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  if (!query) return getParts(); // Retorna todas as peças se a query estiver vazia
+  if (!query || query.trim() === '') {
+    return getParts(); // Retorna todas as peças se a query estiver vazia
+  }
 
-  const lowerCaseQuery = query.toLowerCase();
-  const { data, error } = await supabase
+  const trimmedQuery = query.trim();
+  const keywords = trimmedQuery.split('%').map(k => k.trim()).filter(k => k.length > 0);
+
+  if (keywords.length === 0) {
+    return getParts(); // Se não houver palavras-chave válidas após a divisão, retorna todas as peças
+  }
+
+  let queryBuilder = supabase
     .from('parts')
-    .select('codigo, descricao')
-    .or(`codigo.ilike.%${lowerCaseQuery}%,descricao.ilike.%${lowerCaseQuery}%`);
+    .select('id, codigo, descricao'); // Seleciona o id também
+
+  const conditions: string[] = [];
+  keywords.forEach(keyword => {
+    const lowerCaseKeyword = keyword.toLowerCase();
+    conditions.push(`codigo.ilike.%${lowerCaseKeyword}%`);
+    conditions.push(`descricao.ilike.%${lowerCaseKeyword}%`);
+  });
+
+  if (conditions.length > 0) {
+    queryBuilder = queryBuilder.or(conditions.join(','));
+  }
+
+  const { data, error } = await queryBuilder;
 
   if (error) {
     console.error('Error searching parts:', error);
