@@ -12,9 +12,10 @@ interface PartSearchInputProps {
   onSelectPart: (part: Part) => void;
   searchQuery: string;
   allParts: Part[];
+  isLoading: boolean; // Adiciona a prop isLoading
 }
 
-const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts }) => {
+const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts, isLoading }) => {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   const handleSelectAndClose = (part: Part) => {
@@ -35,17 +36,24 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           onChange={(e) => onSearch(e.target.value)}
           className="w-full"
         />
-        {searchQuery && searchResults.length > 0 && (
+        {/* Mostra o dropdown apenas se houver uma query de busca */}
+        {searchQuery.length > 0 && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto">
-            {searchResults.map((part) => (
-              <li
-                key={part.codigo}
-                className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                onClick={() => handleSelectAndClose(part)}
-              >
-                {part.codigo} - {part.descricao}
-              </li>
-            ))}
+            {isLoading ? ( // Se estiver carregando, mostra a mensagem de carregamento
+              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Buscando peças...</li>
+            ) : searchResults.length > 0 ? ( // Se não estiver carregando e houver resultados, mostra os resultados
+              searchResults.map((part) => (
+                <li
+                  key={part.id}
+                  className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onClick={() => handleSelectAndClose(part)}
+                >
+                  {part.codigo} - {part.descricao}
+                </li>
+              ))
+            ) : ( // Se não estiver carregando e não houver resultados, mostra "Nenhuma peça encontrada"
+              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhuma peça encontrada.</li>
+            )}
           </ul>
         )}
       </div>
@@ -69,7 +77,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
               <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                 {allParts.map((part) => (
                   <li
-                    key={part.codigo}
+                    key={part.id}
                     className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
                     onClick={() => handleSelectAndClose(part)}
                   >

@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
-import AfSearchInput from './AfSearchInput';
+import AfSearchInput from '././AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 
 interface PartListItemFormProps {
@@ -19,7 +19,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]); // Adicionado: Declaração do estado para AFs
+  const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
 
@@ -88,7 +88,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       setQuantidade(1);
       setAf('');
       onItemAdded();
-      // Recarrega os AFs únicos após adicionar um novo item
       const updatedAfs = await getUniqueAfs();
       setAllAvailableAfs(updatedAfs);
     } catch (error) {
@@ -106,17 +105,15 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="search-part">Buscar Peça</Label>
-            {isLoadingParts && searchQuery.length > 1 ? (
-              <Input value="Buscando peças..." readOnly className="bg-gray-100 dark:bg-gray-700" />
-            ) : (
-              <PartSearchInput
-                onSearch={handleSearch}
-                searchResults={searchResults}
-                onSelectPart={handleSelectPart}
-                searchQuery={searchQuery}
-                allParts={allAvailableParts}
-              />
-            )}
+            {/* Always render PartSearchInput, passing isLoadingParts */}
+            <PartSearchInput
+              onSearch={handleSearch}
+              searchResults={searchResults}
+              onSelectPart={handleSelectPart}
+              searchQuery={searchQuery}
+              allParts={allAvailableParts}
+              isLoading={isLoadingParts} {/* Passa o estado de carregamento */}
+            />
           </div>
           <div>
             <Label htmlFor="codigo_peca">Código da Peça</Label>
