@@ -57,11 +57,11 @@ const SearchParts = () => {
         <CardContent>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="part-search">Código ou Descrição da Peça</Label>
+              <Label htmlFor="part-search">Código, Descrição ou Tags da Peça</Label>
               <Input
                 id="part-search"
                 type="text"
-                placeholder="Buscar peça por código ou descrição..."
+                placeholder="Buscar peça por código, descrição ou tags..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full"
@@ -81,13 +81,15 @@ const SearchParts = () => {
                     <TableRow>
                       <TableHead>Código</TableHead>
                       <TableHead>Descrição</TableHead>
+                      <TableHead>Tags</TableHead> {/* Nova coluna para Tags */}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {displayedParts.map((part) => (
-                      <TableRow key={part.codigo}>
+                      <TableRow key={part.id}>
                         <TableCell className="font-medium">{part.codigo}</TableCell>
                         <TableCell>{part.descricao}</TableCell>
+                        <TableCell>{part.tags || 'N/A'}</TableCell> {/* Exibe as tags */}
                       </TableRow>
                     ))}
                   </TableBody>

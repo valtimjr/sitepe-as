@@ -1,50 +1,51 @@
 import Papa from 'papaparse';
-import { v4 as uuidv4 } from 'uuid'; // Importa uuidv4 para gerar IDs
+import { v4 as uuidv4 } from 'uuid';
 import {
+  localDb,
   getLocalListItems,
   addLocalItemToList,
   updateLocalListItem,
   deleteLocalListItem,
   clearLocalList,
   getLocalUniqueAfs,
+  bulkAddLocalParts, // Importa a nova função
+  getLocalParts,     // Importa a nova função
+  searchLocalParts,  // Importa a nova função
+  Part as LocalPart, // Renomeia para evitar conflito
   ListItem as LocalListItem
 } from '@/services/localDbService';
 
-export interface Part {
-  id: string;
-  codigo: string;
-  descricao: string;
-  tags?: string; // Adiciona o campo tags
-}
+export interface Part extends LocalPart {} // Usa a interface Part do localDbService
 
-// Define a interface ListItem para ser compatível com o IndexedDB local
 export interface ListItem extends LocalListItem {}
 
-let cachedParts: Part[] | null = null;
-
-const fetchAndParseCsv = async (): Promise<Part[]> => {
-  if (cachedParts) {
-    return cachedParts;
+const seedPartsFromCsv = async (): Promise<void> => {
+  const partsCount = await localDb.parts.count();
+  if (partsCount > 0) {
+    console.log('Parts already seeded in IndexedDB.');
+    return;
   }
+
   try {
     const response = await fetch('/parts.csv');
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const csvText = await response.text();
-    return new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
-        complete: (results) => {
+        complete: async (results) => {
           const parsedParts: Part[] = results.data.map((row: any) => ({
-            id: row.id || uuidv4(), // Gera um ID se row.id estiver vazio
+            id: row.id || uuidv4(),
             codigo: row.codigo,
             descricao: row.descricao,
-            tags: row.tags, // Lê o campo tags
+            tags: row.tags || '', // Garante que tags exista, mesmo que vazia
           }));
-          cachedParts = parsedParts; // Cache the parsed data
-          resolve(parsedParts);
+          await bulkAddLocalParts(parsedParts);
+          console.log('Parts seeded from CSV to IndexedDB.');
+          resolve();
         },
         error: (error) => {
           reject(error);
@@ -52,27 +53,20 @@ const fetchAndParseCsv = async (): Promise<Part[]> => {
       });
     });
   } catch (error) {
-    console.error("Failed to fetch or parse parts.csv:", error);
-    return []; // Return empty array on error
+    console.error("Failed to fetch or parse parts.csv or seed IndexedDB:", error);
   }
 };
 
-// --- Parts Management (CSV File) ---
+// --- Parts Management (IndexedDB) ---
 
 export const getParts = async (): Promise<Part[]> => {
-  return fetchAndParseCsv();
+  await seedPartsFromCsv(); // Garante que as peças estejam no IndexedDB
+  return getLocalParts();
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  const allParts = await fetchAndParseCsv();
-  if (!query) return allParts;
-
-  const lowerCaseQuery = query.toLowerCase();
-  return allParts.filter(part =>
-    part.codigo.toLowerCase().includes(lowerCaseQuery) ||
-    part.descricao.toLowerCase().includes(lowerCaseQuery) ||
-    (part.tags && part.tags.toLowerCase().includes(lowerCaseQuery)) // Inclui a busca por tags
-  );
+  await seedPartsFromCsv(); // Garante que as peças estejam no IndexedDB
+  return searchLocalParts(query);
 };
 
 // --- List Items Management (IndexedDB Local) ---

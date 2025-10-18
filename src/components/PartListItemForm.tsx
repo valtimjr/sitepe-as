@@ -136,6 +136,19 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               className="bg-gray-100 dark:bg-gray-700"
             />
           </div>
+          {selectedPart?.tags && (
+            <div>
+              <Label htmlFor="tags">Tags</Label>
+              <Input
+                id="tags"
+                type="text"
+                value={selectedPart.tags}
+                placeholder="Tags da peça"
+                readOnly
+                className="bg-gray-100 dark:bg-gray-700"
+              />
+            </div>
+          )}
           <div>
             <Label htmlFor="quantidade">Quantidade</Label>
             <Input
