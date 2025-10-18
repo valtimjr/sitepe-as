@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { ChevronDown } from 'lucide-react';
+// Removendo Popover, PopoverContent, PopoverTrigger e Button, ChevronDown
+// import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+// import { Button } from '@/components/ui/button';
+// import { ChevronDown } from 'lucide-react';
 
 interface AfSearchInputProps {
   value: string;
@@ -13,9 +14,9 @@ interface AfSearchInputProps {
 }
 
 const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availableAfs, onSelectAf }) => {
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  // const [isPopoverOpen, setIsPopoverOpen] = useState(false); // Não é mais necessário
   const [filteredAfs, setFilteredAfs] = useState<string[]>([]);
-  const [isInputFocused, setIsInputFocused] = useState(false); // Novo estado para controlar o foco
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   useEffect(() => {
     if (value.length > 0) {
@@ -31,7 +32,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
 
   const handleSelectAndClose = (af: string) => {
     onSelectAf(af);
-    setIsPopoverOpen(false);
+    // setIsPopoverOpen(false); // Não é mais necessário
     setIsInputFocused(false); // Garante que o dropdown feche ao selecionar
   };
 
@@ -48,7 +49,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
           placeholder="Ex: AF12345"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setIsInputFocused(true)} // Define o foco como true
+          onFocus={() => setIsInputFocused(true)}
           onBlur={() => {
             // Pequeno atraso para permitir o clique nos itens da lista antes de fechar
             setTimeout(() => setIsInputFocused(false), 100);
@@ -75,33 +76,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
           </ul>
         )}
       </div>
-
-      <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="icon" aria-label="Mostrar todos os AFs">
-            <ChevronDown className="h-4 w-4" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-          <div className="max-h-60 overflow-y-auto">
-            {availableAfs.length === 0 ? (
-              <p className="p-4 text-center text-gray-500">Nenhum AF disponível.</p>
-            ) : (
-              <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                {availableAfs.map((af) => (
-                  <li
-                    key={af}
-                    className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={() => handleSelectAndClose(af)}
-                  >
-                    {af}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
+      {/* O Popover e o botão de ChevronDown foram removidos, pois a funcionalidade foi integrada ao input principal. */}
     </div>
   );
 };
