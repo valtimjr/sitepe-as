@@ -1,6 +1,17 @@
-import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
+import {
+  getParts as getLocalParts,
+  insertPart as insertLocalPart,
+  searchParts as searchLocalParts,
+  getListItems as getLocalListItems,
+  addItemToList as addLocalItemToList,
+  updateListItem as updateLocalListItem,
+  deleteListItem as deleteLocalListItem,
+  clearList as clearLocalList,
+  getUniqueAfs as getLocalUniqueAfs,
+} from '@/integrations/localdb'; // Importa as funções do banco de dados local
 
 export interface Part {
+  id: string; // Adiciona ID para consistência com o IndexedDB
   codigo: string;
   descricao: string;
 }
@@ -11,161 +22,47 @@ export interface ListItem {
   descricao: string;
   quantidade: number;
   af: string;
-  user_id?: string; // Adiciona user_id para associar itens a usuários
+  user_id: string; // Mantém user_id para simular associação, mas será um ID fixo local
 }
 
-// --- Parts Management (Supabase) ---
+// --- Parts Management (Local IndexedDB) ---
 
 export const getParts = async (): Promise<Part[]> => {
-  const { data, error } = await supabase
-    .from('parts')
-    .select('codigo, descricao');
-
-  if (error) {
-    console.error('Error fetching parts:', error);
-    return [];
-  }
-  return data || [];
+  return getLocalParts();
 };
 
-export const insertPart = async (part: Part): Promise<void> => {
-  const { error } = await supabase
-    .from('parts')
-    .upsert(part, { onConflict: 'codigo' }); // Usa upsert para inserir ou atualizar
-
-  if (error) {
-    console.error('Error inserting/updating part:', error);
-    throw error;
-  }
+export const insertPart = async (part: Omit<Part, 'id'>): Promise<void> => {
+  return insertLocalPart(part);
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  if (!query) return getParts(); // Retorna todas as peças se a query estiver vazia
-
-  const lowerCaseQuery = query.toLowerCase();
-  const { data, error } = await supabase
-    .from('parts')
-    .select('codigo, descricao')
-    .or(`codigo.ilike.%${lowerCaseQuery}%,descricao.ilike.%${lowerCaseQuery}%`);
-
-  if (error) {
-    console.error('Error searching parts:', error);
-    return [];
-  }
-  return data || [];
+  return searchLocalParts(query);
 };
 
-// --- List Items Management (Supabase) ---
+// --- List Items Management (Local IndexedDB) ---
 
 export const getListItems = async (): Promise<ListItem[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    console.warn('No authenticated user found for list items.');
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('list_items')
-    .select('id, codigo_peca, descricao, quantidade, af, user_id')
-    .eq('user_id', user.id); // Filtra por user_id
-
-  if (error) {
-    console.error('Error fetching list items:', error);
-    return [];
-  }
-  return data || [];
+  // Não há necessidade de verificar o usuário aqui, pois o user_id é fixo localmente
+  return getLocalListItems();
 };
 
 export const addItemToList = async (item: Omit<ListItem, 'id' | 'user_id'>): Promise<void> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('User not authenticated. Cannot add item to list.');
-  }
-
-  const { error } = await supabase
-    .from('list_items')
-    .insert({ ...item, user_id: user.id });
-
-  if (error) {
-    console.error('Error adding item to list:', error);
-    throw error;
-  }
+  // O user_id será adicionado automaticamente pelo serviço local
+  return addLocalItemToList(item);
 };
 
 export const updateListItem = async (updatedItem: ListItem): Promise<void> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('User not authenticated. Cannot update item.');
-  }
-
-  const { error } = await supabase
-    .from('list_items')
-    .update(updatedItem)
-    .eq('id', updatedItem.id)
-    .eq('user_id', user.id); // Garante que o usuário só atualize seus próprios itens
-
-  if (error) {
-    console.error('Error updating list item:', error);
-    throw error;
-  }
+  return updateLocalListItem(updatedItem);
 };
 
 export const deleteListItem = async (id: string): Promise<void> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('User not authenticated. Cannot delete item.');
-  }
-
-  const { error } = await supabase
-    .from('list_items')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', user.id); // Garante que o usuário só delete seus próprios itens
-
-  if (error) {
-    console.error('Error deleting list item:', error);
-    throw error;
-  }
+  return deleteLocalListItem(id);
 };
 
 export const clearList = async (): Promise<void> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('User not authenticated. Cannot clear list.');
-  }
-
-  const { error } = await supabase
-    .from('list_items')
-    .delete()
-    .eq('user_id', user.id); // Limpa apenas os itens do usuário atual
-
-  if (error) {
-    console.error('Error clearing list:', error);
-    throw error;
-  }
+  return clearLocalList();
 };
 
 export const getUniqueAfs = async (): Promise<string[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    console.warn('No authenticated user found for unique AFs.');
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('list_items')
-    .select('af')
-    .eq('user_id', user.id);
-
-  if (error) {
-    console.error('Error fetching unique AFs:', error);
-    return [];
-  }
-  const afs = new Set<string>();
-  data?.forEach(item => {
-    if (item.af) {
-      afs.add(item.af);
-    }
-  });
-  return Array.from(afs).sort();
+  return getLocalUniqueAfs();
 };
