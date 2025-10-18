@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, insertPart, addItemToList, searchParts, getParts } from '@/services/partListService';
+import { Part, insertPart, addItemToList, searchParts, getParts, getUniqueAfs } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
+import AfSearchInput from './AfSearchInput'; // Importar o novo componente
 import { showSuccess, showError } from '@/utils/toast';
 
 interface PartListItemFormProps {
@@ -18,11 +19,12 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [af, setAf] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Novo estado para todas as peças
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
+  const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]); // Novo estado para todos os AFs
 
   useEffect(() => {
-    // Carrega todas as peças inicialmente
     setAllAvailableParts(getParts());
+    setAllAvailableAfs(getUniqueAfs()); // Carrega todos os AFs inicialmente
   }, []);
 
   useEffect(() => {
@@ -40,8 +42,12 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const handleSelectPart = (part: Part) => {
     setCodigoPeca(part.codigo);
     setDescricao(part.descricao);
-    setSearchQuery(''); // Limpa a consulta de busca após a seleção
-    setSearchResults([]); // Limpa os resultados da busca
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleSelectAf = (selectedAf: string) => {
+    setAf(selectedAf);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -51,7 +57,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       return;
     }
 
-    // Garante que a peça exista na lista principal de peças
     insertPart({ codigo: codigoPeca, descricao: descricao });
 
     addItemToList({
@@ -66,7 +71,8 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     setQuantidade(1);
     setAf('');
     onItemAdded();
-    setAllAvailableParts(getParts()); // Atualiza todas as peças após adicionar uma nova
+    setAllAvailableParts(getParts());
+    setAllAvailableAfs(getUniqueAfs()); // Atualiza todos os AFs após adicionar um novo item
   };
 
   return (
@@ -83,7 +89,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               searchResults={searchResults}
               onSelectPart={handleSelectPart}
               searchQuery={searchQuery}
-              allParts={allAvailableParts} // Passa todas as peças
+              allParts={allAvailableParts}
             />
           </div>
           <div>
@@ -121,13 +127,11 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
           </div>
           <div>
             <Label htmlFor="af">AF (Número de Frota)</Label>
-            <Input
-              id="af"
-              type="text"
+            <AfSearchInput
               value={af}
-              onChange={(e) => setAf(e.target.value)}
-              placeholder="Ex: AF12345"
-              required
+              onChange={setAf}
+              availableAfs={allAvailableAfs}
+              onSelectAf={handleSelectAf}
             />
           </div>
           <Button type="submit" className="w-full">Adicionar à Lista</Button>

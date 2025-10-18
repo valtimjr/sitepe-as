@@ -78,6 +78,17 @@ export const clearList = (): void => {
   localStorage.removeItem(LIST_ITEMS_STORAGE_KEY);
 };
 
+export const getUniqueAfs = (): string[] => {
+  const listItems = getListItems();
+  const afs = new Set<string>();
+  listItems.forEach(item => {
+    if (item.af) {
+      afs.add(item.af);
+    }
+  });
+  return Array.from(afs).sort();
+};
+
 // Initialize with some dummy data if empty
 (() => {
   if (getParts().length === 0) {
