@@ -1,17 +1,15 @@
+import { staticParts } from '@/data/parts'; // Importa as peças estáticas
 import {
-  getParts as getLocalParts,
-  insertPart as insertLocalPart,
-  searchParts as searchLocalParts,
   getListItems as getLocalListItems,
   addItemToList as addLocalItemToList,
   updateListItem as updateLocalListItem,
   deleteListItem as deleteLocalListItem,
   clearList as clearLocalList,
   getUniqueAfs as getLocalUniqueAfs,
-} from '@/integrations/localdb'; // Importa as funções do banco de dados local
+} from '@/integrations/localStorage'; // Importa as funções do localStorage
 
 export interface Part {
-  id: string; // Adiciona ID para consistência com o IndexedDB
+  id: string;
   codigo: string;
   descricao: string;
 }
@@ -22,32 +20,35 @@ export interface ListItem {
   descricao: string;
   quantidade: number;
   af: string;
-  user_id: string; // Mantém user_id para simular associação, mas será um ID fixo local
+  user_id: string;
 }
 
-// --- Parts Management (Local IndexedDB) ---
+// --- Parts Management (Static File) ---
 
 export const getParts = async (): Promise<Part[]> => {
-  return getLocalParts();
-};
-
-export const insertPart = async (part: Omit<Part, 'id'>): Promise<void> => {
-  return insertLocalPart(part);
+  return Promise.resolve(staticParts);
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  return searchLocalParts(query);
+  const allParts = staticParts;
+  if (!query) {
+    return Promise.resolve(allParts);
+  }
+  const lowerCaseQuery = query.toLowerCase();
+  const filteredParts = allParts.filter(part =>
+    part.codigo.toLowerCase().includes(lowerCaseQuery) ||
+    part.descricao.toLowerCase().includes(lowerCaseQuery)
+  );
+  return Promise.resolve(filteredParts);
 };
 
-// --- List Items Management (Local IndexedDB) ---
+// --- List Items Management (Local Storage) ---
 
 export const getListItems = async (): Promise<ListItem[]> => {
-  // Não há necessidade de verificar o usuário aqui, pois o user_id é fixo localmente
   return getLocalListItems();
 };
 
 export const addItemToList = async (item: Omit<ListItem, 'id' | 'user_id'>): Promise<void> => {
-  // O user_id será adicionado automaticamente pelo serviço local
   return addLocalItemToList(item);
 };
 
