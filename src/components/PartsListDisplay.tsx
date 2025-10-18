@@ -59,6 +59,13 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
         if (item.os) {
           itemLine += ` (OS: ${item.os})`;
         }
+        if (item.hora_inicio && item.hora_final) {
+          itemLine += ` (${item.hora_inicio}-${item.hora_final})`;
+        } else if (item.hora_inicio) {
+          itemLine += ` (Início: ${item.hora_inicio})`;
+        } else if (item.hora_final) {
+          itemLine += ` (Fim: ${item.hora_final})`;
+        }
         textToCopy += `${itemLine}\n`;
 
         if (item.servico_executado) {
@@ -146,8 +153,10 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   <TableHead>Descrição</TableHead>
                   <TableHead>Quantidade</TableHead>
                   <TableHead>AF</TableHead>
-                  <TableHead>OS</TableHead> {/* Nova coluna */}
-                  <TableHead>Serviço Executado</TableHead> {/* Nova coluna */}
+                  <TableHead>OS</TableHead>
+                  <TableHead>Início</TableHead> {/* Nova coluna */}
+                  <TableHead>Fim</TableHead> {/* Nova coluna */}
+                  <TableHead>Serviço Executado</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -158,8 +167,10 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                     <TableCell>{item.descricao}</TableCell>
                     <TableCell>{item.quantidade}</TableCell>
                     <TableCell>{item.af}</TableCell>
-                    <TableCell>{item.os || 'N/A'}</TableCell> {/* Exibe OS ou 'N/A' */}
-                    <TableCell>{item.servico_executado || 'N/A'}</TableCell> {/* Exibe Serviço Executado ou 'N/A' */}
+                    <TableCell>{item.os || 'N/A'}</TableCell>
+                    <TableCell>{item.hora_inicio || 'N/A'}</TableCell> {/* Exibe Hora Início ou 'N/A' */}
+                    <TableCell>{item.hora_final || 'N/A'}</TableCell>   {/* Exibe Hora Final ou 'N/A' */}
+                    <TableCell>{item.servico_executado || 'N/A'}</TableCell>
                     <TableCell className="text-right">
                       <Tooltip>
                         <TooltipTrigger asChild>

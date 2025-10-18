@@ -15,6 +15,8 @@ export interface ListItem {
   quantidade: number;
   af: string;
   os?: number; // Novo campo: Ordem de Serviço (opcional, número)
+  hora_inicio?: string; // Novo campo: Hora de Início (opcional, string HH:MM)
+  hora_final?: string; // Novo campo: Hora Final (opcional, string HH:MM)
   servico_executado?: string; // Novo campo: Serviço Executado (opcional, texto)
 }
 
@@ -31,7 +33,7 @@ class LocalDexieDb extends Dexie {
   constructor() {
     super('PartsListDatabase');
     this.version(1).stores({
-      listItems: '++id, codigo_peca, af, os, servico_executado', // Adiciona os novos campos ao store
+      listItems: '++id, codigo_peca, af, os, hora_inicio, hora_final, servico_executado', // Adiciona os novos campos ao store
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number', // Adiciona a tabela de AFs
     });

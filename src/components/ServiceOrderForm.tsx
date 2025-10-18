@@ -19,6 +19,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
   const [os, setOs] = useState<number | undefined>(undefined);
+  const [horaInicio, setHoraInicio] = useState<string>(''); // Novo estado para Hora de Início
+  const [horaFinal, setHoraFinal] = useState<string>(''); // Novo estado para Hora Final
   const [servicoExecutado, setServicoExecutado] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
@@ -114,6 +116,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
         quantidade,
         af,
         os: os,
+        hora_inicio: horaInicio || undefined, // Inclui Hora de Início
+        hora_final: horaFinal || undefined,   // Inclui Hora Final
         servico_executado: servicoExecutado,
       });
       showSuccess('Item adicionado à lista!');
@@ -121,6 +125,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
       setQuantidade(1);
       setAf('');
       setOs(undefined);
+      setHoraInicio(''); // Limpa o campo Hora de Início
+      setHoraFinal('');   // Limpa o campo Hora Final
       setServicoExecutado('');
       setEditedTags('');
       onItemAdded();
@@ -169,6 +175,27 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
               placeholder="Número da Ordem de Serviço"
               min="0"
             />
+          </div>
+          {/* Novos campos para Hora de Início e Hora Final */}
+          <div className="flex space-x-4">
+            <div className="flex-1">
+              <Label htmlFor="hora_inicio">Hora de Início (Opcional)</Label>
+              <Input
+                id="hora_inicio"
+                type="time"
+                value={horaInicio}
+                onChange={(e) => setHoraInicio(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <Label htmlFor="hora_final">Hora Final (Opcional)</Label>
+              <Input
+                id="hora_final"
+                type="time"
+                value={horaFinal}
+                onChange={(e) => setHoraFinal(e.target.value)}
+              />
+            </div>
           </div>
           {/* 3. Serviço Executado (Opcional) */}
           <div>
