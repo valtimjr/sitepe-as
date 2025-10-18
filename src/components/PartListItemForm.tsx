@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService } from '@/services/partListService'; // Importa searchPartsService
+import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
@@ -19,6 +19,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
+  const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]); // Adicionado: Declaração do estado para AFs
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
 
@@ -40,24 +41,17 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQuery.length > 1) {
-        setIsLoadingParts(true); // Adiciona loading para a busca
-        const results = await searchPartsService(searchQuery); // Usa a função de serviço para buscar
+        setIsLoadingParts(true);
+        const results = await searchPartsService(searchQuery);
         setSearchResults(results);
         setIsLoadingParts(false);
       } else {
         setSearchResults([]);
-        // Se a query estiver vazia, podemos mostrar todas as peças ou nenhuma, dependendo da UX desejada.
-        // Por enquanto, vamos manter vazio para evitar sobrecarga visual.
-        // Ou, se quisermos mostrar todas as peças quando a busca está vazia:
-        // setIsLoadingParts(true);
-        // const parts = await getParts();
-        // setSearchResults(parts);
-        // setIsLoadingParts(false);
       }
     };
     const handler = setTimeout(() => {
       fetchSearchResults();
-    }, 300); // Debounce para evitar muitas requisições
+    }, 300);
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
@@ -67,8 +61,8 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
 
   const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
-    setSearchQuery(''); // Limpa a query de busca após selecionar
-    setSearchResults([]); // Limpa os resultados da busca
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   const handleSelectAf = (selectedAf: string) => {
@@ -112,7 +106,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="search-part">Buscar Peça</Label>
-            {isLoadingParts && searchQuery.length > 1 ? ( // Mostra "Carregando" apenas durante a busca ativa
+            {isLoadingParts && searchQuery.length > 1 ? (
               <Input value="Buscando peças..." readOnly className="bg-gray-100 dark:bg-gray-700" />
             ) : (
               <PartSearchInput
