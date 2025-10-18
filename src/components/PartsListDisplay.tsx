@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ListItem, clearList, deleteListItem } from '@/services/partListService';
 import { generatePartsListPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download } from 'lucide-react';
+import { Trash2, Download, Copy } from 'lucide-react'; // Importar o ícone Copy
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +35,27 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     showSuccess('PDF gerado com sucesso!');
   };
 
+  const handleCopyList = async () => {
+    if (listItems.length === 0) {
+      showError('A lista está vazia. Adicione itens antes de copiar.');
+      return;
+    }
+
+    const header = ["Código da Peça", "Descrição", "Quantidade", "AF"].join('\t');
+    const rows = listItems.map(item =>
+      [item.codigo_peca, item.descricao, item.quantidade, item.af].join('\t')
+    );
+    const textToCopy = [header, ...rows].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      showSuccess('Lista de peças copiada para a área de transferência!');
+    } catch (err) {
+      showError('Erro ao copiar a lista. Por favor, tente novamente.');
+      console.error('Failed to copy list items:', err);
+    }
+  };
+
   const handleClearList = async () => {
     try {
       await clearList();
@@ -62,6 +83,9 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-2xl font-bold">Lista de Peças</CardTitle>
         <div className="flex space-x-2">
+          <Button onClick={handleCopyList} disabled={listItems.length === 0} className="flex items-center gap-2">
+            <Copy className="h-4 w-4" /> Copiar Lista
+          </Button>
           <Button onClick={handleExportPdf} disabled={listItems.length === 0} className="flex items-center gap-2">
             <Download className="h-4 w-4" /> Exportar PDF
           </Button>
