@@ -1,5 +1,4 @@
 import Papa from 'papaparse';
-import { v4 as uuidv4 } from 'uuid'; // Import uuidv4 for generating IDs
 import {
   getLocalListItems,
   addLocalItemToList,
@@ -11,7 +10,7 @@ import {
 } from '@/services/localDbService';
 
 export interface Part {
-  id: string; // 'id' field reintroduced
+  id: string;
   codigo: string;
   descricao: string;
 }
@@ -37,7 +36,7 @@ const fetchAndParseCsv = async (): Promise<Part[]> => {
         skipEmptyLines: true,
         complete: (results) => {
           const parsedParts: Part[] = results.data.map((row: any) => ({
-            id: row.id && row.id.trim() !== '' ? row.id : uuidv4(), // Assign UUID if 'id' is empty
+            id: row.id,
             codigo: row.codigo,
             descricao: row.descricao,
           }));
