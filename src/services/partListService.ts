@@ -1,4 +1,5 @@
 import Papa from 'papaparse';
+import { v4 as uuidv4 } from 'uuid'; // Importa uuidv4 para gerar IDs
 import {
   getLocalListItems,
   addLocalItemToList,
@@ -36,7 +37,7 @@ const fetchAndParseCsv = async (): Promise<Part[]> => {
         skipEmptyLines: true,
         complete: (results) => {
           const parsedParts: Part[] = results.data.map((row: any) => ({
-            id: row.id,
+            id: row.id || uuidv4(), // Gera um ID se row.id estiver vazio
             codigo: row.codigo,
             descricao: row.descricao,
           }));
