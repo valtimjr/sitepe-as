@@ -33,6 +33,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       setIsLoadingParts(false);
 
       setIsLoadingAfs(true);
+      // Agora getUniqueAfs() já fará o seed do CSV e buscará do IndexedDB
       const afs = await getUniqueAfs();
       setAllAvailableAfs(afs);
       setIsLoadingAfs(false);
@@ -119,6 +120,9 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       setAf('');
       setEditedTags('');
       onItemAdded();
+      // Recarrega os AFs para garantir que a lista de sugestões esteja atualizada, caso um novo AF tenha sido digitado e adicionado à lista de itens.
+      // No entanto, como agora os AFs vêm de um CSV fixo, esta linha pode não ser estritamente necessária para o autocomplete,
+      // mas é boa prática se no futuro AFs puderem ser adicionados dinamicamente.
       const updatedAfs = await getUniqueAfs();
       setAllAvailableAfs(updatedAfs);
     } catch (error) {

@@ -11,14 +11,19 @@ import {
   bulkAddLocalParts,
   getLocalParts,
   searchLocalParts,
-  updateLocalPart, // Importa a nova função
+  updateLocalPart,
+  bulkAddLocalAfs, // Importa a nova função
+  getLocalAfs,     // Importa a nova função
   Part as LocalPart,
-  ListItem as LocalListItem
+  ListItem as LocalListItem,
+  Af as LocalAf // Importa a interface Af
 } from '@/services/localDbService';
 
 export interface Part extends LocalPart {}
 
 export interface ListItem extends LocalListItem {}
+
+export interface Af extends LocalAf {} // Exporta a interface Af
 
 const seedPartsFromCsv = async (): Promise<void> => {
   const partsCount = await localDb.parts.count();
@@ -55,6 +60,42 @@ const seedPartsFromCsv = async (): Promise<void> => {
     });
   } catch (error) {
     console.error("Failed to fetch or parse parts.csv or seed IndexedDB:", error);
+  }
+};
+
+const seedAfsFromCsv = async (): Promise<void> => {
+  const afsCount = await localDb.afs.count();
+  if (afsCount > 0) {
+    console.log('AFs already seeded in IndexedDB.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/afs.csv');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const csvText = await response.text();
+    await new Promise<void>((resolve, reject) => {
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const parsedAfs: Af[] = results.data.map((row: any) => ({
+            id: uuidv4(),
+            af_number: row.af_number,
+          }));
+          await bulkAddLocalAfs(parsedAfs);
+          console.log('AFs seeded from CSV to IndexedDB.');
+          resolve();
+        },
+        error: (error) => {
+          reject(error);
+        }
+      });
+    });
+  } catch (error) {
+    console.error("Failed to fetch or parse afs.csv or seed IndexedDB:", error);
   }
 };
 
@@ -97,5 +138,6 @@ export const clearList = async (): Promise<void> => {
 };
 
 export const getUniqueAfs = async (): Promise<string[]> => {
-  return getLocalUniqueAfs();
+  await seedAfsFromCsv(); // Garante que os AFs estejam no IndexedDB
+  return getLocalUniqueAfs(); // Agora busca do IndexedDB
 };

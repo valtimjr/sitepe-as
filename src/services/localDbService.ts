@@ -5,7 +5,7 @@ export interface Part {
   id: string;
   codigo: string;
   descricao: string;
-  tags?: string; // Adiciona o campo tags
+  tags?: string;
 }
 
 export interface ListItem {
@@ -16,15 +16,22 @@ export interface ListItem {
   af: string;
 }
 
+export interface Af {
+  id: string;
+  af_number: string;
+}
+
 class LocalDexieDb extends Dexie {
   listItems!: Table<ListItem>;
-  parts!: Table<Part>; // Nova tabela para as peças
+  parts!: Table<Part>;
+  afs!: Table<Af>; // Nova tabela para os AFs
 
   constructor() {
     super('PartsListDatabase');
     this.version(1).stores({
       listItems: '++id, codigo_peca, af',
-      parts: '++id, codigo, descricao, tags', // Adiciona a tabela de peças com tags
+      parts: '++id, codigo, descricao, tags',
+      afs: '++id, af_number', // Adiciona a tabela de AFs
     });
   }
 }
@@ -68,6 +75,19 @@ export const clearLocalParts = async (): Promise<void> => {
   await localDb.parts.clear();
 };
 
+// --- AFs Management (IndexedDB) ---
+export const bulkAddLocalAfs = async (afs: Af[]): Promise<void> => {
+  await localDb.afs.bulkAdd(afs);
+};
+
+export const getLocalAfs = async (): Promise<Af[]> => {
+  return localDb.afs.toArray();
+};
+
+export const clearLocalAfs = async (): Promise<void> => {
+  await localDb.afs.clear();
+};
+
 // --- List Items Management (IndexedDB) ---
 
 export const getLocalListItems = async (): Promise<ListItem[]> => {
@@ -92,13 +112,8 @@ export const clearLocalList = async (): Promise<void> => {
   await localDb.listItems.clear();
 };
 
+// This function will now get AFs from the dedicated 'afs' table
 export const getLocalUniqueAfs = async (): Promise<string[]> => {
-  const items = await localDb.listItems.toArray();
-  const afs = new Set<string>();
-  items.forEach(item => {
-    if (item.af) {
-      afs.add(item.af);
-    }
-  });
-  return Array.from(afs).sort();
+  const afs = await localDb.afs.toArray();
+  return afs.map(af => af.af_number).sort();
 };
