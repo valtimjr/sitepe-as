@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Part } from '@/services/partListService';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ChevronDown } from 'lucide-react';
+// Removendo Popover e ChevronDown, pois a funcionalidade será integrada ao input principal.
 
 interface PartSearchInputProps {
   onSearch: (query: string) => void;
@@ -12,17 +10,23 @@ interface PartSearchInputProps {
   onSelectPart: (part: Part) => void;
   searchQuery: string;
   allParts: Part[];
-  isLoading: boolean; // Adiciona a prop isLoading
+  isLoading: boolean;
 }
 
 const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts, isLoading }) => {
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const handleSelectAndClose = (part: Part) => {
     onSelectPart(part);
-    setIsPopoverOpen(false);
-    onSearch('');
+    setIsInputFocused(false); // Fecha o dropdown ao selecionar
+    onSearch(''); // Limpa a query de busca após a seleção
   };
+
+  // Determina qual lista exibir: searchResults se houver query, allParts se focado e vazio
+  const displayList = searchQuery.length > 0 ? searchResults : allParts;
+
+  // A lista de sugestões deve aparecer se o input estiver focado E (houver texto OU a lista completa for exibida)
+  const shouldShowDropdown = isInputFocused && (searchQuery.length > 0 || allParts.length > 0);
 
   return (
     <div className="relative flex w-full items-center space-x-2">
@@ -34,61 +38,35 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           placeholder="Buscar peça por código ou descrição..."
           value={searchQuery}
           onChange={(e) => onSearch(e.target.value)}
+          onFocus={() => setIsInputFocused(true)}
+          onBlur={() => {
+            // Pequeno atraso para permitir o clique nos itens da lista antes de fechar
+            setTimeout(() => setIsInputFocused(false), 100);
+          }}
           className="w-full"
         />
-        {/* Mostra o dropdown apenas se houver uma query de busca */}
-        {searchQuery.length > 0 && (
+        {shouldShowDropdown && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto">
-            {isLoading ? ( // Se estiver carregando, mostra a mensagem de carregamento
+            {isLoading && searchQuery.length > 0 ? ( // Mostra carregando apenas se houver query
               <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Buscando peças...</li>
-            ) : searchResults.length > 0 ? ( // Se não estiver carregando e houver resultados, mostra os resultados
-              searchResults.map((part) => (
+            ) : displayList.length > 0 ? (
+              displayList.map((part) => (
                 <li
                   key={part.id}
                   className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onMouseDown={(e) => e.preventDefault()} // Previne o onBlur de fechar antes do onClick
                   onClick={() => handleSelectAndClose(part)}
                 >
                   {part.codigo} - {part.descricao}
                 </li>
               ))
-            ) : ( // Se não estiver carregando e não houver resultados, mostra "Nenhuma peça encontrada"
+            ) : (
               <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhuma peça encontrada.</li>
             )}
           </ul>
         )}
       </div>
-
-      <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="icon" aria-label="Mostrar todas as peças">
-            <ChevronDown className="h-4 w-4" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-80 p-0 -translate-x-[275px]"
-          side="bottom"
-          align="start"
-          alignOffset={0}
-        >
-          <div className="max-h-96 overflow-y-auto">
-            {allParts.length === 0 ? (
-              <p className="p-4 text-center text-gray-500">Nenhuma peça disponível.</p>
-            ) : (
-              <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                {allParts.map((part) => (
-                  <li
-                    key={part.id}
-                    className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={() => handleSelectAndClose(part)}
-                  >
-                    {part.codigo} - {part.descricao}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
+      {/* O Popover e o botão de ChevronDown foram removidos, pois a funcionalidade foi integrada ao input principal. */}
     </div>
   );
 };
