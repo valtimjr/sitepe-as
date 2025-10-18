@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Adicionando esta importação
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService, updatePart } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
@@ -131,14 +131,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     }
   };
 
-  const handlePartInputFocus = () => {
-    if (selectedPart) {
-      setSelectedPart(null); // Limpa a peça selecionada
-      setSearchQuery(''); // Limpa a query de busca para iniciar uma nova pesquisa
-      setSearchResults([]); // Limpa os resultados da busca anterior
-    }
-  };
-
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags;
 
   return (
@@ -157,7 +149,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               searchQuery={searchQuery}
               allParts={allAvailableParts}
               isLoading={isLoadingParts}
-              onInputFocus={handlePartInputFocus} {/* Passa a nova função aqui */}
             />
           </div>
           <div>

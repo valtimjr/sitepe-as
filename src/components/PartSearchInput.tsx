@@ -11,10 +11,9 @@ interface PartSearchInputProps {
   searchQuery: string;
   allParts: Part[];
   isLoading: boolean;
-  onInputFocus?: () => void; // Nova prop para notificar o foco
 }
 
-const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts, isLoading, onInputFocus }) => {
+const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts, isLoading }) => {
   const [isInputFocused, setIsInputFocused] = useState(false);
 
   const handleSelectAndClose = (part: Part) => {
@@ -39,10 +38,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           placeholder="Buscar peça por código ou descrição..."
           value={searchQuery}
           onChange={(e) => onSearch(e.target.value)}
-          onFocus={() => {
-            setIsInputFocused(true);
-            onInputFocus?.(); // Chama a nova prop ao focar
-          }}
+          onFocus={() => setIsInputFocused(true)}
           onBlur={() => {
             // Pequeno atraso para permitir o clique nos itens da lista antes de fechar
             setTimeout(() => setIsInputFocused(false), 100);
