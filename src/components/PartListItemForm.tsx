@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, insertPart, addItemToList, searchParts } from '@/services/partListService';
+import { Part, insertPart, addItemToList, searchParts, getParts } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 
@@ -18,6 +18,12 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [af, setAf] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Novo estado para todas as peças
+
+  useEffect(() => {
+    // Carrega todas as peças inicialmente
+    setAllAvailableParts(getParts());
+  }, []);
 
   useEffect(() => {
     if (searchQuery.length > 1) {
@@ -34,8 +40,8 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const handleSelectPart = (part: Part) => {
     setCodigoPeca(part.codigo);
     setDescricao(part.descricao);
-    setSearchQuery(''); // Clear search query after selection
-    setSearchResults([]);
+    setSearchQuery(''); // Limpa a consulta de busca após a seleção
+    setSearchResults([]); // Limpa os resultados da busca
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -45,7 +51,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       return;
     }
 
-    // Ensure the part exists in the main parts list
+    // Garante que a peça exista na lista principal de peças
     insertPart({ codigo: codigoPeca, descricao: descricao });
 
     addItemToList({
@@ -60,6 +66,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     setQuantidade(1);
     setAf('');
     onItemAdded();
+    setAllAvailableParts(getParts()); // Atualiza todas as peças após adicionar uma nova
   };
 
   return (
@@ -76,6 +83,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               searchResults={searchResults}
               onSelectPart={handleSelectPart}
               searchQuery={searchQuery}
+              allParts={allAvailableParts} // Passa todas as peças
             />
           </div>
           <div>
