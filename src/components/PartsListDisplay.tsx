@@ -41,11 +41,27 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       return;
     }
 
-    const header = ["Código da Peça", "Descrição", "Quantidade", "AF"].join('\t');
-    const rows = listItems.map(item =>
-      [item.codigo_peca, item.descricao, item.quantidade, item.af].join('\t')
-    );
-    const textToCopy = [header, ...rows].join('\n');
+    // Agrupar itens por AF
+    const groupedByAf: { [key: string]: ListItem[] } = {};
+    listItems.forEach(item => {
+      if (!groupedByAf[item.af]) {
+        groupedByAf[item.af] = [];
+      }
+      groupedByAf[item.af].push(item);
+    });
+
+    let textToCopy = '';
+    for (const af_number in groupedByAf) {
+      textToCopy += `${af_number}\n`; // Adiciona o número do AF
+      groupedByAf[af_number].forEach(item => {
+        // Formato: Quantidade-Descrição Código da Peça
+        textToCopy += `${item.quantidade}-${item.descricao} ${item.codigo_peca}\n`;
+      });
+      textToCopy += '\n'; // Adiciona uma linha em branco entre os grupos de AFs
+    }
+
+    // Remove a última linha em branco extra, se houver
+    textToCopy = textToCopy.trim();
 
     try {
       await navigator.clipboard.writeText(textToCopy);
