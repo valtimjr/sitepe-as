@@ -15,6 +15,7 @@ interface AfSearchInputProps {
 const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availableAfs, onSelectAf }) => {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [filteredAfs, setFilteredAfs] = useState<string[]>([]);
+  const [isInputFocused, setIsInputFocused] = useState(false); // Novo estado para controlar o foco
 
   useEffect(() => {
     if (value.length > 0) {
@@ -31,9 +32,11 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
   const handleSelectAndClose = (af: string) => {
     onSelectAf(af);
     setIsPopoverOpen(false);
+    setIsInputFocused(false); // Garante que o dropdown feche ao selecionar
   };
 
-  const shouldShowDropdown = value.length === 0 || filteredAfs.length > 0;
+  // A lista de sugestões deve aparecer se o input estiver focado E (houver texto OU a lista completa for exibida)
+  const shouldShowDropdown = isInputFocused && (value.length > 0 ? filteredAfs.length > 0 : true);
 
   return (
     <div className="relative flex w-full items-center space-x-2">
@@ -45,6 +48,11 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
           placeholder="Ex: AF12345"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setIsInputFocused(true)} // Define o foco como true
+          onBlur={() => {
+            // Pequeno atraso para permitir o clique nos itens da lista antes de fechar
+            setTimeout(() => setIsInputFocused(false), 100);
+          }}
           className="w-full"
           required
         />
@@ -57,6 +65,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
                 <li
                   key={af}
                   className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onMouseDown={(e) => e.preventDefault()} // Previne o onBlur de fechar antes do onClick
                   onClick={() => handleSelectAndClose(af)}
                 >
                   {af}
