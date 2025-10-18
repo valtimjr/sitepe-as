@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Part } from '@/services/partListService';
@@ -11,41 +11,16 @@ interface PartSearchInputProps {
   searchResults: Part[];
   onSelectPart: (part: Part) => void;
   searchQuery: string;
-  allParts: Part[];
+  allParts: Part[]; // Nova propriedade para todas as peças
 }
 
 const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts }) => {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [popoverWidth, setPopoverWidth] = useState<number | string>('auto');
-  const [dynamicAlignOffset, setDynamicAlignOffset] = useState(0);
-
-  // Efeito para calcular a largura do popover e o offset de alinhamento
-  useEffect(() => {
-    const calculatePosition = () => {
-      if (inputRef.current && buttonRef.current) {
-        setPopoverWidth(inputRef.current.offsetWidth);
-
-        const inputRect = inputRef.current.getBoundingClientRect();
-        const buttonRect = buttonRef.current.getBoundingClientRect();
-        // Calcula o offset para alinhar a borda esquerda do popover com a borda esquerda do input
-        setDynamicAlignOffset(inputRect.left - buttonRect.left);
-      }
-    };
-
-    // Calcula a posição ao abrir o popover e ao redimensionar a janela
-    if (isPopoverOpen) {
-      calculatePosition();
-    }
-    window.addEventListener('resize', calculatePosition);
-    return () => window.removeEventListener('resize', calculatePosition);
-  }, [isPopoverOpen]); // Recalcula quando o popover abre/fecha
 
   const handleSelectAndClose = (part: Part) => {
     onSelectPart(part);
-    setIsPopoverOpen(false);
-    onSearch('');
+    setIsPopoverOpen(false); // Fecha o popover após a seleção
+    onSearch(''); // Limpa a consulta de busca ao selecionar de todas as peças
   };
 
   return (
@@ -59,7 +34,6 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           value={searchQuery}
           onChange={(e) => onSearch(e.target.value)}
           className="w-full"
-          ref={inputRef} {/* Anexa a ref ao input */}
         />
         {searchQuery && searchResults.length > 0 && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto">
@@ -78,16 +52,15 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
 
       <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="icon" aria-label="Mostrar todas as peças" ref={buttonRef}> {/* Anexa a ref ao botão */}
+          <Button variant="outline" size="icon" aria-label="Mostrar todas as peças">
             <ChevronDown className="h-4 w-4" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent
-          style={{ width: popoverWidth }} // Aplica a largura dinâmica
-          side="bottom"
-          align="start" // Alinha a borda esquerda do popover com a borda esquerda do gatilho (botão)
-          sideOffset={4} // Pequeno espaçamento abaixo do botão
-          alignOffset={dynamicAlignOffset} // Aplica o offset calculado para alinhar com o input
+        <PopoverContent 
+          className="w-80 p-0" // Define uma largura fixa para o popover
+          side="bottom"        // Abre o popover abaixo do gatilho
+          align="start"        // Alinha o popover com o início do gatilho
+          alignOffset={-60}    // Desloca o popover para a esquerda para alinhar com o campo de busca
         >
           <div className="max-h-96 overflow-y-auto">
             {allParts.length === 0 ? (
