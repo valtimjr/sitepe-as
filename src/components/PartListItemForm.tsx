@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
-import AfSearchInput from '././AfSearchInput';
+import AfSearchInput from './AfSearchInput'; // Caminho de importação corrigido
 import { showSuccess, showError } from '@/utils/toast';
 
 interface PartListItemFormProps {
@@ -105,14 +105,13 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="search-part">Buscar Peça</Label>
-            {/* Always render PartSearchInput, passing isLoadingParts */}
             <PartSearchInput
               onSearch={handleSearch}
               searchResults={searchResults}
               onSelectPart={handleSelectPart}
               searchQuery={searchQuery}
               allParts={allAvailableParts}
-              isLoading={isLoadingParts} {/* Passa o estado de carregamento */}
+              isLoading={isLoadingParts}
             />
           </div>
           <div>
