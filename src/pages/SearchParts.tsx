@@ -5,6 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Part, getParts, searchParts } from '@/services/partListService';
 import { MadeWithDyad } from "@/components/made-with-dyad";
+import { Link } from 'react-router-dom'; // Importar Link
+import { Button } from '@/components/ui/button'; // Importar Button
+import { ArrowLeft } from 'lucide-react'; // Importar ícone
 
 const SearchParts = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,6 +30,13 @@ const SearchParts = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50">
+      <div className="w-full max-w-4xl flex justify-start mb-4">
+        <Link to="/">
+          <Button variant="outline" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" /> Voltar ao Início
+          </Button>
+        </Link>
+      </div>
       <h1 className="text-4xl font-extrabold mb-8 text-center text-blue-600 dark:text-blue-400">
         Pesquisar Peças
       </h1>
