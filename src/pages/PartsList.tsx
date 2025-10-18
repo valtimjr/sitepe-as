@@ -6,7 +6,6 @@ import { getListItems, ListItem } from '@/services/partListService';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client'; // Importa o cliente Supabase
 import { showSuccess, showError } from '@/utils/toast';
 
 const PartsList = () => {
@@ -29,17 +28,7 @@ const PartsList = () => {
 
   useEffect(() => {
     loadListItems();
-
-    // Monitora mudanças de autenticação para recarregar a lista
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        loadListItems();
-      }
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    // Não há mais listener de autenticação do Supabase, pois a lista é local e não depende de usuário logado.
   }, []);
 
   return (
