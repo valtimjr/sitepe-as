@@ -8,14 +8,15 @@ import {
   deleteLocalListItem,
   clearLocalList,
   getLocalUniqueAfs,
-  bulkAddLocalParts, // Importa a nova função
-  getLocalParts,     // Importa a nova função
-  searchLocalParts,  // Importa a nova função
-  Part as LocalPart, // Renomeia para evitar conflito
+  bulkAddLocalParts,
+  getLocalParts,
+  searchLocalParts,
+  updateLocalPart, // Importa a nova função
+  Part as LocalPart,
   ListItem as LocalListItem
 } from '@/services/localDbService';
 
-export interface Part extends LocalPart {} // Usa a interface Part do localDbService
+export interface Part extends LocalPart {}
 
 export interface ListItem extends LocalListItem {}
 
@@ -41,7 +42,7 @@ const seedPartsFromCsv = async (): Promise<void> => {
             id: row.id || uuidv4(),
             codigo: row.codigo,
             descricao: row.descricao,
-            tags: row.tags || '', // Garante que tags exista, mesmo que vazia
+            tags: row.tags || '',
           }));
           await bulkAddLocalParts(parsedParts);
           console.log('Parts seeded from CSV to IndexedDB.');
@@ -60,13 +61,17 @@ const seedPartsFromCsv = async (): Promise<void> => {
 // --- Parts Management (IndexedDB) ---
 
 export const getParts = async (): Promise<Part[]> => {
-  await seedPartsFromCsv(); // Garante que as peças estejam no IndexedDB
+  await seedPartsFromCsv();
   return getLocalParts();
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  await seedPartsFromCsv(); // Garante que as peças estejam no IndexedDB
+  await seedPartsFromCsv();
   return searchLocalParts(query);
+};
+
+export const updatePart = async (updatedPart: Part): Promise<void> => {
+  await updateLocalPart(updatedPart);
 };
 
 // --- List Items Management (IndexedDB Local) ---

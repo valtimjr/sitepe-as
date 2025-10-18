@@ -60,6 +60,10 @@ export const searchLocalParts = async (query: string): Promise<Part[]> => {
     .toArray();
 };
 
+export const updateLocalPart = async (updatedPart: Part): Promise<void> => {
+  await localDb.parts.update(updatedPart.id, updatedPart);
+};
+
 export const clearLocalParts = async (): Promise<void> => {
   await localDb.parts.clear();
 };

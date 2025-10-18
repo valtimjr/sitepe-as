@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService } from '@/services/partListService';
+import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService, updatePart } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
@@ -22,6 +22,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
+  const [editedTags, setEditedTags] = useState<string>(''); // Novo estado para tags editáveis
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -55,6 +56,11 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
+  // Atualiza editedTags quando selectedPart muda
+  useEffect(() => {
+    setEditedTags(selectedPart?.tags || '');
+  }, [selectedPart]);
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
@@ -77,6 +83,15 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     }
 
     try {
+      // Verifica se as tags foram editadas e as atualiza no IndexedDB
+      if (selectedPart.tags !== editedTags) {
+        await updatePart({ ...selectedPart, tags: editedTags });
+        showSuccess('Tags da peça atualizadas!');
+        // Atualiza a lista de peças disponíveis para refletir a mudança
+        const updatedParts = await getParts();
+        setAllAvailableParts(updatedParts);
+      }
+
       await addItemToList({
         codigo_peca: selectedPart.codigo,
         descricao: selectedPart.descricao,
@@ -87,12 +102,13 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       setSelectedPart(null);
       setQuantidade(1);
       setAf('');
+      setEditedTags(''); // Limpa as tags editadas
       onItemAdded();
       const updatedAfs = await getUniqueAfs();
       setAllAvailableAfs(updatedAfs);
     } catch (error) {
-      showError('Erro ao adicionar item à lista.');
-      console.error('Failed to add item to list:', error);
+      showError('Erro ao adicionar item à lista ou atualizar tags.');
+      console.error('Failed to add item or update tags:', error);
     }
   };
 
@@ -136,16 +152,15 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               className="bg-gray-100 dark:bg-gray-700"
             />
           </div>
-          {selectedPart?.tags && (
+          {selectedPart && ( // Mostra o campo de tags apenas se uma peça estiver selecionada
             <div>
-              <Label htmlFor="tags">Tags</Label>
+              <Label htmlFor="tags">Tags (separadas por ';')</Label>
               <Input
                 id="tags"
                 type="text"
-                value={selectedPart.tags}
-                placeholder="Tags da peça"
-                readOnly
-                className="bg-gray-100 dark:bg-gray-700"
+                value={editedTags}
+                onChange={(e) => setEditedTags(e.target.value)}
+                placeholder="Adicione tags separadas por ';'"
               />
             </div>
           )}
@@ -173,7 +188,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               />
             )}
           </div>
-          <Button type="submit" className="w-full" disabled={isLoadingParts || isLoadingAfs}>Adicionar à Lista</Button>
+          <Button type="submit" className="w-full" disabled={isLoadingParts || isLoadingAfs || !selectedPart}>Adicionar à Lista</Button>
         </form>
       </CardContent>
     </Card>
