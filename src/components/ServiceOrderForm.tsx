@@ -7,7 +7,7 @@ import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchParts
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save } from 'lucide-react';
+import { Save, Plus, FilePlus } from 'lucide-react'; // Importar ícones
 import { Textarea } from '@/components/ui/textarea';
 
 interface ServiceOrderFormProps {
@@ -19,8 +19,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
   const [os, setOs] = useState<number | undefined>(undefined);
-  const [horaInicio, setHoraInicio] = useState<string>(''); // Novo estado para Hora de Início
-  const [horaFinal, setHoraFinal] = useState<string>(''); // Novo estado para Hora Final
+  const [horaInicio, setHoraInicio] = useState<string>('');
+  const [horaFinal, setHoraFinal] = useState<string>('');
   const [servicoExecutado, setServicoExecutado] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
@@ -102,6 +102,29 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
     }
   };
 
+  const resetAllFields = () => {
+    setSelectedPart(null);
+    setQuantidade(1);
+    setAf('');
+    setOs(undefined);
+    setHoraInicio('');
+    setHoraFinal('');
+    setServicoExecutado('');
+    setSearchQuery('');
+    setSearchResults([]);
+    setEditedTags('');
+    showSuccess('Formulário limpo para nova ordem de serviço!');
+  };
+
+  const resetPartFields = () => {
+    setSelectedPart(null);
+    setQuantidade(1);
+    setSearchQuery('');
+    setSearchResults([]);
+    setEditedTags('');
+    showSuccess('Campos de peça limpos para adicionar nova peça à ordem atual!');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPart || quantidade <= 0 || !af) {
@@ -116,20 +139,14 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
         quantidade,
         af,
         os: os,
-        hora_inicio: horaInicio || undefined, // Inclui Hora de Início
-        hora_final: horaFinal || undefined,   // Inclui Hora Final
+        hora_inicio: horaInicio || undefined,
+        hora_final: horaFinal || undefined,
         servico_executado: servicoExecutado,
       });
       showSuccess('Item adicionado à lista!');
-      setSelectedPart(null);
-      setQuantidade(1);
-      setAf('');
-      setOs(undefined);
-      setHoraInicio(''); // Limpa o campo Hora de Início
-      setHoraFinal('');   // Limpa o campo Hora Final
-      setServicoExecutado('');
-      setEditedTags('');
-      onItemAdded();
+      // Após adicionar, limpa apenas os campos da peça para permitir adicionar outra peça à mesma OS/AF
+      resetPartFields();
+      onItemAdded(); // Notifica o pai para recarregar a lista
       const updatedAfs = await getUniqueAfs();
       setAllAvailableAfs(updatedAfs);
     } catch (error) {
@@ -283,6 +300,14 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
           </div>
           <Button type="submit" className="w-full" disabled={isLoadingParts || isLoadingAfs || !selectedPart}>Adicionar à Lista</Button>
         </form>
+        <div className="flex flex-col space-y-2 mt-4">
+          <Button variant="outline" onClick={resetAllFields} className="w-full flex items-center gap-2">
+            <FilePlus className="h-4 w-4" /> Nova Ordem de Serviço
+          </Button>
+          <Button variant="secondary" onClick={resetPartFields} className="w-full flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Nova Peça (na ordem atual)
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

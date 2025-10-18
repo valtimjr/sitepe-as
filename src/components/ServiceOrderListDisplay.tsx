@@ -47,7 +47,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       servico_executado?: string;
       hora_inicio?: string;
       hora_final?: string;
-      parts: { quantidade: number; descricao: string; codigo_peca: string }[];
+      parts: { id: string; quantidade: number; descricao: string; codigo_peca: string }[];
     } } = {};
 
     listItems.forEach(item => {
@@ -63,6 +63,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         };
       }
       groupedByAfOs[key].parts.push({
+        id: item.id, // Manter o ID para exclusão individual
         quantidade: item.quantidade,
         descricao: item.descricao,
         codigo_peca: item.codigo_peca,
@@ -98,8 +99,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       if (group.parts.length > 0) {
         const partsString = group.parts.map(part =>
           `${part.quantidade}-${part.descricao} ${part.codigo_peca}`
-        ).join(', '); // Juntar as peças com vírgula e espaço
-        textToCopy += `Peças:${partsString}\n`;
+        ).join('\n'); // Juntar as peças com quebra de linha
+        textToCopy += `Peças:\n${partsString}\n`;
       }
       textToCopy += '\n'; // Adiciona uma linha em branco entre os grupos
     }
@@ -137,6 +138,45 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       console.error('Failed to delete item:', error);
     }
   };
+
+  // Agrupar itens para exibição
+  const groupedForDisplay: { [key: string]: {
+    af: string;
+    os?: number;
+    servico_executado?: string;
+    hora_inicio?: string;
+    hora_final?: string;
+    parts: { id: string; quantidade: number; descricao: string; codigo_peca: string }[];
+  } } = {};
+
+  listItems.forEach(item => {
+    const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}`;
+    if (!groupedForDisplay[key]) {
+      groupedForDisplay[key] = {
+        af: item.af,
+        os: item.os,
+        servico_executado: item.servico_executado,
+        hora_inicio: item.hora_inicio,
+        hora_final: item.hora_final,
+        parts: [],
+      };
+    }
+    groupedForDisplay[key].parts.push({
+      id: item.id,
+      quantidade: item.quantidade,
+      descricao: item.descricao,
+      codigo_peca: item.codigo_peca,
+    });
+  });
+
+  const sortedGroups = Object.values(groupedForDisplay).sort((a, b) => {
+    // Ordenar por AF, depois por OS
+    if (a.af < b.af) return -1;
+    if (a.af > b.af) return 1;
+    if ((a.os || 0) < (b.os || 0)) return -1;
+    if ((a.os || 0) > (b.os || 0)) return 1;
+    return 0;
+  });
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -178,39 +218,45 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Quantidade</TableHead>
                   <TableHead>AF</TableHead>
                   <TableHead>OS</TableHead>
                   <TableHead>Início</TableHead>
                   <TableHead>Fim</TableHead>
                   <TableHead>Serviço Executado</TableHead>
+                  <TableHead>Peça</TableHead>
+                  <TableHead>Quantidade</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {listItems.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.codigo_peca}</TableCell>
-                    <TableCell>{item.descricao}</TableCell>
-                    <TableCell>{item.quantidade}</TableCell>
-                    <TableCell>{item.af}</TableCell>
-                    <TableCell>{item.os || 'N/A'}</TableCell>
-                    <TableCell>{item.hora_inicio || 'N/A'}</TableCell>
-                    <TableCell>{item.hora_final || 'N/A'}</TableCell>
-                    <TableCell>{item.servico_executado || 'N/A'}</TableCell>
-                    <TableCell className="text-right">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(item.id)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Remover item</TooltipContent>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
+                {sortedGroups.map((group, groupIndex) => (
+                  <React.Fragment key={`${group.af}-${group.os || 'no_os'}-${groupIndex}`}>
+                    {group.parts.map((part, partIndex) => (
+                      <TableRow key={part.id} className={partIndex === 0 ? 'border-t-2 border-blue-300 dark:border-blue-700' : ''}>
+                        {partIndex === 0 ? (
+                          <>
+                            <TableCell rowSpan={group.parts.length} className="font-medium align-top">{group.af}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top">{group.os || 'N/A'}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top">{group.hora_inicio || 'N/A'}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top">{group.hora_final || 'N/A'}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top">{group.servico_executado || 'N/A'}</TableCell>
+                          </>
+                        ) : null}
+                        <TableCell>{part.codigo_peca} - {part.descricao}</TableCell>
+                        <TableCell>{part.quantidade}</TableCell>
+                        <TableCell className="text-right">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(part.id)}>
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Remover item</TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>
