@@ -12,11 +12,12 @@ export const generatePartsListPdf = (listItems: SimplePartItem[], title: string 
   doc.text(title, 14, 22);
 
   // Colunas simplificadas para a lista de peças
-  const tableColumn = ["Código da Peça", "Descrição", "Quantidade"];
+  const tableColumn = ["AF", "Código da Peça", "Descrição", "Quantidade"]; // Adicionado AF
   const tableRows: (string | number | undefined)[][] = [];
 
   listItems.forEach(item => {
     const itemData = [
+      item.af || 'N/A', // Adicionado AF
       item.codigo_peca || 'N/A',
       item.descricao || 'N/A',
       item.quantidade ?? 'N/A',

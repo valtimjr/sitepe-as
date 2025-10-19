@@ -13,6 +13,7 @@ export interface SimplePartItem {
   codigo_peca: string;
   descricao: string;
   quantidade: number;
+  af?: string; // AF agora é opcional para SimplePartItem
   created_at?: Date;
 }
 
@@ -92,6 +93,16 @@ class LocalDexieDb extends Dexie {
       await tx.table('serviceOrderItems').bulkAdd(serviceItems);
       // A tabela 'listItems' será implicitamente removida/redefinida pelo Dexie
       // ao aplicar o novo esquema da versão 2.
+    });
+    this.version(3).stores({
+      simplePartsList: '++id, codigo_peca, descricao, quantidade, af, created_at', // Adicionado 'af'
+      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
+      parts: '++id, codigo, descricao, tags',
+      afs: '++id, af_number',
+    }).upgrade(async tx => {
+      // Migração de dados da versão 2 para a versão 3
+      // Para o campo 'af' em 'simplePartsList', itens existentes terão 'af' como undefined, o que é aceitável.
+      // Nenhuma transformação complexa é necessária, apenas a atualização do esquema.
     });
   }
 }

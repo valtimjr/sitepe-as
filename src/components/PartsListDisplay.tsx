@@ -47,14 +47,15 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     let textToCopy = '';
     displayedItems.forEach(item => {
       let itemLine = '';
+      const afPrefix = item.af ? `AF:${item.af} ` : ''; // Adiciona o prefixo AF se existir
       if (item.quantidade && item.descricao && item.codigo_peca) {
-        itemLine = `${item.quantidade}-${item.descricao} ${item.codigo_peca}`;
+        itemLine = `${afPrefix}${item.quantidade}-${item.descricao} ${item.codigo_peca}`;
       } else if (item.descricao) {
-        itemLine = item.descricao;
+        itemLine = `${afPrefix}${item.descricao}`;
       } else if (item.codigo_peca) {
-        itemLine = item.codigo_peca;
+        itemLine = `${afPrefix}${item.codigo_peca}`;
       } else {
-        itemLine = 'Item sem peça';
+        itemLine = `${afPrefix}Item sem peça`;
       }
       textToCopy += `${itemLine}\n`;
     });
@@ -132,6 +133,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>AF</TableHead> {/* Nova coluna para AF */}
                   <TableHead>Código</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Quantidade</TableHead>
@@ -141,6 +143,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               <TableBody>
                 {displayedItems.map((item) => (
                   <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.af || 'N/A'}</TableCell> {/* Exibe o AF */}
                     <TableCell className="font-medium">{item.codigo_peca || 'N/A'}</TableCell>
                     <TableCell>{item.descricao || 'N/A'}</TableCell>
                     <TableCell>{item.quantidade ?? 'N/A'}</TableCell>
