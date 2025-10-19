@@ -16,9 +16,9 @@ export const generatePartsListPdf = (listItems: ListItem[], title: string = 'Lis
 
   listItems.forEach(item => {
     const itemData = [
-      item.codigo_peca,
-      item.descricao,
-      item.quantidade,
+      item.codigo_peca || 'N/A',
+      item.descricao || 'N/A',
+      item.quantidade ?? 'N/A', // Usar ?? para 0 ou undefined
       item.af,
       item.os || '',
       item.hora_inicio || '',
@@ -48,16 +48,15 @@ export const generateServiceOrderPdf = (listItems: ListItem[], title: string = '
   doc.text(title, 14, 22);
 
   const tableColumn = ["AF", "OS", "Início", "Fim", "Serviço Executado", "Peça", "Quantidade"];
-  const tableRows: any[] = []; // Usaremos 'any' para flexibilidade com rowSpan
+  const tableRows: any[] = [];
 
-  // Agrupar itens por AF, OS, Hora Início, Hora Final, Serviço Executado
   const groupedForPdf: { [key: string]: {
     af: string;
     os?: number;
     servico_executado?: string;
     hora_inicio?: string;
     hora_final?: string;
-    parts: { id: string; quantidade: number; descricao: string; codigo_peca: string }[];
+    parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[]; // Campos de peça opcionais
   } } = {};
 
   listItems.forEach(item => {
@@ -90,22 +89,24 @@ export const generateServiceOrderPdf = (listItems: ListItem[], title: string = '
 
   sortedGroups.forEach(group => {
     group.parts.forEach((part, index) => {
+      const partDescription = part.codigo_peca && part.descricao 
+        ? `${part.codigo_peca} - ${part.descricao}` 
+        : part.codigo_peca || part.descricao || 'N/A';
+
       if (index === 0) {
-        // Primeira peça do grupo, inclui os detalhes da OS com rowSpan
         tableRows.push([
           { content: group.af, rowSpan: group.parts.length, styles: { valign: 'top', fontStyle: 'bold' } },
           { content: group.os || 'N/A', rowSpan: group.parts.length, styles: { valign: 'top' } },
           { content: group.hora_inicio || 'N/A', rowSpan: group.parts.length, styles: { valign: 'top' } },
           { content: group.hora_final || 'N/A', rowSpan: group.parts.length, styles: { valign: 'top' } },
-          { content: group.servico_executado || 'N/A', rowSpan: group.parts.length, styles: { valign: 'top', cellWidth: 40 } }, // Ajuste de largura para serviço
-          `${part.codigo_peca} - ${part.descricao}`,
-          part.quantidade,
+          { content: group.servico_executado || 'N/A', rowSpan: group.parts.length, styles: { valign: 'top', cellWidth: 40 } },
+          partDescription,
+          part.quantidade ?? 'N/A',
         ]);
       } else {
-        // Peças subsequentes do grupo, apenas detalhes da peça
         tableRows.push([
-          `${part.codigo_peca} - ${part.descricao}`,
-          part.quantidade,
+          partDescription,
+          part.quantidade ?? 'N/A',
         ]);
       }
     });
@@ -120,13 +121,11 @@ export const generateServiceOrderPdf = (listItems: ListItem[], title: string = '
     alternateRowStyles: { fillColor: [240, 240, 240] },
     margin: { top: 10 },
     didParseCell: (data: any) => {
-      // Adiciona uma borda superior para o primeiro item de cada grupo para visualmente separar as ordens
       if (data.section === 'body' && data.row.index > 0) {
-        const previousRow = tableRows[data.row.index - 1];
-        const currentRow = tableRows[data.row.index];
-        // Verifica se o AF do item atual é diferente do AF do item anterior (ou se é o primeiro item de um novo grupo)
-        // A lógica de agrupamento já garante que o primeiro item de um grupo terá rowSpan, então podemos usar isso.
-        if (data.cell.raw instanceof Object && data.cell.raw.rowSpan && data.cell.raw.rowSpan > 0) {
+        const previousGroupKey = `${listItems[data.row.index - 1].af}-${listItems[data.row.index - 1].os || 'no_os'}-${listItems[data.row.index - 1].servico_executado || 'no_service'}-${listItems[data.row.index - 1].hora_inicio || 'no_start'}-${listItems[data.row.index - 1].hora_final || 'no_end'}`;
+        const currentGroupKey = `${listItems[data.row.index].af}-${listItems[data.row.index].os || 'no_os'}-${listItems[data.row.index].servico_executado || 'no_service'}-${listItems[data.row.index].hora_inicio || 'no_start'}-${listItems[data.row.index].hora_final || 'no_end'}`;
+        
+        if (currentGroupKey !== previousGroupKey && data.column.index === 0) { // Aplica borda apenas na primeira célula da nova OS
           data.cell.styles.lineWidth = { top: 0.5 };
           data.cell.styles.lineColor = { top: [0, 0, 0] };
         }

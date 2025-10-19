@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ListItem, clearList, deleteListItem } from '@/services/partListService';
 import { generatePartsListPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy } from 'lucide-react'; // Importar o ícone Copy
+import { Trash2, Download, Copy } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,7 +55,17 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       textToCopy += `${af_number}\n`; // Adiciona o número do AF
       groupedByAf[af_number].forEach(item => {
         // Formato: Quantidade-Descrição Código da Peça
-        let itemLine = `${item.quantidade}-${item.descricao} ${item.codigo_peca}`;
+        let itemLine = '';
+        if (item.quantidade && item.descricao && item.codigo_peca) {
+          itemLine = `${item.quantidade}-${item.descricao} ${item.codigo_peca}`;
+        } else if (item.descricao) {
+          itemLine = item.descricao; // Se não tiver código/quantidade, mostra só a descrição
+        } else if (item.codigo_peca) {
+          itemLine = item.codigo_peca; // Se não tiver descrição, mostra só o código
+        } else {
+          itemLine = 'Item sem peça'; // Caso não tenha nenhuma informação de peça
+        }
+        
         if (item.os) {
           itemLine += ` (OS: ${item.os})`;
         }
@@ -154,8 +164,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   <TableHead>Quantidade</TableHead>
                   <TableHead>AF</TableHead>
                   <TableHead>OS</TableHead>
-                  <TableHead>Início</TableHead> {/* Nova coluna */}
-                  <TableHead>Fim</TableHead> {/* Nova coluna */}
+                  <TableHead>Início</TableHead>
+                  <TableHead>Fim</TableHead>
                   <TableHead>Serviço Executado</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -163,13 +173,13 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               <TableBody>
                 {listItems.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.codigo_peca}</TableCell>
-                    <TableCell>{item.descricao}</TableCell>
-                    <TableCell>{item.quantidade}</TableCell>
+                    <TableCell className="font-medium">{item.codigo_peca || 'N/A'}</TableCell>
+                    <TableCell>{item.descricao || 'N/A'}</TableCell>
+                    <TableCell>{item.quantidade ?? 'N/A'}</TableCell> {/* Usar ?? para 0 ou undefined */}
                     <TableCell>{item.af}</TableCell>
                     <TableCell>{item.os || 'N/A'}</TableCell>
-                    <TableCell>{item.hora_inicio || 'N/A'}</TableCell> {/* Exibe Hora Início ou 'N/A' */}
-                    <TableCell>{item.hora_final || 'N/A'}</TableCell>   {/* Exibe Hora Final ou 'N/A' */}
+                    <TableCell>{item.hora_inicio || 'N/A'}</TableCell>
+                    <TableCell>{item.hora_final || 'N/A'}</TableCell>
                     <TableCell>{item.servico_executado || 'N/A'}</TableCell>
                     <TableCell className="text-right">
                       <Tooltip>

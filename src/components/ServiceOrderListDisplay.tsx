@@ -49,7 +49,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       servico_executado?: string;
       hora_inicio?: string;
       hora_final?: string;
-      parts: { id: string; quantidade: number; descricao: string; codigo_peca: string }[];
+      parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[]; // Campos de peça opcionais
     } } = {};
 
     listItems.forEach(item => {
@@ -65,7 +65,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         };
       }
       groupedByAfOs[key].parts.push({
-        id: item.id, // Manter o ID para exclusão individual
+        id: item.id,
         quantidade: item.quantidade,
         descricao: item.descricao,
         codigo_peca: item.codigo_peca,
@@ -99,15 +99,21 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
       // Linha 4: Peças
       if (group.parts.length > 0) {
-        const partsString = group.parts.map(part =>
-          `${part.quantidade}-${part.descricao} ${part.codigo_peca}`
-        ).join('\n'); // Juntar as peças com quebra de linha
+        const partsString = group.parts.map(part => {
+          if (part.codigo_peca && part.descricao && part.quantidade) {
+            return `${part.quantidade}-${part.descricao} ${part.codigo_peca}`;
+          } else if (part.descricao) {
+            return part.descricao;
+          } else if (part.codigo_peca) {
+            return part.codigo_peca;
+          }
+          return 'Item sem peça';
+        }).join('\n');
         textToCopy += `Peças:\n${partsString}\n`;
       }
-      textToCopy += '\n'; // Adiciona uma linha em branco entre os grupos
+      textToCopy += '\n';
     }
 
-    // Remove a última linha em branco extra, se houver
     textToCopy = textToCopy.trim();
 
     try {
@@ -148,7 +154,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     servico_executado?: string;
     hora_inicio?: string;
     hora_final?: string;
-    parts: { id: string; quantidade: number; descricao: string; codigo_peca: string }[];
+    parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
   } } = {};
 
   listItems.forEach(item => {
@@ -172,7 +178,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
   });
 
   const sortedGroups = Object.values(groupedForDisplay).sort((a, b) => {
-    // Ordenar por AF, depois por OS
     if (a.af < b.af) return -1;
     if (a.af > b.af) return 1;
     if ((a.os || 0) < (b.os || 0)) return -1;
@@ -236,7 +241,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                 {sortedGroups.map((group, groupIndex) => (
                   <React.Fragment key={`${group.af}-${group.os || 'no_os'}-${groupIndex}`}>
                     {group.parts.map((part, partIndex) => (
-                      <TableRow key={part.id} className={partIndex === 0 ? 'border-t-4 border-blue-400 dark:border-blue-600' : ''}> {/* Borda mais grossa e visível */}
+                      <TableRow key={part.id} className={partIndex === 0 ? 'border-t-4 border-blue-400 dark:border-blue-600' : ''}>
                         {partIndex === 0 ? (
                           <>
                             <TableCell rowSpan={group.parts.length} className="font-medium align-top">{group.af}</TableCell>
@@ -246,8 +251,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                             <TableCell rowSpan={group.parts.length} className="align-top">{group.servico_executado || 'N/A'}</TableCell>
                           </>
                         ) : null}
-                        <TableCell>{part.codigo_peca} - {part.descricao}</TableCell>
-                        <TableCell>{part.quantidade}</TableCell>
+                        <TableCell>{part.codigo_peca && part.descricao ? `${part.codigo_peca} - ${part.descricao}` : part.codigo_peca || part.descricao || 'N/A'}</TableCell>
+                        <TableCell>{part.quantidade ?? 'N/A'}</TableCell>
                         <TableCell className="text-right">
                           {partIndex === 0 && (
                             <Tooltip>

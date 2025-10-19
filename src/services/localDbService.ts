@@ -10,14 +10,14 @@ export interface Part {
 
 export interface ListItem {
   id: string;
-  codigo_peca: string;
-  descricao: string;
-  quantidade: number;
+  codigo_peca?: string; // Novo: Opcional
+  descricao?: string;   // Novo: Opcional
+  quantidade?: number;  // Novo: Opcional
   af: string;
-  os?: number; // Novo campo: Ordem de Serviço (opcional, número)
-  hora_inicio?: string; // Novo campo: Hora de Início (opcional, string HH:MM)
-  hora_final?: string; // Novo campo: Hora Final (opcional, string HH:MM)
-  servico_executado?: string; // Novo campo: Serviço Executado (opcional, texto)
+  os?: number;
+  hora_inicio?: string;
+  hora_final?: string;
+  servico_executado?: string;
 }
 
 export interface Af {
@@ -33,7 +33,7 @@ class LocalDexieDb extends Dexie {
   constructor() {
     super('PartsListDatabase');
     this.version(1).stores({
-      listItems: '++id, codigo_peca, af, os, hora_inicio, hora_final, servico_executado', // Adiciona os novos campos ao store
+      listItems: '++id, af, os, hora_inicio, hora_final, servico_executado', // Removido codigo_peca do índice principal, pois agora é opcional
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number', // Adiciona a tabela de AFs
     });
@@ -62,9 +62,6 @@ export const searchLocalParts = async (query: string): Promise<Part[]> => {
   console.log('Searching local parts with query:', query);
   const lowerCaseQuery = query.toLowerCase();
 
-  // Para permitir a busca por tags em qualquer parte da string,
-  // vamos buscar todas as peças e depois filtrar em memória.
-  // Isso é menos eficiente para datasets muito grandes, mas funciona bem para este caso.
   const allParts = await localDb.parts.toArray();
 
   if (!query) {
@@ -75,7 +72,7 @@ export const searchLocalParts = async (query: string): Promise<Part[]> => {
   const results = allParts.filter(part =>
     part.codigo.toLowerCase().startsWith(lowerCaseQuery) ||
     part.descricao.toLowerCase().startsWith(lowerCaseQuery) ||
-    (part.tags && part.tags.toLowerCase().includes(lowerCaseQuery)) // Usa .includes para buscar substrings nas tags
+    (part.tags && part.tags.toLowerCase().includes(lowerCaseQuery))
   );
 
   console.log('Search results for query:', query, results);
