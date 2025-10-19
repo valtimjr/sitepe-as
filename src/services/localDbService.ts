@@ -38,15 +38,15 @@ export interface Af {
 class LocalDexieDb extends Dexie {
   simplePartsList!: Table<SimplePartItem>;
   serviceOrderItems!: Table<ServiceOrderItem>;
-  parts!: Table<Part>;
-  afs!: Table<Af>;
+  parts!: Table<Part>; // <--- AQUI: A tabela 'parts' é declarada
+  afs!: Table<Af>;     // <--- AQUI: A tabela 'afs' é declarada
 
   constructor() {
     super('PartsListDatabase');
     this.version(1).stores({
       listItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
-      parts: '++id, codigo, descricao, tags',
-      afs: '++id, af_number',
+      parts: '++id, codigo, descricao, tags', // <--- AQUI: O esquema da tabela 'parts' é definido
+      afs: '++id, af_number',                 // <--- AQUI: O esquema da tabela 'afs' é definido
     });
     this.version(2).stores({
       simplePartsList: '++id, codigo_peca, descricao, created_at',
@@ -118,7 +118,7 @@ export const addLocalPart = async (part: Omit<Part, 'id'>): Promise<string> => {
 };
 
 export const bulkAddLocalParts = async (parts: Part[]): Promise<void> => {
-  await localDb.parts.bulkAdd(parts);
+  await localDb.parts.bulkAdd(parts); // <--- AQUI: Esta função adiciona as peças (do CSV) à tabela 'parts'
 };
 
 export const getLocalParts = async (): Promise<Part[]> => {
@@ -156,7 +156,7 @@ export const clearLocalParts = async (): Promise<void> => {
 
 // --- AFs Management (IndexedDB) ---
 export const bulkAddLocalAfs = async (afs: Af[]): Promise<void> => {
-  await localDb.afs.bulkAdd(afs);
+  await localDb.afs.bulkAdd(afs); // <--- AQUI: Esta função adiciona os AFs (do CSV) à tabela 'afs'
 };
 
 export const getLocalAfs = async (): Promise<Af[]> => {
