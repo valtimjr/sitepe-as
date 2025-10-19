@@ -22,9 +22,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface ServiceOrderListDisplayProps {
   listItems: ListItem[];
   onListChanged: () => void;
+  isLoading: boolean; // Adicionando a prop isLoading
 }
 
-const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged }) => {
+const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading }) => {
   const handleExportPdf = () => {
     if (listItems.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
@@ -183,15 +184,15 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-2xl font-bold">Lista de Ordens de Serviço</CardTitle>
         <div className="flex space-x-2">
-          <Button onClick={handleCopyList} disabled={listItems.length === 0} className="flex items-center gap-2">
+          <Button onClick={handleCopyList} disabled={listItems.length === 0 || isLoading} className="flex items-center gap-2">
             <Copy className="h-4 w-4" /> Copiar Lista
           </Button>
-          <Button onClick={handleExportPdf} disabled={listItems.length === 0} className="flex items-center gap-2">
+          <Button onClick={handleExportPdf} disabled={listItems.length === 0 || isLoading} className="flex items-center gap-2">
             <Download className="h-4 w-4" /> Exportar PDF
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={listItems.length === 0} className="flex items-center gap-2">
+              <Button variant="destructive" disabled={listItems.length === 0 || isLoading} className="flex items-center gap-2">
                 <Trash2 className="h-4 w-4" /> Limpar Lista
               </Button>
             </AlertDialogTrigger>
@@ -211,7 +212,9 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         </div>
       </CardHeader>
       <CardContent>
-        {listItems.length === 0 ? (
+        {isLoading ? (
+          <p className="text-center text-gray-500 dark:text-gray-400 py-8">Carregando sua lista de ordens de serviço...</p>
+        ) : listItems.length === 0 ? (
           <p className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum item na lista. Adicione peças para começar!</p>
         ) : (
           <div className="overflow-x-auto">
