@@ -143,7 +143,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               <TableBody>
                 {displayedItems.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.af || 'N/A'}</TableCell> {/* Exibe o AF */}
+                    <TableCell className="font-medium">{item.af || ''}</TableCell> {/* Exibe o AF, agora vazio se não houver */}
                     <TableCell className="font-medium">{item.codigo_peca || 'N/A'}</TableCell>
                     <TableCell>{item.descricao || 'N/A'}</TableCell>
                     <TableCell>{item.quantidade ?? 'N/A'}</TableCell>

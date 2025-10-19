@@ -17,7 +17,7 @@ export const generatePartsListPdf = (listItems: SimplePartItem[], title: string 
 
   listItems.forEach(item => {
     const itemData = [
-      item.af || 'N/A', // Adicionado AF
+      item.af || '', // Adicionado AF, agora vazio se não houver
       item.codigo_peca || 'N/A',
       item.descricao || 'N/A',
       item.quantidade ?? 'N/A',
