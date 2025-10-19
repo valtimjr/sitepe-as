@@ -230,15 +230,15 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>AF</TableHead>
-                  <TableHead>Editar OS</TableHead> {/* Nova coluna para o botão de edição */}
-                  <TableHead>OS</TableHead>
-                  <TableHead>Início</TableHead>
-                  <TableHead>Fim</TableHead>
-                  <TableHead>Serviço Executado</TableHead>
-                  <TableHead>Peça</TableHead>
-                  <TableHead>Quantidade</TableHead>
-                  <TableHead className="text-right">Ações</TableHead> {/* Ações agora só para exclusão */}
+                  <TableHead className="w-fit">AF</TableHead>
+                  <TableHead className="w-fit">Editar OS</TableHead> {/* Nova coluna para o botão de edição */}
+                  <TableHead className="w-fit">OS</TableHead>
+                  <TableHead className="w-fit">Início</TableHead>
+                  <TableHead className="w-fit">Fim</TableHead>
+                  <TableHead className="w-auto whitespace-normal break-words">Serviço Executado</TableHead>
+                  <TableHead className="w-auto whitespace-normal break-words">Peça</TableHead>
+                  <TableHead className="w-fit">Quantidade</TableHead>
+                  <TableHead className="text-right w-fit">Ações</TableHead> {/* Ações agora só para exclusão */}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -248,8 +248,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                       <TableRow key={part.id} className={partIndex === 0 ? 'border-t-4 border-blue-400 dark:border-blue-600' : ''}>
                         {partIndex === 0 ? (
                           <>
-                            <TableCell rowSpan={group.parts.length} className="font-medium align-top">{group.af}</TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top"> {/* Célula para o botão de edição */}
+                            <TableCell rowSpan={group.parts.length} className="font-medium align-top w-fit">{group.af}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top w-fit"> {/* Célula para o botão de edição */}
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button 
@@ -270,19 +270,19 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                 <TooltipContent>Editar Ordem de Serviço</TooltipContent>
                               </Tooltip>
                             </TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top">{group.os || ''}</TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top">{group.hora_inicio || ''}</TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top">{group.hora_final || ''}</TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top">{group.servico_executado || ''}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.os || ''}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.hora_inicio || ''}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.hora_final || ''}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top w-auto whitespace-normal break-words">{group.servico_executado || ''}</TableCell>
                           </>
                         ) : null}
-                        <TableCell>
+                        <TableCell className="w-auto whitespace-normal break-words">
                           {part.codigo_peca && part.descricao 
                             ? `${part.codigo_peca} - ${part.descricao}` 
                             : part.codigo_peca || part.descricao || ''}
                         </TableCell>
-                        <TableCell>{part.quantidade ?? ''}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="w-fit">{part.quantidade ?? ''}</TableCell>
+                        <TableCell className="text-right w-fit">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(part.id)}>
