@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -7,31 +7,53 @@ interface AfSearchInputProps {
   onChange: (value: string) => void;
   availableAfs: string[];
   onSelectAf: (af: string) => void;
-  readOnly?: boolean; // Adicionando a prop readOnly
+  readOnly?: boolean;
 }
 
 const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availableAfs, onSelectAf, readOnly }) => {
-  const [filteredAfs, setFilteredAfs] = useState<string[]>([]);
-  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [displayedAfs, setDisplayedAfs] = useState<string[]>(availableAfs); // Inicializa com todos os AFs
+  const inputRef = useRef<HTMLInputElement>(null);
 
+  // Atualiza displayedAfs quando availableAfs muda (ex: carregamento inicial ou atualização)
   useEffect(() => {
-    if (value.length > 0) {
-      setFilteredAfs(
-        availableAfs.filter((af) =>
-          af.toLowerCase().includes(value.toLowerCase())
-        )
-      );
-    } else {
-      setFilteredAfs(availableAfs);
-    }
-  }, [value, availableAfs]);
+    setDisplayedAfs(availableAfs);
+  }, [availableAfs]);
 
-  const handleSelectAndClose = (af: string) => {
-    onSelectAf(af);
-    setIsInputFocused(false);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    onChange(newValue); // Atualiza o estado pai
+
+    // Filtra os AFs exibidos com base no novo valor do input
+    setDisplayedAfs(
+      availableAfs.filter((af) =>
+        af.toLowerCase().includes(newValue.toLowerCase())
+      )
+    );
+    setIsDropdownOpen(true); // Garante que o dropdown esteja aberto ao digitar
   };
 
-  const shouldShowDropdown = isInputFocused && (value.length > 0 ? filteredAfs.length > 0 : true);
+  const handleInputFocus = () => {
+    if (readOnly) return; // Se for somente leitura, não faz nada ao focar
+    setIsDropdownOpen(true);
+    // Ao focar, sempre mostra todos os AFs disponíveis, independentemente do valor atual
+    setDisplayedAfs(availableAfs);
+  };
+
+  const handleInputBlur = () => {
+    // Atraso para permitir que os eventos de clique nos itens da lista sejam registrados
+    setTimeout(() => {
+      setIsDropdownOpen(false);
+    }, 150);
+  };
+
+  const handleSelectAndClose = (af: string) => {
+    onSelectAf(af); // Atualiza o estado pai com o AF selecionado
+    setIsDropdownOpen(false);
+    if (inputRef.current) {
+      inputRef.current.blur(); // Desfoca manualmente o input após a seleção
+    }
+  };
 
   return (
     <div className="relative flex w-full items-center space-x-2">
@@ -42,30 +64,31 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
           type="text"
           placeholder="Ex: AF12345"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setIsInputFocused(true)}
-          onBlur={() => {
-            setTimeout(() => setIsInputFocused(false), 100);
-          }}
+          onChange={handleInputChange}
+          onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
           className="w-full"
           required
-          readOnly={readOnly} // Aplicando a prop readOnly aqui
+          readOnly={readOnly}
+          ref={inputRef}
         />
-        {shouldShowDropdown && (
+        {isDropdownOpen && !readOnly && ( // Só mostra o dropdown se não for somente leitura
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto">
-            {filteredAfs.length === 0 && value.length > 0 ? (
+            {displayedAfs.length === 0 && value.length > 0 ? (
               <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhum AF encontrado.</li>
-            ) : (
-              filteredAfs.map((af) => (
+            ) : displayedAfs.length > 0 ? (
+              displayedAfs.map((afItem) => (
                 <li
-                  key={af}
+                  key={afItem}
                   className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleSelectAndClose(af)}
+                  onMouseDown={(e) => e.preventDefault()} // Previne o onBlur de fechar antes do onClick
+                  onClick={() => handleSelectAndClose(afItem)}
                 >
-                  {af}
+                  {afItem}
                 </li>
               ))
+            ) : (
+              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhum AF disponível.</li>
             )}
           </ul>
         )}
