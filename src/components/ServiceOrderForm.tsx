@@ -228,7 +228,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 setOs(value === '' ? undefined : parseInt(value));
               }}
               placeholder="Número da Ordem de Serviço"
-              min="0" {/* Adicionado o atributo min */}
+              min="0"
               max="99999"
               readOnly={!!editingServiceOrder}
             />
