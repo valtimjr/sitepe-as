@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem } from '@/services/partListService';
 import { generatePartsListPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy } from 'lucide-react';
+import { Trash2, Download, Copy, Share2 } from 'lucide-react'; // Adicionado Share2
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,6 +88,30 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     }
   };
 
+  const handleShareOnWhatsApp = () => {
+    if (displayedItems.length === 0) {
+      showError('A lista está vazia. Adicione itens antes de compartilhar.');
+      return;
+    }
+
+    let textToShare = `*Lista de Peças:*\n\n`;
+    displayedItems.forEach((item, index) => {
+      textToShare += `${index + 1}. Código: ${item.codigo_peca || 'N/A'}\n`;
+      textToShare += `   Descrição: ${item.descricao || 'N/A'}\n`;
+      textToShare += `   Quantidade: ${item.quantidade ?? 'N/A'}\n`;
+      if (item.af) {
+        textToShare += `   AF: ${item.af}\n`;
+      }
+      textToShare += `\n`;
+    });
+
+    const encodedText = encodeURIComponent(textToShare.trim());
+    const whatsappUrl = `https://wa.me/?text=${encodedText}`;
+
+    window.open(whatsappUrl, '_blank');
+    showSuccess('Lista de peças pronta para compartilhar no WhatsApp!');
+  };
+
   const handleClearList = async () => {
     try {
       await clearSimplePartsList(); // Chama a nova função para limpar a lista de peças simples
@@ -117,6 +141,9 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
         <div className="flex space-x-2">
           <Button onClick={handleCopyList} disabled={displayedItems.length === 0} className="flex items-center gap-2">
             <Copy className="h-4 w-4" /> Copiar Lista
+          </Button>
+          <Button onClick={handleShareOnWhatsApp} disabled={displayedItems.length === 0} className="flex items-center gap-2">
+            <Share2 className="h-4 w-4" /> Compartilhar
           </Button>
           <Button onClick={handleExportPdf} disabled={displayedItems.length === 0} className="flex items-center gap-2">
             <Download className="h-4 w-4" /> Exportar PDF
