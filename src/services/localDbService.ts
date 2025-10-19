@@ -8,17 +8,25 @@ export interface Part {
   tags?: string;
 }
 
-export interface ListItem {
+export interface SimplePartItem {
   id: string;
-  codigo_peca?: string; // Novo: Opcional
-  descricao?: string;   // Novo: Opcional
-  quantidade?: number;  // Novo: Opcional
-  af?: string; // Tornando AF opcional
+  codigo_peca: string;
+  descricao: string;
+  quantidade: number;
+  created_at?: Date;
+}
+
+export interface ServiceOrderItem {
+  id: string;
+  codigo_peca?: string;
+  descricao?: string;
+  quantidade?: number;
+  af: string; // AF é obrigatório para ServiceOrderItem
   os?: number;
   hora_inicio?: string;
   hora_final?: string;
   servico_executado?: string;
-  created_at?: Date; // Adicionado campo created_at
+  created_at?: Date;
 }
 
 export interface Af {
@@ -27,16 +35,63 @@ export interface Af {
 }
 
 class LocalDexieDb extends Dexie {
-  listItems!: Table<ListItem>;
+  simplePartsList!: Table<SimplePartItem>;
+  serviceOrderItems!: Table<ServiceOrderItem>;
   parts!: Table<Part>;
-  afs!: Table<Af>; // Nova tabela para os AFs
+  afs!: Table<Af>;
 
   constructor() {
     super('PartsListDatabase');
     this.version(1).stores({
-      listItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at', // Adicionado created_at ao índice
+      listItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags',
-      afs: '++id, af_number', // Adiciona a tabela de AFs
+      afs: '++id, af_number',
+    });
+    this.version(2).stores({
+      simplePartsList: '++id, codigo_peca, descricao, created_at',
+      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
+      parts: '++id, codigo, descricao, tags',
+      afs: '++id, af_number',
+    }).upgrade(async tx => {
+      // Migração de dados da versão 1 para a versão 2
+      const oldListItems = await tx.table('listItems').toArray();
+      const simpleItems: SimplePartItem[] = [];
+      const serviceItems: ServiceOrderItem[] = [];
+
+      oldListItems.forEach((item: any) => {
+        if (item.af && item.af.trim() !== '') {
+          // É um item de ordem de serviço
+          serviceItems.push({
+            id: item.id,
+            codigo_peca: item.codigo_peca,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            af: item.af,
+            os: item.os,
+            hora_inicio: item.hora_inicio,
+            hora_final: item.hora_final,
+            servico_executado: item.servico_executado,
+            created_at: item.created_at,
+          });
+        } else {
+          // É um item de peça simples
+          // Garante que os campos obrigatórios para SimplePartItem estejam presentes
+          if (item.codigo_peca && item.descricao && item.quantidade !== undefined) {
+            simpleItems.push({
+              id: item.id,
+              codigo_peca: item.codigo_peca,
+              descricao: item.descricao,
+              quantidade: item.quantidade,
+              created_at: item.created_at,
+            });
+          }
+        }
+      });
+
+      await tx.table('simplePartsList').bulkAdd(simpleItems);
+      await tx.table('serviceOrderItems').bulkAdd(serviceItems);
+      // A tabela 'listItems' será implicitamente removida/redefinida pelo Dexie
+      // ao aplicar o novo esquema da versão 2.
     });
   }
 }
@@ -101,31 +156,54 @@ export const clearLocalAfs = async (): Promise<void> => {
   await localDb.afs.clear();
 };
 
-// --- List Items Management (IndexedDB) ---
+// --- Simple Parts List Management (IndexedDB) ---
 
-export const getLocalListItems = async (): Promise<ListItem[]> => {
-  return localDb.listItems.toArray();
+export const getLocalSimplePartsListItems = async (): Promise<SimplePartItem[]> => {
+  return localDb.simplePartsList.toArray();
 };
 
-export const addLocalItemToList = async (item: Omit<ListItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
-  const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() }; // Adiciona created_at
-  await localDb.listItems.add(newItem);
-  return newItem.id; // Retorna o ID gerado
+export const addLocalSimplePartItem = async (item: Omit<SimplePartItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
+  const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
+  await localDb.simplePartsList.add(newItem);
+  return newItem.id;
 };
 
-export const updateLocalListItem = async (updatedItem: ListItem): Promise<void> => {
-  await localDb.listItems.update(updatedItem.id, updatedItem);
+export const updateLocalSimplePartItem = async (updatedItem: SimplePartItem): Promise<void> => {
+  await localDb.simplePartsList.update(updatedItem.id, updatedItem);
 };
 
-export const deleteLocalListItem = async (id: string): Promise<void> => {
-  await localDb.listItems.delete(id);
+export const deleteLocalSimplePartItem = async (id: string): Promise<void> => {
+  await localDb.simplePartsList.delete(id);
 };
 
-export const clearLocalList = async (): Promise<void> => {
-  await localDb.listItems.clear();
+export const clearLocalSimplePartsList = async (): Promise<void> => {
+  await localDb.simplePartsList.clear();
 };
 
-// This function will now get AFs from the dedicated 'afs' table
+// --- Service Order Items Management (IndexedDB) ---
+
+export const getLocalServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
+  return localDb.serviceOrderItems.toArray();
+};
+
+export const addLocalServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
+  const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
+  await localDb.serviceOrderItems.add(newItem);
+  return newItem.id;
+};
+
+export const updateLocalServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
+  await localDb.serviceOrderItems.update(updatedItem.id, updatedItem);
+};
+
+export const deleteLocalServiceOrderItem = async (id: string): Promise<void> => {
+  await localDb.serviceOrderItems.delete(id);
+};
+
+export const clearLocalServiceOrderItems = async (): Promise<void> => {
+  await localDb.serviceOrderItems.clear();
+};
+
 export const getLocalUniqueAfs = async (): Promise<string[]> => {
   const afs = await localDb.afs.toArray();
   return afs.map(af => af.af_number).sort();

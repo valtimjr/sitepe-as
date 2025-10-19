@@ -2,24 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import PartListItemForm from '@/components/PartListItemForm';
 import PartsListDisplay from '@/components/PartsListDisplay';
-import { getListItems, ListItem } from '@/services/partListService';
+import { getSimplePartsListItems, SimplePartItem } from '@/services/partListService'; // Usar getSimplePartsListItems e SimplePartItem
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 
 const PartsList = () => {
-  const [listItems, setListItems] = useState<ListItem[]>([]);
+  const [listItems, setListItems] = useState<SimplePartItem[]>([]); // Agora usa SimplePartItem
   const [isLoading, setIsLoading] = useState(true);
 
   const loadListItems = async () => {
     setIsLoading(true);
     try {
-      const items = await getListItems();
+      const items = await getSimplePartsListItems(); // Chama a nova função
       setListItems(items);
     } catch (error) {
       showError('Erro ao carregar a lista de peças.');
-      console.error('Failed to load list items:', error);
+      console.error('Failed to load simple parts list items:', error);
       setListItems([]);
     } finally {
       setIsLoading(false);

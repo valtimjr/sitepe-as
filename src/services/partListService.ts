@@ -2,11 +2,6 @@ import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import {
   localDb,
-  getLocalListItems,
-  addLocalItemToList,
-  updateLocalListItem,
-  deleteLocalListItem,
-  clearLocalList,
   getLocalUniqueAfs,
   bulkAddLocalParts,
   getLocalParts,
@@ -15,14 +10,24 @@ import {
   bulkAddLocalAfs,
   getLocalAfs,
   Part as LocalPart,
-  ListItem as LocalListItem,
-  Af as LocalAf
+  SimplePartItem as LocalSimplePartItem, // Nova importação
+  ServiceOrderItem as LocalServiceOrderItem, // Nova importação
+  Af as LocalAf,
+  addLocalSimplePartItem, // Nova função
+  getLocalSimplePartsListItems, // Nova função
+  updateLocalSimplePartItem, // Nova função
+  deleteLocalSimplePartItem, // Nova função
+  clearLocalSimplePartsList, // Nova função
+  addLocalServiceOrderItem, // Nova função
+  getLocalServiceOrderItems, // Nova função
+  updateLocalServiceOrderItem, // Nova função
+  deleteLocalServiceOrderItem, // Nova função
+  clearLocalServiceOrderItems, // Nova função
 } from '@/services/localDbService';
 
 export interface Part extends LocalPart {}
-
-export interface ListItem extends LocalListItem {}
-
+export interface SimplePartItem extends LocalSimplePartItem {} // Nova interface exportada
+export interface ServiceOrderItem extends LocalServiceOrderItem {} // Nova interface exportada
 export interface Af extends LocalAf {}
 
 const seedPartsFromCsv = async (): Promise<void> => {
@@ -49,7 +54,7 @@ const seedPartsFromCsv = async (): Promise<void> => {
             descricao: row.descricao,
             tags: row.tags || '',
           }));
-          console.log('Parsed parts from CSV, including tags:', parsedParts); // Log para verificar as tags
+          console.log('Parsed parts from CSV, including tags:', parsedParts);
           await bulkAddLocalParts(parsedParts);
           console.log('Parts seeded from CSV to IndexedDB.');
           resolve();
@@ -114,24 +119,46 @@ export const updatePart = async (updatedPart: Part): Promise<void> => {
   await updateLocalPart(updatedPart);
 };
 
-export const getListItems = async (): Promise<ListItem[]> => {
-  return getLocalListItems();
+// --- Funções para SimplePartItem (Lista de Peças Simples) ---
+export const getSimplePartsListItems = async (): Promise<SimplePartItem[]> => {
+  return getLocalSimplePartsListItems();
 };
 
-export const addItemToList = async (item: Omit<ListItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
-  return addLocalItemToList(item, customCreatedAt); // Agora retorna o ID
+export const addSimplePartItem = async (item: Omit<SimplePartItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
+  return addLocalSimplePartItem(item, customCreatedAt);
 };
 
-export const updateListItem = async (updatedItem: ListItem): Promise<void> => {
-  await updateLocalListItem(updatedItem);
+export const updateSimplePartItem = async (updatedItem: SimplePartItem): Promise<void> => {
+  await updateLocalSimplePartItem(updatedItem);
 };
 
-export const deleteListItem = async (id: string): Promise<void> => {
-  await deleteLocalListItem(id);
+export const deleteSimplePartItem = async (id: string): Promise<void> => {
+  await deleteLocalSimplePartItem(id);
 };
 
-export const clearList = async (): Promise<void> => {
-  await clearLocalList();
+export const clearSimplePartsList = async (): Promise<void> => {
+  await clearLocalSimplePartsList();
+};
+
+// --- Funções para ServiceOrderItem (Lista de Ordens de Serviço) ---
+export const getServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
+  return getLocalServiceOrderItems();
+};
+
+export const addServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
+  return addLocalServiceOrderItem(item, customCreatedAt);
+};
+
+export const updateServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
+  await updateLocalServiceOrderItem(updatedItem);
+};
+
+export const deleteServiceOrderItem = async (id: string): Promise<void> => {
+  await deleteLocalServiceOrderItem(id);
+};
+
+export const clearServiceOrderList = async (): Promise<void> => {
+  await clearLocalServiceOrderItems();
 };
 
 export const getUniqueAfs = async (): Promise<string[]> => {

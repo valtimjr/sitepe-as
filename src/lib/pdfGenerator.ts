@@ -1,11 +1,11 @@
 import jsPDF from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
-import { ListItem } from '@/services/partListService';
+import { SimplePartItem, ServiceOrderItem } from '@/services/partListService'; // Importar as novas interfaces
 
 // Aplica o plugin explicitamente ao jsPDF
 applyPlugin(jsPDF);
 
-export const generatePartsListPdf = (listItems: ListItem[], title: string = 'Lista de Peças'): void => {
+export const generatePartsListPdf = (listItems: SimplePartItem[], title: string = 'Lista de Peças'): void => {
   const doc = new jsPDF();
 
   doc.setFontSize(18);
@@ -19,7 +19,7 @@ export const generatePartsListPdf = (listItems: ListItem[], title: string = 'Lis
     const itemData = [
       item.codigo_peca || 'N/A',
       item.descricao || 'N/A',
-      item.quantidade ?? 'N/A', // Usar ?? para 0 ou undefined
+      item.quantidade ?? 'N/A',
     ];
     tableRows.push(itemData);
   });
@@ -37,7 +37,7 @@ export const generatePartsListPdf = (listItems: ListItem[], title: string = 'Lis
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);
 };
 
-export const generateServiceOrderPdf = (listItems: ListItem[], title: string = 'Ordens de Serviço'): void => {
+export const generateServiceOrderPdf = (listItems: ServiceOrderItem[], title: string = 'Ordens de Serviço'): void => {
   const doc = new jsPDF();
 
   doc.setFontSize(18);
@@ -52,7 +52,8 @@ export const generateServiceOrderPdf = (listItems: ListItem[], title: string = '
     servico_executado?: string;
     hora_inicio?: string;
     hora_final?: string;
-    parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[]; // Campos de peça opcionais
+    createdAt: Date;
+    parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
   } } = {};
 
   listItems.forEach(item => {
@@ -64,8 +65,13 @@ export const generateServiceOrderPdf = (listItems: ListItem[], title: string = '
         servico_executado: item.servico_executado,
         hora_inicio: item.hora_inicio,
         hora_final: item.hora_final,
+        createdAt: item.created_at || new Date(),
         parts: [],
       };
+    } else {
+      if (item.created_at && groupedForPdf[key].createdAt && item.created_at < groupedForPdf[key].createdAt) {
+        groupedForPdf[key].createdAt = item.created_at;
+      }
     }
     groupedForPdf[key].parts.push({
       id: item.id,
@@ -87,22 +93,22 @@ export const generateServiceOrderPdf = (listItems: ListItem[], title: string = '
     group.parts.forEach((part, index) => {
       const partDescription = part.codigo_peca && part.descricao 
         ? `${part.codigo_peca} - ${part.descricao}` 
-        : part.codigo_peca || part.descricao || ''; // Alterado para ''
+        : part.codigo_peca || part.descricao || '';
 
       if (index === 0) {
         tableRows.push([
           { content: group.af, rowSpan: group.parts.length, styles: { valign: 'top', fontStyle: 'bold' } },
-          { content: group.os || '', rowSpan: group.parts.length, styles: { valign: 'top' } }, // Alterado para ''
-          { content: group.hora_inicio || '', rowSpan: group.parts.length, styles: { valign: 'top' } }, // Alterado para ''
-          { content: group.hora_final || '', rowSpan: group.parts.length, styles: { valign: 'top' } }, // Alterado para ''
-          { content: group.servico_executado || '', rowSpan: group.parts.length, styles: { valign: 'top', cellWidth: 40 } }, // Alterado para ''
+          { content: group.os || '', rowSpan: group.parts.length, styles: { valign: 'top' } },
+          { content: group.hora_inicio || '', rowSpan: group.parts.length, styles: { valign: 'top' } },
+          { content: group.hora_final || '', rowSpan: group.parts.length, styles: { valign: 'top' } },
+          { content: group.servico_executado || '', rowSpan: group.parts.length, styles: { valign: 'top', cellWidth: 40 } },
           partDescription,
-          part.quantidade ?? '', // Alterado para ''
+          part.quantidade ?? '',
         ]);
       } else {
         tableRows.push([
           partDescription,
-          part.quantidade ?? '', // Alterado para ''
+          part.quantidade ?? '',
         ]);
       }
     });

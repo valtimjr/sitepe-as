@@ -2,10 +2,10 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ListItem, clearList, deleteListItem, addItemToList, updateListItem } from '@/services/partListService'; // Importar updateListItem
+import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem, updateServiceOrderItem } from '@/services/partListService'; // Usar ServiceOrderItem e novas funções
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil } from 'lucide-react'; // Adicionado Pencil
+import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { localDb } from '@/services/localDbService';
+import { localDb } from '@/services/localDbService'; // Ainda precisamos do localDb para bulkDelete
 
 interface ServiceOrderDetails {
   af: string;
@@ -33,11 +33,11 @@ interface ServiceOrderDetails {
   hora_final?: string;
   servico_executado?: string;
   createdAt?: Date;
-  mode: 'add_part' | 'edit_details'; // Adicionado para diferenciar os modos
+  mode: 'add_part' | 'edit_details';
 }
 
 interface ServiceOrderListDisplayProps {
-  listItems: ListItem[];
+  listItems: ServiceOrderItem[]; // Agora espera ServiceOrderItem
   onListChanged: () => void;
   isLoading: boolean;
   onEditServiceOrder: (details: ServiceOrderDetails) => void;
@@ -142,12 +142,12 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   const handleClearList = async () => {
     try {
-      await clearList();
+      await clearServiceOrderList(); // Chama a nova função
       onListChanged();
       showSuccess('Lista limpa com sucesso!');
     } catch (error) {
       showError('Erro ao limpar a lista.');
-      console.error('Failed to clear list:', error);
+      console.error('Failed to clear service order list:', error);
     }
   };
 
@@ -165,12 +165,12 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         hora_inicio: itemToDelete.hora_inicio,
         hora_final: itemToDelete.hora_final,
         servico_executado: itemToDelete.servico_executado,
-        mode: editingServiceOrder?.mode || 'add_part', // Mantém o modo atual
+        mode: editingServiceOrder?.mode || 'add_part',
       };
 
       const originalCreatedAt = itemToDelete.created_at;
 
-      await deleteListItem(id);
+      await deleteServiceOrderItem(id); // Chama a nova função
       showSuccess('Item removido da lista.');
 
       const remainingItemsForThisSO = listItems.filter(item =>
@@ -190,7 +190,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         );
 
         if (!blankItemExists) {
-          await addItemToList({
+          await addServiceOrderItem({ // Chama a nova função
             af: currentSOIdentifier.af,
             os: currentSOIdentifier.os,
             hora_inicio: currentSOIdentifier.hora_inicio,
@@ -225,7 +225,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
       if (itemsToDelete.length > 0) {
         const idsToDelete = itemsToDelete.map(item => item.id);
-        await localDb.listItems.bulkDelete(idsToDelete);
+        await localDb.serviceOrderItems.bulkDelete(idsToDelete); // Usa a tabela correta
         showSuccess(`Ordem de Serviço AF: ${group.af}${group.os ? `, OS: ${group.os}` : ''} e seus itens foram excluídos.`);
         onListChanged();
       } else {
@@ -364,7 +364,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                       hora_final: group.hora_final, 
                                       servico_executado: group.servico_executado,
                                       createdAt: group.createdAt,
-                                      mode: 'add_part' // Modo para adicionar nova peça
+                                      mode: 'add_part'
                                     })}>
                                       <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Nova Peça
                                     </DropdownMenuItem>
@@ -375,7 +375,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                       hora_final: group.hora_final, 
                                       servico_executado: group.servico_executado,
                                       createdAt: group.createdAt,
-                                      mode: 'edit_details' // Novo modo para editar detalhes
+                                      mode: 'edit_details'
                                     })}>
                                       <Pencil className="mr-2 h-4 w-4" /> Editar Detalhes da OS
                                     </DropdownMenuItem>
@@ -414,7 +414,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                 ? `${part.codigo_peca} - ${part.descricao}` 
                                 : part.codigo_peca || part.descricao || ''}
                             </span>
-                            {isEditingThisServiceOrder && editingServiceOrder?.mode === 'edit_details' && ( // Ícone de lixeira visível apenas no modo 'edit_details'
+                            {isEditingThisServiceOrder && editingServiceOrder?.mode === 'edit_details' && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(part.id)} className="ml-2">

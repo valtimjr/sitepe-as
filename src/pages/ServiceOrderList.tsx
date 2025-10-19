@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import ServiceOrderForm from '@/components/ServiceOrderForm';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
-import { getListItems, ListItem } from '@/services/partListService';
+import { getServiceOrderItems, ServiceOrderItem } from '@/services/partListService'; // Usar getServiceOrderItems e ServiceOrderItem
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, FilePlus } from 'lucide-react';
@@ -19,17 +19,15 @@ interface ServiceOrderDetails {
 }
 
 const ServiceOrderList = () => {
-  const [listItems, setListItems] = useState<ListItem[]>([]);
+  const [listItems, setListItems] = useState<ServiceOrderItem[]>([]); // Agora usa ServiceOrderItem
   const [isLoading, setIsLoading] = useState(true);
   const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
-  const [isCreatingNewOrder, setIsCreatingNewOrder] = useState(false); // Novo estado
+  const [isCreatingNewOrder, setIsCreatingNewOrder] = useState(false);
 
-  // 1. loadListItems: Apenas responsável por buscar e definir listItems.
-  // Não deve depender ou definir editingServiceOrder para evitar loops.
   const loadListItems = useCallback(async () => {
     setIsLoading(true);
     try {
-      const items = await getListItems();
+      const items = await getServiceOrderItems(); // Chama a nova função
       setListItems(items);
     } catch (error) {
       showError('Erro ao carregar a lista de ordens de serviço.');
@@ -38,18 +36,15 @@ const ServiceOrderList = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [setListItems, setIsLoading, showError]); // Dependências são setters estáveis e uma função utilitária
+  }, [setListItems, setIsLoading, showError]);
 
-  // 2. Efeito para chamar loadListItems na montagem e quando o callback loadListItems muda (o que não acontecerá se suas dependências forem estáveis)
   useEffect(() => {
     loadListItems();
   }, [loadListItems]);
 
-  // 3. Efeito para gerenciar editingServiceOrder com base nas mudanças em listItems,
-  // mas sem causar um loop com loadListItems.
   useEffect(() => {
     if (listItems.length > 0) {
-      const uniqueServiceOrders: { [key: string]: ListItem } = {};
+      const uniqueServiceOrders: { [key: string]: ServiceOrderItem } = {};
       listItems.forEach(item => {
         const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}`;
         if (!uniqueServiceOrders[key] || (item.created_at && uniqueServiceOrders[key].created_at && item.created_at > uniqueServiceOrders[key].created_at!)) {
@@ -58,14 +53,13 @@ const ServiceOrderList = () => {
       });
 
       const sortedUniqueOrders = Object.values(uniqueServiceOrders).sort((a, b) => {
-        if (!a.createdAt || !b.createdAt) return 0;
-        return b.createdAt.getTime() - a.createdAt.getTime();
+        if (!a.created_at || !b.created_at) return 0;
+        return b.created_at.getTime() - a.created_at.getTime();
       });
 
       if (sortedUniqueOrders.length > 0) {
         const latestOrder = sortedUniqueOrders[0];
         
-        // Verifica se a ordem atualmente em edição ainda é válida na nova lista de itens
         const isCurrentEditedOrderStillValid = editingServiceOrder && listItems.some(item =>
           item.af === editingServiceOrder.af &&
           (item.os === editingServiceOrder.os || (item.os === undefined && editingServiceOrder.os === undefined)) &&
@@ -74,7 +68,6 @@ const ServiceOrderList = () => {
           (item.servico_executado === editingServiceOrder.servico_executado || (editingServiceOrder.servico_executado === undefined && item.servico_executado === undefined))
         );
 
-        // Só auto-seleciona se não estiver criando uma nova ordem E (não houver ordem em edição OU a ordem em edição não for mais válida)
         if (!isCreatingNewOrder && (!editingServiceOrder || !isCurrentEditedOrderStillValid)) {
           setEditingServiceOrder({
             af: latestOrder.af,
@@ -83,24 +76,20 @@ const ServiceOrderList = () => {
             hora_final: latestOrder.hora_final,
             servico_executado: latestOrder.servico_executado,
             createdAt: latestOrder.created_at,
-            mode: 'add_part', // Modo padrão ao selecionar automaticamente
+            mode: 'add_part',
           });
           showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
         }
-        // Se uma ordem já estiver sendo editada e ainda for válida, não faz nada aqui.
-        // Seus detalhes serão atualizados pelo useEffect do formulário, se necessário.
       } else {
-        // Se não houver itens na lista, limpa qualquer estado de edição
         setEditingServiceOrder(null);
       }
     } else {
-      // Se listItems ficar vazio, limpa editingServiceOrder
       setEditingServiceOrder(null);
     }
-  }, [listItems, editingServiceOrder, setEditingServiceOrder, showSuccess, showError, isCreatingNewOrder]); // Adicionado isCreatingNewOrder às dependências
+  }, [listItems, editingServiceOrder, setEditingServiceOrder, showSuccess, showError, isCreatingNewOrder]);
 
   const handleEditServiceOrder = useCallback((details: ServiceOrderDetails) => {
-    setIsCreatingNewOrder(false); // Ao editar uma OS existente, não estamos criando uma nova
+    setIsCreatingNewOrder(false);
     setEditingServiceOrder(details);
     if (details.mode === 'edit_details') {
       showSuccess(`Editando detalhes da Ordem de Serviço AF: ${details.af}${details.os ? `, OS: ${details.os}` : ''}`);
@@ -112,7 +101,7 @@ const ServiceOrderList = () => {
   const handleNewServiceOrder = useCallback(() => {
     console.log("handleNewServiceOrder called: Setting editingServiceOrder to null and isCreatingNewOrder to true");
     setEditingServiceOrder(null);
-    setIsCreatingNewOrder(true); // Indica que uma nova ordem está sendo iniciada
+    setIsCreatingNewOrder(true);
     showSuccess('Iniciando nova Ordem de Serviço.');
   }, [setEditingServiceOrder, showSuccess, setIsCreatingNewOrder]);
 
@@ -137,7 +126,7 @@ const ServiceOrderList = () => {
           editingServiceOrder={editingServiceOrder}
           onNewServiceOrder={handleNewServiceOrder}
           listItems={listItems}
-          setIsCreatingNewOrder={setIsCreatingNewOrder} // Passando o setter
+          setIsCreatingNewOrder={setIsCreatingNewOrder}
         />
         <ServiceOrderListDisplay 
           listItems={listItems} 
