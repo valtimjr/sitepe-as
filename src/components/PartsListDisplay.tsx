@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem } from '@/services/partListService';
 import { generatePartsListPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, Share2 } from 'lucide-react'; // Adicionado Share2
+import { Trash2, Download, Copy, Share2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +21,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 
 interface PartsListDisplayProps {
-  listItems: SimplePartItem[]; // Agora espera SimplePartItem
+  listItems: SimplePartItem[];
   onListChanged: () => void;
 }
 
@@ -37,7 +37,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     showSuccess('PDF gerado com sucesso!');
   };
 
-  const formatListText = () => {
+  // Função para formatar o texto para a área de transferência (com tabulações para alinhamento)
+  const formatListTextForClipboard = () => {
     const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
     const rows = displayedItems.map(item => [
       item.codigo_peca || '',
@@ -46,7 +47,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       item.af || ''
     ]);
 
-    // Calculate max widths for each column
     const maxColWidths = headers.map((header, colIndex) => {
       let maxWidth = header.length;
       rows.forEach(row => {
@@ -59,20 +59,35 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     });
 
     let formattedText = '';
-
-    // Add header row, padded with spaces and joined by tabs
     formattedText += headers.map((header, colIndex) =>
       header.padEnd(maxColWidths[colIndex])
-    ).join('\t') + '\n'; // Use tab as separator
+    ).join('\t') + '\n'; // Usa tab como separador para clipboard
 
-    // Add data rows, padded with spaces and joined by tabs
     rows.forEach(row => {
       formattedText += row.map((cell, colIndex) =>
         (String(cell || '')).padEnd(maxColWidths[colIndex])
       ).join('\t') + '\n';
     });
 
-    return formattedText.trim(); // Remove trailing newline
+    return formattedText.trim();
+  };
+
+  // Função para formatar o texto especificamente para o WhatsApp (sem padding, com separador claro)
+  const formatListTextForWhatsApp = () => {
+    const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
+    let textToShare = headers.join(' | ') + '\n'; // Usa ' | ' como separador
+
+    displayedItems.forEach(item => {
+      const itemData = [
+        item.codigo_peca || '',
+        item.descricao || '',
+        item.quantidade !== undefined ? item.quantidade.toString() : '',
+        item.af || ''
+      ];
+      textToShare += itemData.join(' | ') + '\n'; // Usa ' | ' como separador
+    });
+
+    return textToShare.trim();
   };
 
   const handleCopyList = async () => {
@@ -81,7 +96,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       return;
     }
 
-    const textToCopy = formatListText();
+    const textToCopy = formatListTextForClipboard();
 
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -98,7 +113,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       return;
     }
 
-    const textToShare = formatListText();
+    const textToShare = formatListTextForWhatsApp(); // Usa a nova função de formatação para WhatsApp
     const encodedText = encodeURIComponent(textToShare);
     const whatsappUrl = `https://wa.me/?text=${encodedText}`;
 
@@ -108,7 +123,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
   const handleClearList = async () => {
     try {
-      await clearSimplePartsList(); // Chama a nova função para limpar a lista de peças simples
+      await clearSimplePartsList();
       onListChanged();
       showSuccess('Lista de peças simples limpa com sucesso!');
     } catch (error) {
@@ -119,7 +134,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
   const handleDeleteItem = async (id: string) => {
     try {
-      await deleteSimplePartItem(id); // Chama a nova função para deletar item da lista de peças simples
+      await deleteSimplePartItem(id);
       onListChanged();
       showSuccess('Item removido da lista.');
     } catch (error) {
@@ -174,7 +189,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   <TableHead>Código</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Quantidade</TableHead>
-                  <TableHead>AF</TableHead> {/* AF movido para o final */}
+                  <TableHead>AF</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -184,7 +199,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                     <TableCell className="font-medium">{item.codigo_peca || 'N/A'}</TableCell>
                     <TableCell>{item.descricao || 'N/A'}</TableCell>
                     <TableCell>{item.quantidade ?? 'N/A'}</TableCell>
-                    <TableCell className="font-medium">{item.af || ''}</TableCell> {/* Exibe o AF, agora vazio se não houver */}
+                    <TableCell className="font-medium">{item.af || ''}</TableCell>
                     <TableCell className="text-right">
                       <Tooltip>
                         <TooltipTrigger asChild>
