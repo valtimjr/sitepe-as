@@ -155,9 +155,10 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="pb-2">
         <CardTitle className="text-2xl font-bold">Lista de Peças</CardTitle>
-        <div className="flex space-x-2">
+      </CardHeader>
+      <div className="flex flex-wrap justify-end gap-2 p-4 pt-0">
           <Button onClick={handleCopyList} disabled={displayedItems.length === 0} className="flex items-center gap-2">
             <Copy className="h-4 w-4" /> Copiar Lista
           </Button>
@@ -165,10 +166,10 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
             onClick={handleShareOnWhatsApp} 
             disabled={displayedItems.length === 0} 
             variant="ghost" 
-            className="h-10 w-10 p-0 rounded-full" // Ajustado para h-10 w-10
+            className="h-10 w-10 p-0 rounded-full" 
             aria-label="Compartilhar no WhatsApp" 
           >
-            <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" /> {/* Ajustado para h-10 w-10 */}
+            <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
           </Button>
           <Button onClick={handleExportPdf} disabled={displayedItems.length === 0} className="flex items-center gap-2">
             <Download className="h-4 w-4" /> Exportar PDF
@@ -193,7 +194,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
           </AlertDialogContent>
         </AlertDialog>
         </div>
-      </CardHeader>
       <CardContent>
         {displayedItems.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione peças para começar!</p>
