@@ -1,0 +1,14 @@
+[
+  { "id": "a1b2c3d4-e5f6-4789-8234-567890abcdef", "codigo": "P001", "descricao": "Filtro de Óleo", "tags": "motor" },
+  { "id": "b2c3d4e5-f6a7-4789-8234-67890abcdef0", "codigo": "P010", "descricao": "Lâmpada H4", "tags": "iluminação" },
+  { "id": "c3d4e5f6-a7b8-4789-8234-7890abcdef01", "codigo": "P011", "descricao": "Óleo de Motor 5W30", "tags": "lubrificante" },
+  { "id": "d4e5f6a7-b8c9-4789-8234-890abcdef012", "codigo": "P012", "descricao": "Disco de Freio", "tags": "freio" },
+  { "id": "e5f6a7b8-c9d0-4789-8234-90abcdef0123", "codigo": "P002", "descricao": "Vela de Ignição", "tags": "motor" },
+  { "id": "f6a7b8c9-d0e1-4789-8234-0abcdef01234", "codigo": "P003", "descricao": "Pastilha de Freio Dianteira", "tags": "freio" },
+  { "id": "a7b8c9d0-e1f2-4789-8234-abcdef012345", "codigo": "P004", "descricao": "Amortecedor Traseiro", "tags": "suspensão" },
+  { "id": "b8c9d0e1-f2a3-4789-8234-bcdef0123456", "codigo": "P005", "descricao": "Bateria 12V 60Ah", "tags": "elétrica" },
+  { "id": "c9d0e1f2-a3b4-4789-8234-cdef01234567", "codigo": "P006", "descricao": "Correia Dentada", "tags": "motor" },
+  { "id": "d0e1f2a3-b4c5-4789-8234-def012345678", "codigo": "P007", "descricao": "Bomba de Combustível", "tags": "combustível" },
+  { "id": "e1f2a3b4-c5d6-4789-8234-ef0123456789", "codigo": "P008", "descricao": "Radiador de Água", "tags": "arrefecimento" },
+  { "id": "f2a3b4c5-d6e7-4789-8234-f01234567890", "codigo": "P009", "descricao": "Pneu Aro 15", "tags": "roda" }
+]

@@ -1,4 +1,3 @@
-import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import {
   localDb,
@@ -10,27 +9,27 @@ import {
   bulkAddLocalAfs,
   getLocalAfs,
   Part as LocalPart,
-  SimplePartItem as LocalSimplePartItem, // Nova importação
-  ServiceOrderItem as LocalServiceOrderItem, // Nova importação
+  SimplePartItem as LocalSimplePartItem,
+  ServiceOrderItem as LocalServiceOrderItem,
   Af as LocalAf,
-  addLocalSimplePartItem, // Nova função
-  getLocalSimplePartsListItems, // Nova função
-  updateLocalSimplePartItem, // Nova função
-  deleteLocalSimplePartItem, // Nova função
-  clearLocalSimplePartsList, // Nova função
-  addLocalServiceOrderItem, // Nova função
-  getLocalServiceOrderItems, // Nova função
-  updateLocalServiceOrderItem, // Nova função
-  deleteLocalServiceOrderItem, // Nova função
-  clearLocalServiceOrderItems, // Nova função
+  addLocalSimplePartItem,
+  getLocalSimplePartsListItems,
+  updateLocalSimplePartItem,
+  deleteLocalSimplePartItem,
+  clearLocalSimplePartsList,
+  addLocalServiceOrderItem,
+  getLocalServiceOrderItems,
+  updateLocalServiceOrderItem,
+  deleteLocalServiceOrderItem,
+  clearLocalServiceOrderItems,
 } from '@/services/localDbService';
 
 export interface Part extends LocalPart {}
-export interface SimplePartItem extends LocalSimplePartItem {} // Nova interface exportada
-export interface ServiceOrderItem extends LocalServiceOrderItem {} // Nova interface exportada
+export interface SimplePartItem extends LocalSimplePartItem {}
+export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends LocalAf {}
 
-const seedPartsFromCsv = async (): Promise<void> => {
+const seedPartsFromJson = async (): Promise<void> => {
   const partsCount = await localDb.parts.count();
   if (partsCount > 0) {
     console.log('Parts already seeded in IndexedDB.');
@@ -38,34 +37,16 @@ const seedPartsFromCsv = async (): Promise<void> => {
   }
 
   try {
-    const response = await fetch('/parts.csv');
+    const response = await fetch('/data/parts.json'); // <--- Lendo do novo arquivo JSON
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const csvText = await response.text();
-    await new Promise<void>((resolve, reject) => {
-      Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        complete: async (results) => {
-          const parsedParts: Part[] = results.data.map((row: any) => ({
-            id: row.id || uuidv4(),
-            codigo: row.codigo,
-            descricao: row.descricao,
-            tags: row.tags || '',
-          }));
-          console.log('Parsed parts from CSV, including tags:', parsedParts);
-          await bulkAddLocalParts(parsedParts);
-          console.log('Parts seeded from CSV to IndexedDB.');
-          resolve();
-        },
-        error: (error) => {
-          reject(error);
-        }
-      });
-    });
+    const parsedParts: Part[] = await response.json(); // <--- Parsing JSON
+    console.log('Parsed parts from JSON:', parsedParts);
+    await bulkAddLocalParts(parsedParts);
+    console.log('Parts seeded from JSON to IndexedDB.');
   } catch (error) {
-    console.error("Failed to fetch or parse parts.csv or seed IndexedDB:", error);
+    console.error("Failed to fetch or parse parts.json or seed IndexedDB:", error);
   }
 };
 
@@ -83,10 +64,13 @@ const seedAfsFromCsv = async (): Promise<void> => {
     }
     const csvText = await response.text();
     await new Promise<void>((resolve, reject) => {
+      // Papa.parse is still used for afs.csv
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
-        complete: async (results) => {
+        complete: async (results: any) => {
           const parsedAfs: Af[] = results.data.map((row: any) => ({
             id: uuidv4(),
             af_number: row.af_number,
@@ -95,7 +79,7 @@ const seedAfsFromCsv = async (): Promise<void> => {
           console.log('AFs seeded from CSV to IndexedDB.');
           resolve();
         },
-        error: (error) => {
+        error: (error: Error) => {
           reject(error);
         }
       });
@@ -106,12 +90,12 @@ const seedAfsFromCsv = async (): Promise<void> => {
 };
 
 export const getParts = async (): Promise<Part[]> => {
-  await seedPartsFromCsv();
+  await seedPartsFromJson(); // <--- Chamando a nova função
   return getLocalParts();
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  await seedPartsFromCsv();
+  await seedPartsFromJson(); // <--- Chamando a nova função
   return searchLocalParts(query);
 };
 
