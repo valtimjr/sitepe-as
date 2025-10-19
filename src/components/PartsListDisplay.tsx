@@ -26,66 +26,39 @@ interface PartsListDisplayProps {
 }
 
 const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged }) => {
+  // Filtra os itens para exibir apenas aqueles que NÃO possuem AF (ou seja, são da lista de peças simples)
+  const filteredListItems = listItems.filter(item => item.af === undefined || item.af === null || item.af === '');
+
   const handleExportPdf = () => {
-    if (listItems.length === 0) {
+    if (filteredListItems.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    generatePartsListPdf(listItems, 'Lista de Peças Automotivas');
+    generatePartsListPdf(filteredListItems, 'Lista de Peças Simples');
     showSuccess('PDF gerado com sucesso!');
   };
 
   const handleCopyList = async () => {
-    if (listItems.length === 0) {
+    if (filteredListItems.length === 0) {
       showError('A lista está vazia. Adicione itens antes de copiar.');
       return;
     }
 
-    // Agrupar itens por AF
-    const groupedByAf: { [key: string]: ListItem[] } = {};
-    listItems.forEach(item => {
-      if (!groupedByAf[item.af]) {
-        groupedByAf[item.af] = [];
+    let textToCopy = '';
+    filteredListItems.forEach(item => {
+      let itemLine = '';
+      if (item.quantidade && item.descricao && item.codigo_peca) {
+        itemLine = `${item.quantidade}-${item.descricao} ${item.codigo_peca}`;
+      } else if (item.descricao) {
+        itemLine = item.descricao;
+      } else if (item.codigo_peca) {
+        itemLine = item.codigo_peca;
+      } else {
+        itemLine = 'Item sem peça';
       }
-      groupedByAf[item.af].push(item);
+      textToCopy += `${itemLine}\n`;
     });
 
-    let textToCopy = '';
-    for (const af_number in groupedByAf) {
-      textToCopy += `${af_number}\n`; // Adiciona o número do AF
-      groupedByAf[af_number].forEach(item => {
-        // Formato: Quantidade-Descrição Código da Peça
-        let itemLine = '';
-        if (item.quantidade && item.descricao && item.codigo_peca) {
-          itemLine = `${item.quantidade}-${item.descricao} ${item.codigo_peca}`;
-        } else if (item.descricao) {
-          itemLine = item.descricao; // Se não tiver código/quantidade, mostra só a descrição
-        } else if (item.codigo_peca) {
-          itemLine = item.codigo_peca; // Se não tiver descrição, mostra só o código
-        } else {
-          itemLine = 'Item sem peça'; // Caso não tenha nenhuma informação de peça
-        }
-        
-        if (item.os) {
-          itemLine += ` (OS: ${item.os})`;
-        }
-        if (item.hora_inicio && item.hora_final) {
-          itemLine += ` (${item.hora_inicio}-${item.hora_final})`;
-        } else if (item.hora_inicio) {
-          itemLine += ` (Início: ${item.hora_inicio})`;
-        } else if (item.hora_final) {
-          itemLine += ` (Fim: ${item.hora_final})`;
-        }
-        textToCopy += `${itemLine}\n`;
-
-        if (item.servico_executado) {
-          textToCopy += `Serviço: ${item.servico_executado}\n`;
-        }
-      });
-      textToCopy += '\n'; // Adiciona uma linha em branco entre os grupos de AFs
-    }
-
-    // Remove a última linha em branco extra, se houver
     textToCopy = textToCopy.trim();
 
     try {
@@ -99,12 +72,17 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
   const handleClearList = async () => {
     try {
-      await clearList();
+      // Para limpar apenas os itens da lista de peças simples, precisamos iterar e deletar individualmente
+      // ou adicionar uma função em localDbService para limpar por condição.
+      // Por simplicidade, vamos deletar todos os itens sem AF.
+      for (const item of filteredListItems) {
+        await deleteListItem(item.id);
+      }
       onListChanged();
-      showSuccess('Lista limpa com sucesso!');
+      showSuccess('Lista de peças simples limpa com sucesso!');
     } catch (error) {
-      showError('Erro ao limpar a lista.');
-      console.error('Failed to clear list:', error);
+      showError('Erro ao limpar a lista de peças simples.');
+      console.error('Failed to clear simple parts list:', error);
     }
   };
 
@@ -124,15 +102,15 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-2xl font-bold">Lista de Peças</CardTitle>
         <div className="flex space-x-2">
-          <Button onClick={handleCopyList} disabled={listItems.length === 0} className="flex items-center gap-2">
+          <Button onClick={handleCopyList} disabled={filteredListItems.length === 0} className="flex items-center gap-2">
             <Copy className="h-4 w-4" /> Copiar Lista
           </Button>
-          <Button onClick={handleExportPdf} disabled={listItems.length === 0} className="flex items-center gap-2">
+          <Button onClick={handleExportPdf} disabled={filteredListItems.length === 0} className="flex items-center gap-2">
             <Download className="h-4 w-4" /> Exportar PDF
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={listItems.length === 0} className="flex items-center gap-2">
+              <Button variant="destructive" disabled={filteredListItems.length === 0} className="flex items-center gap-2">
                 <Trash2 className="h-4 w-4" /> Limpar Lista
               </Button>
             </AlertDialogTrigger>
@@ -140,7 +118,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               <AlertDialogHeader>
                 <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Esta ação irá remover todos os itens da sua lista de peças. Esta ação não pode ser desfeita.
+                  Esta ação irá remover todos os itens da sua lista de peças simples. Esta ação não pode ser desfeita.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -152,7 +130,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
         </div>
       </CardHeader>
       <CardContent>
-        {listItems.length === 0 ? (
+        {filteredListItems.length === 0 ? (
           <p className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum item na lista. Adicione peças para começar!</p>
         ) : (
           <div className="overflow-x-auto">
@@ -162,25 +140,15 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   <TableHead>Código</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Quantidade</TableHead>
-                  <TableHead>AF</TableHead>
-                  <TableHead>OS</TableHead>
-                  <TableHead>Início</TableHead>
-                  <TableHead>Fim</TableHead>
-                  <TableHead>Serviço Executado</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {listItems.map((item) => (
+                {filteredListItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.codigo_peca || 'N/A'}</TableCell>
                     <TableCell>{item.descricao || 'N/A'}</TableCell>
-                    <TableCell>{item.quantidade ?? 'N/A'}</TableCell> {/* Usar ?? para 0 ou undefined */}
-                    <TableCell>{item.af}</TableCell>
-                    <TableCell>{item.os || 'N/A'}</TableCell>
-                    <TableCell>{item.hora_inicio || 'N/A'}</TableCell>
-                    <TableCell>{item.hora_final || 'N/A'}</TableCell>
-                    <TableCell>{item.servico_executado || 'N/A'}</TableCell>
+                    <TableCell>{item.quantidade ?? 'N/A'}</TableCell>
                     <TableCell className="text-right">
                       <Tooltip>
                         <TooltipTrigger asChild>

@@ -3,12 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService, updatePart } from '@/services/partListService';
+import { Part, addItemToList, getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
-import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save } from 'lucide-react';
-import { Textarea } from '@/components/ui/textarea'; // Importar Textarea
 
 interface PartListItemFormProps {
   onItemAdded: () => void;
@@ -17,15 +15,10 @@ interface PartListItemFormProps {
 const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
-  const [af, setAf] = useState('');
-  const [os, setOs] = useState<number | undefined>(undefined); // Novo estado para OS
-  const [servicoExecutado, setServicoExecutado] = useState<string>(''); // Novo estado para Serviço Executado
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
-  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
 
   useEffect(() => {
@@ -34,12 +27,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       const parts = await getParts();
       setAllAvailableParts(parts);
       setIsLoadingParts(false);
-
-      setIsLoadingAfs(true);
-      // Agora getUniqueAfs() já fará o seed do CSV e buscará do IndexedDB
-      const afs = await getUniqueAfs();
-      setAllAvailableAfs(afs);
-      setIsLoadingAfs(false);
     };
     loadInitialData();
   }, []);
@@ -75,10 +62,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     setSearchResults([]);
   };
 
-  const handleSelectAf = (selectedAf: string) => {
-    setAf(selectedAf);
-  };
-
   const handleUpdateTags = async () => {
     if (!selectedPart) {
       showError('Nenhuma peça selecionada para atualizar as tags.');
@@ -105,8 +88,8 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPart || quantidade <= 0 || !af) {
-      showError('Por favor, selecione uma peça, insira a quantidade e o AF.');
+    if (!selectedPart || quantidade <= 0) {
+      showError('Por favor, selecione uma peça e insira a quantidade.');
       return;
     }
 
@@ -115,23 +98,17 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
         codigo_peca: selectedPart.codigo,
         descricao: selectedPart.descricao,
         quantidade,
-        af,
-        os: os, // Inclui OS
-        servico_executado: servicoExecutado, // Inclui Serviço Executado
+        af: undefined, // Definir como undefined para a lista de peças simples
+        os: undefined,
+        hora_inicio: undefined,
+        hora_final: undefined,
+        servico_executado: undefined,
       });
       showSuccess('Item adicionado à lista!');
       setSelectedPart(null);
       setQuantidade(1);
-      setAf('');
-      setOs(undefined); // Limpa o campo OS
-      setServicoExecutado(''); // Limpa o campo Serviço Executado
       setEditedTags('');
       onItemAdded();
-      // Recarrega os AFs para garantir que a lista de sugestões esteja atualizada, caso um novo AF tenha sido digitado e adicionado à lista de itens.
-      // No entanto, como agora os AFs vêm de um CSV fixo, esta linha pode não ser estritamente necessária para o autocomplete,
-      // mas é boa prática se no futuro AFs puderem ser adicionados dinamicamente.
-      const updatedAfs = await getUniqueAfs();
-      setAllAvailableAfs(updatedAfs);
     } catch (error) {
       showError('Erro ao adicionar item à lista.');
       console.error('Failed to add item to list:', error);
@@ -215,46 +192,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               required
             />
           </div>
-          <div>
-            <Label htmlFor="af">AF (Número de Frota)</Label>
-            {isLoadingAfs ? (
-              <Input value="Carregando AFs..." readOnly className="bg-gray-100 dark:bg-gray-700" />
-            ) : (
-              <AfSearchInput
-                value={af}
-                onChange={setAf}
-                availableAfs={allAvailableAfs}
-                onSelectAf={handleSelectAf}
-              />
-            )}
-          </div>
-          {/* Novo campo para OS */}
-          <div>
-            <Label htmlFor="os">OS (Opcional)</Label>
-            <Input
-              id="os"
-              type="number"
-              value={os === undefined ? '' : os}
-              onChange={(e) => {
-                const value = e.target.value;
-                setOs(value === '' ? undefined : parseInt(value));
-              }}
-              placeholder="Número da Ordem de Serviço"
-              min="0"
-            />
-          </div>
-          {/* Novo campo para Serviço Executado */}
-          <div>
-            <Label htmlFor="servico_executado">Serviço Executado (Opcional)</Label>
-            <Textarea
-              id="servico_executado"
-              value={servicoExecutado}
-              onChange={(e) => setServicoExecutado(e.target.value)}
-              placeholder="Descreva o serviço executado"
-              rows={3}
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={isLoadingParts || isLoadingAfs || !selectedPart}>Adicionar à Lista</Button>
+          <Button type="submit" className="w-full" disabled={isLoadingParts || !selectedPart}>Adicionar à Lista</Button>
         </form>
       </CardContent>
     </Card>

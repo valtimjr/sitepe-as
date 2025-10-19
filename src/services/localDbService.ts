@@ -13,7 +13,7 @@ export interface ListItem {
   codigo_peca?: string; // Novo: Opcional
   descricao?: string;   // Novo: Opcional
   quantidade?: number;  // Novo: Opcional
-  af: string;
+  af?: string; // Tornando AF opcional
   os?: number;
   hora_inicio?: string;
   hora_final?: string;
