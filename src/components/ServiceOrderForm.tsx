@@ -9,7 +9,7 @@ import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save, Plus, FilePlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator'; // Importar Separator
+import { Separator } from '@/components/ui/separator';
 
 interface ServiceOrderDetails {
   af: string;
@@ -206,8 +206,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 onChange={setAf}
                 availableAfs={allAvailableAfs}
                 onSelectAf={handleSelectAf}
-                // Torna o input de AF somente leitura se estiver editando uma OS
-                readOnly={!!editingServiceOrder} 
+                readOnly={!!editingServiceOrder} // Torna o input de AF somente leitura se estiver editando uma OS
               />
             )}
           </div>
@@ -223,8 +222,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               }}
               placeholder="Número da Ordem de Serviço"
               min="0"
-              // Torna o input de OS somente leitura se estiver editando uma OS
-              readOnly={!!editingServiceOrder}
+              readOnly={!!editingServiceOrder} // Torna o input de OS somente leitura se estiver editando uma OS
             />
           </div>
           <div className="flex space-x-4">
@@ -235,8 +233,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 type="time"
                 value={horaInicio}
                 onChange={(e) => setHoraInicio(e.target.value)}
-                // Torna o input de Hora Início somente leitura se estiver editando uma OS
-                readOnly={!!editingServiceOrder}
+                readOnly={!!editingServiceOrder} // Torna o input de Hora Início somente leitura se estiver editando uma OS
               />
             </div>
             <div className="flex-1">
@@ -246,8 +243,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 type="time"
                 value={horaFinal}
                 onChange={(e) => setHoraFinal(e.target.value)}
-                // Torna o input de Hora Final somente leitura se estiver editando uma OS
-                readOnly={!!editingServiceOrder}
+                readOnly={!!editingServiceOrder} // Torna o input de Hora Final somente leitura se estiver editando uma OS
               />
             </div>
           </div>
@@ -259,8 +255,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               onChange={(e) => setServicoExecutado(e.target.value)}
               placeholder="Descreva o serviço executado"
               rows={3}
-              // Torna o Textarea de Serviço Executado somente leitura se estiver editando uma OS
-              readOnly={!!editingServiceOrder}
+              readOnly={!!editingServiceOrder} // Torna o Textarea de Serviço Executado somente leitura se estiver editando uma OS
             />
           </div>
 
