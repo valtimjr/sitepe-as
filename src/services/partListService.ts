@@ -148,7 +148,6 @@ export const searchParts = async (query: string): Promise<Part[]> => {
 
   if (query) {
     // Correção: Usar o método 'or' com uma string de condições 'ilike'
-    // O método 'where' não é a forma correta para esta operação no cliente Supabase.
     queryBuilder = queryBuilder.or(
       `codigo.ilike.%${lowerCaseQuery}%,descricao.ilike.%${lowerCaseQuery}%,tags.ilike.%${lowerCaseQuery}%`
     );
@@ -175,7 +174,8 @@ export const updatePart = async (updatedPart: Part): Promise<void> => {
 
   if (supabaseError) {
     console.error('Error updating part in Supabase:', supabaseError);
-    throw supabaseError; // Lança o erro para ser tratado no componente
+    // Adicionado: Lança o erro para ser tratado no componente e mostrar um toast
+    throw new Error(`Erro ao atualizar a peça no Supabase: ${supabaseError.message}`);
   }
 
   // Atualiza no IndexedDB
