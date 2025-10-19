@@ -37,11 +37,11 @@ const seedPartsFromJson = async (): Promise<void> => {
   }
 
   try {
-    const response = await fetch('/data/parts.json'); // <--- Lendo do novo arquivo JSON
+    const response = await fetch('/src/data/parts.json'); // <--- Caminho atualizado
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const parsedParts: Part[] = await response.json(); // <--- Parsing JSON
+    const parsedParts: Part[] = await response.json();
     console.log('Parsed parts from JSON:', parsedParts);
     await bulkAddLocalParts(parsedParts);
     console.log('Parts seeded from JSON to IndexedDB.');
@@ -90,12 +90,12 @@ const seedAfsFromCsv = async (): Promise<void> => {
 };
 
 export const getParts = async (): Promise<Part[]> => {
-  await seedPartsFromJson(); // <--- Chamando a nova função
+  await seedPartsFromJson();
   return getLocalParts();
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  await seedPartsFromJson(); // <--- Chamando a nova função
+  await seedPartsFromJson();
   return searchLocalParts(query);
 };
 
