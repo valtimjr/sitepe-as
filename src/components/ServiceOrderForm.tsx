@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService, updatePart } from '@/services/partListService';
+import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService, updatePart, deleteListItem, ListItem } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
@@ -24,9 +24,10 @@ interface ServiceOrderFormProps {
   onItemAdded: () => void;
   editingServiceOrder: ServiceOrderDetails | null;
   onNewServiceOrder: () => void;
+  listItems: ListItem[]; // Nova prop para acessar a lista completa de itens
 }
 
-const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder }) => {
+const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder, listItems }) => {
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -41,7 +42,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
-  const [isOsInvalid, setIsOsInvalid] = useState(false); // Novo estado para validação da OS
+  const [isOsInvalid, setIsOsInvalid] = useState(false);
+  const [currentBlankOsItemId, setCurrentBlankOsItemId] = useState<string | null>(null); // Estado para armazenar o ID do item "em branco" da OS atual
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -67,10 +69,28 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       setServicoExecutado(editingServiceOrder.servico_executado || '');
       resetPartFields();
       setIsOsInvalid(false); // Reseta a validação ao carregar uma OS para edição
+
+      // Busca por um item "em branco" que corresponda à OS que está sendo editada
+      const blankItem = listItems.find(item =>
+        item.af === editingServiceOrder.af &&
+        (item.os === editingServiceOrder.os || (item.os === undefined && editingServiceOrder.os === undefined)) &&
+        (item.hora_inicio === editingServiceOrder.hora_inicio || (item.hora_inicio === undefined && editingServiceOrder.hora_inicio === undefined)) &&
+        (item.hora_final === editingServiceOrder.hora_final || (item.hora_final === undefined && editingServiceOrder.hora_final === undefined)) &&
+        (item.servico_executado === editingServiceOrder.servico_executado || (item.servico_executado === undefined && editingServiceOrder.servico_executado === undefined)) &&
+        !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0) // Verifica se é realmente um item "em branco"
+      );
+
+      if (blankItem) {
+        setCurrentBlankOsItemId(blankItem.id);
+      } else {
+        setCurrentBlankOsItemId(null);
+      }
+
     } else {
       resetAllFieldsInternal();
+      setCurrentBlankOsItemId(null); // Limpa o ID do item em branco ao iniciar uma nova OS
     }
-  }, [editingServiceOrder]);
+  }, [editingServiceOrder, listItems]); // Adiciona listItems como dependência
 
   useEffect(() => {
     const fetchSearchResults = async () => {
@@ -167,7 +187,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isOsInvalid) { // Impede o envio se a OS for inválida
+    if (isOsInvalid) {
       showError('Por favor, corrija o valor da OS antes de continuar.');
       return;
     }
@@ -177,36 +197,77 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       return;
     }
 
-    if (selectedPart && quantidade <= 0) {
-      showError('A quantidade da peça deve ser maior que zero.');
-      return;
-    }
+    // Se uma peça foi selecionada, estamos adicionando uma peça à OS
+    if (selectedPart) {
+      if (quantidade <= 0) {
+        showError('A quantidade da peça deve ser maior que zero.');
+        return;
+      }
 
-    try {
-      await addItemToList({
-        codigo_peca: selectedPart?.codigo,
-        descricao: selectedPart?.descricao,
-        quantidade: selectedPart ? quantidade : undefined,
-        af,
-        os: os,
-        hora_inicio: horaInicio || undefined,
-        hora_final: horaFinal || undefined,
-        servico_executado: servicoExecutado,
-        // created_at é adicionado automaticamente em addLocalItemToList
-      });
-      showSuccess('Item adicionado à lista!');
-      resetPartFields();
-      onItemAdded(); // Isso irá disparar o carregamento e a seleção da nova OS
-      const updatedAfs = await getUniqueAfs();
-      setAllAvailableAfs(updatedAfs);
-    } catch (error) {
-      showError('Erro ao adicionar item à lista.');
-      console.error('Failed to add item to list:', error);
+      try {
+        // Se existe um item "em branco" para esta OS, exclua-o antes de adicionar a peça
+        if (currentBlankOsItemId) {
+          await deleteListItem(currentBlankOsItemId);
+          setCurrentBlankOsItemId(null); // Limpa o ID do item em branco
+        }
+
+        await addItemToList({
+          codigo_peca: selectedPart.codigo,
+          descricao: selectedPart.descricao,
+          quantidade: quantidade,
+          af,
+          os: os,
+          hora_inicio: horaInicio || undefined,
+          hora_final: horaFinal || undefined,
+          servico_executado: servicoExecutado,
+        });
+        showSuccess('Item adicionado à lista!');
+        resetPartFields();
+        onItemAdded(); // Isso irá disparar o carregamento e a seleção da nova OS
+        const updatedAfs = await getUniqueAfs();
+        setAllAvailableAfs(updatedAfs);
+      } catch (error) {
+        showError('Erro ao adicionar item à lista.');
+        console.error('Failed to add item to list:', error);
+      }
+    } else { // Se nenhuma peça foi selecionada, estamos criando uma entrada de OS "em branco"
+      try {
+        // Impede a criação de uma OS em branco se já estiver editando uma OS
+        if (editingServiceOrder) {
+          showError('Por favor, selecione uma peça para adicionar à ordem de serviço atual, ou inicie uma nova ordem.');
+          return;
+        }
+
+        // Adiciona um novo item "em branco"
+        const newBlankId = await addItemToList({
+          af,
+          os: os,
+          hora_inicio: horaInicio || undefined,
+          hora_final: horaFinal || undefined,
+          servico_executado: servicoExecutado,
+          codigo_peca: undefined, // Explicitamente undefined para item em branco
+          descricao: undefined,
+          quantidade: undefined,
+        });
+        showSuccess('Ordem de Serviço criada sem peças. Adicione peças agora!');
+        setCurrentBlankOsItemId(newBlankId); // Armazena o ID deste novo item em branco
+        onItemAdded(); // Isso irá disparar loadListItems e definir editingServiceOrder para esta nova OS em branco
+        const updatedAfs = await getUniqueAfs();
+        setAllAvailableAfs(updatedAfs);
+      } catch (error) {
+        showError('Erro ao criar ordem de serviço.');
+        console.error('Failed to create blank service order:', error);
+      }
     }
   };
 
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags;
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || (!af && !selectedPart) || isOsInvalid; // Desabilita o botão se a OS for inválida
+  // Desabilita o botão de submit se:
+  // - estiver carregando peças ou AFs
+  // - não houver AF preenchido
+  // - a OS for inválida
+  // - estiver editando uma OS e nenhuma peça estiver selecionada (não pode submeter sem peça se já está editando)
+  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !af || isOsInvalid || (editingServiceOrder && !selectedPart);
 
   return (
     <Card className="w-full max-w-md mx-auto">

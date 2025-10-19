@@ -107,6 +107,7 @@ const ServiceOrderList = () => {
           onItemAdded={loadListItems} 
           editingServiceOrder={editingServiceOrder}
           onNewServiceOrder={handleNewServiceOrder}
+          listItems={listItems} // Pass listItems here
         />
         <ServiceOrderListDisplay 
           listItems={listItems} 

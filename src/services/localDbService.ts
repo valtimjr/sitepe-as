@@ -110,7 +110,7 @@ export const getLocalListItems = async (): Promise<ListItem[]> => {
 export const addLocalItemToList = async (item: Omit<ListItem, 'id'>): Promise<string> => {
   const newItem = { ...item, id: uuidv4(), created_at: new Date() }; // Adiciona created_at
   await localDb.listItems.add(newItem);
-  return newItem.id;
+  return newItem.id; // Retorna o ID gerado
 };
 
 export const updateLocalListItem = async (updatedItem: ListItem): Promise<void> => {
