@@ -200,39 +200,59 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
 
     if (editingServiceOrder?.mode === 'edit_details') {
       // Modo de edição de detalhes da OS
-      const existingBlankItem = listItems.find(item =>
-        item.af === editingServiceOrder.af &&
-        (item.os === editingServiceOrder.os || (item.os === undefined && editingServiceOrder.os === undefined)) &&
-        (item.hora_inicio === editingServiceOrder.hora_inicio || (item.hora_inicio === undefined && editingServiceOrder.hora_inicio === undefined)) &&
-        (item.hora_final === editingServiceOrder.hora_final || (item.hora_final === undefined && editingServiceOrder.hora_final === undefined)) &&
-        (item.servico_executado === editingServiceOrder.servico_executado || (item.servico_executado === undefined && editingServiceOrder.servico_executado === undefined)) &&
-        !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
+      const originalAf = editingServiceOrder.af;
+      const originalOs = editingServiceOrder.os;
+      const originalHoraInicio = editingServiceOrder.hora_inicio;
+      const originalHoraFinal = editingServiceOrder.hora_final;
+      const originalServicoExecutado = editingServiceOrder.servico_executado;
+      const originalCreatedAt = editingServiceOrder.createdAt;
+
+      // Filtra todos os itens que pertencem a esta Ordem de Serviço original
+      const itemsToUpdate = listItems.filter(item =>
+        item.af === originalAf &&
+        (item.os === originalOs || (item.os === undefined && originalOs === undefined)) &&
+        (item.hora_inicio === originalHoraInicio || (item.hora_inicio === undefined && originalHoraInicio === undefined)) &&
+        (item.hora_final === originalHoraFinal || (item.hora_final === undefined && originalHoraFinal === undefined)) &&
+        (item.servico_executado === originalServicoExecutado || (item.servico_executado === undefined && originalServicoExecutado === undefined))
       );
 
-      if (existingBlankItem) {
-        // Atualiza o item "em branco" existente com os novos detalhes da OS
-        await updateListItem({
-          ...existingBlankItem,
-          af,
-          os,
-          hora_inicio: horaInicio || undefined,
-          hora_final: horaFinal || undefined,
-          servico_executado: servicoExecutado,
-        });
-        showSuccess('Detalhes da Ordem de Serviço atualizados!');
+      if (itemsToUpdate.length > 0) {
+        try {
+          // Atualiza cada item com os novos valores do formulário
+          for (const item of itemsToUpdate) {
+            await updateListItem({
+              ...item, // Mantém os detalhes da peça, id e created_at existentes
+              af, // Novo AF do formulário
+              os, // Nova OS do formulário
+              hora_inicio: horaInicio || undefined, // Nova hora de início do formulário
+              hora_final: horaFinal || undefined, // Nova hora final do formulário
+              servico_executado: servicoExecutado, // Novo serviço executado do formulário
+            });
+          }
+          showSuccess('Detalhes da Ordem de Serviço atualizados!');
+        } catch (error) {
+          showError('Erro ao atualizar os detalhes da Ordem de Serviço.');
+          console.error('Failed to update service order details:', error);
+        }
       } else {
-        // Se não houver um item "em branco" existente, cria um novo
-        await addItemToList({
-          af,
-          os,
-          hora_inicio: horaInicio || undefined,
-          hora_final: horaFinal || undefined,
-          servico_executado: servicoExecutado,
-          codigo_peca: undefined,
-          descricao: undefined,
-          quantidade: undefined,
-        }, editingServiceOrder.createdAt);
-        showSuccess('Detalhes da Ordem de Serviço atualizados e item em branco criado!');
+        // Caso não encontre itens para a OS original (situação improvável se o estado estiver correto),
+        // cria um novo item "em branco" com os novos detalhes.
+        try {
+          await addItemToList({
+            af,
+            os,
+            hora_inicio: horaInicio || undefined,
+            hora_final: horaFinal || undefined,
+            servico_executado: servicoExecutado,
+            codigo_peca: undefined,
+            descricao: undefined,
+            quantidade: undefined,
+          }, originalCreatedAt); // Usa o createdAt original se disponível
+          showSuccess('Ordem de Serviço recriada com novos detalhes!');
+        } catch (error) {
+          showError('Erro ao recriar a Ordem de Serviço.');
+          console.error('Failed to recreate blank service order:', error);
+        }
       }
       onItemAdded(); // Recarrega a lista para refletir as mudanças
       onNewServiceOrder(); // Volta para o modo de nova OS após a edição
