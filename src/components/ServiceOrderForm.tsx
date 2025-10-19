@@ -10,6 +10,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { Save, Plus, FilePlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils'; // Importar a função cn para combinar classes Tailwind
 
 interface ServiceOrderDetails {
   af: string;
@@ -40,6 +41,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
+  const [isOsInvalid, setIsOsInvalid] = useState(false); // Novo estado para validação da OS
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -64,6 +66,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       setHoraFinal(editingServiceOrder.hora_final || '');
       setServicoExecutado(editingServiceOrder.servico_executado || '');
       resetPartFields();
+      setIsOsInvalid(false); // Reseta a validação ao carregar uma OS para edição
     } else {
       resetAllFieldsInternal();
     }
@@ -137,6 +140,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     setSearchQuery('');
     setSearchResults([]);
     setEditedTags('');
+    setIsOsInvalid(false); // Reseta a validação
   };
 
   const resetPartFields = () => {
@@ -148,8 +152,25 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     showSuccess('Campos de peça limpos para adicionar nova peça à ordem atual!');
   };
 
+  const handleOsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const parsedValue = value === '' ? undefined : parseInt(value);
+
+    if (parsedValue !== undefined && (parsedValue < 0 || parsedValue > 99999)) {
+      setIsOsInvalid(true);
+    } else {
+      setIsOsInvalid(false);
+    }
+    setOs(parsedValue);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isOsInvalid) { // Impede o envio se a OS for inválida
+      showError('Por favor, corrija o valor da OS antes de continuar.');
+      return;
+    }
 
     if (!af) {
       showError('Por favor, insira o AF (Número de Frota).');
@@ -185,6 +206,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   };
 
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags;
+  const isSubmitDisabled = isLoadingParts || isLoadingAfs || (!af && !selectedPart) || isOsInvalid; // Desabilita o botão se a OS for inválida
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -218,20 +240,23 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
             )}
           </div>
           <div>
-            <Label htmlFor="os">OS (Opcional)</Label>
+            <Label htmlFor="os" className={cn(isOsInvalid && 'text-red-500 dark:text-red-400')}>OS (Opcional)</Label>
             <Input
               id="os"
               type="number"
               value={os === undefined ? '' : os}
-              onChange={(e) => {
-                const value = e.target.value;
-                setOs(value === '' ? undefined : parseInt(value));
-              }}
+              onChange={handleOsChange} // Usar o novo handler
               placeholder="Número da Ordem de Serviço"
               min="0"
               max="99999"
               readOnly={!!editingServiceOrder}
+              className={cn(isOsInvalid && 'border-red-500 dark:border-red-400 focus-visible:ring-red-500')}
             />
+            {isOsInvalid && (
+              <p className="text-sm text-red-500 dark:text-red-400 mt-1">
+                Valor inválido. A OS só pode ser de 0 a 99999.
+              </p>
+            )}
           </div>
           <div className="flex space-x-4">
             <div className="flex-1">
@@ -338,7 +363,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               required={!!selectedPart}
             />
           </div>
-          <Button type="submit" className="w-full" disabled={isLoadingParts || isLoadingAfs || (!af && !selectedPart)}>
+          <Button type="submit" className="w-full" disabled={isSubmitDisabled}>
             {editingServiceOrder ? "Adicionar Peça à Ordem" : "Criar Ordem e Adicionar Peça"}
           </Button>
         </form>
