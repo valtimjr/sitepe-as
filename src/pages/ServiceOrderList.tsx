@@ -5,7 +5,7 @@ import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
 import { getListItems, ListItem } from '@/services/partListService';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FilePlus } from 'lucide-react'; // Importar FilePlus
 import { showSuccess, showError } from '@/utils/toast';
 
 interface ServiceOrderDetails {
@@ -53,6 +53,8 @@ const ServiceOrderList = () => {
             servico_executado: latestOrder.servico_executado,
           });
           showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
+        } else {
+          setEditingServiceOrder(null); // Se não houver ordens únicas, não há OS para editar
         }
       } else {
         setEditingServiceOrder(null); // Se não houver itens, não há OS para editar
@@ -84,12 +86,15 @@ const ServiceOrderList = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50">
-      <div className="w-full max-w-6xl flex justify-start mb-4">
+      <div className="w-full max-w-6xl flex justify-between items-center mb-4"> {/* Ajustado para justify-between */}
         <Link to="/">
           <Button variant="outline" className="flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" /> Voltar ao Início
           </Button>
         </Link>
+        <Button onClick={handleNewServiceOrder} className="flex items-center gap-2">
+          <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
+        </Button>
       </div>
       <h1 className="text-4xl font-extrabold mb-8 text-center text-blue-600 dark:text-blue-400">
         Lista de Ordens de Serviço
