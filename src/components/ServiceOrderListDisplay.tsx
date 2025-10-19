@@ -107,7 +107,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           } else if (part.codigo_peca) {
             return part.codigo_peca;
           }
-          return 'Item sem peça';
+          return ''; // Campo vazio se não houver dados de peça
         }).join('\n');
         textToCopy += `Peças:\n${partsString}\n`;
       }
@@ -245,14 +245,18 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         {partIndex === 0 ? (
                           <>
                             <TableCell rowSpan={group.parts.length} className="font-medium align-top">{group.af}</TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top">{group.os || 'N/A'}</TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top">{group.hora_inicio || 'N/A'}</TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top">{group.hora_final || 'N/A'}</TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top">{group.servico_executado || 'N/A'}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top">{group.os || ''}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top">{group.hora_inicio || ''}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top">{group.hora_final || ''}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top">{group.servico_executado || ''}</TableCell>
                           </>
                         ) : null}
-                        <TableCell>{part.codigo_peca && part.descricao ? `${part.codigo_peca} - ${part.descricao}` : part.codigo_peca || part.descricao || 'N/A'}</TableCell>
-                        <TableCell>{part.quantidade ?? 'N/A'}</TableCell>
+                        <TableCell>
+                          {part.codigo_peca && part.descricao 
+                            ? `${part.codigo_peca} - ${part.descricao}` 
+                            : part.codigo_peca || part.descricao || ''}
+                        </TableCell>
+                        <TableCell>{part.quantidade ?? ''}</TableCell>
                         <TableCell className="text-right">
                           {partIndex === 0 && (
                             <Tooltip>
