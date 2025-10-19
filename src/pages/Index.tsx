@@ -3,12 +3,10 @@ import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import Logo from '@/components/Logo'; // Importar o componente de Logo
 
 const Index = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
-      <Logo className="mb-8" /> {/* Adicionando o logo aqui */}
       <h1 className="text-5xl font-extrabold mb-12 text-center text-primary dark:text-primary">
         Bem-vindo ao Gerenciador de Peças
       </h1>
