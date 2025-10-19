@@ -32,6 +32,7 @@ interface ServiceOrderDetails {
   hora_inicio?: string;
   hora_final?: string;
   servico_executado?: string;
+  createdAt?: Date; // Adicionado createdAt
 }
 
 interface ServiceOrderListDisplayProps {
@@ -163,9 +164,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         return;
       }
 
-      await deleteListItem(id);
-      showSuccess('Item removido da lista.');
-
+      // Identify the service order group this item belongs to
       const currentSOIdentifier: ServiceOrderDetails = {
         af: itemToDelete.af,
         os: itemToDelete.os,
@@ -174,7 +173,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         servico_executado: itemToDelete.servico_executado,
       };
 
-      // Filter remaining items for this specific Service Order
+      // Capture the createdAt of the item being deleted to potentially reuse it for a blank item
+      const originalCreatedAt = itemToDelete.created_at;
+
+      // Perform the deletion
+      await deleteListItem(id);
+      showSuccess('Item removido da lista.');
+
+      // Filter remaining items for this specific Service Order (excluding the one just deleted)
       const remainingItemsForThisSO = listItems.filter(item =>
         item.id !== id && // Exclude the item just deleted
         item.af === currentSOIdentifier.af &&
@@ -194,7 +200,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         );
 
         if (!blankItemExists) {
-          // Create a new blank item for this SO
+          // Create a new blank item for this SO, reusing the original createdAt
           await addItemToList({
             af: currentSOIdentifier.af,
             os: currentSOIdentifier.os,
@@ -204,14 +210,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             codigo_peca: undefined,
             descricao: undefined,
             quantidade: undefined,
-          });
+          }, originalCreatedAt); // Pass the original createdAt here
           showSuccess('Ordem de Serviço agora está sem peças, mas mantida para edição.');
         }
       }
 
       // After deletion and potential blank item creation, ensure the SO remains in edit mode
       // This will trigger the parent to update its `editingServiceOrder` state
-      onEditServiceOrder(currentSOIdentifier);
+      onEditServiceOrder({ ...currentSOIdentifier, createdAt: originalCreatedAt }); // Pass createdAt to maintain context
 
       // Finally, refresh the list to reflect all changes
       onListChanged();
@@ -267,9 +273,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         servico_executado: item.servico_executado,
         hora_inicio: item.hora_inicio,
         hora_final: item.hora_final,
-        createdAt: item.created_at || new Date(), // Usa a data de criação do primeiro item para a OS
+        createdAt: item.created_at || new Date(), // Initialize with current item's created_at
         parts: [],
       };
+    } else {
+      // If a group already exists, update its createdAt if the current item is older
+      if (item.created_at && groupedForDisplay[key].createdAt && item.created_at < groupedForDisplay[key].createdAt) {
+        groupedForDisplay[key].createdAt = item.created_at;
+      }
     }
     groupedForDisplay[key].parts.push({
       id: item.id,
@@ -371,7 +382,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                       os: group.os, 
                                       hora_inicio: group.hora_inicio, 
                                       hora_final: group.hora_final, 
-                                      servico_executado: group.servico_executado 
+                                      servico_executado: group.servico_executado,
+                                      createdAt: group.createdAt // Pass createdAt here
                                     })}>
                                       <Pencil className="mr-2 h-4 w-4" /> Editar Detalhes da OS
                                     </DropdownMenuItem>

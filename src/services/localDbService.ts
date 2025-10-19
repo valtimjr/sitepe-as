@@ -107,8 +107,8 @@ export const getLocalListItems = async (): Promise<ListItem[]> => {
   return localDb.listItems.toArray();
 };
 
-export const addLocalItemToList = async (item: Omit<ListItem, 'id'>): Promise<string> => {
-  const newItem = { ...item, id: uuidv4(), created_at: new Date() }; // Adiciona created_at
+export const addLocalItemToList = async (item: Omit<ListItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
+  const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() }; // Adiciona created_at
   await localDb.listItems.add(newItem);
   return newItem.id; // Retorna o ID gerado
 };

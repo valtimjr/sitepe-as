@@ -14,6 +14,7 @@ interface ServiceOrderDetails {
   hora_inicio?: string;
   hora_final?: string;
   servico_executado?: string;
+  createdAt?: Date; // Adicionado createdAt
 }
 
 const ServiceOrderList = () => {
@@ -53,6 +54,7 @@ const ServiceOrderList = () => {
               hora_inicio: latestOrder.hora_inicio,
               hora_final: latestOrder.hora_final,
               servico_executado: latestOrder.servico_executado,
+              createdAt: latestOrder.created_at, // Incluir createdAt
             });
             showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
           }

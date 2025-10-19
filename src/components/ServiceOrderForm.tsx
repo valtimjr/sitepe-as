@@ -18,6 +18,7 @@ interface ServiceOrderDetails {
   hora_inicio?: string;
   hora_final?: string;
   servico_executado?: string;
+  createdAt?: Date; // Adicionado createdAt
 }
 
 interface ServiceOrderFormProps {
@@ -220,7 +221,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
           hora_inicio: horaInicio || undefined,
           hora_final: horaFinal || undefined,
           servico_executado: servicoExecutado,
-        });
+        }, editingServiceOrder?.createdAt); // Passa o createdAt da OS em edição
+
         showSuccess('Item adicionado à lista!');
         resetPartFields();
         onItemAdded(); // Isso irá disparar o carregamento e a seleção da nova OS

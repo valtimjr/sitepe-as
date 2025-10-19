@@ -118,8 +118,8 @@ export const getListItems = async (): Promise<ListItem[]> => {
   return getLocalListItems();
 };
 
-export const addItemToList = async (item: Omit<ListItem, 'id'>): Promise<string> => {
-  return addLocalItemToList(item); // Agora retorna o ID
+export const addItemToList = async (item: Omit<ListItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
+  return addLocalItemToList(item, customCreatedAt); // Agora retorna o ID
 };
 
 export const updateListItem = async (updatedItem: ListItem): Promise<void> => {
