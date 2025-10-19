@@ -273,12 +273,12 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                 <TableRow>
                   <TableHead className="w-fit">Opções</TableHead> {/* Nova coluna para o DropdownMenu de ações da OS */}
                   <TableHead className="w-fit">AF</TableHead>
-                  <TableHead className="w-fit">OS</TableHead>
+                  <TableHead className="w-[4rem]">OS</TableHead> {/* Largura ajustada */}
                   <TableHead className="w-fit">Início</TableHead>
                   <TableHead className="w-fit">Fim</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words">Serviço Executado</TableHead>
-                  <TableHead className className="w-auto whitespace-normal break-words">Peça</TableHead>
-                  <TableHead className="w-fit">Quantidade</TableHead>
+                  <TableHead className="w-auto whitespace-normal break-words">Peça</TableHead>
+                  <TableHead className="w-[4rem]">Qtd</TableHead> {/* Renomeado e largura ajustada */}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -342,7 +342,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                 </DropdownMenu>
                               </TableCell>
                               <TableCell rowSpan={group.parts.length} className="font-medium align-top w-fit">{group.af}</TableCell>
-                              <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.os || ''}</TableCell>
+                              <TableCell rowSpan={group.parts.length} className="align-top w-[4rem]">{group.os || ''}</TableCell> {/* Largura ajustada */}
                               <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.hora_inicio || ''}</TableCell>
                               <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.hora_final || ''}</TableCell>
                               <TableCell rowSpan={group.parts.length} className="align-top w-auto whitespace-normal break-words">{group.servico_executado || ''}</TableCell>
@@ -365,7 +365,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                               </Tooltip>
                             )}
                           </TableCell>
-                          <TableCell className="w-fit">{part.quantidade ?? ''}</TableCell>
+                          <TableCell className="w-[4rem]">{part.quantidade ?? ''}</TableCell> {/* Renomeado e largura ajustada */}
                         </TableRow>
                       ))}
                     </React.Fragment>
