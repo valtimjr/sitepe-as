@@ -68,7 +68,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
           className="w-full"
-          required
+          // Removido o atributo 'required' para tornar o campo opcional
           readOnly={readOnly}
           ref={inputRef}
         />
