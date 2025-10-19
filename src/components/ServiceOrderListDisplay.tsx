@@ -198,6 +198,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     servico_executado?: string;
     hora_inicio?: string;
     hora_final?: string;
+    createdAt: Date; // Adicionado campo para armazenar a data de criação da OS
     parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
   } } = {};
 
@@ -210,6 +211,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         servico_executado: item.servico_executado,
         hora_inicio: item.hora_inicio,
         hora_final: item.hora_final,
+        createdAt: item.created_at || new Date(), // Usa a data de criação do primeiro item para a OS
         parts: [],
       };
     }
@@ -221,12 +223,10 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     });
   });
 
+  // Ordena os grupos pela data de criação (mais antiga primeiro, mais recente por último)
   const sortedGroups = Object.values(groupedForDisplay).sort((a, b) => {
-    if (a.af < b.af) return -1;
-    if (a.af > b.af) return 1;
-    if ((a.os || 0) < (b.os || 0)) return -1;
-    if ((a.os || 0) > (b.os || 0)) return 1;
-    return 0;
+    if (!a.createdAt || !b.createdAt) return 0; // Lida com created_at opcional
+    return a.createdAt.getTime() - b.createdAt.getTime();
   });
 
   return (
