@@ -161,8 +161,14 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
           <Button onClick={handleCopyList} disabled={displayedItems.length === 0} className="flex items-center gap-2">
             <Copy className="h-4 w-4" /> Copiar Lista
           </Button>
-          <Button onClick={handleShareOnWhatsApp} disabled={displayedItems.length === 0} className="flex items-center justify-center p-2">
-            <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-4 w-4" />
+          <Button 
+            onClick={handleShareOnWhatsApp} 
+            disabled={displayedItems.length === 0} 
+            variant="ghost" // Alterado para variant="ghost"
+            size="icon" // Alterado para size="icon" para um botão de ícone
+            aria-label="Compartilhar no WhatsApp" // Adicionado para acessibilidade
+          >
+            <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-6 w-6" /> {/* Aumentado para h-6 w-6 */}
           </Button>
           <Button onClick={handleExportPdf} disabled={displayedItems.length === 0} className="flex items-center gap-2">
             <Download className="h-4 w-4" /> Exportar PDF
