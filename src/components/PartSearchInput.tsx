@@ -18,8 +18,10 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
 
   const handleSelectAndClose = (part: Part) => {
     onSelectPart(part);
-    setIsInputFocused(false); // Fecha o dropdown ao selecionar
     onSearch(''); // Limpa a query de busca após a seleção
+    // Removido: setIsInputFocused(false);
+    // Deixamos o onBlur com setTimeout cuidar do fechamento se o foco sair do input.
+    // Se o usuário clicar no input novamente, onFocus irá reabrir.
   };
 
   // Determina qual lista exibir: searchResults se houver query, allParts se focado e vazio
