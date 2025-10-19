@@ -37,7 +37,12 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     showSuccess('PDF gerado com sucesso!');
   };
 
-  // Função para formatar o texto para a área de transferência (com tabulações para alinhamento)
+  // Larguras fixas para cada coluna, baseadas no exemplo fornecido
+  const CODIGO_WIDTH = 6;
+  const DESCRICAO_WIDTH = 70; // Inclui o conteúdo e o padding
+  const QUANTIDADE_WIDTH = 10;
+
+  // Função para formatar o texto para a área de transferência (com larguras fixas e tabulações)
   const formatListTextForClipboard = () => {
     const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
     const rows = displayedItems.map(item => [
@@ -47,44 +52,53 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       item.af || ''
     ]);
 
-    const maxColWidths = headers.map((header, colIndex) => {
-      let maxWidth = header.length;
-      rows.forEach(row => {
-        const cellContent = row[colIndex] ? String(row[colIndex]) : '';
-        if (cellContent.length > maxWidth) {
-          maxWidth = cellContent.length;
-        }
-      });
-      return maxWidth;
-    });
-
     let formattedText = '';
-    formattedText += headers.map((header, colIndex) =>
-      header.padEnd(maxColWidths[colIndex])
-    ).join('\t') + '\n'; // Usa tab como separador para clipboard
 
+    // Adiciona a linha do cabeçalho
+    formattedText +=
+      headers[0].padEnd(CODIGO_WIDTH) + '\t' +
+      headers[1].padEnd(DESCRICAO_WIDTH) + '\t' +
+      headers[2].padEnd(QUANTIDADE_WIDTH) + '\t' +
+      headers[3] + '\n';
+
+    // Adiciona as linhas de dados
     rows.forEach(row => {
-      formattedText += row.map((cell, colIndex) =>
-        (String(cell || '')).padEnd(maxColWidths[colIndex])
-      ).join('\t') + '\n';
+      formattedText +=
+        String(row[0] || '').padEnd(CODIGO_WIDTH) + '\t' +
+        String(row[1] || '').padEnd(DESCRICAO_WIDTH) + '\t' +
+        String(row[2] || '').padEnd(QUANTIDADE_WIDTH) + '\t' +
+        String(row[3] || '') + '\n';
     });
 
     return formattedText.trim();
   };
 
-  // Função para formatar o texto especificamente para o WhatsApp (sem padding, com separador claro)
+  // Função para formatar o texto especificamente para o WhatsApp (agora usando a mesma lógica de tabulação e padding)
   const formatListTextForWhatsApp = () => {
     const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
-    let textToShare = headers.join(' | ') + '\n'; // Usa ' | ' como separador
+    const rows = displayedItems.map(item => [
+      item.codigo_peca || '',
+      item.descricao || '',
+      item.quantidade !== undefined ? item.quantidade.toString() : '',
+      item.af || ''
+    ]);
 
-    displayedItems.forEach(item => {
-      const itemData = [
-        item.codigo_peca || '',
-        item.descricao || '',
-        item.quantidade !== undefined ? item.quantidade.toString() : '',
-        item.af || ''
-      ];
-      textToShare += itemData.join(' | ') + '\n'; // Usa ' | ' como separador
+    let textToShare = '';
+
+    // Adiciona a linha do cabeçalho
+    textToShare +=
+      headers[0].padEnd(CODIGO_WIDTH) + '\t' +
+      headers[1].padEnd(DESCRICAO_WIDTH) + '\t' +
+      headers[2].padEnd(QUANTIDADE_WIDTH) + '\t' +
+      headers[3] + '\n';
+
+    // Adiciona as linhas de dados
+    rows.forEach(row => {
+      textToShare +=
+        String(row[0] || '').padEnd(CODIGO_WIDTH) + '\t' +
+        String(row[1] || '').padEnd(DESCRICAO_WIDTH) + '\t' +
+        String(row[2] || '').padEnd(QUANTIDADE_WIDTH) + '\t' +
+        String(row[3] || '') + '\n';
     });
 
     return textToShare.trim();
@@ -113,7 +127,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       return;
     }
 
-    const textToShare = formatListTextForWhatsApp(); // Usa a nova função de formatação para WhatsApp
+    const textToShare = formatListTextForWhatsApp(); // Agora usa a mesma lógica de formatação
     const encodedText = encodeURIComponent(textToShare);
     const whatsappUrl = `https://wa.me/?text=${encodedText}`;
 
