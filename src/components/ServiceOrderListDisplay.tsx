@@ -64,12 +64,15 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           parts: [],
         };
       }
-      groupedByAfOs[key].parts.push({
-        id: item.id,
-        quantidade: item.quantidade,
-        descricao: item.descricao,
-        codigo_peca: item.codigo_peca,
-      });
+      // Adiciona a peça apenas se houver código ou descrição
+      if (item.codigo_peca || item.descricao) {
+        groupedByAfOs[key].parts.push({
+          id: item.id,
+          quantidade: item.quantidade,
+          descricao: item.descricao,
+          codigo_peca: item.codigo_peca,
+        });
+      }
     });
 
     let textToCopy = '';
@@ -97,7 +100,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         textToCopy += `Fim: ${group.hora_final}\n`;
       }
 
-      // Linha 4: Peças
+      // Linha 4: Peças (apenas se houver peças)
       if (group.parts.length > 0) {
         const partsString = group.parts.map(part => {
           if (part.codigo_peca && part.descricao && part.quantidade) {
