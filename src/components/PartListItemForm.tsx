@@ -105,17 +105,14 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       showError('Por favor, selecione uma peça e insira a quantidade.');
       return;
     }
-    if (!af) { // AF agora é obrigatório
-      showError('Por favor, insira o AF (Número de Frota).');
-      return;
-    }
+    // O campo AF agora é opcional, então não há validação aqui.
 
     try {
       await addItemToList({
         codigo_peca: selectedPart.codigo,
         descricao: selectedPart.descricao,
         quantidade,
-        af: af, // Incluir o AF
+        af: af || undefined, // Incluir o AF se preenchido, senão undefined
         os: undefined,
         hora_inicio: undefined,
         hora_final: undefined,
@@ -134,7 +131,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   };
 
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags;
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !selectedPart || !af; // Desabilitar se AF estiver vazio
+  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !selectedPart; // Desabilitar apenas se não houver peça selecionada
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -144,7 +141,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="af">AF (Número de Frota)</Label>
+            <Label htmlFor="af">AF (Número de Frota) (Opcional)</Label>
             {isLoadingAfs ? (
               <Input value="Carregando AFs..." readOnly className="bg-gray-100 dark:bg-gray-700" />
             ) : (
