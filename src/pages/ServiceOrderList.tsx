@@ -15,7 +15,7 @@ interface ServiceOrderDetails {
   hora_final?: string;
   servico_executado?: string;
   createdAt?: Date;
-  mode: 'add_part' | 'edit_details'; // Adicionado para diferenciar os modos
+  mode: 'add_part' | 'edit_details';
 }
 
 const ServiceOrderList = () => {
@@ -23,72 +23,81 @@ const ServiceOrderList = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
 
+  // 1. loadListItems: Apenas responsável por buscar e definir listItems.
+  // Não deve depender ou definir editingServiceOrder para evitar loops.
   const loadListItems = useCallback(async () => {
     setIsLoading(true);
     try {
       const items = await getListItems();
       setListItems(items);
-
-      if (items.length > 0) {
-        const uniqueServiceOrders: { [key: string]: ListItem } = {};
-        items.forEach(item => {
-          const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}`;
-          if (!uniqueServiceOrders[key] || (item.created_at && uniqueServiceOrders[key].created_at && item.created_at > uniqueServiceOrders[key].created_at!)) {
-            uniqueServiceOrders[key] = item;
-          }
-        });
-
-        const sortedUniqueOrders = Object.values(uniqueServiceOrders).sort((a, b) => {
-          if (!a.created_at || !b.created_at) return 0;
-          return b.created_at.getTime() - a.created_at.getTime();
-        });
-
-        if (sortedUniqueOrders.length > 0) {
-          const latestOrder = sortedUniqueOrders[0];
-          const isCurrentEditedOrderStillValid = editingServiceOrder && items.some(item =>
-            item.af === editingServiceOrder.af &&
-            (item.os === editingServiceOrder.os || (item.os === undefined && editingServiceOrder.os === undefined)) &&
-            (item.hora_inicio === editingServiceOrder.hora_inicio || (item.hora_inicio === undefined && editingServiceOrder.hora_inicio === undefined)) &&
-            (item.hora_final === editingServiceOrder.hora_final || (item.hora_final === undefined && editingServiceOrder.hora_final === undefined)) &&
-            (item.servico_executado === editingServiceOrder.servico_executado || (item.servico_executado === undefined && editingServiceOrder.servico_executado === undefined))
-          );
-
-          // Se não houver uma OS em edição ou a OS em edição não for mais válida, defina a mais recente
-          if (!editingServiceOrder || !isCurrentEditedOrderStillValid) {
-            setEditingServiceOrder({
-              af: latestOrder.af,
-              os: latestOrder.os,
-              hora_inicio: latestOrder.hora_inicio,
-              hora_final: latestOrder.hora_final,
-              servico_executado: latestOrder.servico_executado,
-              createdAt: latestOrder.created_at,
-              mode: 'add_part', // Modo padrão ao carregar uma OS existente
-            });
-            showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
-          } else if (editingServiceOrder && isCurrentEditedOrderStillValid) {
-            // Se já estiver editando uma OS e ela ainda for válida, apenas atualize os detalhes, mantendo o modo
-            setEditingServiceOrder(prev => prev ? { ...prev, createdAt: latestOrder.created_at } : null);
-          }
-        } else {
-          setEditingServiceOrder(null);
-        }
-      } else {
-        setEditingServiceOrder(null);
-      }
-
     } catch (error) {
       showError('Erro ao carregar a lista de ordens de serviço.');
       console.error('Failed to load service order items:', error);
       setListItems([]);
-      setEditingServiceOrder(null);
     } finally {
       setIsLoading(false);
     }
-  }, [editingServiceOrder]);
+  }, [setListItems, setIsLoading, showError]); // Dependências são setters estáveis e uma função utilitária
 
+  // 2. Efeito para chamar loadListItems na montagem e quando o callback loadListItems muda (o que não acontecerá se suas dependências forem estáveis)
   useEffect(() => {
     loadListItems();
   }, [loadListItems]);
+
+  // 3. Efeito para gerenciar editingServiceOrder com base nas mudanças em listItems,
+  // mas sem causar um loop com loadListItems.
+  useEffect(() => {
+    if (listItems.length > 0) {
+      const uniqueServiceOrders: { [key: string]: ListItem } = {};
+      listItems.forEach(item => {
+        const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}`;
+        if (!uniqueServiceOrders[key] || (item.created_at && uniqueServiceOrders[key].created_at && item.created_at > uniqueServiceOrders[key].created_at!)) {
+          uniqueServiceOrders[key] = item;
+        }
+      });
+
+      const sortedUniqueOrders = Object.values(uniqueServiceOrders).sort((a, b) => {
+        if (!a.created_at || !b.created_at) return 0;
+        return b.created_at.getTime() - a.created_at.getTime();
+      });
+
+      if (sortedUniqueOrders.length > 0) {
+        const latestOrder = sortedUniqueOrders[0];
+        
+        // Verifica se a ordem atualmente em edição ainda é válida na nova lista de itens
+        const isCurrentEditedOrderStillValid = editingServiceOrder && listItems.some(item =>
+          item.af === editingServiceOrder.af &&
+          (item.os === editingServiceOrder.os || (item.os === undefined && editingServiceOrder.os === undefined)) &&
+          (item.hora_inicio === editingServiceOrder.hora_inicio || (item.hora_inicio === undefined && editingServiceOrder.hora_inicio === undefined)) &&
+          (item.hora_final === editingServiceOrder.hora_final || (item.hora_final === undefined && editingServiceOrder.hora_final === undefined)) &&
+          (item.servico_executado === editingServiceOrder.servico_executado || (item.servico_executado === undefined && editingServiceOrder.servico_executado === undefined))
+        );
+
+        // Se nenhuma ordem estiver sendo editada, ou se a ordem atual em edição não for mais válida,
+        // define a ordem mais recente como a que está sendo editada (no modo 'add_part').
+        if (!editingServiceOrder || !isCurrentEditedOrderStillValid) {
+          setEditingServiceOrder({
+            af: latestOrder.af,
+            os: latestOrder.os,
+            hora_inicio: latestOrder.hora_inicio,
+            hora_final: latestOrder.hora_final,
+            servico_executado: latestOrder.servico_executado,
+            createdAt: latestOrder.created_at,
+            mode: 'add_part', // Modo padrão ao selecionar automaticamente
+          });
+          showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
+        }
+        // Se uma ordem já estiver sendo editada e ainda for válida, não faz nada aqui.
+        // Seus detalhes serão atualizados pelo useEffect do formulário, se necessário.
+      } else {
+        // Se não houver itens na lista, limpa qualquer estado de edição
+        setEditingServiceOrder(null);
+      }
+    } else {
+      // Se listItems ficar vazio, limpa editingServiceOrder
+      setEditingServiceOrder(null);
+    }
+  }, [listItems, editingServiceOrder, setEditingServiceOrder, showSuccess, showError]); // Dependências para este efeito
 
   const handleEditServiceOrder = useCallback((details: ServiceOrderDetails) => {
     setEditingServiceOrder(details);
@@ -97,12 +106,12 @@ const ServiceOrderList = () => {
     } else {
       showSuccess(`Adicionando peça à Ordem de Serviço AF: ${details.af}${details.os ? `, OS: ${details.os}` : ''}`);
     }
-  }, []);
+  }, [setEditingServiceOrder, showSuccess]);
 
   const handleNewServiceOrder = useCallback(() => {
     setEditingServiceOrder(null);
     showSuccess('Iniciando nova Ordem de Serviço.');
-  }, []);
+  }, [setEditingServiceOrder, showSuccess]);
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50">
