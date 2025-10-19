@@ -306,9 +306,10 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="pb-2"> {/* Removido flex-row e justify-between */}
         <CardTitle className="text-2xl font-bold">Lista de Ordens de Serviço</CardTitle>
-        <div className="flex space-x-2">
+      </CardHeader>
+      <div className="flex flex-wrap justify-end gap-2 p-4 pt-0"> {/* Nova div para os botões */}
           <Button onClick={handleCopyList} disabled={listItems.length === 0 || isLoading} className="flex items-center gap-2">
             <Copy className="h-4 w-4" /> Copiar Lista
           </Button>
@@ -344,7 +345,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           </AlertDialogContent>
         </AlertDialog>
         </div>
-      </CardHeader>
       <CardContent>
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando sua lista de ordens de serviço...</p>
