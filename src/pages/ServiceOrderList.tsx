@@ -45,14 +45,17 @@ const ServiceOrderList = () => {
 
         if (sortedUniqueOrders.length > 0) {
           const latestOrder = sortedUniqueOrders[0];
-          setEditingServiceOrder({
-            af: latestOrder.af,
-            os: latestOrder.os,
-            hora_inicio: latestOrder.hora_inicio,
-            hora_final: latestOrder.hora_final,
-            servico_executado: latestOrder.servico_executado,
-          });
-          showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
+          // Apenas define editingServiceOrder se não houver uma OS já selecionada para edição
+          if (!editingServiceOrder) {
+            setEditingServiceOrder({
+              af: latestOrder.af,
+              os: latestOrder.os,
+              hora_inicio: latestOrder.hora_inicio,
+              hora_final: latestOrder.hora_final,
+              servico_executado: latestOrder.servico_executado,
+            });
+            showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
+          }
         } else {
           setEditingServiceOrder(null); // Se não houver ordens únicas, não há OS para editar
         }
@@ -110,6 +113,7 @@ const ServiceOrderList = () => {
           onListChanged={loadListItems} 
           isLoading={isLoading} 
           onEditServiceOrder={handleEditServiceOrder}
+          editingServiceOrder={editingServiceOrder} // Passando o estado para o display
         />
       </div>
       <MadeWithDyad />

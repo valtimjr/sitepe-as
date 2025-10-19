@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ListItem, clearList, deleteListItem } from '@/services/partListService';
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, Pencil } from 'lucide-react';
+import { Trash2, Download, Copy, Pencil, MoreVertical } from 'lucide-react'; // Adicionado MoreVertical
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,15 +18,31 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { localDb } from '@/services/localDbService'; // Importar localDb para exclusão em massa
+
+interface ServiceOrderDetails {
+  af: string;
+  os?: number;
+  hora_inicio?: string;
+  hora_final?: string;
+  servico_executado?: string;
+}
 
 interface ServiceOrderListDisplayProps {
   listItems: ListItem[];
   onListChanged: () => void;
   isLoading: boolean;
-  onEditServiceOrder: (details: { af: string; os?: number; hora_inicio?: string; hora_final?: string; servico_executado?: string }) => void;
+  onEditServiceOrder: (details: ServiceOrderDetails) => void;
+  editingServiceOrder: ServiceOrderDetails | null; // Adicionado para controlar a visibilidade do botão de exclusão de peça
 }
 
-const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder }) => {
+const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder }) => {
   const handleExportPdf = () => {
     if (listItems.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
@@ -150,6 +166,31 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     }
   };
 
+  const handleDeleteServiceOrder = async (group: { af: string; os?: number; hora_inicio?: string; hora_final?: string; servico_executado?: string }) => {
+    try {
+      // Filtra todos os itens que correspondem a esta ordem de serviço
+      const itemsToDelete = listItems.filter(item =>
+        item.af === group.af &&
+        (item.os === group.os || (item.os === undefined && group.os === undefined)) &&
+        (item.hora_inicio === group.hora_inicio || (item.hora_inicio === undefined && group.hora_inicio === undefined)) &&
+        (item.hora_final === group.hora_final || (item.hora_final === undefined && group.hora_final === undefined)) &&
+        (item.servico_executado === group.servico_executado || (item.servico_executado === undefined && group.servico_executado === undefined))
+      );
+
+      if (itemsToDelete.length > 0) {
+        const idsToDelete = itemsToDelete.map(item => item.id);
+        await localDb.listItems.bulkDelete(idsToDelete);
+        showSuccess(`Ordem de Serviço AF: ${group.af}${group.os ? `, OS: ${group.os}` : ''} e seus itens foram excluídos.`);
+        onListChanged(); // Recarrega a lista após a exclusão
+      } else {
+        showError('Nenhum item encontrado para esta Ordem de Serviço.');
+      }
+    } catch (error) {
+      showError('Erro ao excluir a Ordem de Serviço.');
+      console.error('Failed to delete service order:', error);
+    }
+  };
+
   // Agrupar itens para exibição
   const groupedForDisplay: { [key: string]: {
     af: string;
@@ -231,71 +272,106 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-fit">AF</TableHead>
-                  <TableHead className="w-fit">Editar OS</TableHead> {/* Nova coluna para o botão de edição */}
+                  <TableHead className="w-fit">Ações OS</TableHead> {/* Coluna para o DropdownMenu de ações da OS */}
                   <TableHead className="w-fit">OS</TableHead>
                   <TableHead className="w-fit">Início</TableHead>
                   <TableHead className="w-fit">Fim</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words">Serviço Executado</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words">Peça</TableHead>
                   <TableHead className="w-fit">Quantidade</TableHead>
-                  <TableHead className="text-right w-fit">Ações</TableHead> {/* Ações agora só para exclusão */}
+                  <TableHead className="text-right w-fit">Ações Peça</TableHead> {/* Ações agora só para exclusão de peça */}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedGroups.map((group, groupIndex) => (
-                  <React.Fragment key={`${group.af}-${group.os || 'no_os'}-${groupIndex}`}>
-                    {group.parts.map((part, partIndex) => (
-                      <TableRow key={part.id} className={partIndex === 0 ? 'border-t-4 border-blue-400 dark:border-blue-600' : ''}>
-                        {partIndex === 0 ? (
-                          <>
-                            <TableCell rowSpan={group.parts.length} className="font-medium align-top w-fit">{group.af}</TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top w-fit"> {/* Célula para o botão de edição */}
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => onEditServiceOrder({ 
+                {sortedGroups.map((group, groupIndex) => {
+                  // Verifica se esta OS está sendo editada
+                  const isEditingThisServiceOrder = editingServiceOrder &&
+                    editingServiceOrder.af === group.af &&
+                    (editingServiceOrder.os === group.os || (editingServiceOrder.os === undefined && group.os === undefined)) &&
+                    (editingServiceOrder.hora_inicio === group.hora_inicio || (editingServiceOrder.hora_inicio === undefined && group.hora_inicio === undefined)) &&
+                    (editingServiceOrder.hora_final === group.hora_final || (editingServiceOrder.hora_final === undefined && group.hora_final === undefined)) &&
+                    (editingServiceOrder.servico_executado === group.servico_executado || (editingServiceOrder.servico_executado === undefined && group.servico_executado === undefined));
+
+                  return (
+                    <React.Fragment key={`${group.af}-${group.os || 'no_os'}-${groupIndex}`}>
+                      {group.parts.map((part, partIndex) => (
+                        <TableRow key={part.id} className={partIndex === 0 ? 'border-t-4 border-blue-400 dark:border-blue-600' : ''}>
+                          {partIndex === 0 ? (
+                            <>
+                              <TableCell rowSpan={group.parts.length} className="font-medium align-top w-fit">{group.af}</TableCell>
+                              <TableCell rowSpan={group.parts.length} className="align-top w-fit">
+                                <DropdownMenu>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="mr-2">
+                                          <MoreVertical className="h-4 w-4 text-gray-500" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Opções da Ordem de Serviço</TooltipContent>
+                                  </Tooltip>
+                                  <DropdownMenuContent align="start">
+                                    <DropdownMenuItem onClick={() => onEditServiceOrder({ 
                                       af: group.af, 
                                       os: group.os, 
                                       hora_inicio: group.hora_inicio, 
                                       hora_final: group.hora_final, 
                                       servico_executado: group.servico_executado 
-                                    })}
-                                    className="mr-2"
-                                  >
-                                    <Pencil className="h-4 w-4 text-blue-500" />
+                                    })}>
+                                      <Pencil className="mr-2 h-4 w-4" /> Editar Detalhes da OS
+                                    </DropdownMenuItem>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600"> {/* Previne o fechamento do dropdown */}
+                                          <Trash2 className="mr-2 h-4 w-4" /> Excluir Ordem de Serviço
+                                        </DropdownMenuItem>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Esta ação irá remover TODOS os itens da Ordem de Serviço AF: {group.af}{group.os ? `, OS: ${group.os}` : ''}. Esta ação não pode ser desfeita.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                          <AlertDialogAction onClick={() => handleDeleteServiceOrder(group)}>Excluir OS</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                              <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.os || ''}</TableCell>
+                              <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.hora_inicio || ''}</TableCell>
+                              <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.hora_final || ''}</TableCell>
+                              <TableCell rowSpan={group.parts.length} className="align-top w-auto whitespace-normal break-words">{group.servico_executado || ''}</TableCell>
+                            </>
+                          ) : null}
+                          <TableCell className="w-auto whitespace-normal break-words">
+                            {part.codigo_peca && part.descricao 
+                              ? `${part.codigo_peca} - ${part.descricao}` 
+                              : part.codigo_peca || part.descricao || ''}
+                          </TableCell>
+                          <TableCell className="w-fit">{part.quantidade ?? ''}</TableCell>
+                          <TableCell className="text-right w-fit">
+                            {isEditingThisServiceOrder && ( // Botão de exclusão de peça aparece apenas se a OS estiver em edição
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(part.id)}>
+                                    <Trash2 className="h-4 w-4 text-red-500" />
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Editar Ordem de Serviço</TooltipContent>
+                                <TooltipContent>Remover item</TooltipContent>
                               </Tooltip>
-                            </TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.os || ''}</TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.hora_inicio || ''}</TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.hora_final || ''}</TableCell>
-                            <TableCell rowSpan={group.parts.length} className="align-top w-auto whitespace-normal break-words">{group.servico_executado || ''}</TableCell>
-                          </>
-                        ) : null}
-                        <TableCell className="w-auto whitespace-normal break-words">
-                          {part.codigo_peca && part.descricao 
-                            ? `${part.codigo_peca} - ${part.descricao}` 
-                            : part.codigo_peca || part.descricao || ''}
-                        </TableCell>
-                        <TableCell className="w-fit">{part.quantidade ?? ''}</TableCell>
-                        <TableCell className="text-right w-fit">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(part.id)}>
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Remover item</TooltipContent>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </React.Fragment>
-                ))}
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
