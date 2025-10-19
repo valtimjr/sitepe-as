@@ -148,9 +148,10 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     .select('*');
 
   if (query) {
-    queryBuilder = queryBuilder.where('codigo', 'ilike', `${lowerCaseQuery}%`)
-                               .or('descricao.ilike', `%${lowerCaseQuery}%`)
-                               .or('tags.ilike', `%${lowerCaseQuery}%`);
+    // Correção: Usar o método 'or' com uma string de condições 'ilike'
+    queryBuilder = queryBuilder.or(
+      `codigo.ilike.%${lowerCaseQuery}%,descricao.ilike.%${lowerCaseQuery}%,tags.ilike.%${lowerCaseQuery}%`
+    );
   }
 
   const { data, error } = await queryBuilder;
