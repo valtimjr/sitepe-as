@@ -92,38 +92,42 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     for (const key in groupedByAfOs) {
       const group = groupedByAfOs[key];
       
+      // AF and OS line
       textToCopy += `AF: ${group.af}`;
       if (group.os) {
-        textToCopy += ` | OS: ${group.os}`;
+        textToCopy += ` OS: ${group.os}`;
       }
       textToCopy += '\n';
 
+      // Service Executado
       if (group.servico_executado) {
-        textToCopy += `Serviço: ${group.servico_executado}\n`;
+        textToCopy += `${group.servico_executado}\n`;
       }
 
+      // Horário
       if (group.hora_inicio && group.hora_final) {
-        textToCopy += `Horário: ${group.hora_inicio}-${group.hora_final}\n`;
+        textToCopy += `${group.hora_inicio}-${group.hora_final}\n`;
       } else if (group.hora_inicio) {
-        textToCopy += `Início: ${group.hora_inicio}\n`;
+        textToCopy += `${group.hora_inicio}\n`;
       } else if (group.hora_final) {
-        textToCopy += `Fim: ${group.hora_final}\n`;
+        textToCopy += `${group.hora_final}\n`;
       }
 
+      // Parts list
       if (group.parts.length > 0) {
         textToCopy += 'Peças:\n';
         group.parts.forEach(part => {
           let partString = '';
-          if (part.quantidade) {
-            partString += `${part.quantidade}x `;
-          }
+          const quantity = part.quantidade ?? 1; // Default to 1 if quantity is undefined
+          partString += `${quantity} - `;
+
           if (part.descricao) {
             partString += `${part.descricao} `;
           }
           if (part.codigo_peca) {
-            partString += `(${part.codigo_peca})`;
+            partString += `Cód: ${part.codigo_peca}`;
           }
-          textToCopy += `- ${partString.trim()}\n`;
+          textToCopy += `${partString.trim()}\n`;
         });
       }
       textToCopy += '\n';
