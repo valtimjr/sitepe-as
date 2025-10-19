@@ -94,18 +94,43 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       return;
     }
 
-    let textToShare = `*Lista de Peças:*\n\n`;
-    displayedItems.forEach((item, index) => {
-      textToShare += `${index + 1}. Código: ${item.codigo_peca || 'N/A'}\n`;
-      textToShare += `   Descrição: ${item.descricao || 'N/A'}\n`;
-      textToShare += `   Quantidade: ${item.quantidade ?? 'N/A'}\n`;
-      if (item.af) {
-        textToShare += `   AF: ${item.af}\n`;
-      }
-      textToShare += `\n`;
+    const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
+    const rows = displayedItems.map(item => [
+      item.codigo_peca || '',
+      item.descricao || '',
+      item.quantidade !== undefined ? item.quantidade.toString() : '',
+      item.af || ''
+    ]);
+
+    // Calculate max widths for each column
+    const maxColWidths = headers.map((header, colIndex) => {
+      let maxWidth = header.length;
+      rows.forEach(row => {
+        const cellContent = row[colIndex] ? String(row[colIndex]) : '';
+        if (cellContent.length > maxWidth) {
+          maxWidth = cellContent.length;
+        }
+      });
+      return maxWidth;
     });
 
-    const encodedText = encodeURIComponent(textToShare.trim());
+    let textToShare = '';
+
+    // Add header row, padded with spaces
+    textToShare += headers.map((header, colIndex) =>
+      header.padEnd(maxColWidths[colIndex])
+    ).join('  ') + '\n'; // Use two spaces as separator for visual clarity
+
+    // Add data rows, padded with spaces
+    rows.forEach(row => {
+      textToShare += row.map((cell, colIndex) =>
+        (String(cell || '')).padEnd(maxColWidths[colIndex])
+      ).join('  ') + '\n';
+    });
+
+    textToShare = textToShare.trim(); // Remove trailing newline
+
+    const encodedText = encodeURIComponent(textToShare);
     const whatsappUrl = `https://wa.me/?text=${encodedText}`;
 
     window.open(whatsappUrl, '_blank');
