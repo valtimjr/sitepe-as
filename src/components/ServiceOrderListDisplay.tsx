@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ListItem, clearList, deleteListItem } from '@/services/partListService';
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, Pencil, MoreVertical } from 'lucide-react'; // Adicionado MoreVertical
+import { Trash2, Download, Copy, Pencil, MoreVertical } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -271,15 +271,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-fit">Opções</TableHead> {/* Nova coluna para o DropdownMenu de ações da OS */}
                   <TableHead className="w-fit">AF</TableHead>
-                  <TableHead className="w-fit">Ações OS</TableHead> {/* Coluna para o DropdownMenu de ações da OS */}
                   <TableHead className="w-fit">OS</TableHead>
                   <TableHead className="w-fit">Início</TableHead>
                   <TableHead className="w-fit">Fim</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words">Serviço Executado</TableHead>
-                  <TableHead className="w-auto whitespace-normal break-words">Peça</TableHead>
+                  <TableHead className className="w-auto whitespace-normal break-words">Peça</TableHead>
                   <TableHead className="w-fit">Quantidade</TableHead>
-                  <TableHead className="text-right w-fit">Ações Peça</TableHead> {/* Ações agora só para exclusão de peça */}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -298,7 +297,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         <TableRow key={part.id} className={partIndex === 0 ? 'border-t-4 border-blue-400 dark:border-blue-600' : ''}>
                           {partIndex === 0 ? (
                             <>
-                              <TableCell rowSpan={group.parts.length} className="font-medium align-top w-fit">{group.af}</TableCell>
                               <TableCell rowSpan={group.parts.length} className="align-top w-fit">
                                 <DropdownMenu>
                                   <Tooltip>
@@ -343,23 +341,23 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </TableCell>
+                              <TableCell rowSpan={group.parts.length} className="font-medium align-top w-fit">{group.af}</TableCell>
                               <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.os || ''}</TableCell>
                               <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.hora_inicio || ''}</TableCell>
                               <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.hora_final || ''}</TableCell>
                               <TableCell rowSpan={group.parts.length} className="align-top w-auto whitespace-normal break-words">{group.servico_executado || ''}</TableCell>
                             </>
                           ) : null}
-                          <TableCell className="w-auto whitespace-normal break-words">
-                            {part.codigo_peca && part.descricao 
-                              ? `${part.codigo_peca} - ${part.descricao}` 
-                              : part.codigo_peca || part.descricao || ''}
-                          </TableCell>
-                          <TableCell className="w-fit">{part.quantidade ?? ''}</TableCell>
-                          <TableCell className="text-right w-fit">
+                          <TableCell className="w-auto whitespace-normal break-words flex justify-between items-center">
+                            <span>
+                              {part.codigo_peca && part.descricao 
+                                ? `${part.codigo_peca} - ${part.descricao}` 
+                                : part.codigo_peca || part.descricao || ''}
+                            </span>
                             {isEditingThisServiceOrder && ( // Botão de exclusão de peça aparece apenas se a OS estiver em edição
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(part.id)}>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(part.id)} className="ml-2">
                                     <Trash2 className="h-4 w-4 text-red-500" />
                                   </Button>
                                 </TooltipTrigger>
@@ -367,6 +365,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                               </Tooltip>
                             )}
                           </TableCell>
+                          <TableCell className="w-fit">{part.quantidade ?? ''}</TableCell>
                         </TableRow>
                       ))}
                     </React.Fragment>
