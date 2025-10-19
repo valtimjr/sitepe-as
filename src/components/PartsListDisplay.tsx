@@ -26,7 +26,6 @@ interface PartsListDisplayProps {
 }
 
 const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged }) => {
-  // Não é mais necessário filtrar, pois listItems já virá da tabela correta
   const displayedItems = listItems;
 
   const handleExportPdf = () => {
@@ -44,18 +43,41 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       return;
     }
 
-    let textToCopy = 'Código\tDescrição\tQuantidade\tAF\n'; // Cabeçalho da tabela
+    const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
+    const rows = displayedItems.map(item => [
+      item.codigo_peca || '',
+      item.descricao || '',
+      item.quantidade !== undefined ? item.quantidade.toString() : '',
+      item.af || ''
+    ]);
 
-    displayedItems.forEach(item => {
-      const codigo = item.codigo_peca || '';
-      const descricao = item.descricao || '';
-      const quantidade = item.quantidade !== undefined ? item.quantidade.toString() : '';
-      const af = item.af || '';
-
-      textToCopy += `${codigo}\t${descricao}\t${quantidade}\t${af}\n`;
+    // Calculate max widths for each column
+    const maxColWidths = headers.map((header, colIndex) => {
+      let maxWidth = header.length;
+      rows.forEach(row => {
+        const cellContent = row[colIndex] ? String(row[colIndex]) : '';
+        if (cellContent.length > maxWidth) {
+          maxWidth = cellContent.length;
+        }
+      });
+      return maxWidth;
     });
 
-    textToCopy = textToCopy.trim(); // Remove a última quebra de linha, se houver
+    let textToCopy = '';
+
+    // Add header row, padded with spaces
+    textToCopy += headers.map((header, colIndex) =>
+      header.padEnd(maxColWidths[colIndex])
+    ).join('  ') + '\n'; // Use two spaces as separator for visual clarity
+
+    // Add data rows, padded with spaces
+    rows.forEach(row => {
+      textToCopy += row.map((cell, colIndex) =>
+        (String(cell || '')).padEnd(maxColWidths[colIndex])
+      ).join('  ') + '\n';
+    });
+
+    textToCopy = textToCopy.trim(); // Remove trailing newline
 
     try {
       await navigator.clipboard.writeText(textToCopy);
