@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ListItem, clearList, deleteListItem } from '@/services/partListService';
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, Pencil } from 'lucide-react'; // Importar o ícone Pencil
+import { Trash2, Download, Copy, Pencil } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +23,7 @@ interface ServiceOrderListDisplayProps {
   listItems: ListItem[];
   onListChanged: () => void;
   isLoading: boolean;
-  onEditServiceOrder: (details: { af: string; os?: number; hora_inicio?: string; hora_final?: string; servico_executado?: string }) => void; // Nova prop
+  onEditServiceOrder: (details: { af: string; os?: number; hora_inicio?: string; hora_final?: string; servico_executado?: string }) => void;
 }
 
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder }) => {
@@ -236,7 +236,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                 {sortedGroups.map((group, groupIndex) => (
                   <React.Fragment key={`${group.af}-${group.os || 'no_os'}-${groupIndex}`}>
                     {group.parts.map((part, partIndex) => (
-                      <TableRow key={part.id} className={partIndex === 0 ? 'border-t-2 border-blue-300 dark:border-blue-700' : ''}>
+                      <TableRow key={part.id} className={partIndex === 0 ? 'border-t-4 border-blue-400 dark:border-blue-600' : ''}> {/* Borda mais grossa e visível */}
                         {partIndex === 0 ? (
                           <>
                             <TableCell rowSpan={group.parts.length} className="font-medium align-top">{group.af}</TableCell>
@@ -249,7 +249,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         <TableCell>{part.codigo_peca} - {part.descricao}</TableCell>
                         <TableCell>{part.quantidade}</TableCell>
                         <TableCell className="text-right">
-                          {partIndex === 0 && ( // Botão de editar apenas na primeira linha do grupo
+                          {partIndex === 0 && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button 

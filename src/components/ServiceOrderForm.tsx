@@ -9,6 +9,7 @@ import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save, Plus, FilePlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator'; // Importar Separator
 
 interface ServiceOrderDetails {
   af: string;
@@ -20,8 +21,8 @@ interface ServiceOrderDetails {
 
 interface ServiceOrderFormProps {
   onItemAdded: () => void;
-  editingServiceOrder: ServiceOrderDetails | null; // Nova prop
-  onNewServiceOrder: () => void; // Nova prop para limpar o estado de edição no pai
+  editingServiceOrder: ServiceOrderDetails | null;
+  onNewServiceOrder: () => void;
 }
 
 const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder }) => {
@@ -55,7 +56,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     loadInitialData();
   }, []);
 
-  // Efeito para preencher o formulário quando editingServiceOrder muda
   useEffect(() => {
     if (editingServiceOrder) {
       setAf(editingServiceOrder.af);
@@ -63,13 +63,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       setHoraInicio(editingServiceOrder.hora_inicio || '');
       setHoraFinal(editingServiceOrder.hora_final || '');
       setServicoExecutado(editingServiceOrder.servico_executado || '');
-      // Resetar campos de peça para adicionar uma nova peça à OS existente
       resetPartFields();
     } else {
-      // Se editingServiceOrder for null, limpar todos os campos (para "Nova Ordem de Serviço")
       resetAllFieldsInternal();
     }
-  }, [editingServiceOrder]); // Depende de editingServiceOrder
+  }, [editingServiceOrder]);
 
   useEffect(() => {
     const fetchSearchResults = async () => {
@@ -128,7 +126,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     }
   };
 
-  // Função interna para resetar todos os campos do formulário
   const resetAllFieldsInternal = () => {
     setSelectedPart(null);
     setQuantidade(1);
@@ -170,8 +167,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         servico_executado: servicoExecutado,
       });
       showSuccess('Item adicionado à lista!');
-      resetPartFields(); // Limpa apenas os campos da peça
-      onItemAdded(); // Notifica o pai para recarregar a lista
+      resetPartFields();
+      onItemAdded();
       const updatedAfs = await getUniqueAfs();
       setAllAvailableAfs(updatedAfs);
     } catch (error) {
@@ -185,11 +182,20 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle>Adicionar Item à Ordem de Serviço</CardTitle>
+        <CardTitle className="text-xl font-bold">
+          {editingServiceOrder ? (
+            <>
+              Adicionar Peça à OS: <span className="text-blue-600 dark:text-blue-400">{editingServiceOrder.af}</span>
+              {editingServiceOrder.os && <span className="text-blue-600 dark:text-blue-400"> (OS: {editingServiceOrder.os})</span>}
+            </>
+          ) : (
+            "Criar Nova Ordem de Serviço"
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* 1. AF (Número de Frota) */}
+          {/* Campos da Ordem de Serviço */}
           <div>
             <Label htmlFor="af">AF (Número de Frota)</Label>
             {isLoadingAfs ? (
@@ -200,10 +206,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 onChange={setAf}
                 availableAfs={allAvailableAfs}
                 onSelectAf={handleSelectAf}
+                // Torna o input de AF somente leitura se estiver editando uma OS
+                readOnly={!!editingServiceOrder} 
               />
             )}
           </div>
-          {/* 2. OS (Opcional) */}
           <div>
             <Label htmlFor="os">OS (Opcional)</Label>
             <Input
@@ -216,9 +223,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               }}
               placeholder="Número da Ordem de Serviço"
               min="0"
+              // Torna o input de OS somente leitura se estiver editando uma OS
+              readOnly={!!editingServiceOrder}
             />
           </div>
-          {/* Novos campos para Hora de Início e Hora Final */}
           <div className="flex space-x-4">
             <div className="flex-1">
               <Label htmlFor="hora_inicio">Hora de Início (Opcional)</Label>
@@ -227,6 +235,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 type="time"
                 value={horaInicio}
                 onChange={(e) => setHoraInicio(e.target.value)}
+                // Torna o input de Hora Início somente leitura se estiver editando uma OS
+                readOnly={!!editingServiceOrder}
               />
             </div>
             <div className="flex-1">
@@ -236,10 +246,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 type="time"
                 value={horaFinal}
                 onChange={(e) => setHoraFinal(e.target.value)}
+                // Torna o input de Hora Final somente leitura se estiver editando uma OS
+                readOnly={!!editingServiceOrder}
               />
             </div>
           </div>
-          {/* 3. Serviço Executado (Opcional) */}
           <div>
             <Label htmlFor="servico_executado">Serviço Executado (Opcional)</Label>
             <Textarea
@@ -248,9 +259,15 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               onChange={(e) => setServicoExecutado(e.target.value)}
               placeholder="Descreva o serviço executado"
               rows={3}
+              // Torna o Textarea de Serviço Executado somente leitura se estiver editando uma OS
+              readOnly={!!editingServiceOrder}
             />
           </div>
-          {/* 4. Buscar Peça */}
+
+          <Separator className="my-6" /> {/* Separador visual */}
+
+          {/* Campos da Peça */}
+          <h3 className="text-lg font-semibold">Detalhes da Peça</h3>
           <div>
             <Label htmlFor="search-part">Buscar Peça</Label>
             <PartSearchInput
@@ -262,7 +279,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               isLoading={isLoadingParts}
             />
           </div>
-          {/* 5. Código da Peça */}
           <div>
             <Label htmlFor="codigo_peca">Código da Peça</Label>
             <Input
@@ -274,7 +290,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               className="bg-gray-100 dark:bg-gray-700"
             />
           </div>
-          {/* 6. Descrição */}
           <div>
             <Label htmlFor="descricao">Descrição</Label>
             <Input
@@ -286,7 +301,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               className="bg-gray-100 dark:bg-gray-700"
             />
           </div>
-          {/* 7. Tags */}
           {selectedPart && (
             <div>
               <Label htmlFor="tags">Tags (separadas por ';')</Label>
@@ -311,7 +325,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               </div>
             </div>
           )}
-          {/* 8. Quantidade */}
           <div>
             <Label htmlFor="quantidade">Quantidade</Label>
             <Input
@@ -323,15 +336,19 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               required
             />
           </div>
-          <Button type="submit" className="w-full" disabled={isLoadingParts || isLoadingAfs || !selectedPart}>Adicionar à Lista</Button>
+          <Button type="submit" className="w-full" disabled={isLoadingParts || isLoadingAfs || !selectedPart}>
+            {editingServiceOrder ? "Adicionar Peça à Ordem" : "Criar Ordem e Adicionar Peça"}
+          </Button>
         </form>
         <div className="flex flex-col space-y-2 mt-4">
           <Button variant="outline" onClick={onNewServiceOrder} className="w-full flex items-center gap-2">
-            <FilePlus className="h-4 w-4" /> Nova Ordem de Serviço
+            <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
           </Button>
-          <Button variant="secondary" onClick={resetPartFields} className="w-full flex items-center gap-2">
-            <Plus className="h-4 w-4" /> Nova Peça (na ordem atual)
-          </Button>
+          {editingServiceOrder && (
+            <Button variant="secondary" onClick={resetPartFields} className="w-full flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Adicionar Outra Peça (à ordem atual)
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
