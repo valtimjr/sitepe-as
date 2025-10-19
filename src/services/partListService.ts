@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import Papa from 'papaparse'; // Adicionado: Importação do Papa.parse
 import {
   localDb,
   getLocalUniqueAfs,
@@ -93,9 +94,7 @@ const seedAfsFromCsv = async (): Promise<void> => {
     }
     const csvText = await response.text();
     await new Promise<void>((resolve, reject) => {
-      // Papa.parse is still used for afs.csv
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
+      // Papa.parse é usado aqui. A importação foi adicionada acima.
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
@@ -149,6 +148,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
 
   if (query) {
     // Correção: Usar o método 'or' com uma string de condições 'ilike'
+    // O método 'where' não é a forma correta para esta operação no cliente Supabase.
     queryBuilder = queryBuilder.or(
       `codigo.ilike.%${lowerCaseQuery}%,descricao.ilike.%${lowerCaseQuery}%,tags.ilike.%${lowerCaseQuery}%`
     );
