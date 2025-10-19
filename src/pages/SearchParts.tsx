@@ -37,7 +37,7 @@ const SearchParts = () => {
           </Button>
         </Link>
       </div>
-      <img src="/icons/whatsapp.png" alt="Logo do Aplicativo" className="h-20 w-20 mb-6 mx-auto" />
+      <img src="/logo.png" alt="Logo do Aplicativo" className="h-20 w-20 mb-6 mx-auto" />
       <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary">
         Pesquisar Peças
       </h1>
