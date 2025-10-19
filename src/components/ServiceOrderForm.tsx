@@ -7,14 +7,24 @@ import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchParts
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save, Plus, FilePlus } from 'lucide-react'; // Importar ícones
+import { Save, Plus, FilePlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+
+interface ServiceOrderDetails {
+  af: string;
+  os?: number;
+  hora_inicio?: string;
+  hora_final?: string;
+  servico_executado?: string;
+}
 
 interface ServiceOrderFormProps {
   onItemAdded: () => void;
+  editingServiceOrder: ServiceOrderDetails | null; // Nova prop
+  onNewServiceOrder: () => void; // Nova prop para limpar o estado de edição no pai
 }
 
-const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
+const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder }) => {
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -44,6 +54,22 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
     };
     loadInitialData();
   }, []);
+
+  // Efeito para preencher o formulário quando editingServiceOrder muda
+  useEffect(() => {
+    if (editingServiceOrder) {
+      setAf(editingServiceOrder.af);
+      setOs(editingServiceOrder.os);
+      setHoraInicio(editingServiceOrder.hora_inicio || '');
+      setHoraFinal(editingServiceOrder.hora_final || '');
+      setServicoExecutado(editingServiceOrder.servico_executado || '');
+      // Resetar campos de peça para adicionar uma nova peça à OS existente
+      resetPartFields();
+    } else {
+      // Se editingServiceOrder for null, limpar todos os campos (para "Nova Ordem de Serviço")
+      resetAllFieldsInternal();
+    }
+  }, [editingServiceOrder]); // Depende de editingServiceOrder
 
   useEffect(() => {
     const fetchSearchResults = async () => {
@@ -102,7 +128,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
     }
   };
 
-  const resetAllFields = () => {
+  // Função interna para resetar todos os campos do formulário
+  const resetAllFieldsInternal = () => {
     setSelectedPart(null);
     setQuantidade(1);
     setAf('');
@@ -113,7 +140,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
     setSearchQuery('');
     setSearchResults([]);
     setEditedTags('');
-    showSuccess('Formulário limpo para nova ordem de serviço!');
   };
 
   const resetPartFields = () => {
@@ -144,8 +170,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
         servico_executado: servicoExecutado,
       });
       showSuccess('Item adicionado à lista!');
-      // Após adicionar, limpa apenas os campos da peça para permitir adicionar outra peça à mesma OS/AF
-      resetPartFields();
+      resetPartFields(); // Limpa apenas os campos da peça
       onItemAdded(); // Notifica o pai para recarregar a lista
       const updatedAfs = await getUniqueAfs();
       setAllAvailableAfs(updatedAfs);
@@ -301,7 +326,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded }) => {
           <Button type="submit" className="w-full" disabled={isLoadingParts || isLoadingAfs || !selectedPart}>Adicionar à Lista</Button>
         </form>
         <div className="flex flex-col space-y-2 mt-4">
-          <Button variant="outline" onClick={resetAllFields} className="w-full flex items-center gap-2">
+          <Button variant="outline" onClick={onNewServiceOrder} className="w-full flex items-center gap-2">
             <FilePlus className="h-4 w-4" /> Nova Ordem de Serviço
           </Button>
           <Button variant="secondary" onClick={resetPartFields} className="w-full flex items-center gap-2">

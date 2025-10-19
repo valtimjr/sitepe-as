@@ -3,9 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ListItem, clearList, deleteListItem } from '@/services/partListService';
-import { generateServiceOrderPdf } from '@/lib/pdfGenerator'; // Importar a nova função
+import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy } from 'lucide-react';
+import { Trash2, Download, Copy, Pencil } from 'lucide-react'; // Importar o ícone Pencil
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,15 +23,16 @@ interface ServiceOrderListDisplayProps {
   listItems: ListItem[];
   onListChanged: () => void;
   isLoading: boolean;
+  onEditServiceOrder: (details: { af: string; os?: number; hora_inicio?: string; hora_final?: string; servico_executado?: string }) => void; // Nova prop
 }
 
-const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading }) => {
+const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder }) => {
   const handleExportPdf = () => {
     if (listItems.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    generateServiceOrderPdf(listItems, 'Lista de Ordens de Serviço'); // Chamar a nova função
+    generateServiceOrderPdf(listItems, 'Lista de Ordens de Serviço');
     showSuccess('PDF gerado com sucesso!');
   };
 
@@ -248,6 +249,27 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         <TableCell>{part.codigo_peca} - {part.descricao}</TableCell>
                         <TableCell>{part.quantidade}</TableCell>
                         <TableCell className="text-right">
+                          {partIndex === 0 && ( // Botão de editar apenas na primeira linha do grupo
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  onClick={() => onEditServiceOrder({ 
+                                    af: group.af, 
+                                    os: group.os, 
+                                    hora_inicio: group.hora_inicio, 
+                                    hora_final: group.hora_final, 
+                                    servico_executado: group.servico_executado 
+                                  })}
+                                  className="mr-2"
+                                >
+                                  <Pencil className="h-4 w-4 text-blue-500" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Editar Ordem de Serviço</TooltipContent>
+                            </Tooltip>
+                          )}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(part.id)}>
