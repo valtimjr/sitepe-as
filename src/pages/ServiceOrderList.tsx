@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Import useCallback
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import ServiceOrderForm from '@/components/ServiceOrderForm';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
 import { getListItems, ListItem } from '@/services/partListService';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, FilePlus } from 'lucide-react'; // Importar FilePlus
+import { ArrowLeft, FilePlus } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 
 interface ServiceOrderDetails {
@@ -22,13 +22,12 @@ const ServiceOrderList = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
 
-  const loadListItems = async () => {
+  const loadListItems = useCallback(async () => { // Use useCallback
     setIsLoading(true);
     try {
       const items = await getListItems();
       setListItems(items);
 
-      // Lógica para identificar a OS mais recente e defini-la como editingServiceOrder
       if (items.length > 0) {
         // Agrupar itens por AF, OS, serviço, horas para identificar ordens de serviço únicas
         const uniqueServiceOrders: { [key: string]: ListItem } = {};
@@ -47,7 +46,16 @@ const ServiceOrderList = () => {
         if (sortedUniqueOrders.length > 0) {
           const latestOrder = sortedUniqueOrders[0];
           // Apenas define editingServiceOrder se não houver uma OS já selecionada para edição
-          if (!editingServiceOrder) {
+          // OU se a OS atualmente em edição não for mais válida (ex: foi excluída)
+          const isCurrentEditedOrderStillValid = editingServiceOrder && items.some(item =>
+            item.af === editingServiceOrder.af &&
+            (item.os === editingServiceOrder.os || (item.os === undefined && editingServiceOrder.os === undefined)) &&
+            (item.hora_inicio === editingServiceOrder.hora_inicio || (item.hora_inicio === undefined && editingServiceOrder.hora_inicio === undefined)) &&
+            (item.hora_final === editingServiceOrder.hora_final || (item.hora_final === undefined && editingServiceOrder.hora_final === undefined)) &&
+            (item.servico_executado === editingServiceOrder.servico_executado || (item.servico_executado === undefined && editingServiceOrder.servico_executado === undefined))
+          );
+
+          if (!editingServiceOrder || !isCurrentEditedOrderStillValid) {
             setEditingServiceOrder({
               af: latestOrder.af,
               os: latestOrder.os,
@@ -73,21 +81,21 @@ const ServiceOrderList = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [editingServiceOrder]); // Adiciona editingServiceOrder como uma dependência para useCallback
 
   useEffect(() => {
     loadListItems();
-  }, []);
+  }, [loadListItems]); // Agora loadListItems é uma dependência para useEffect
 
-  const handleEditServiceOrder = (details: ServiceOrderDetails) => {
+  const handleEditServiceOrder = useCallback((details: ServiceOrderDetails) => { // Memoize esta função
     setEditingServiceOrder(details);
     showSuccess(`Editando Ordem de Serviço AF: ${details.af}${details.os ? `, OS: ${details.os}` : ''}`);
-  };
+  }, []); // setEditingServiceOrder é estável, então não precisa de dependências
 
-  const handleNewServiceOrder = () => {
+  const handleNewServiceOrder = useCallback(() => { // Memoize esta função
     setEditingServiceOrder(null); // Limpa o estado de edição
     showSuccess('Iniciando nova Ordem de Serviço.');
-  };
+  }, []); // setEditingServiceOrder é estável, então não precisa de dependências
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50">
