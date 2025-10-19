@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ListItem, clearList, deleteListItem, addItemToList } from '@/services/partListService'; // Importar addItemToList
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, Pencil, MoreVertical } from 'lucide-react';
+import { Trash2, Download, Copy, PlusCircle, MoreVertical } from 'lucide-react'; // Alterado Pencil para PlusCircle
 import {
   AlertDialog,
   AlertDialogAction,
@@ -385,7 +385,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                       servico_executado: group.servico_executado,
                                       createdAt: group.createdAt // Pass createdAt here
                                     })}>
-                                      <Pencil className="mr-2 h-4 w-4" /> Editar Detalhes da OS
+                                      <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Nova Peça
                                     </DropdownMenuItem>
                                     <AlertDialog>
                                       <AlertDialogTrigger asChild>
