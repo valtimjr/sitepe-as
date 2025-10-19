@@ -40,7 +40,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   // Algoritmo para calcular as larguras dinâmicas das colunas
   const calculateDynamicColumnWidths = () => {
     const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
-    const buffer = 2; // Espaços extras para legibilidade
+    const buffer = 2; // Espaços extras para legibilidade entre as colunas
 
     // Inicializa as larguras máximas com o comprimento dos cabeçalhos
     const maxLengths = headers.map(header => header.length);
@@ -57,11 +57,16 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       maxLengths[3] = Math.max(maxLengths[3], af.length);
     });
 
-    // Adiciona o buffer a cada largura máxima
-    return maxLengths.map(length => length + buffer);
+    // Adiciona o buffer a cada largura máxima, exceto para a última coluna
+    const widths = maxLengths.map((length, index) => {
+      // A última coluna não precisa de buffer *depois* dela, pois é o fim da linha
+      return index < maxLengths.length - 1 ? length + buffer : length;
+    });
+    
+    return widths;
   };
 
-  // Função para formatar o texto para a área de transferência (com larguras dinâmicas e tabulações)
+  // Função para formatar o texto para a área de transferência (com larguras dinâmicas e espaçamento exato)
   const formatListTextForClipboard = () => {
     if (displayedItems.length === 0) return '';
 
@@ -70,26 +75,26 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
     let formattedText = '';
 
-    // Adiciona a linha do cabeçalho
+    // Adiciona a linha do cabeçalho com espaçamento exato
     formattedText +=
-      headers[0].padEnd(codigoWidth) + '\t' +
-      headers[1].padEnd(descricaoWidth) + '\t' +
-      headers[2].padEnd(quantidadeWidth) + '\t' +
+      headers[0].padEnd(codigoWidth) +
+      headers[1].padEnd(descricaoWidth) +
+      headers[2].padEnd(quantidadeWidth) +
       headers[3].padEnd(afWidth) + '\n';
 
-    // Adiciona as linhas de dados
+    // Adiciona as linhas de dados com espaçamento exato
     displayedItems.forEach(item => {
       formattedText +=
-        String(item.codigo_peca || '').padEnd(codigoWidth) + '\t' +
-        String(item.descricao || '').padEnd(descricaoWidth) + '\t' +
-        String(item.quantidade !== undefined ? item.quantidade.toString() : '').padEnd(quantidadeWidth) + '\t' +
+        String(item.codigo_peca || '').padEnd(codigoWidth) +
+        String(item.descricao || '').padEnd(descricaoWidth) +
+        String(item.quantidade !== undefined ? item.quantidade.toString() : '').padEnd(quantidadeWidth) +
         String(item.af || '').padEnd(afWidth) + '\n';
     });
 
     return formattedText.trim();
   };
 
-  // Função para formatar o texto especificamente para o WhatsApp (usando a mesma lógica de tabulação e padding)
+  // Função para formatar o texto especificamente para o WhatsApp (usando a mesma lógica de espaçamento exato)
   const formatListTextForWhatsApp = () => {
     // Reutiliza a função de formatação para a área de transferência, pois a lógica é a mesma
     return formatListTextForClipboard();
