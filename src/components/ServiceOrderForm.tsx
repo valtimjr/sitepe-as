@@ -383,9 +383,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               </p>
             )}
           </div>
-          <div className="flex space-x-4">
+          <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
             <div className="flex-1">
-              <Label htmlFor="hora_inicio">Hora de Início (Opcional)</Label>
+              <Label htmlFor="hora_inicio" className="min-h-[2.5rem] flex items-center">Hora de Início (Opcional)</Label>
               <Input
                 id="hora_inicio"
                 type="time"
@@ -395,7 +395,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               />
             </div>
             <div className="flex-1">
-              <Label htmlFor="hora_final">Hora Final (Opcional)</Label>
+              <Label htmlFor="hora_final" className="min-h-[2.5rem] flex items-center">Hora Final (Opcional)</Label>
               <Input
                 id="hora_final"
                 type="time"
