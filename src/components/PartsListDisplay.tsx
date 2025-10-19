@@ -44,23 +44,18 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       return;
     }
 
-    let textToCopy = '';
+    let textToCopy = 'Código\tDescrição\tQuantidade\tAF\n'; // Cabeçalho da tabela
+
     displayedItems.forEach(item => {
-      let itemLine = '';
-      const afPrefix = item.af ? `AF:${item.af} ` : ''; // Adiciona o prefixo AF se existir
-      if (item.quantidade && item.descricao && item.codigo_peca) {
-        itemLine = `${afPrefix}${item.quantidade}-${item.descricao} ${item.codigo_peca}`;
-      } else if (item.descricao) {
-        itemLine = `${afPrefix}${item.descricao}`;
-      } else if (item.codigo_peca) {
-        itemLine = `${afPrefix}${item.codigo_peca}`;
-      } else {
-        itemLine = `${afPrefix}Item sem peça`;
-      }
-      textToCopy += `${itemLine}\n`;
+      const codigo = item.codigo_peca || '';
+      const descricao = item.descricao || '';
+      const quantidade = item.quantidade !== undefined ? item.quantidade.toString() : '';
+      const af = item.af || '';
+
+      textToCopy += `${codigo}\t${descricao}\t${quantidade}\t${af}\n`;
     });
 
-    textToCopy = textToCopy.trim();
+    textToCopy = textToCopy.trim(); // Remove a última quebra de linha, se houver
 
     try {
       await navigator.clipboard.writeText(textToCopy);
