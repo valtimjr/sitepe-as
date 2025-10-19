@@ -161,6 +161,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     setAf('');
     setOs(undefined);
     setHoraInicio('');
+    setHoraFinal(''); // Adicionado para resetar horaFinal
     setServicoExecutado('');
     setSearchQuery('');
     setSearchResults([]);
@@ -322,7 +323,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   };
 
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags;
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !af || isOsInvalid || (editingServiceOrder?.mode === 'add_part' && !selectedPart);
+  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !af || isOsInvalid || (editingServiceOrder?.mode === 'add_part' && !selectedPart && !editingServiceOrder);
 
   const isOsDetailsReadOnly = editingServiceOrder?.mode === 'add_part';
   const isPartDetailsVisible = !editingServiceOrder || editingServiceOrder.mode === 'add_part';
