@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ListItem, clearList, deleteListItem } from '@/services/partListService';
+import { ListItem, clearList, deleteListItem, addItemToList } from '@/services/partListService'; // Importar addItemToList
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
 import { Trash2, Download, Copy, Pencil, MoreVertical } from 'lucide-react';
@@ -157,9 +157,65 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   const handleDeleteItem = async (id: string) => {
     try {
+      const itemToDelete = listItems.find(item => item.id === id);
+      if (!itemToDelete) {
+        showError('Item não encontrado para exclusão.');
+        return;
+      }
+
       await deleteListItem(id);
-      onListChanged();
       showSuccess('Item removido da lista.');
+
+      const currentSOIdentifier: ServiceOrderDetails = {
+        af: itemToDelete.af,
+        os: itemToDelete.os,
+        hora_inicio: itemToDelete.hora_inicio,
+        hora_final: itemToDelete.hora_final,
+        servico_executado: itemToDelete.servico_executado,
+      };
+
+      // Filter remaining items for this specific Service Order
+      const remainingItemsForThisSO = listItems.filter(item =>
+        item.id !== id && // Exclude the item just deleted
+        item.af === currentSOIdentifier.af &&
+        (item.os === currentSOIdentifier.os || (item.os === undefined && currentSOIdentifier.os === undefined)) &&
+        (item.hora_inicio === currentSOIdentifier.hora_inicio || (item.hora_inicio === undefined && currentSOIdentifier.hora_inicio === undefined)) &&
+        (item.hora_final === currentSOIdentifier.hora_final || (item.hora_final === undefined && currentSOIdentifier.hora_final === undefined)) &&
+        (item.servico_executado === currentSOIdentifier.servico_executado || (item.servico_executado === undefined && currentSOIdentifier.servico_executado === undefined))
+      );
+
+      // Check if any *real* parts remain for this SO
+      const hasRealPartsRemaining = remainingItemsForThisSO.some(item => item.codigo_peca || item.descricao || (item.quantidade !== undefined && item.quantidade > 0));
+
+      if (!hasRealPartsRemaining) {
+        // If no real parts remain, ensure a blank item exists for this SO
+        const blankItemExists = remainingItemsForThisSO.some(item =>
+          !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
+        );
+
+        if (!blankItemExists) {
+          // Create a new blank item for this SO
+          await addItemToList({
+            af: currentSOIdentifier.af,
+            os: currentSOIdentifier.os,
+            hora_inicio: currentSOIdentifier.hora_inicio,
+            hora_final: currentSOIdentifier.hora_final,
+            servico_executado: currentSOIdentifier.servico_executado,
+            codigo_peca: undefined,
+            descricao: undefined,
+            quantidade: undefined,
+          });
+          showSuccess('Ordem de Serviço agora está sem peças, mas mantida para edição.');
+        }
+      }
+
+      // After deletion and potential blank item creation, ensure the SO remains in edit mode
+      // This will trigger the parent to update its `editingServiceOrder` state
+      onEditServiceOrder(currentSOIdentifier);
+
+      // Finally, refresh the list to reflect all changes
+      onListChanged();
+
     } catch (error) {
       showError('Erro ao remover item da lista.');
       console.error('Failed to delete item:', error);
