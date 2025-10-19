@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ListItem, clearList, deleteListItem } from '@/services/partListService';
-import { generatePartsListPdf } from '@/lib/pdfGenerator';
+import { generateServiceOrderPdf } from '@/lib/pdfGenerator'; // Importar a nova função
 import { showSuccess, showError } from '@/utils/toast';
 import { Trash2, Download, Copy } from 'lucide-react';
 import {
@@ -22,7 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface ServiceOrderListDisplayProps {
   listItems: ListItem[];
   onListChanged: () => void;
-  isLoading: boolean; // Adicionando a prop isLoading
+  isLoading: boolean;
 }
 
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading }) => {
@@ -31,7 +31,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    generatePartsListPdf(listItems, 'Lista de Ordens de Serviço');
+    generateServiceOrderPdf(listItems, 'Lista de Ordens de Serviço'); // Chamar a nova função
     showSuccess('PDF gerado com sucesso!');
   };
 
