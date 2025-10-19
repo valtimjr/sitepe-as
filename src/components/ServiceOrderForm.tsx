@@ -333,13 +333,13 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
           {editingServiceOrder ? (
             editingServiceOrder.mode === 'edit_details' ? (
               <>
-                Editando OS: <span className="text-blue-600 dark:text-blue-400">{editingServiceOrder.af}</span>
-                {editingServiceOrder.os && <span className="text-blue-600 dark:text-blue-400"> (OS: {editingServiceOrder.os})</span>}
+                Editando OS: <span className="text-primary dark:text-primary">{editingServiceOrder.af}</span>
+                {editingServiceOrder.os && <span className="text-primary dark:text-primary"> (OS: {editingServiceOrder.os})</span>}
               </>
             ) : (
               <>
-                Adicionar Peça à OS: <span className="text-blue-600 dark:text-blue-400">{editingServiceOrder.af}</span>
-                {editingServiceOrder.os && <span className="text-blue-600 dark:text-blue-400"> (OS: {editingServiceOrder.os})</span>}
+                Adicionar Peça à OS: <span className="text-primary dark:text-primary">{editingServiceOrder.af}</span>
+                {editingServiceOrder.os && <span className="text-primary dark:text-primary"> (OS: {editingServiceOrder.os})</span>}
               </>
             )
           ) : (
@@ -353,7 +353,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
           <div>
             <Label htmlFor="af">AF (Número de Frota)</Label>
             {isLoadingAfs ? (
-              <Input value="Carregando AFs..." readOnly className="bg-gray-100 dark:bg-gray-700" />
+              <Input value="Carregando AFs..." readOnly className="bg-muted" />
             ) : (
               <AfSearchInput
                 value={af}
@@ -365,7 +365,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
             )}
           </div>
           <div>
-            <Label htmlFor="os" className={cn(isOsInvalid && 'text-red-500 dark:text-red-400')}>OS (Opcional)</Label>
+            <Label htmlFor="os" className={cn(isOsInvalid && 'text-destructive')}>OS (Opcional)</Label>
             <Input
               id="os"
               type="number"
@@ -375,10 +375,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               min="0"
               max="99999"
               readOnly={isOsDetailsReadOnly}
-              className={cn(isOsInvalid && 'border-red-500 dark:border-red-400 focus-visible:ring-red-500')}
+              className={cn(isOsInvalid && 'border-destructive focus-visible:ring-destructive')}
             />
             {isOsInvalid && (
-              <p className="text-sm text-red-500 dark:text-red-400 mt-1">
+              <p className="text-sm text-destructive mt-1">
                 Valor inválido. A OS só pode ser de 0 a 99999.
               </p>
             )}
@@ -440,7 +440,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                   value={selectedPart?.codigo || ''}
                   placeholder="Código da peça selecionada"
                   readOnly
-                  className="bg-gray-100 dark:bg-gray-700"
+                  className="bg-muted"
                 />
               </div>
               <div>
@@ -451,7 +451,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                   value={selectedPart?.descricao || ''}
                   placeholder="Descrição da peça selecionada"
                   readOnly
-                  className="bg-gray-100 dark:bg-gray-700"
+                  className="bg-muted"
                 />
               </div>
               {selectedPart && (

@@ -196,7 +196,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       </CardHeader>
       <CardContent>
         {displayedItems.length === 0 ? (
-          <p className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum item na lista. Adicione peças para começar!</p>
+          <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione peças para começar!</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -220,7 +220,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(item.id)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Remover item</TooltipContent>

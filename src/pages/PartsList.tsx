@@ -31,7 +31,7 @@ const PartsList = () => {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50">
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <div className="w-full max-w-6xl flex justify-start mb-4">
         <Link to="/">
           <Button variant="outline" className="flex items-center gap-2">
@@ -39,11 +39,11 @@ const PartsList = () => {
           </Button>
         </Link>
       </div>
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-blue-600 dark:text-blue-400">
+      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary">
         Lista de Peças
       </h1>
       {isLoading ? (
-        <p className="text-center text-gray-500 dark:text-gray-400 py-8">Carregando sua lista de peças...</p>
+        <p className="text-center text-muted-foreground py-8">Carregando sua lista de peças...</p>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
           <PartListItemForm onItemAdded={loadListItems} />

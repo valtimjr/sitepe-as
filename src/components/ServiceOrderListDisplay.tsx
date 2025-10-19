@@ -347,9 +347,9 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <p className="text-center text-gray-500 dark:text-gray-400 py-8">Carregando sua lista de ordens de serviço...</p>
+          <p className="text-center text-muted-foreground py-8">Carregando sua lista de ordens de serviço...</p>
         ) : listItems.length === 0 ? (
-          <p className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum item na lista. Adicione peças para começar!</p>
+          <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione peças para começar!</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -377,7 +377,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                   return (
                     <React.Fragment key={`${group.af}-${group.os || 'no_os'}-${groupIndex}`}>
                       {group.parts.map((part, partIndex) => (
-                        <TableRow key={part.id} className={partIndex === 0 ? 'border-t-4 border-blue-400 dark:border-blue-600' : ''}>
+                        <TableRow key={part.id} className={partIndex === 0 ? 'border-t-4 border-primary dark:border-primary' : ''}>
                           {partIndex === 0 ? (
                             <>
                               <TableCell rowSpan={group.parts.length} className="align-top w-fit">
@@ -386,7 +386,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                     <TooltipTrigger asChild>
                                       <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" size="icon" className="mr-2">
-                                          <MoreVertical className="h-4 w-4 text-gray-500" />
+                                          <MoreVertical className="h-4 w-4 text-muted-foreground" />
                                         </Button>
                                       </DropdownMenuTrigger>
                                     </TooltipTrigger>
@@ -417,7 +417,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                     </DropdownMenuItem>
                                     <AlertDialog>
                                       <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
                                           <Trash2 className="mr-2 h-4 w-4" /> Excluir Ordem de Serviço
                                         </DropdownMenuItem>
                                       </AlertDialogTrigger>
@@ -454,7 +454,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(part.id)} className="ml-2">
-                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                    <Trash2 className="h-4 w-4 text-destructive" />
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>Remover item</TooltipContent>

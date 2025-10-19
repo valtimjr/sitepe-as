@@ -29,7 +29,7 @@ const SearchParts = () => {
   }, [searchQuery]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50">
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <div className="w-full max-w-4xl flex justify-start mb-4">
         <Link to="/">
           <Button variant="outline" className="flex items-center gap-2">
@@ -37,7 +37,7 @@ const SearchParts = () => {
           </Button>
         </Link>
       </div>
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-blue-600 dark:text-blue-400">
+      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary">
         Pesquisar Peças
       </h1>
 
@@ -60,11 +60,11 @@ const SearchParts = () => {
             </div>
 
             {isLoading ? (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-4">Carregando peças...</p>
+              <p className="text-center text-muted-foreground py-4">Carregando peças...</p>
             ) : displayedParts.length === 0 && searchQuery.length > 0 ? (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-4">Nenhuma peça encontrada para "{searchQuery}".</p>
+              <p className="text-center text-muted-foreground py-4">Nenhuma peça encontrada para "{searchQuery}".</p>
             ) : displayedParts.length === 0 && searchQuery.length === 0 ? (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-4">Nenhuma peça disponível.</p>
+              <p className="text-center text-muted-foreground py-4">Nenhuma peça disponível.</p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>

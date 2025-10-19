@@ -106,7 +106,7 @@ const ServiceOrderList = () => {
   }, [setEditingServiceOrder, showSuccess, setIsCreatingNewOrder]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50">
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <div className="w-full max-w-6xl flex justify-between items-center mb-4">
         <Link to="/">
           <Button variant="outline" className="flex items-center gap-2">
@@ -117,7 +117,7 @@ const ServiceOrderList = () => {
           <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
         </Button>
       </div>
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-blue-600 dark:text-blue-400">
+      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary">
         Lista de Ordens de Serviço
       </h1>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">

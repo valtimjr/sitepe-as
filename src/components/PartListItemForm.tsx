@@ -156,7 +156,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               value={selectedPart?.codigo || ''}
               placeholder="Código da peça selecionada"
               readOnly
-              className="bg-gray-100 dark:bg-gray-700"
+              className="bg-muted"
             />
           </div>
           <div>
@@ -167,7 +167,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               value={selectedPart?.descricao || ''}
               placeholder="Descrição da peça selecionada"
               readOnly
-              className="bg-gray-100 dark:bg-gray-700"
+              className="bg-muted"
             />
           </div>
           {selectedPart && (
@@ -209,7 +209,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
           <div>
             <Label htmlFor="af">AF (Número de Frota) (Opcional)</Label>
             {isLoadingAfs ? (
-              <Input value="Carregando AFs..." readOnly className="bg-gray-100 dark:bg-gray-700" />
+              <Input value="Carregando AFs..." readOnly className="bg-muted" />
             ) : (
               <AfSearchInput
                 value={af}

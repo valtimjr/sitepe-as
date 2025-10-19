@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50">
-      <h1 className="text-5xl font-extrabold mb-12 text-center text-blue-600 dark:text-blue-400">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
+      <h1 className="text-5xl font-extrabold mb-12 text-center text-primary dark:text-primary">
         Bem-vindo ao Gerenciador de Peças
       </h1>
 
@@ -17,7 +17,7 @@ const Index = () => {
             <CardTitle className="text-2xl">Pesquisar Peças</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="mb-6 text-gray-600 dark:text-gray-300">
+            <p className="mb-6 text-muted-foreground">
               Encontre rapidamente qualquer peça automotiva por código ou descrição.
             </p>
             <Link to="/search-parts">
@@ -31,7 +31,7 @@ const Index = () => {
             <CardTitle className="text-2xl">Minha Lista de Peças</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="mb-6 text-gray-600 dark:text-gray-300">
+            <p className="mb-6 text-muted-foreground">
               Gerencie sua lista de peças, adicione novos itens e exporte para PDF.
             </p>
             <Link to="/parts-list">
@@ -45,7 +45,7 @@ const Index = () => {
             <CardTitle className="text-2xl">Ordens de Serviço</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="mb-6 text-gray-600 dark:text-gray-300">
+            <p className="mb-6 text-muted-foreground">
               Visualize e gerencie as ordens de serviço com suas peças associadas.
             </p>
             <Link to="/service-orders">
