@@ -53,7 +53,7 @@ const seedPartsFromJson = async (): Promise<void> => {
   }
 
   try {
-    const response = await fetch('/src/data/parts.json');
+    const response = await fetch('/data/parts.json'); // Caminho atualizado
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -104,9 +104,9 @@ const seedAfs = async (): Promise<void> => {
   let parsedAfs: Af[] = [];
   let source = '';
 
-  // 2. Tenta carregar do src/data/afs.json
+  // 2. Tenta carregar do public/data/afs.json
   try {
-    const response = await fetch('/src/data/afs.json');
+    const response = await fetch('/data/afs.json'); // Caminho atualizado
     if (response.ok) {
       parsedAfs = await response.json();
       source = 'JSON';

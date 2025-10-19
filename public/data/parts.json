@@ -1,0 +1,122 @@
+[
+  {
+    "id": "part1",
+    "codigo": "P001",
+    "descricao": "Filtro de Óleo",
+    "tags": "motor;manutenção"
+  },
+  {
+    "id": "part2",
+    "codigo": "P002",
+    "descricao": "Pastilha de Freio Dianteira",
+    "tags": "freio;segurança"
+  },
+  {
+    "id": "part3",
+    "codigo": "P003",
+    "descricao": "Vela de Ignição",
+    "tags": "motor;ignição"
+  },
+  {
+    "id": "part4",
+    "codigo": "P004",
+    "descricao": "Correia Dentada",
+    "tags": "motor;transmissão"
+  },
+  {
+    "id": "part5",
+    "codigo": "P005",
+    "descricao": "Amortecedor Traseiro",
+    "tags": "suspensão;conforto"
+  },
+  {
+    "id": "part6",
+    "codigo": "P006",
+    "descricao": "Bateria 12V",
+    "tags": "elétrica;partida"
+  },
+  {
+    "id": "part7",
+    "codigo": "P007",
+    "descricao": "Lâmpada Farol H4",
+    "tags": "iluminação;elétrica"
+  },
+  {
+    "id": "part8",
+    "codigo": "P008",
+    "descricao": "Pneu Aro 15",
+    "tags": "roda;segurança"
+  },
+  {
+    "id": "part9",
+    "codigo": "P009",
+    "descricao": "Radiador",
+    "tags": "arrefecimento;motor"
+  },
+  {
+    "id": "part10",
+    "codigo": "P010",
+    "descricao": "Bomba de Combustível",
+    "tags": "combustível;motor"
+  },
+  {
+    "id": "part11",
+    "codigo": "P011",
+    "descricao": "Filtro de Ar",
+    "tags": "motor;manutenção"
+  },
+  {
+    "id": "part12",
+    "codigo": "P012",
+    "descricao": "Disco de Freio Dianteiro",
+    "tags": "freio;segurança"
+  },
+  {
+    "id": "part13",
+    "codigo": "P013",
+    "descricao": "Cabo de Vela",
+    "tags": "motor;ignição"
+  },
+  {
+    "id": "part14",
+    "codigo": "P014",
+    "descricao": "Correia do Alternador",
+    "tags": "motor;elétrica"
+  },
+  {
+    "id": "part15",
+    "codigo": "P015",
+    "descricao": "Amortecedor Dianteiro",
+    "tags": "suspensão;conforto"
+  },
+  {
+    "id": "part16",
+    "codigo": "P016",
+    "descricao": "Fluido de Freio DOT4",
+    "tags": "freio;manutenção"
+  },
+  {
+    "id": "part17",
+    "codigo": "P017",
+    "descricao": "Palheta Limpador Para-brisa",
+    "tags": "visibilidade;manutenção"
+  },
+  {
+    "id": "part18",
+    "codigo": "P018",
+    "descricao": "Óleo de Motor 5W30",
+    "tags": "motor;lubrificação"
+  },
+  {
+    "id": "part19",
+    "codigo": "P019",
+    "descricao": "Sensor de Temperatura",
+    "tags": "motor;eletrônica"
+  },
+  {
+    "id": "part20",
+    "codigo": "P020",
+    "descricao": "Bico Injetor",
+    "tags": "combustível;motor"
+  }
+]
