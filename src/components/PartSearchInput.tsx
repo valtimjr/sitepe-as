@@ -15,35 +15,46 @@ interface PartSearchInputProps {
 const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts, isLoading }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const ignoreNextFocus = useRef(false); // Flag para ignorar o próximo evento de foco
+  const containerRef = useRef<HTMLDivElement>(null); // Ref para o container para detectar cliques fora
 
-  const handleInputClick = () => {
-    if (isDropdownOpen) {
-      // Se o dropdown estiver aberto, feche-o e defina a flag para ignorar o próximo foco
-      setIsDropdownOpen(false);
-      ignoreNextFocus.current = true;
-    } else {
-      // Se estiver fechado, abra-o
-      setIsDropdownOpen(true);
-    }
-  };
+  // Effect para fechar o dropdown quando clicar fora do componente
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleInputFocus = () => {
-    if (ignoreNextFocus.current) {
-      // Se a flag estiver ativa, resete-a e ignore este evento de foco
-      ignoreNextFocus.current = false;
-      return;
-    }
-    // Caso contrário, garanta que o dropdown esteja aberto
     setIsDropdownOpen(true);
   };
 
   const handleInputBlur = () => {
     // Pequeno atraso para permitir que os eventos de clique nos itens da lista sejam registrados
+    // O handleClickOutside já deve lidar com cliques fora, mas este é um fallback para o próprio input
     setTimeout(() => {
-      setIsDropdownOpen(false);
-      ignoreNextFocus.current = false; // Reseta a flag no blur
+      // Verifica se o foco ainda está dentro do componente (ex: se o usuário clicou em um item da lista)
+      if (!containerRef.current?.contains(document.activeElement)) {
+        setIsDropdownOpen(false);
+      }
     }, 100);
+  };
+
+  const handleInputMouseDown = (e: React.MouseEvent) => {
+    if (isDropdownOpen) {
+      // Se o dropdown estiver aberto e o usuário clicar no input, previne a mudança de foco e o fecha
+      e.preventDefault(); // Previne que o input ganhe foco, o que impediria o onFocus de disparar
+      setIsDropdownOpen(false);
+    } else {
+      // Se o dropdown estiver fechado, permite o comportamento padrão (o onFocus irá abri-lo)
+      // Não é necessário fazer nada aqui, o onFocus cuidará da abertura
+    }
   };
 
   const handleSelectAndClose = (part: Part) => {
@@ -59,10 +70,10 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
   const displayList = searchQuery.length > 0 ? searchResults : allParts;
 
   // A lista de sugestões deve aparecer se o dropdown estiver explicitamente aberto E houver itens para mostrar
-  const shouldShowDropdown = isDropdownOpen && (searchQuery.length > 0 || allParts.length > 0);
+  const shouldShowDropdown = isDropdownOpen && (searchQuery.length > 0 || displayList.length > 0);
 
   return (
-    <div className="relative flex w-full items-center space-x-2">
+    <div className="relative flex w-full items-center space-x-2" ref={containerRef}>
       <div className="relative flex-grow">
         <Label htmlFor="part-search" className="sr-only">Buscar Peça</Label>
         <Input
@@ -71,9 +82,9 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           placeholder="Buscar peça por código ou descrição..."
           value={searchQuery}
           onChange={(e) => onSearch(e.target.value)}
-          onClick={handleInputClick} // Adicionado: Manipulador de clique para toggle
-          onFocus={handleInputFocus} // Manipulador de foco
-          onBlur={handleInputBlur}   // Manipulador de blur
+          onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
+          onMouseDown={handleInputMouseDown} // Usa onMouseDown para a lógica de toggle
           className="w-full"
           ref={inputRef}
         />
