@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Part } from '@/services/partListService';
-// Removendo Popover e ChevronDown, pois a funcionalidade será integrada ao input principal.
 
 interface PartSearchInputProps {
   onSearch: (query: string) => void;
@@ -14,21 +13,53 @@ interface PartSearchInputProps {
 }
 
 const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts, isLoading }) => {
-  const [isInputFocused, setIsInputFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const ignoreNextFocus = useRef(false); // Flag para ignorar o próximo evento de foco
+
+  const handleInputClick = () => {
+    if (isDropdownOpen) {
+      // Se o dropdown estiver aberto, feche-o e defina a flag para ignorar o próximo foco
+      setIsDropdownOpen(false);
+      ignoreNextFocus.current = true;
+    } else {
+      // Se estiver fechado, abra-o
+      setIsDropdownOpen(true);
+    }
+  };
+
+  const handleInputFocus = () => {
+    if (ignoreNextFocus.current) {
+      // Se a flag estiver ativa, resete-a e ignore este evento de foco
+      ignoreNextFocus.current = false;
+      return;
+    }
+    // Caso contrário, garanta que o dropdown esteja aberto
+    setIsDropdownOpen(true);
+  };
+
+  const handleInputBlur = () => {
+    // Pequeno atraso para permitir que os eventos de clique nos itens da lista sejam registrados
+    setTimeout(() => {
+      setIsDropdownOpen(false);
+      ignoreNextFocus.current = false; // Reseta a flag no blur
+    }, 100);
+  };
 
   const handleSelectAndClose = (part: Part) => {
     onSelectPart(part);
     onSearch(''); // Limpa a query de busca após a seleção
-    // Removido: setIsInputFocused(false);
-    // Deixamos o onBlur com setTimeout cuidar do fechamento se o foco sair do input.
-    // Se o usuário clicar no input novamente, onFocus irá reabrir.
+    setIsDropdownOpen(false); // Fecha o dropdown imediatamente
+    if (inputRef.current) {
+      inputRef.current.blur(); // Desfoca manualmente o input para garantir que o onBlur seja acionado
+    }
   };
 
   // Determina qual lista exibir: searchResults se houver query, allParts se focado e vazio
   const displayList = searchQuery.length > 0 ? searchResults : allParts;
 
-  // A lista de sugestões deve aparecer se o input estiver focado E (houver texto OU a lista completa for exibida)
-  const shouldShowDropdown = isInputFocused && (searchQuery.length > 0 || allParts.length > 0);
+  // A lista de sugestões deve aparecer se o dropdown estiver explicitamente aberto E houver itens para mostrar
+  const shouldShowDropdown = isDropdownOpen && (searchQuery.length > 0 || allParts.length > 0);
 
   return (
     <div className="relative flex w-full items-center space-x-2">
@@ -40,12 +71,11 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           placeholder="Buscar peça por código ou descrição..."
           value={searchQuery}
           onChange={(e) => onSearch(e.target.value)}
-          onFocus={() => setIsInputFocused(true)}
-          onBlur={() => {
-            // Pequeno atraso para permitir o clique nos itens da lista antes de fechar
-            setTimeout(() => setIsInputFocused(false), 100);
-          }}
+          onClick={handleInputClick} // Adicionado: Manipulador de clique para toggle
+          onFocus={handleInputFocus} // Manipulador de foco
+          onBlur={handleInputBlur}   // Manipulador de blur
           className="w-full"
+          ref={inputRef}
         />
         {shouldShowDropdown && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto">
@@ -68,7 +98,6 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           </ul>
         )}
       </div>
-      {/* O Popover e o botão de ChevronDown foram removidos, pois a funcionalidade foi integrada ao input principal. */}
     </div>
   );
 };
