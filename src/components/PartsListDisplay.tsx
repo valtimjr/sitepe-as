@@ -165,10 +165,10 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
             onClick={handleShareOnWhatsApp} 
             disabled={displayedItems.length === 0} 
             variant="ghost" 
-            className="h-12 w-12 p-0 rounded-full" // Ajustado para h-12 w-12, p-0 e rounded-full
+            className="h-10 w-10 p-0 rounded-full" // Ajustado para h-10 w-10
             aria-label="Compartilhar no WhatsApp" 
           >
-            <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-12 w-12" />
+            <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" /> {/* Ajustado para h-10 w-10 */}
           </Button>
           <Button onClick={handleExportPdf} disabled={displayedItems.length === 0} className="flex items-center gap-2">
             <Download className="h-4 w-4" /> Exportar PDF
