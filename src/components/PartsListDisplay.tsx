@@ -37,72 +37,62 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     showSuccess('PDF gerado com sucesso!');
   };
 
-  // Larguras fixas para cada coluna, baseadas no exemplo fornecido
-  // Ajustadas para o último exemplo:
-  const CODIGO_WIDTH = 8;
-  const DESCRICAO_WIDTH = 72;
-  const QUANTIDADE_WIDTH = 17;
-
-  // Função para formatar o texto para a área de transferência (com larguras fixas e tabulações)
-  const formatListTextForClipboard = () => {
+  // Algoritmo para calcular as larguras dinâmicas das colunas
+  const calculateDynamicColumnWidths = () => {
     const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
-    const rows = displayedItems.map(item => [
-      item.codigo_peca || '',
-      item.descricao || '',
-      item.quantidade !== undefined ? item.quantidade.toString() : '',
-      item.af || ''
-    ]);
+    const buffer = 2; // Espaços extras para legibilidade
+
+    // Inicializa as larguras máximas com o comprimento dos cabeçalhos
+    const maxLengths = headers.map(header => header.length);
+
+    displayedItems.forEach(item => {
+      const codigo = item.codigo_peca || '';
+      const descricao = item.descricao || '';
+      const quantidade = item.quantidade !== undefined ? item.quantidade.toString() : '';
+      const af = item.af || '';
+
+      maxLengths[0] = Math.max(maxLengths[0], codigo.length);
+      maxLengths[1] = Math.max(maxLengths[1], descricao.length);
+      maxLengths[2] = Math.max(maxLengths[2], quantidade.length);
+      maxLengths[3] = Math.max(maxLengths[3], af.length);
+    });
+
+    // Adiciona o buffer a cada largura máxima
+    return maxLengths.map(length => length + buffer);
+  };
+
+  // Função para formatar o texto para a área de transferência (com larguras dinâmicas e tabulações)
+  const formatListTextForClipboard = () => {
+    if (displayedItems.length === 0) return '';
+
+    const [codigoWidth, descricaoWidth, quantidadeWidth, afWidth] = calculateDynamicColumnWidths();
+    const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
 
     let formattedText = '';
 
     // Adiciona a linha do cabeçalho
     formattedText +=
-      headers[0].padEnd(CODIGO_WIDTH) + '\t' +
-      headers[1].padEnd(DESCRICAO_WIDTH) + '\t' +
-      headers[2].padEnd(QUANTIDADE_WIDTH) + '\t' +
-      headers[3] + '\n'; // AF não tem padding extra no exemplo, apenas o conteúdo
+      headers[0].padEnd(codigoWidth) + '\t' +
+      headers[1].padEnd(descricaoWidth) + '\t' +
+      headers[2].padEnd(quantidadeWidth) + '\t' +
+      headers[3].padEnd(afWidth) + '\n';
 
     // Adiciona as linhas de dados
-    rows.forEach(row => {
+    displayedItems.forEach(item => {
       formattedText +=
-        String(row[0] || '').padEnd(CODIGO_WIDTH) + '\t' +
-        String(row[1] || '').padEnd(DESCRICAO_WIDTH) + '\t' +
-        String(row[2] || '').padEnd(QUANTIDADE_WIDTH) + '\t' +
-        String(row[3] || '') + '\n'; // AF não tem padding extra no exemplo, apenas o conteúdo
+        String(item.codigo_peca || '').padEnd(codigoWidth) + '\t' +
+        String(item.descricao || '').padEnd(descricaoWidth) + '\t' +
+        String(item.quantidade !== undefined ? item.quantidade.toString() : '').padEnd(quantidadeWidth) + '\t' +
+        String(item.af || '').padEnd(afWidth) + '\n';
     });
 
     return formattedText.trim();
   };
 
-  // Função para formatar o texto especificamente para o WhatsApp (agora usando a mesma lógica de tabulação e padding)
+  // Função para formatar o texto especificamente para o WhatsApp (usando a mesma lógica de tabulação e padding)
   const formatListTextForWhatsApp = () => {
-    const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
-    const rows = displayedItems.map(item => [
-      item.codigo_peca || '',
-      item.descricao || '',
-      item.quantidade !== undefined ? item.quantidade.toString() : '',
-      item.af || ''
-    ]);
-
-    let textToShare = '';
-
-    // Adiciona a linha do cabeçalho
-    textToShare +=
-      headers[0].padEnd(CODIGO_WIDTH) + '\t' +
-      headers[1].padEnd(DESCRICAO_WIDTH) + '\t' +
-      headers[2].padEnd(QUANTIDADE_WIDTH) + '\t' +
-      headers[3] + '\n'; // AF não tem padding extra no exemplo, apenas o conteúdo
-
-    // Adiciona as linhas de dados
-    rows.forEach(row => {
-      textToShare +=
-        String(row[0] || '').padEnd(CODIGO_WIDTH) + '\t' +
-        String(row[1] || '').padEnd(DESCRICAO_WIDTH) + '\t' +
-        String(row[2] || '').padEnd(QUANTIDADE_WIDTH) + '\t' +
-        String(row[3] || '') + '\n'; // AF não tem padding extra no exemplo, apenas o conteúdo
-    });
-
-    return textToShare.trim();
+    // Reutiliza a função de formatação para a área de transferência, pois a lógica é a mesma
+    return formatListTextForClipboard();
   };
 
   const handleCopyList = async () => {
@@ -128,7 +118,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       return;
     }
 
-    const textToShare = formatListTextForWhatsApp(); // Agora usa a mesma lógica de formatação
+    const textToShare = formatListTextForWhatsApp();
     const encodedText = encodeURIComponent(textToShare);
     const whatsappUrl = `https://wa.me/?text=${encodedText}`;
 
