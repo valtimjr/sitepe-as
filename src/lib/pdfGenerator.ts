@@ -12,15 +12,15 @@ export const generatePartsListPdf = (listItems: SimplePartItem[], title: string 
   doc.text(title, 14, 22);
 
   // Colunas simplificadas para a lista de peças
-  const tableColumn = ["AF", "Código da Peça", "Descrição", "Quantidade"]; // Adicionado AF
+  const tableColumn = ["Código da Peça", "Descrição", "Quantidade", "AF"]; // AF movido para o final
   const tableRows: (string | number | undefined)[][] = [];
 
   listItems.forEach(item => {
     const itemData = [
-      item.af || '', // Adicionado AF, agora vazio se não houver
       item.codigo_peca || 'N/A',
       item.descricao || 'N/A',
       item.quantidade ?? 'N/A',
+      item.af || '', // AF movido para o final
     ];
     tableRows.push(itemData);
   });

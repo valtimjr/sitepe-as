@@ -138,19 +138,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="af">AF (Número de Frota) (Opcional)</Label>
-            {isLoadingAfs ? (
-              <Input value="Carregando AFs..." readOnly className="bg-gray-100 dark:bg-gray-700" />
-            ) : (
-              <AfSearchInput
-                value={af}
-                onChange={setAf}
-                availableAfs={allAvailableAfs}
-                onSelectAf={handleSelectAf}
-              />
-            )}
-          </div>
-          <div>
             <Label htmlFor="search-part">Buscar Peça</Label>
             <PartSearchInput
               onSearch={handleSearch}
@@ -217,6 +204,20 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               min="1"
               required
             />
+          </div>
+          {/* AF movido para o final */}
+          <div>
+            <Label htmlFor="af">AF (Número de Frota) (Opcional)</Label>
+            {isLoadingAfs ? (
+              <Input value="Carregando AFs..." readOnly className="bg-gray-100 dark:bg-gray-700" />
+            ) : (
+              <AfSearchInput
+                value={af}
+                onChange={setAf}
+                availableAfs={allAvailableAfs}
+                onSelectAf={handleSelectAf}
+              />
+            )}
           </div>
           <Button type="submit" className="w-full" disabled={isSubmitDisabled}>Adicionar à Lista</Button>
         </form>

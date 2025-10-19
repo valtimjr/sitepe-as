@@ -133,20 +133,20 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>AF</TableHead> {/* Nova coluna para AF */}
                   <TableHead>Código</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Quantidade</TableHead>
+                  <TableHead>AF</TableHead> {/* AF movido para o final */}
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {displayedItems.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.af || ''}</TableCell> {/* Exibe o AF, agora vazio se não houver */}
                     <TableCell className="font-medium">{item.codigo_peca || 'N/A'}</TableCell>
                     <TableCell>{item.descricao || 'N/A'}</TableCell>
                     <TableCell>{item.quantidade ?? 'N/A'}</TableCell>
+                    <TableCell className="font-medium">{item.af || ''}</TableCell> {/* Exibe o AF, agora vazio se não houver */}
                     <TableCell className="text-right">
                       <Tooltip>
                         <TooltipTrigger asChild>
