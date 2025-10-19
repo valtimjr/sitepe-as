@@ -54,11 +54,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     showSuccess('PDF gerado com sucesso!');
   };
 
-  const handleCopyList = async () => {
-    if (listItems.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de copiar.');
-      return;
-    }
+  const formatServiceOrderTextForClipboard = () => {
+    if (listItems.length === 0) return '';
 
     const groupedByAfOs: { [key: string]: {
       af: string;
@@ -70,7 +67,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     } } = {};
 
     listItems.forEach(item => {
-      const key = `${item.af}-${item.os || 'no_os'}`;
+      const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}`;
       if (!groupedByAfOs[key]) {
         groupedByAfOs[key] = {
           af: item.af,
@@ -95,18 +92,18 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     for (const key in groupedByAfOs) {
       const group = groupedByAfOs[key];
       
-      textToCopy += `${group.af}`;
+      textToCopy += `AF: ${group.af}`;
       if (group.os) {
-        textToCopy += ` OS:${group.os}`;
+        textToCopy += ` | OS: ${group.os}`;
       }
       textToCopy += '\n';
 
       if (group.servico_executado) {
-        textToCopy += `${group.servico_executado}\n`;
+        textToCopy += `Serviço: ${group.servico_executado}\n`;
       }
 
       if (group.hora_inicio && group.hora_final) {
-        textToCopy += `${group.hora_inicio}-${group.hora_final}\n`;
+        textToCopy += `Horário: ${group.hora_inicio}-${group.hora_final}\n`;
       } else if (group.hora_inicio) {
         textToCopy += `Início: ${group.hora_inicio}\n`;
       } else if (group.hora_final) {
@@ -114,22 +111,34 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       }
 
       if (group.parts.length > 0) {
-        const partsString = group.parts.map(part => {
-          if (part.codigo_peca && part.descricao && part.quantidade) {
-            return `${part.quantidade}-${part.descricao} ${part.codigo_peca}`;
-          } else if (part.descricao) {
-            return part.descricao;
-          } else if (part.codigo_peca) {
-            return part.codigo_peca;
+        textToCopy += 'Peças:\n';
+        group.parts.forEach(part => {
+          let partString = '';
+          if (part.quantidade) {
+            partString += `${part.quantidade}x `;
           }
-          return '';
-        }).join('\n');
-        textToCopy += `Peças:\n${partsString}\n`;
+          if (part.descricao) {
+            partString += `${part.descricao} `;
+          }
+          if (part.codigo_peca) {
+            partString += `(${part.codigo_peca})`;
+          }
+          textToCopy += `- ${partString.trim()}\n`;
+        });
       }
       textToCopy += '\n';
     }
 
-    textToCopy = textToCopy.trim();
+    return textToCopy.trim();
+  };
+
+  const handleCopyList = async () => {
+    if (listItems.length === 0) {
+      showError('A lista está vazia. Adicione itens antes de copiar.');
+      return;
+    }
+
+    const textToCopy = formatServiceOrderTextForClipboard();
 
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -138,6 +147,20 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       showError('Erro ao copiar a lista. Por favor, tente novamente.');
       console.error('Failed to copy service order items:', err);
     }
+  };
+
+  const handleShareOnWhatsApp = () => {
+    if (listItems.length === 0) {
+      showError('A lista está vazia. Adicione itens antes de compartilhar.');
+      return;
+    }
+
+    const textToShare = formatServiceOrderTextForClipboard();
+    const encodedText = encodeURIComponent(textToShare);
+    const whatsappUrl = `https://wa.me/?text=${encodedText}`;
+
+    window.open(whatsappUrl, '_blank');
+    showSuccess('Lista de ordens de serviço pronta para compartilhar no WhatsApp!');
   };
 
   const handleClearList = async () => {
@@ -284,6 +307,15 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         <div className="flex space-x-2">
           <Button onClick={handleCopyList} disabled={listItems.length === 0 || isLoading} className="flex items-center gap-2">
             <Copy className="h-4 w-4" /> Copiar Lista
+          </Button>
+          <Button 
+            onClick={handleShareOnWhatsApp} 
+            disabled={listItems.length === 0 || isLoading} 
+            variant="ghost" 
+            className="h-10 w-10 p-0 rounded-full" 
+            aria-label="Compartilhar no WhatsApp" 
+          >
+            <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
           </Button>
           <Button onClick={handleExportPdf} disabled={listItems.length === 0 || isLoading} className="flex items-center gap-2">
             <Download className="h-4 w-4" /> Exportar PDF
