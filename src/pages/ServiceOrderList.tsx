@@ -22,6 +22,7 @@ const ServiceOrderList = () => {
   const [listItems, setListItems] = useState<ListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
+  const [isCreatingNewOrder, setIsCreatingNewOrder] = useState(false); // Novo estado
 
   // 1. loadListItems: Apenas responsável por buscar e definir listItems.
   // Não deve depender ou definir editingServiceOrder para evitar loops.
@@ -57,8 +58,8 @@ const ServiceOrderList = () => {
       });
 
       const sortedUniqueOrders = Object.values(uniqueServiceOrders).sort((a, b) => {
-        if (!a.created_at || !b.created_at) return 0;
-        return b.created_at.getTime() - a.created_at.getTime();
+        if (!a.createdAt || !b.createdAt) return 0;
+        return b.createdAt.getTime() - a.createdAt.getTime();
       });
 
       if (sortedUniqueOrders.length > 0) {
@@ -68,14 +69,13 @@ const ServiceOrderList = () => {
         const isCurrentEditedOrderStillValid = editingServiceOrder && listItems.some(item =>
           item.af === editingServiceOrder.af &&
           (item.os === editingServiceOrder.os || (item.os === undefined && editingServiceOrder.os === undefined)) &&
-          (item.hora_inicio === editingServiceOrder.hora_inicio || (item.hora_inicio === undefined && editingServiceOrder.hora_inicio === undefined)) &&
-          (item.hora_final === editingServiceOrder.hora_final || (item.hora_final === undefined && editingServiceOrder.hora_final === undefined)) &&
-          (item.servico_executado === editingServiceOrder.servico_executado || (item.servico_executado === undefined && editingServiceOrder.servico_executado === undefined))
+          (item.hora_inicio === editingServiceOrder.hora_inicio || (editingServiceOrder.hora_inicio === undefined && item.hora_inicio === undefined)) &&
+          (item.hora_final === editingServiceOrder.hora_final || (editingServiceOrder.hora_final === undefined && item.hora_final === undefined)) &&
+          (item.servico_executado === editingServiceOrder.servico_executado || (editingServiceOrder.servico_executado === undefined && item.servico_executado === undefined))
         );
 
-        // Se nenhuma ordem estiver sendo editada, ou se a ordem atual em edição não for mais válida,
-        // define a ordem mais recente como a que está sendo editada (no modo 'add_part').
-        if (!editingServiceOrder || !isCurrentEditedOrderStillValid) {
+        // Só auto-seleciona se não estiver criando uma nova ordem E (não houver ordem em edição OU a ordem em edição não for mais válida)
+        if (!isCreatingNewOrder && (!editingServiceOrder || !isCurrentEditedOrderStillValid)) {
           setEditingServiceOrder({
             af: latestOrder.af,
             os: latestOrder.os,
@@ -97,21 +97,24 @@ const ServiceOrderList = () => {
       // Se listItems ficar vazio, limpa editingServiceOrder
       setEditingServiceOrder(null);
     }
-  }, [listItems, editingServiceOrder, setEditingServiceOrder, showSuccess, showError]); // Dependências para este efeito
+  }, [listItems, editingServiceOrder, setEditingServiceOrder, showSuccess, showError, isCreatingNewOrder]); // Adicionado isCreatingNewOrder às dependências
 
   const handleEditServiceOrder = useCallback((details: ServiceOrderDetails) => {
+    setIsCreatingNewOrder(false); // Ao editar uma OS existente, não estamos criando uma nova
     setEditingServiceOrder(details);
     if (details.mode === 'edit_details') {
       showSuccess(`Editando detalhes da Ordem de Serviço AF: ${details.af}${details.os ? `, OS: ${details.os}` : ''}`);
     } else {
       showSuccess(`Adicionando peça à Ordem de Serviço AF: ${details.af}${details.os ? `, OS: ${details.os}` : ''}`);
     }
-  }, [setEditingServiceOrder, showSuccess]);
+  }, [setEditingServiceOrder, showSuccess, setIsCreatingNewOrder]);
 
   const handleNewServiceOrder = useCallback(() => {
+    console.log("handleNewServiceOrder called: Setting editingServiceOrder to null and isCreatingNewOrder to true");
     setEditingServiceOrder(null);
+    setIsCreatingNewOrder(true); // Indica que uma nova ordem está sendo iniciada
     showSuccess('Iniciando nova Ordem de Serviço.');
-  }, [setEditingServiceOrder, showSuccess]);
+  }, [setEditingServiceOrder, showSuccess, setIsCreatingNewOrder]);
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50">
@@ -134,6 +137,7 @@ const ServiceOrderList = () => {
           editingServiceOrder={editingServiceOrder}
           onNewServiceOrder={handleNewServiceOrder}
           listItems={listItems}
+          setIsCreatingNewOrder={setIsCreatingNewOrder} // Passando o setter
         />
         <ServiceOrderListDisplay 
           listItems={listItems} 

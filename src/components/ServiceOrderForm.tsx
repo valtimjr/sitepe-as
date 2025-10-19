@@ -27,9 +27,10 @@ interface ServiceOrderFormProps {
   editingServiceOrder: ServiceOrderDetails | null;
   onNewServiceOrder: () => void;
   listItems: ListItem[];
+  setIsCreatingNewOrder: (isCreating: boolean) => void; // Novo prop
 }
 
-const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder, listItems }) => {
+const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder, listItems, setIsCreatingNewOrder }) => {
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -63,13 +64,14 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   }, []);
 
   useEffect(() => {
+    console.log("ServiceOrderForm useEffect: editingServiceOrder changed to", editingServiceOrder); // Adicionado log
     if (editingServiceOrder) {
       setAf(editingServiceOrder.af);
       setOs(editingServiceOrder.os);
       setHoraInicio(editingServiceOrder.hora_inicio || '');
       setHoraFinal(editingServiceOrder.hora_final || '');
       setServicoExecutado(editingServiceOrder.servico_executado || '');
-      resetPartFields();
+      resetPartFields(); // Este toast foi removido da função resetPartFields
       setIsOsInvalid(false);
 
       const blankItem = listItems.find(item =>
@@ -88,6 +90,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       }
 
     } else {
+      console.log("ServiceOrderForm: Calling resetAllFieldsInternal()"); // Adicionado log
       resetAllFieldsInternal();
       setCurrentBlankOsItemId(null);
     }
@@ -170,7 +173,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     setSearchQuery('');
     setSearchResults([]);
     setEditedTags('');
-    showSuccess('Campos de peça limpos para adicionar nova peça à ordem atual!');
+    // showSuccess('Campos de peça limpos para adicionar nova peça à ordem atual!'); // Removido este toast
   };
 
   const handleOsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -256,6 +259,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       }
       onItemAdded(); // Recarrega a lista para refletir as mudanças
       onNewServiceOrder(); // Volta para o modo de nova OS após a edição
+      setIsCreatingNewOrder(false); // Resetar o flag após a submissão
       return;
     }
 
@@ -288,6 +292,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         onItemAdded();
         const updatedAfs = await getUniqueAfs();
         setAllAvailableAfs(updatedAfs);
+        setIsCreatingNewOrder(false); // Resetar o flag após a submissão
       } catch (error) {
         showError('Erro ao adicionar item à lista.');
         console.error('Failed to add item to list:', error);
@@ -314,6 +319,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         onItemAdded();
         const updatedAfs = await getUniqueAfs();
         setAllAvailableAfs(updatedAfs);
+        setIsCreatingNewOrder(false); // Resetar o flag após a submissão
       } catch (error) {
         showError('Erro ao criar ordem de serviço.');
         console.error('Failed to create blank service order:', error);
