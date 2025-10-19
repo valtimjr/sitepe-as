@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Part, addSimplePartItem, getParts, searchParts as searchPartsService, updatePart, getUniqueAfs } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
-import AfSearchInput from './AfSearchInput';
+import AfSearchInput from './AfSearchInput'; // Importar AfSearchInput
 import { showSuccess, showError } from '@/utils/toast';
 import { Save } from 'lucide-react';
 
@@ -16,13 +16,13 @@ interface PartListItemFormProps {
 const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
-  const [af, setAf] = useState('');
+  const [af, setAf] = useState(''); // Estado para o AF
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]);
+  const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]); // Estado para AFs disponíveis
   const [isLoadingParts, setIsLoadingParts] = useState(true);
-  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
+  const [isLoadingAfs, setIsLoadingAfs] = useState(true); // Estado para carregamento de AFs
   const [editedTags, setEditedTags] = useState<string>('');
 
   useEffect(() => {
@@ -32,7 +32,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       setAllAvailableParts(parts);
       setIsLoadingParts(false);
 
-      setIsLoadingAfs(true);
+      setIsLoadingAfs(true); // Carregar AFs
       const afs = await getUniqueAfs();
       setAllAvailableAfs(afs);
       setIsLoadingAfs(false);
@@ -65,12 +65,10 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     setSearchQuery(query);
   };
 
-  const handleSelectPart = (part: Part | null) => {
+  const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
-    if (part === null) { // Se a peça for desmarcada, limpa a query de busca
-      setSearchQuery('');
-      setSearchResults([]);
-    }
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   const handleSelectAf = (selectedAf: string) => {
@@ -90,8 +88,10 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     try {
       await updatePart({ ...selectedPart, tags: editedTags });
       showSuccess('Tags da peça atualizadas com sucesso!');
+      // Atualiza a lista de peças disponíveis para refletir a mudança
       const updatedParts = await getParts();
       setAllAvailableParts(updatedParts);
+      // Atualiza a peça selecionada para refletir as novas tags
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
       showError('Erro ao atualizar as tags da peça.');
@@ -107,19 +107,20 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     }
 
     try {
+      // Sempre adiciona à simplePartsList, incluindo o AF se preenchido
       await addSimplePartItem({
         codigo_peca: selectedPart.codigo,
         descricao: selectedPart.descricao,
         quantidade,
-        af: af.trim() !== '' ? af : undefined,
+        af: af.trim() !== '' ? af : undefined, // Adiciona AF se não estiver vazio
       });
       showSuccess('Item adicionado à lista de Peças!');
       
       setSelectedPart(null);
       setQuantidade(1);
-      setAf('');
+      setAf(''); // Limpar o campo AF após adicionar
       setEditedTags('');
-      onItemAdded();
+      onItemAdded(); // Notifica o pai para recarregar as listas
     } catch (error) {
       showError('Erro ao adicionar item à lista.');
       console.error('Failed to add item to list:', error);
@@ -127,7 +128,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   };
 
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags;
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !selectedPart;
+  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !selectedPart; // Desabilitar apenas se não houver peça selecionada
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -158,7 +159,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               searchQuery={searchQuery}
               allParts={allAvailableParts}
               isLoading={isLoadingParts}
-              selectedPart={selectedPart} {/* Passar a peça selecionada */}
             />
           </div>
           <div>
