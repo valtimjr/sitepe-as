@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addItemToList, getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
+import { Part, addItemToList, getParts, searchParts as searchPartsService, updatePart, getUniqueAfs } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
+import AfSearchInput from './AfSearchInput'; // Importar AfSearchInput
 import { showSuccess, showError } from '@/utils/toast';
 import { Save } from 'lucide-react';
 
@@ -15,10 +16,13 @@ interface PartListItemFormProps {
 const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
+  const [af, setAf] = useState(''); // Estado para o AF
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
+  const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]); // Estado para AFs disponíveis
   const [isLoadingParts, setIsLoadingParts] = useState(true);
+  const [isLoadingAfs, setIsLoadingAfs] = useState(true); // Estado para carregamento de AFs
   const [editedTags, setEditedTags] = useState<string>('');
 
   useEffect(() => {
@@ -27,6 +31,11 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       const parts = await getParts();
       setAllAvailableParts(parts);
       setIsLoadingParts(false);
+
+      setIsLoadingAfs(true); // Carregar AFs
+      const afs = await getUniqueAfs();
+      setAllAvailableAfs(afs);
+      setIsLoadingAfs(false);
     };
     loadInitialData();
   }, []);
@@ -62,6 +71,10 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     setSearchResults([]);
   };
 
+  const handleSelectAf = (selectedAf: string) => {
+    setAf(selectedAf);
+  };
+
   const handleUpdateTags = async () => {
     if (!selectedPart) {
       showError('Nenhuma peça selecionada para atualizar as tags.');
@@ -92,13 +105,17 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       showError('Por favor, selecione uma peça e insira a quantidade.');
       return;
     }
+    if (!af) { // AF agora é obrigatório
+      showError('Por favor, insira o AF (Número de Frota).');
+      return;
+    }
 
     try {
       await addItemToList({
         codigo_peca: selectedPart.codigo,
         descricao: selectedPart.descricao,
         quantidade,
-        af: undefined, // Definir como undefined para a lista de peças simples
+        af: af, // Incluir o AF
         os: undefined,
         hora_inicio: undefined,
         hora_final: undefined,
@@ -107,6 +124,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       showSuccess('Item adicionado à lista!');
       setSelectedPart(null);
       setQuantidade(1);
+      setAf(''); // Limpar o campo AF após adicionar
       setEditedTags('');
       onItemAdded();
     } catch (error) {
@@ -116,6 +134,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   };
 
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags;
+  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !selectedPart || !af; // Desabilitar se AF estiver vazio
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -124,6 +143,19 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="af">AF (Número de Frota)</Label>
+            {isLoadingAfs ? (
+              <Input value="Carregando AFs..." readOnly className="bg-gray-100 dark:bg-gray-700" />
+            ) : (
+              <AfSearchInput
+                value={af}
+                onChange={setAf}
+                availableAfs={allAvailableAfs}
+                onSelectAf={handleSelectAf}
+              />
+            )}
+          </div>
           <div>
             <Label htmlFor="search-part">Buscar Peça</Label>
             <PartSearchInput
@@ -192,7 +224,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               required
             />
           </div>
-          <Button type="submit" className="w-full" disabled={isLoadingParts || !selectedPart}>Adicionar à Lista</Button>
+          <Button type="submit" className="w-full" disabled={isSubmitDisabled}>Adicionar à Lista</Button>
         </form>
       </CardContent>
     </Card>
