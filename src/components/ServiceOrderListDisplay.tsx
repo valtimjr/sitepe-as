@@ -2,10 +2,10 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ListItem, clearList, deleteListItem, addItemToList } from '@/services/partListService'; // Importar addItemToList
+import { ListItem, clearList, deleteListItem, addItemToList, updateListItem } from '@/services/partListService'; // Importar updateListItem
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, PlusCircle, MoreVertical } from 'lucide-react'; // Alterado Pencil para PlusCircle
+import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil } from 'lucide-react'; // Adicionado Pencil
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { localDb } from '@/services/localDbService'; // Importar localDb para exclusão em massa
+import { localDb } from '@/services/localDbService';
 
 interface ServiceOrderDetails {
   af: string;
@@ -32,7 +32,8 @@ interface ServiceOrderDetails {
   hora_inicio?: string;
   hora_final?: string;
   servico_executado?: string;
-  createdAt?: Date; // Adicionado createdAt
+  createdAt?: Date;
+  mode: 'add_part' | 'edit_details'; // Adicionado para diferenciar os modos
 }
 
 interface ServiceOrderListDisplayProps {
@@ -40,7 +41,7 @@ interface ServiceOrderListDisplayProps {
   onListChanged: () => void;
   isLoading: boolean;
   onEditServiceOrder: (details: ServiceOrderDetails) => void;
-  editingServiceOrder: ServiceOrderDetails | null; // Adicionado para controlar a visibilidade do botão de exclusão de peça
+  editingServiceOrder: ServiceOrderDetails | null;
 }
 
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder }) => {
@@ -59,14 +60,13 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       return;
     }
 
-    // Agrupar itens por AF e OS
     const groupedByAfOs: { [key: string]: {
       af: string;
       os?: number;
       servico_executado?: string;
       hora_inicio?: string;
       hora_final?: string;
-      parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[]; // Campos de peça opcionais
+      parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
     } } = {};
 
     listItems.forEach(item => {
@@ -81,7 +81,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           parts: [],
         };
       }
-      // Adiciona a peça apenas se houver código ou descrição
       if (item.codigo_peca || item.descricao) {
         groupedByAfOs[key].parts.push({
           id: item.id,
@@ -96,19 +95,16 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     for (const key in groupedByAfOs) {
       const group = groupedByAfOs[key];
       
-      // Linha 1: AF e OS
       textToCopy += `${group.af}`;
       if (group.os) {
         textToCopy += ` OS:${group.os}`;
       }
       textToCopy += '\n';
 
-      // Linha 2: Serviço Executado
       if (group.servico_executado) {
         textToCopy += `${group.servico_executado}\n`;
       }
 
-      // Linha 3: Hora de Início e Hora Final
       if (group.hora_inicio && group.hora_final) {
         textToCopy += `${group.hora_inicio}-${group.hora_final}\n`;
       } else if (group.hora_inicio) {
@@ -117,7 +113,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         textToCopy += `Fim: ${group.hora_final}\n`;
       }
 
-      // Linha 4: Peças (apenas se houver peças)
       if (group.parts.length > 0) {
         const partsString = group.parts.map(part => {
           if (part.codigo_peca && part.descricao && part.quantidade) {
@@ -127,7 +122,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           } else if (part.codigo_peca) {
             return part.codigo_peca;
           }
-          return ''; // Campo vazio se não houver dados de peça
+          return '';
         }).join('\n');
         textToCopy += `Peças:\n${partsString}\n`;
       }
@@ -164,25 +159,22 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         return;
       }
 
-      // Identify the service order group this item belongs to
       const currentSOIdentifier: ServiceOrderDetails = {
         af: itemToDelete.af,
         os: itemToDelete.os,
         hora_inicio: itemToDelete.hora_inicio,
         hora_final: itemToDelete.hora_final,
         servico_executado: itemToDelete.servico_executado,
+        mode: editingServiceOrder?.mode || 'add_part', // Mantém o modo atual
       };
 
-      // Capture the createdAt of the item being deleted to potentially reuse it for a blank item
       const originalCreatedAt = itemToDelete.created_at;
 
-      // Perform the deletion
       await deleteListItem(id);
       showSuccess('Item removido da lista.');
 
-      // Filter remaining items for this specific Service Order (excluding the one just deleted)
       const remainingItemsForThisSO = listItems.filter(item =>
-        item.id !== id && // Exclude the item just deleted
+        item.id !== id &&
         item.af === currentSOIdentifier.af &&
         (item.os === currentSOIdentifier.os || (item.os === undefined && currentSOIdentifier.os === undefined)) &&
         (item.hora_inicio === currentSOIdentifier.hora_inicio || (item.hora_inicio === undefined && currentSOIdentifier.hora_inicio === undefined)) &&
@@ -190,17 +182,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         (item.servico_executado === currentSOIdentifier.servico_executado || (item.servico_executado === undefined && currentSOIdentifier.servico_executado === undefined))
       );
 
-      // Check if any *real* parts remain for this SO
       const hasRealPartsRemaining = remainingItemsForThisSO.some(item => item.codigo_peca || item.descricao || (item.quantidade !== undefined && item.quantidade > 0));
 
       if (!hasRealPartsRemaining) {
-        // If no real parts remain, ensure a blank item exists for this SO
         const blankItemExists = remainingItemsForThisSO.some(item =>
           !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
         );
 
         if (!blankItemExists) {
-          // Create a new blank item for this SO, reusing the original createdAt
           await addItemToList({
             af: currentSOIdentifier.af,
             os: currentSOIdentifier.os,
@@ -210,16 +199,12 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             codigo_peca: undefined,
             descricao: undefined,
             quantidade: undefined,
-          }, originalCreatedAt); // Pass the original createdAt here
+          }, originalCreatedAt);
           showSuccess('Ordem de Serviço agora está sem peças, mas mantida para edição.');
         }
       }
 
-      // After deletion and potential blank item creation, ensure the SO remains in edit mode
-      // This will trigger the parent to update its `editingServiceOrder` state
-      onEditServiceOrder({ ...currentSOIdentifier, createdAt: originalCreatedAt }); // Pass createdAt to maintain context
-
-      // Finally, refresh the list to reflect all changes
+      onEditServiceOrder({ ...currentSOIdentifier, createdAt: originalCreatedAt });
       onListChanged();
 
     } catch (error) {
@@ -230,7 +215,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   const handleDeleteServiceOrder = async (group: { af: string; os?: number; hora_inicio?: string; hora_final?: string; servico_executado?: string }) => {
     try {
-      // Filtra todos os itens que correspondem a esta ordem de serviço
       const itemsToDelete = listItems.filter(item =>
         item.af === group.af &&
         (item.os === group.os || (item.os === undefined && group.os === undefined)) &&
@@ -243,7 +227,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         const idsToDelete = itemsToDelete.map(item => item.id);
         await localDb.listItems.bulkDelete(idsToDelete);
         showSuccess(`Ordem de Serviço AF: ${group.af}${group.os ? `, OS: ${group.os}` : ''} e seus itens foram excluídos.`);
-        onListChanged(); // Recarrega a lista após a exclusão
+        onListChanged();
       } else {
         showError('Nenhum item encontrado para esta Ordem de Serviço.');
       }
@@ -253,14 +237,13 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     }
   };
 
-  // Agrupar itens para exibição
   const groupedForDisplay: { [key: string]: {
     af: string;
     os?: number;
     servico_executado?: string;
     hora_inicio?: string;
     hora_final?: string;
-    createdAt: Date; // Adicionado campo para armazenar a data de criação da OS
+    createdAt: Date;
     parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
   } } = {};
 
@@ -273,11 +256,10 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         servico_executado: item.servico_executado,
         hora_inicio: item.hora_inicio,
         hora_final: item.hora_final,
-        createdAt: item.created_at || new Date(), // Initialize with current item's created_at
+        createdAt: item.created_at || new Date(),
         parts: [],
       };
     } else {
-      // If a group already exists, update its createdAt if the current item is older
       if (item.created_at && groupedForDisplay[key].createdAt && item.created_at < groupedForDisplay[key].createdAt) {
         groupedForDisplay[key].createdAt = item.created_at;
       }
@@ -290,9 +272,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     });
   });
 
-  // Ordena os grupos pela data de criação (mais antiga primeiro, mais recente por último)
   const sortedGroups = Object.values(groupedForDisplay).sort((a, b) => {
-    if (!a.createdAt || !b.createdAt) return 0; // Lida com created_at opcional
+    if (!a.createdAt || !b.createdAt) return 0;
     return a.createdAt.getTime() - b.createdAt.getTime();
   });
 
@@ -338,19 +319,18 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-fit">Opções</TableHead> {/* Nova coluna para o DropdownMenu de ações da OS */}
+                  <TableHead className="w-fit">Opções</TableHead>
                   <TableHead className="w-fit">AF</TableHead>
-                  <TableHead className="w-[4rem]">OS</TableHead> {/* Largura ajustada */}
+                  <TableHead className="w-[4rem]">OS</TableHead>
                   <TableHead className="w-fit">Início</TableHead>
                   <TableHead className="w-fit">Fim</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words">Serviço Executado</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words">Peça</TableHead>
-                  <TableHead className="w-[4rem]">Qtd</TableHead> {/* Renomeado e largura ajustada */}
+                  <TableHead className="w-[4rem]">Qtd</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedGroups.map((group, groupIndex) => {
-                  // Verifica se esta OS está sendo editada
                   const isEditingThisServiceOrder = editingServiceOrder &&
                     editingServiceOrder.af === group.af &&
                     (editingServiceOrder.os === group.os || (editingServiceOrder.os === undefined && group.os === undefined)) &&
@@ -383,13 +363,25 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                       hora_inicio: group.hora_inicio, 
                                       hora_final: group.hora_final, 
                                       servico_executado: group.servico_executado,
-                                      createdAt: group.createdAt // Pass createdAt here
+                                      createdAt: group.createdAt,
+                                      mode: 'add_part' // Modo para adicionar nova peça
                                     })}>
                                       <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Nova Peça
                                     </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onEditServiceOrder({ 
+                                      af: group.af, 
+                                      os: group.os, 
+                                      hora_inicio: group.hora_inicio, 
+                                      hora_final: group.hora_final, 
+                                      servico_executado: group.servico_executado,
+                                      createdAt: group.createdAt,
+                                      mode: 'edit_details' // Novo modo para editar detalhes
+                                    })}>
+                                      <Pencil className="mr-2 h-4 w-4" /> Editar Detalhes da OS
+                                    </DropdownMenuItem>
                                     <AlertDialog>
                                       <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600"> {/* Previne o fechamento do dropdown */}
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
                                           <Trash2 className="mr-2 h-4 w-4" /> Excluir Ordem de Serviço
                                         </DropdownMenuItem>
                                       </AlertDialogTrigger>
@@ -410,7 +402,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                 </DropdownMenu>
                               </TableCell>
                               <TableCell rowSpan={group.parts.length} className="font-medium align-top w-fit">{group.af}</TableCell>
-                              <TableCell rowSpan={group.parts.length} className="align-top w-[4rem]">{group.os || ''}</TableCell> {/* Largura ajustada */}
+                              <TableCell rowSpan={group.parts.length} className="align-top w-[4rem]">{group.os || ''}</TableCell>
                               <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.hora_inicio || ''}</TableCell>
                               <TableCell rowSpan={group.parts.length} className="align-top w-fit">{group.hora_final || ''}</TableCell>
                               <TableCell rowSpan={group.parts.length} className="align-top w-auto whitespace-normal break-words">{group.servico_executado || ''}</TableCell>
@@ -422,7 +414,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                 ? `${part.codigo_peca} - ${part.descricao}` 
                                 : part.codigo_peca || part.descricao || ''}
                             </span>
-                            {isEditingThisServiceOrder && ( // Botão de exclusão de peça aparece apenas se a OS estiver em edição
+                            {isEditingThisServiceOrder && editingServiceOrder?.mode === 'edit_details' && ( // Ícone de lixeira visível apenas no modo 'edit_details'
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(part.id)} className="ml-2">
@@ -433,7 +425,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                               </Tooltip>
                             )}
                           </TableCell>
-                          <TableCell className="w-[4rem]">{part.quantidade ?? ''}</TableCell> {/* Renomeado e largura ajustada */}
+                          <TableCell className="w-[4rem]">{part.quantidade ?? ''}</TableCell>
                         </TableRow>
                       ))}
                     </React.Fragment>

@@ -3,14 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService, updatePart, deleteListItem, ListItem } from '@/services/partListService';
+import { Part, addItemToList, getParts, getUniqueAfs, searchParts as searchPartsService, updatePart, deleteListItem, ListItem, updateListItem } from '@/services/partListService'; // Importar updateListItem
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save, Plus, FilePlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils'; // Importar a função cn para combinar classes Tailwind
+import { cn } from '@/lib/utils';
 
 interface ServiceOrderDetails {
   af: string;
@@ -18,14 +18,15 @@ interface ServiceOrderDetails {
   hora_inicio?: string;
   hora_final?: string;
   servico_executado?: string;
-  createdAt?: Date; // Adicionado createdAt
+  createdAt?: Date;
+  mode: 'add_part' | 'edit_details'; // Adicionado para diferenciar os modos
 }
 
 interface ServiceOrderFormProps {
   onItemAdded: () => void;
   editingServiceOrder: ServiceOrderDetails | null;
   onNewServiceOrder: () => void;
-  listItems: ListItem[]; // Nova prop para acessar a lista completa de itens
+  listItems: ListItem[];
 }
 
 const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder, listItems }) => {
@@ -44,7 +45,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
   const [isOsInvalid, setIsOsInvalid] = useState(false);
-  const [currentBlankOsItemId, setCurrentBlankOsItemId] = useState<string | null>(null); // Estado para armazenar o ID do item "em branco" da OS atual
+  const [currentBlankOsItemId, setCurrentBlankOsItemId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -69,16 +70,15 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       setHoraFinal(editingServiceOrder.hora_final || '');
       setServicoExecutado(editingServiceOrder.servico_executado || '');
       resetPartFields();
-      setIsOsInvalid(false); // Reseta a validação ao carregar uma OS para edição
+      setIsOsInvalid(false);
 
-      // Busca por um item "em branco" que corresponda à OS que está sendo editada
       const blankItem = listItems.find(item =>
         item.af === editingServiceOrder.af &&
         (item.os === editingServiceOrder.os || (item.os === undefined && editingServiceOrder.os === undefined)) &&
         (item.hora_inicio === editingServiceOrder.hora_inicio || (item.hora_inicio === undefined && editingServiceOrder.hora_inicio === undefined)) &&
         (item.hora_final === editingServiceOrder.hora_final || (item.hora_final === undefined && editingServiceOrder.hora_final === undefined)) &&
         (item.servico_executado === editingServiceOrder.servico_executado || (item.servico_executado === undefined && editingServiceOrder.servico_executado === undefined)) &&
-        !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0) // Verifica se é realmente um item "em branco"
+        !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
       );
 
       if (blankItem) {
@@ -89,9 +89,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
 
     } else {
       resetAllFieldsInternal();
-      setCurrentBlankOsItemId(null); // Limpa o ID do item em branco ao iniciar uma nova OS
+      setCurrentBlankOsItemId(null);
     }
-  }, [editingServiceOrder, listItems]); // Adiciona listItems como dependência
+  }, [editingServiceOrder, listItems]);
 
   useEffect(() => {
     const fetchSearchResults = async () => {
@@ -161,7 +161,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     setSearchQuery('');
     setSearchResults([]);
     setEditedTags('');
-    setIsOsInvalid(false); // Reseta a validação
+    setIsOsInvalid(false);
   };
 
   const resetPartFields = () => {
@@ -198,6 +198,47 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       return;
     }
 
+    if (editingServiceOrder?.mode === 'edit_details') {
+      // Modo de edição de detalhes da OS
+      const existingBlankItem = listItems.find(item =>
+        item.af === editingServiceOrder.af &&
+        (item.os === editingServiceOrder.os || (item.os === undefined && editingServiceOrder.os === undefined)) &&
+        (item.hora_inicio === editingServiceOrder.hora_inicio || (item.hora_inicio === undefined && editingServiceOrder.hora_inicio === undefined)) &&
+        (item.hora_final === editingServiceOrder.hora_final || (item.hora_final === undefined && editingServiceOrder.hora_final === undefined)) &&
+        (item.servico_executado === editingServiceOrder.servico_executado || (item.servico_executado === undefined && editingServiceOrder.servico_executado === undefined)) &&
+        !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
+      );
+
+      if (existingBlankItem) {
+        // Atualiza o item "em branco" existente com os novos detalhes da OS
+        await updateListItem({
+          ...existingBlankItem,
+          af,
+          os,
+          hora_inicio: horaInicio || undefined,
+          hora_final: horaFinal || undefined,
+          servico_executado: servicoExecutado,
+        });
+        showSuccess('Detalhes da Ordem de Serviço atualizados!');
+      } else {
+        // Se não houver um item "em branco" existente, cria um novo
+        await addItemToList({
+          af,
+          os,
+          hora_inicio: horaInicio || undefined,
+          hora_final: horaFinal || undefined,
+          servico_executado: servicoExecutado,
+          codigo_peca: undefined,
+          descricao: undefined,
+          quantidade: undefined,
+        }, editingServiceOrder.createdAt);
+        showSuccess('Detalhes da Ordem de Serviço atualizados e item em branco criado!');
+      }
+      onItemAdded(); // Recarrega a lista para refletir as mudanças
+      onNewServiceOrder(); // Volta para o modo de nova OS após a edição
+      return;
+    }
+
     // Se uma peça foi selecionada, estamos adicionando uma peça à OS
     if (selectedPart) {
       if (quantidade <= 0) {
@@ -206,10 +247,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       }
 
       try {
-        // Se existe um item "em branco" para esta OS, exclua-o antes de adicionar a peça
         if (currentBlankOsItemId) {
           await deleteListItem(currentBlankOsItemId);
-          setCurrentBlankOsItemId(null); // Limpa o ID do item em branco
+          setCurrentBlankOsItemId(null);
         }
 
         await addItemToList({
@@ -221,11 +261,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
           hora_inicio: horaInicio || undefined,
           hora_final: horaFinal || undefined,
           servico_executado: servicoExecutado,
-        }, editingServiceOrder?.createdAt); // Passa o createdAt da OS em edição
+        }, editingServiceOrder?.createdAt);
 
         showSuccess('Item adicionado à lista!');
         resetPartFields();
-        onItemAdded(); // Isso irá disparar o carregamento e a seleção da nova OS
+        onItemAdded();
         const updatedAfs = await getUniqueAfs();
         setAllAvailableAfs(updatedAfs);
       } catch (error) {
@@ -234,26 +274,24 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       }
     } else { // Se nenhuma peça foi selecionada, estamos criando uma entrada de OS "em branco"
       try {
-        // Impede a criação de uma OS em branco se já estiver editando uma OS
         if (editingServiceOrder) {
           showError('Por favor, selecione uma peça para adicionar à ordem de serviço atual, ou inicie uma nova ordem.');
           return;
         }
 
-        // Adiciona um novo item "em branco"
         const newBlankId = await addItemToList({
           af,
           os: os,
           hora_inicio: horaInicio || undefined,
           hora_final: horaFinal || undefined,
           servico_executado: servicoExecutado,
-          codigo_peca: undefined, // Explicitamente undefined para item em branco
+          codigo_peca: undefined,
           descricao: undefined,
           quantidade: undefined,
         });
         showSuccess('Ordem de Serviço criada sem peças. Adicione peças agora!');
-        setCurrentBlankOsItemId(newBlankId); // Armazena o ID deste novo item em branco
-        onItemAdded(); // Isso irá disparar loadListItems e definir editingServiceOrder para esta nova OS em branco
+        setCurrentBlankOsItemId(newBlankId);
+        onItemAdded();
         const updatedAfs = await getUniqueAfs();
         setAllAvailableAfs(updatedAfs);
       } catch (error) {
@@ -264,22 +302,27 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   };
 
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags;
-  // Desabilita o botão de submit se:
-  // - estiver carregando peças ou AFs
-  // - não houver AF preenchido
-  // - a OS for inválida
-  // - estiver editando uma OS e nenhuma peça estiver selecionada (não pode submeter sem peça se já está editando)
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !af || isOsInvalid || (editingServiceOrder && !selectedPart);
+  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !af || isOsInvalid || (editingServiceOrder?.mode === 'add_part' && !selectedPart);
+
+  const isOsDetailsReadOnly = editingServiceOrder?.mode === 'add_part';
+  const isPartDetailsVisible = !editingServiceOrder || editingServiceOrder.mode === 'add_part';
 
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
         <CardTitle className="text-xl font-bold">
           {editingServiceOrder ? (
-            <>
-              Adicionar Peça à OS: <span className="text-blue-600 dark:text-blue-400">{editingServiceOrder.af}</span>
-              {editingServiceOrder.os && <span className="text-blue-600 dark:text-blue-400"> (OS: {editingServiceOrder.os})</span>}
-            </>
+            editingServiceOrder.mode === 'edit_details' ? (
+              <>
+                Editando OS: <span className="text-blue-600 dark:text-blue-400">{editingServiceOrder.af}</span>
+                {editingServiceOrder.os && <span className="text-blue-600 dark:text-blue-400"> (OS: {editingServiceOrder.os})</span>}
+              </>
+            ) : (
+              <>
+                Adicionar Peça à OS: <span className="text-blue-600 dark:text-blue-400">{editingServiceOrder.af}</span>
+                {editingServiceOrder.os && <span className="text-blue-600 dark:text-blue-400"> (OS: {editingServiceOrder.os})</span>}
+              </>
+            )
           ) : (
             "Criar Nova Ordem de Serviço"
           )}
@@ -298,7 +341,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 onChange={setAf}
                 availableAfs={allAvailableAfs}
                 onSelectAf={handleSelectAf}
-                readOnly={!!editingServiceOrder}
+                readOnly={isOsDetailsReadOnly}
               />
             )}
           </div>
@@ -308,11 +351,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               id="os"
               type="number"
               value={os === undefined ? '' : os}
-              onChange={handleOsChange} // Usar o novo handler
+              onChange={handleOsChange}
               placeholder="Número da Ordem de Serviço"
               min="0"
               max="99999"
-              readOnly={!!editingServiceOrder}
+              readOnly={isOsDetailsReadOnly}
               className={cn(isOsInvalid && 'border-red-500 dark:border-red-400 focus-visible:ring-red-500')}
             />
             {isOsInvalid && (
@@ -329,7 +372,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 type="time"
                 value={horaInicio}
                 onChange={(e) => setHoraInicio(e.target.value)}
-                readOnly={!!editingServiceOrder}
+                readOnly={isOsDetailsReadOnly}
               />
             </div>
             <div className="flex-1">
@@ -339,7 +382,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 type="time"
                 value={horaFinal}
                 onChange={(e) => setHoraFinal(e.target.value)}
-                readOnly={!!editingServiceOrder}
+                readOnly={isOsDetailsReadOnly}
               />
             </div>
           </div>
@@ -351,90 +394,92 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               onChange={(e) => setServicoExecutado(e.target.value)}
               placeholder="Descreva o serviço executado"
               rows={3}
-              readOnly={!!editingServiceOrder}
+              readOnly={isOsDetailsReadOnly}
             />
           </div>
 
-          <Separator className="my-6" />
-
-          <h3 className="text-lg font-semibold">Detalhes da Peça (Opcional)</h3>
-          <div>
-            <Label htmlFor="search-part">Buscar Peça</Label>
-            <PartSearchInput
-              onSearch={handleSearch}
-              searchResults={searchResults}
-              onSelectPart={handleSelectPart}
-              searchQuery={searchQuery}
-              allParts={allAvailableParts}
-              isLoading={isLoadingParts}
-            />
-          </div>
-          <div>
-            <Label htmlFor="codigo_peca">Código da Peça</Label>
-            <Input
-              id="codigo_peca"
-              type="text"
-              value={selectedPart?.codigo || ''}
-              placeholder="Código da peça selecionada"
-              readOnly
-              className="bg-gray-100 dark:bg-gray-700"
-            />
-          </div>
-          <div>
-            <Label htmlFor="descricao">Descrição</Label>
-            <Input
-              id="descricao"
-              type="text"
-              value={selectedPart?.descricao || ''}
-              placeholder="Descrição da peça selecionada"
-              readOnly
-              className="bg-gray-100 dark:bg-gray-700"
-            />
-          </div>
-          {selectedPart && (
-            <div>
-              <Label htmlFor="tags">Tags (separadas por ';')</Label>
-              <div className="flex items-center space-x-2">
-                <Input
-                  id="tags"
-                  type="text"
-                  value={editedTags}
-                  onChange={(e) => setEditedTags(e.target.value)}
-                  placeholder="Adicione tags separadas por ';'"
+          {isPartDetailsVisible && (
+            <>
+              <Separator className="my-6" />
+              <h3 className="text-lg font-semibold">Detalhes da Peça (Opcional)</h3>
+              <div>
+                <Label htmlFor="search-part">Buscar Peça</Label>
+                <PartSearchInput
+                  onSearch={handleSearch}
+                  searchResults={searchResults}
+                  onSelectPart={handleSelectPart}
+                  searchQuery={searchQuery}
+                  allParts={allAvailableParts}
+                  isLoading={isLoadingParts}
                 />
-                <Button
-                  type="button"
-                  onClick={handleUpdateTags}
-                  disabled={isUpdateTagsDisabled}
-                  variant="outline"
-                  size="icon"
-                  aria-label="Atualizar Tags"
-                >
-                  <Save className="h-4 w-4" />
-                </Button>
               </div>
-            </div>
+              <div>
+                <Label htmlFor="codigo_peca">Código da Peça</Label>
+                <Input
+                  id="codigo_peca"
+                  type="text"
+                  value={selectedPart?.codigo || ''}
+                  placeholder="Código da peça selecionada"
+                  readOnly
+                  className="bg-gray-100 dark:bg-gray-700"
+                />
+              </div>
+              <div>
+                <Label htmlFor="descricao">Descrição</Label>
+                <Input
+                  id="descricao"
+                  type="text"
+                  value={selectedPart?.descricao || ''}
+                  placeholder="Descrição da peça selecionada"
+                  readOnly
+                  className="bg-gray-100 dark:bg-gray-700"
+                />
+              </div>
+              {selectedPart && (
+                <div>
+                  <Label htmlFor="tags">Tags (separadas por ';')</Label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      id="tags"
+                      type="text"
+                      value={editedTags}
+                      onChange={(e) => setEditedTags(e.target.value)}
+                      placeholder="Adicione tags separadas por ';'"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleUpdateTags}
+                      disabled={isUpdateTagsDisabled}
+                      variant="outline"
+                      size="icon"
+                      aria-label="Atualizar Tags"
+                    >
+                      <Save className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <div>
+                <Label htmlFor="quantidade">Quantidade</Label>
+                <Input
+                  id="quantidade"
+                  type="number"
+                  value={quantidade}
+                  onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
+                  min="1"
+                  required={!!selectedPart}
+                />
+              </div>
+            </>
           )}
-          <div>
-            <Label htmlFor="quantidade">Quantidade</Label>
-            <Input
-              id="quantidade"
-              type="number"
-              value={quantidade}
-              onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
-              min="1"
-              required={!!selectedPart}
-            />
-          </div>
           <Button type="submit" className="w-full" disabled={isSubmitDisabled}>
-            {editingServiceOrder ? "Adicionar Peça à Ordem" : "Criar Ordem e Adicionar Peça"}
+            {editingServiceOrder?.mode === 'edit_details' ? "Salvar Detalhes da Ordem" : (editingServiceOrder ? "Adicionar Peça à Ordem" : "Criar Ordem e Adicionar Peça")}
           </Button>
         </form>
         <div className="flex flex-col space-y-2 mt-4">
           <Button variant="outline" onClick={onNewServiceOrder} className="w-full flex items-center gap-2">
             <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
           </Button>
-          {/* O botão "Adicionar Outra Peça (à ordem atual)" foi removido daqui */}
         </div>
       </CardContent>
     </Card>
