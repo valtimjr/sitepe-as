@@ -151,13 +151,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // AF é o único campo obrigatório para criar uma entrada de OS
     if (!af) {
       showError('Por favor, insira o AF (Número de Frota).');
       return;
     }
 
-    // Se uma peça foi selecionada, a quantidade é obrigatória
     if (selectedPart && quantidade <= 0) {
       showError('A quantidade da peça deve ser maior que zero.');
       return;
@@ -165,18 +163,19 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
 
     try {
       await addItemToList({
-        codigo_peca: selectedPart?.codigo, // Opcional
-        descricao: selectedPart?.descricao, // Opcional
-        quantidade: selectedPart ? quantidade : undefined, // Opcional, só incluído se houver peça
+        codigo_peca: selectedPart?.codigo,
+        descricao: selectedPart?.descricao,
+        quantidade: selectedPart ? quantidade : undefined,
         af,
         os: os,
         hora_inicio: horaInicio || undefined,
         hora_final: horaFinal || undefined,
         servico_executado: servicoExecutado,
+        // created_at é adicionado automaticamente em addLocalItemToList
       });
       showSuccess('Item adicionado à lista!');
-      resetPartFields(); // Limpa apenas os campos relacionados à peça
-      onItemAdded();
+      resetPartFields();
+      onItemAdded(); // Isso irá disparar o carregamento e a seleção da nova OS
       const updatedAfs = await getUniqueAfs();
       setAllAvailableAfs(updatedAfs);
     } catch (error) {
@@ -269,7 +268,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
 
           <Separator className="my-6" />
 
-          {/* Campos da Peça */}
           <h3 className="text-lg font-semibold">Detalhes da Peça (Opcional)</h3>
           <div>
             <Label htmlFor="search-part">Buscar Peça</Label>
@@ -336,8 +334,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               value={quantidade}
               onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
               min="1"
-              // Quantidade é obrigatória APENAS se uma peça estiver selecionada
-              required={!!selectedPart} 
+              required={!!selectedPart}
             />
           </div>
           <Button type="submit" className="w-full" disabled={isLoadingParts || isLoadingAfs || (!af && !selectedPart)}>

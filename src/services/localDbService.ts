@@ -18,6 +18,7 @@ export interface ListItem {
   hora_inicio?: string;
   hora_final?: string;
   servico_executado?: string;
+  created_at?: Date; // Adicionado campo created_at
 }
 
 export interface Af {
@@ -33,7 +34,7 @@ class LocalDexieDb extends Dexie {
   constructor() {
     super('PartsListDatabase');
     this.version(1).stores({
-      listItems: '++id, af, os, hora_inicio, hora_final, servico_executado', // Removido codigo_peca do índice principal, pois agora é opcional
+      listItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at', // Adicionado created_at ao índice
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number', // Adiciona a tabela de AFs
     });
@@ -107,7 +108,7 @@ export const getLocalListItems = async (): Promise<ListItem[]> => {
 };
 
 export const addLocalItemToList = async (item: Omit<ListItem, 'id'>): Promise<string> => {
-  const newItem = { ...item, id: uuidv4() };
+  const newItem = { ...item, id: uuidv4(), created_at: new Date() }; // Adiciona created_at
   await localDb.listItems.add(newItem);
   return newItem.id;
 };

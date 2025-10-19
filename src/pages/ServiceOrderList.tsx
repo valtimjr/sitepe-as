@@ -19,17 +19,50 @@ interface ServiceOrderDetails {
 const ServiceOrderList = () => {
   const [listItems, setListItems] = useState<ListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null); // Novo estado
+  const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
 
   const loadListItems = async () => {
     setIsLoading(true);
     try {
       const items = await getListItems();
       setListItems(items);
+
+      // Lógica para identificar a OS mais recente e defini-la como editingServiceOrder
+      if (items.length > 0) {
+        // Agrupar itens por AF, OS, serviço, horas para identificar ordens de serviço únicas
+        const uniqueServiceOrders: { [key: string]: ListItem } = {};
+        items.forEach(item => {
+          const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}`;
+          if (!uniqueServiceOrders[key] || (item.created_at && uniqueServiceOrders[key].created_at && item.created_at > uniqueServiceOrders[key].created_at!)) {
+            uniqueServiceOrders[key] = item;
+          }
+        });
+
+        const sortedUniqueOrders = Object.values(uniqueServiceOrders).sort((a, b) => {
+          if (!a.created_at || !b.created_at) return 0; // Lidar com created_at opcional
+          return b.created_at.getTime() - a.created_at.getTime();
+        });
+
+        if (sortedUniqueOrders.length > 0) {
+          const latestOrder = sortedUniqueOrders[0];
+          setEditingServiceOrder({
+            af: latestOrder.af,
+            os: latestOrder.os,
+            hora_inicio: latestOrder.hora_inicio,
+            hora_final: latestOrder.hora_final,
+            servico_executado: latestOrder.servico_executado,
+          });
+          showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
+        }
+      } else {
+        setEditingServiceOrder(null); // Se não houver itens, não há OS para editar
+      }
+
     } catch (error) {
       showError('Erro ao carregar a lista de ordens de serviço.');
       console.error('Failed to load service order items:', error);
       setListItems([]);
+      setEditingServiceOrder(null);
     } finally {
       setIsLoading(false);
     }
@@ -64,14 +97,14 @@ const ServiceOrderList = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
         <ServiceOrderForm 
           onItemAdded={loadListItems} 
-          editingServiceOrder={editingServiceOrder} // Passa o estado de edição
-          onNewServiceOrder={handleNewServiceOrder} // Passa a função para limpar o estado de edição
+          editingServiceOrder={editingServiceOrder}
+          onNewServiceOrder={handleNewServiceOrder}
         />
         <ServiceOrderListDisplay 
           listItems={listItems} 
           onListChanged={loadListItems} 
           isLoading={isLoading} 
-          onEditServiceOrder={handleEditServiceOrder} // Passa a função para editar
+          onEditServiceOrder={handleEditServiceOrder}
         />
       </div>
       <MadeWithDyad />
