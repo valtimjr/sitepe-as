@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem } from '@/services/partListService';
 import { generatePartsListPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy } from 'lucide-react'; // Removido Share2
+import { Trash2, Download, Copy } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -161,8 +161,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
           <Button onClick={handleCopyList} disabled={displayedItems.length === 0} className="flex items-center gap-2">
             <Copy className="h-4 w-4" /> Copiar Lista
           </Button>
-          <Button onClick={handleShareOnWhatsApp} disabled={displayedItems.length === 0} className="flex items-center gap-2">
-            <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-4 w-4" /> Compartilhar
+          <Button onClick={handleShareOnWhatsApp} disabled={displayedItems.length === 0} className="flex items-center justify-center p-2">
+            <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-4 w-4" />
           </Button>
           <Button onClick={handleExportPdf} disabled={displayedItems.length === 0} className="flex items-center gap-2">
             <Download className="h-4 w-4" /> Exportar PDF
