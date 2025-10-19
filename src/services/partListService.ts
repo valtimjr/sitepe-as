@@ -23,6 +23,7 @@ import {
   deleteLocalServiceOrderItem,
   clearLocalServiceOrderItems,
 } from '@/services/localDbService';
+import { supabase } from '@/integrations/supabase/client'; // Importar o cliente Supabase
 
 export interface Part extends LocalPart {}
 export interface SimplePartItem extends LocalSimplePartItem {}
@@ -30,23 +31,51 @@ export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends LocalAf {}
 
 const seedPartsFromJson = async (): Promise<void> => {
-  const partsCount = await localDb.parts.count();
-  if (partsCount > 0) {
-    console.log('Parts already seeded in IndexedDB.');
+  // Primeiro, verifica se há peças no Supabase
+  const { count: supabasePartsCount, error: countError } = await supabase
+    .from('parts')
+    .select('*', { count: 'exact' });
+
+  if (countError) {
+    console.error('Error checking Supabase parts count:', countError);
+    // Se houver erro ao contar, tenta carregar do IndexedDB como fallback
+    const localPartsCount = await localDb.parts.count();
+    if (localPartsCount > 0) {
+      console.log('Falling back to IndexedDB for parts as Supabase check failed.');
+      return;
+    }
+  }
+
+  if (supabasePartsCount && supabasePartsCount > 0) {
+    console.log('Parts already seeded in Supabase.');
     return;
   }
 
   try {
-    const response = await fetch('/src/data/parts.json'); // <--- Caminho atualizado
+    const response = await fetch('/src/data/parts.json');
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const parsedParts: Part[] = await response.json();
     console.log('Parsed parts from JSON:', parsedParts);
+
+    // Adiciona ao Supabase
+    const { error: insertError } = await supabase
+      .from('parts')
+      .insert(parsedParts);
+
+    if (insertError) {
+      console.error('Failed to seed parts to Supabase:', insertError);
+      throw insertError;
+    }
+    console.log('Parts seeded from JSON to Supabase.');
+
+    // Também adiciona ao IndexedDB para cache local
     await bulkAddLocalParts(parsedParts);
-    console.log('Parts seeded from JSON to IndexedDB.');
+    console.log('Parts also seeded to IndexedDB.');
+
   } catch (error) {
-    console.error("Failed to fetch or parse parts.json or seed IndexedDB:", error);
+    console.error("Failed to fetch or parse parts.json or seed Supabase/IndexedDB:", error);
   }
 };
 
@@ -90,16 +119,65 @@ const seedAfsFromCsv = async (): Promise<void> => {
 };
 
 export const getParts = async (): Promise<Part[]> => {
-  await seedPartsFromJson();
-  return getLocalParts();
+  await seedPartsFromJson(); // Garante que o Supabase esteja populado
+
+  const { data, error } = await supabase
+    .from('parts')
+    .select('*');
+
+  if (error) {
+    console.error('Error fetching parts from Supabase:', error);
+    // Fallback para IndexedDB se Supabase falhar
+    console.log('Falling back to IndexedDB for parts.');
+    return getLocalParts();
+  }
+
+  // Atualiza o cache local com os dados do Supabase
+  await localDb.parts.clear();
+  await bulkAddLocalParts(data as Part[]);
+  return data as Part[];
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  await seedPartsFromJson();
-  return searchLocalParts(query);
+  await seedPartsFromJson(); // Garante que o Supabase esteja populado
+
+  const lowerCaseQuery = query.toLowerCase();
+
+  let queryBuilder = supabase
+    .from('parts')
+    .select('*');
+
+  if (query) {
+    queryBuilder = queryBuilder.where('codigo', 'ilike', `${lowerCaseQuery}%`)
+                               .or('descricao.ilike', `%${lowerCaseQuery}%`)
+                               .or('tags.ilike', `%${lowerCaseQuery}%`);
+  }
+
+  const { data, error } = await queryBuilder;
+
+  if (error) {
+    console.error('Error searching parts in Supabase:', error);
+    // Fallback para IndexedDB se Supabase falhar
+    console.log('Falling back to IndexedDB for search.');
+    return searchLocalParts(query);
+  }
+
+  return data as Part[];
 };
 
 export const updatePart = async (updatedPart: Part): Promise<void> => {
+  // Atualiza no Supabase
+  const { error: supabaseError } = await supabase
+    .from('parts')
+    .update({ tags: updatedPart.tags })
+    .eq('id', updatedPart.id);
+
+  if (supabaseError) {
+    console.error('Error updating part in Supabase:', supabaseError);
+    throw supabaseError; // Lança o erro para ser tratado no componente
+  }
+
+  // Atualiza no IndexedDB
   await updateLocalPart(updatedPart);
 };
 
