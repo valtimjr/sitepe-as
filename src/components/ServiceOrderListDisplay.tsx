@@ -231,13 +231,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
               <TableHeader>
                 <TableRow>
                   <TableHead>AF</TableHead>
+                  <TableHead>Editar OS</TableHead> {/* Nova coluna para o botão de edição */}
                   <TableHead>OS</TableHead>
                   <TableHead>Início</TableHead>
                   <TableHead>Fim</TableHead>
                   <TableHead>Serviço Executado</TableHead>
                   <TableHead>Peça</TableHead>
                   <TableHead>Quantidade</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="text-right">Ações</TableHead> {/* Ações agora só para exclusão */}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -248,6 +249,27 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         {partIndex === 0 ? (
                           <>
                             <TableCell rowSpan={group.parts.length} className="font-medium align-top">{group.af}</TableCell>
+                            <TableCell rowSpan={group.parts.length} className="align-top"> {/* Célula para o botão de edição */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => onEditServiceOrder({ 
+                                      af: group.af, 
+                                      os: group.os, 
+                                      hora_inicio: group.hora_inicio, 
+                                      hora_final: group.hora_final, 
+                                      servico_executado: group.servico_executado 
+                                    })}
+                                    className="mr-2"
+                                  >
+                                    <Pencil className="h-4 w-4 text-blue-500" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Editar Ordem de Serviço</TooltipContent>
+                              </Tooltip>
+                            </TableCell>
                             <TableCell rowSpan={group.parts.length} className="align-top">{group.os || ''}</TableCell>
                             <TableCell rowSpan={group.parts.length} className="align-top">{group.hora_inicio || ''}</TableCell>
                             <TableCell rowSpan={group.parts.length} className="align-top">{group.hora_final || ''}</TableCell>
@@ -261,27 +283,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         </TableCell>
                         <TableCell>{part.quantidade ?? ''}</TableCell>
                         <TableCell className="text-right">
-                          {partIndex === 0 && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  onClick={() => onEditServiceOrder({ 
-                                    af: group.af, 
-                                    os: group.os, 
-                                    hora_inicio: group.hora_inicio, 
-                                    hora_final: group.hora_final, 
-                                    servico_executado: group.servico_executado 
-                                  })}
-                                  className="mr-2"
-                                >
-                                  <Pencil className="h-4 w-4 text-blue-500" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Editar Ordem de Serviço</TooltipContent>
-                            </Tooltip>
-                          )}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(part.id)}>
