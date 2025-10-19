@@ -38,9 +38,9 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   };
 
   // Larguras fixas para cada coluna, baseadas no exemplo fornecido
-  const CODIGO_WIDTH = 6;
-  const DESCRICAO_WIDTH = 70; // Inclui o conteúdo e o padding
-  const QUANTIDADE_WIDTH = 10;
+  const CODIGO_WIDTH = 8;
+  const DESCRICAO_WIDTH = 70;
+  const QUANTIDADE_WIDTH = 15;
 
   // Função para formatar o texto para a área de transferência (com larguras fixas e tabulações)
   const formatListTextForClipboard = () => {
