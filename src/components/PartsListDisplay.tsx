@@ -38,9 +38,10 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   };
 
   // Larguras fixas para cada coluna, baseadas no exemplo fornecido
+  // Ajustadas para o último exemplo:
   const CODIGO_WIDTH = 8;
-  const DESCRICAO_WIDTH = 70;
-  const QUANTIDADE_WIDTH = 15;
+  const DESCRICAO_WIDTH = 72;
+  const QUANTIDADE_WIDTH = 17;
 
   // Função para formatar o texto para a área de transferência (com larguras fixas e tabulações)
   const formatListTextForClipboard = () => {
@@ -59,7 +60,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       headers[0].padEnd(CODIGO_WIDTH) + '\t' +
       headers[1].padEnd(DESCRICAO_WIDTH) + '\t' +
       headers[2].padEnd(QUANTIDADE_WIDTH) + '\t' +
-      headers[3] + '\n';
+      headers[3] + '\n'; // AF não tem padding extra no exemplo, apenas o conteúdo
 
     // Adiciona as linhas de dados
     rows.forEach(row => {
@@ -67,7 +68,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
         String(row[0] || '').padEnd(CODIGO_WIDTH) + '\t' +
         String(row[1] || '').padEnd(DESCRICAO_WIDTH) + '\t' +
         String(row[2] || '').padEnd(QUANTIDADE_WIDTH) + '\t' +
-        String(row[3] || '') + '\n';
+        String(row[3] || '') + '\n'; // AF não tem padding extra no exemplo, apenas o conteúdo
     });
 
     return formattedText.trim();
@@ -90,7 +91,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       headers[0].padEnd(CODIGO_WIDTH) + '\t' +
       headers[1].padEnd(DESCRICAO_WIDTH) + '\t' +
       headers[2].padEnd(QUANTIDADE_WIDTH) + '\t' +
-      headers[3] + '\n';
+      headers[3] + '\n'; // AF não tem padding extra no exemplo, apenas o conteúdo
 
     // Adiciona as linhas de dados
     rows.forEach(row => {
@@ -98,7 +99,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
         String(row[0] || '').padEnd(CODIGO_WIDTH) + '\t' +
         String(row[1] || '').padEnd(DESCRICAO_WIDTH) + '\t' +
         String(row[2] || '').padEnd(QUANTIDADE_WIDTH) + '\t' +
-        String(row[3] || '') + '\n';
+        String(row[3] || '') + '\n'; // AF não tem padding extra no exemplo, apenas o conteúdo
     });
 
     return textToShare.trim();
