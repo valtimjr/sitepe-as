@@ -345,11 +345,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
           <Button variant="outline" onClick={onNewServiceOrder} className="w-full flex items-center gap-2">
             <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
           </Button>
-          {editingServiceOrder && (
-            <Button variant="secondary" onClick={resetPartFields} className="w-full flex items-center gap-2">
-              <Plus className="h-4 w-4" /> Adicionar Outra Peça (à ordem atual)
-            </Button>
-          )}
+          {/* O botão "Adicionar Outra Peça (à ordem atual)" foi removido daqui */}
         </div>
       </CardContent>
     </Card>
