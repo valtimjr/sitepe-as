@@ -37,12 +37,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     showSuccess('PDF gerado com sucesso!');
   };
 
-  const handleCopyList = async () => {
-    if (displayedItems.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de copiar.');
-      return;
-    }
-
+  const formatListText = () => {
     const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
     const rows = displayedItems.map(item => [
       item.codigo_peca || '',
@@ -63,21 +58,30 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       return maxWidth;
     });
 
-    let textToCopy = '';
+    let formattedText = '';
 
-    // Add header row, padded with spaces
-    textToCopy += headers.map((header, colIndex) =>
+    // Add header row, padded with spaces and joined by tabs
+    formattedText += headers.map((header, colIndex) =>
       header.padEnd(maxColWidths[colIndex])
-    ).join('  ') + '\n'; // Use two spaces as separator for visual clarity
+    ).join('\t') + '\n'; // Use tab as separator
 
-    // Add data rows, padded with spaces
+    // Add data rows, padded with spaces and joined by tabs
     rows.forEach(row => {
-      textToCopy += row.map((cell, colIndex) =>
+      formattedText += row.map((cell, colIndex) =>
         (String(cell || '')).padEnd(maxColWidths[colIndex])
-      ).join('  ') + '\n';
+      ).join('\t') + '\n';
     });
 
-    textToCopy = textToCopy.trim(); // Remove trailing newline
+    return formattedText.trim(); // Remove trailing newline
+  };
+
+  const handleCopyList = async () => {
+    if (displayedItems.length === 0) {
+      showError('A lista está vazia. Adicione itens antes de copiar.');
+      return;
+    }
+
+    const textToCopy = formatListText();
 
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -94,42 +98,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       return;
     }
 
-    const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
-    const rows = displayedItems.map(item => [
-      item.codigo_peca || '',
-      item.descricao || '',
-      item.quantidade !== undefined ? item.quantidade.toString() : '',
-      item.af || ''
-    ]);
-
-    // Calculate max widths for each column
-    const maxColWidths = headers.map((header, colIndex) => {
-      let maxWidth = header.length;
-      rows.forEach(row => {
-        const cellContent = row[colIndex] ? String(row[colIndex]) : '';
-        if (cellContent.length > maxWidth) {
-          maxWidth = cellContent.length;
-        }
-      });
-      return maxWidth;
-    });
-
-    let textToShare = '';
-
-    // Add header row, padded with spaces
-    textToShare += headers.map((header, colIndex) =>
-      header.padEnd(maxColWidths[colIndex])
-    ).join('  ') + '\n'; // Use two spaces as separator for visual clarity
-
-    // Add data rows, padded with spaces
-    rows.forEach(row => {
-      textToShare += row.map((cell, colIndex) =>
-        (String(cell || '')).padEnd(maxColWidths[colIndex])
-      ).join('  ') + '\n';
-    });
-
-    textToShare = textToShare.trim(); // Remove trailing newline
-
+    const textToShare = formatListText();
     const encodedText = encodeURIComponent(textToShare);
     const whatsappUrl = `https://wa.me/?text=${encodedText}`;
 
