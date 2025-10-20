@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download } from 'lucide-react';
-import { showSuccess, showError } from '@/utils/toast';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast'; // Importar showLoading e dismissToast
 import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -256,43 +256,61 @@ const PartManagementTable: React.FC = () => {
 
   const handleExportCsv = async () => {
     let dataToExport: Part[] = [];
-    if (selectedPartIds.size > 0) {
-      dataToExport = parts.filter(part => selectedPartIds.has(part.id));
-      if (dataToExport.length === 0) {
-        showError('Nenhuma peça selecionada para exportar.');
-        return;
+    let loadingToastId: string | undefined;
+    try {
+      loadingToastId = showLoading('Preparando exportação de peças...');
+      if (selectedPartIds.size > 0) {
+        dataToExport = parts.filter(part => selectedPartIds.has(part.id));
+        if (dataToExport.length === 0) {
+          showError('Nenhuma peça selecionada para exportar.');
+          return;
+        }
+        exportDataAsCsv(dataToExport, 'pecas_selecionadas.csv');
+        showSuccess(`${dataToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
+      } else {
+        dataToExport = await getAllPartsForExport(); // Usa a nova função para exportar tudo
+        if (dataToExport.length === 0) {
+          showError('Nenhuma peça para exportar.');
+          return;
+        }
+        exportDataAsCsv(dataToExport, 'todas_pecas.csv');
+        showSuccess('Todas as peças exportadas para CSV com sucesso!');
       }
-      exportDataAsCsv(dataToExport, 'pecas_selecionadas.csv');
-      showSuccess(`${dataToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
-    } else {
-      dataToExport = await getAllPartsForExport(); // Usa a nova função para exportar tudo
-      if (dataToExport.length === 0) {
-        showError('Nenhuma peça para exportar.');
-        return;
-      }
-      exportDataAsCsv(dataToExport, 'todas_pecas.csv');
-      showSuccess('Todas as peças exportadas para CSV com sucesso!');
+    } catch (error) {
+      showError('Erro ao exportar peças.');
+      console.error('Failed to export parts:', error);
+    } finally {
+      if (loadingToastId) dismissToast(loadingToastId);
     }
   };
 
   const handleExportJson = async () => {
     let dataToExport: Part[] = [];
-    if (selectedPartIds.size > 0) {
-      dataToExport = parts.filter(part => selectedPartIds.has(part.id));
-      if (dataToExport.length === 0) {
-        showError('Nenhuma peça selecionada para exportar.');
-        return;
+    let loadingToastId: string | undefined;
+    try {
+      loadingToastId = showLoading('Preparando exportação de peças...');
+      if (selectedPartIds.size > 0) {
+        dataToExport = parts.filter(part => selectedPartIds.has(part.id));
+        if (dataToExport.length === 0) {
+          showError('Nenhuma peça selecionada para exportar.');
+          return;
+        }
+        exportDataAsJson(dataToExport, 'pecas_selecionadas.json');
+        showSuccess(`${dataToExport.length} peças selecionadas exportadas para JSON com sucesso!`);
+      } else {
+        dataToExport = await getAllPartsForExport(); // Usa a nova função para exportar tudo
+        if (dataToExport.length === 0) {
+          showError('Nenhuma peça para exportar.');
+          return;
+        }
+        exportDataAsJson(dataToExport, 'todas_pecas.json');
+        showSuccess('Todas as peças exportadas para JSON com sucesso!');
       }
-      exportDataAsJson(dataToExport, 'pecas_selecionadas.json');
-      showSuccess(`${dataToExport.length} peças selecionadas exportadas para JSON com sucesso!`);
-    } else {
-      dataToExport = await getAllPartsForExport(); // Usa a nova função para exportar tudo
-      if (dataToExport.length === 0) {
-        showError('Nenhuma peça para exportar.');
-        return;
-      }
-      exportDataAsJson(dataToExport, 'todas_pecas.json');
-      showSuccess('Todas as peças exportadas para JSON com sucesso!');
+    } catch (error) {
+      showError('Erro ao exportar peças.');
+      console.error('Failed to export parts:', error);
+    } finally {
+      if (loadingToastId) dismissToast(loadingToastId);
     }
   };
 

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download } from 'lucide-react';
-import { showSuccess, showError } from '@/utils/toast';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast'; // Importar showLoading e dismissToast
 import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson, getAllAfsForExport } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -38,7 +38,7 @@ const AfManagementTable: React.FC = () => {
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAfIds, setSelectedAfIds] = new Set<string>(); // Inicialização correta
+  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set()); // Inicialização correta
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -195,43 +195,61 @@ const AfManagementTable: React.FC = () => {
 
   const handleExportCsv = async () => {
     let dataToExport: Af[] = [];
-    if (selectedAfIds.size > 0) {
-      dataToExport = afs.filter(af => selectedAfIds.has(af.id));
-      if (dataToExport.length === 0) {
-        showError('Nenhum AF selecionado para exportar.');
-        return;
+    let loadingToastId: string | undefined;
+    try {
+      loadingToastId = showLoading('Preparando exportação de AFs...');
+      if (selectedAfIds.size > 0) {
+        dataToExport = afs.filter(af => selectedAfIds.has(af.id));
+        if (dataToExport.length === 0) {
+          showError('Nenhum AF selecionado para exportar.');
+          return;
+        }
+        exportDataAsCsv(dataToExport, 'afs_selecionados.csv');
+        showSuccess(`${dataToExport.length} AFs selecionados exportados para CSV com sucesso!`);
+      } else {
+        dataToExport = await getAllAfsForExport(); // Usa a nova função para exportar tudo
+        if (dataToExport.length === 0) {
+          showError('Nenhum AF para exportar.');
+          return;
+        }
+        exportDataAsCsv(dataToExport, 'todos_afs.csv');
+        showSuccess('Todos os AFs exportados para CSV com sucesso!');
       }
-      exportDataAsCsv(dataToExport, 'afs_selecionados.csv');
-      showSuccess(`${dataToExport.length} AFs selecionados exportados para CSV com sucesso!`);
-    } else {
-      dataToExport = await getAllAfsForExport(); // Usa a nova função para exportar tudo
-      if (dataToExport.length === 0) {
-        showError('Nenhum AF para exportar.');
-        return;
-      }
-      exportDataAsCsv(dataToExport, 'todos_afs.csv');
-      showSuccess('Todos os AFs exportados para CSV com sucesso!');
+    } catch (error) {
+      showError('Erro ao exportar AFs.');
+      console.error('Failed to export AFs:', error);
+    } finally {
+      if (loadingToastId) dismissToast(loadingToastId);
     }
   };
 
   const handleExportJson = async () => {
     let dataToExport: Af[] = [];
-    if (selectedAfIds.size > 0) {
-      dataToExport = afs.filter(af => selectedAfIds.has(af.id));
-      if (dataToExport.length === 0) {
-        showError('Nenhum AF selecionado para exportar.');
-        return;
+    let loadingToastId: string | undefined;
+    try {
+      loadingToastId = showLoading('Preparando exportação de AFs...');
+      if (selectedAfIds.size > 0) {
+        dataToExport = afs.filter(af => selectedAfIds.has(af.id));
+        if (dataToExport.length === 0) {
+          showError('Nenhum AF selecionado para exportar.');
+          return;
+        }
+        exportDataAsJson(dataToExport, 'afs_selecionados.json');
+        showSuccess(`${dataToExport.length} AFs selecionados exportados para JSON com sucesso!`);
+      } else {
+        dataToExport = await getAllAfsForExport(); // Usa a nova função para exportar tudo
+        if (dataToExport.length === 0) {
+          showError('Nenhum AF para exportar.');
+          return;
+        }
+        exportDataAsJson(dataToExport, 'todos_afs.json');
+        showSuccess('Todos os AFs exportados para JSON com sucesso!');
       }
-      exportDataAsJson(dataToExport, 'afs_selecionados.json');
-      showSuccess(`${dataToExport.length} AFs selecionados exportados para JSON com sucesso!`);
-    } else {
-      dataToExport = await getAllAfsForExport(); // Usa a nova função para exportar tudo
-      if (dataToExport.length === 0) {
-        showError('Nenhum AF para exportar.');
-        return;
-      }
-      exportDataAsJson(dataToExport, 'todos_afs.json');
-      showSuccess('Todos os AFs exportados para JSON com sucesso!');
+    } catch (error) {
+      showError('Erro ao exportar AFs.');
+      console.error('Failed to export AFs:', error);
+    } finally {
+      if (loadingToastId) dismissToast(loadingToastId);
     }
   };
 
