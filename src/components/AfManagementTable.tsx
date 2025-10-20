@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { Af, getAfsFromService, addAf, updateAf, deleteAf } from '@/services/partListService';
+import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -22,6 +22,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import Papa from 'papaparse';
+import { v4 as uuidv4 } from 'uuid';
 
 const AfManagementTable: React.FC = () => {
   const [afs, setAfs] = useState<Af[]>([]);
@@ -30,7 +32,8 @@ const AfManagementTable: React.FC = () => {
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set()); // Novo estado para seleção múltipla
+  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadAfs();
@@ -145,16 +148,103 @@ const AfManagementTable: React.FC = () => {
     }
   };
 
+  const handleImportCsv = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const parsedData = results.data as any[];
+          const newAfs: Af[] = parsedData.map(row => ({
+            id: row.id || uuidv4(), // Usa ID existente ou gera um novo
+            af_number: row.af_number,
+          })).filter(af => af.af_number); // Filtra linhas inválidas
+
+          if (newAfs.length === 0) {
+            showError('Nenhum dado válido encontrado no arquivo CSV.');
+            return;
+          }
+
+          try {
+            await importAfs(newAfs);
+            showSuccess(`${newAfs.length} AFs importados/atualizados com sucesso!`);
+            loadAfs();
+          } catch (error) {
+            showError('Erro ao importar AFs do CSV.');
+            console.error('Failed to import AFs from CSV:', error);
+          }
+        },
+        error: (error: any) => {
+          showError('Erro ao analisar o arquivo CSV.');
+          console.error('CSV parsing error:', error);
+        }
+      });
+    }
+  };
+
+  const handleExportCsv = async () => {
+    try {
+      const allAfs = await getAfsFromService();
+      if (allAfs.length === 0) {
+        showError('Nenhum AF para exportar.');
+        return;
+      }
+      exportDataAsCsv(allAfs, 'afs.csv');
+      showSuccess('AFs exportados para CSV com sucesso!');
+    } catch (error) {
+      showError('Erro ao exportar AFs para CSV.');
+      console.error('Failed to export AFs to CSV:', error);
+    }
+  };
+
+  const handleExportJson = async () => {
+    try {
+      const allAfs = await getAfsFromService();
+      if (allAfs.length === 0) {
+        showError('Nenhum AF para exportar.');
+        return;
+      }
+      exportDataAsJson(allAfs, 'afs.json');
+      showSuccess('AFs exportados para JSON com sucesso!');
+    } catch (error) {
+      showError('Erro ao exportar AFs para JSON.');
+      console.error('Failed to export AFs to JSON:', error);
+    }
+  };
+
   const isAllSelected = filteredAfs.length > 0 && selectedAfIds.size === filteredAfs.length;
   const isIndeterminate = selectedAfIds.size > 0 && selectedAfIds.size < filteredAfs.length;
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
         <CardTitle className="text-2xl font-bold">Gerenciar AFs</CardTitle>
-        <Button onClick={handleAddAf} className="flex items-center gap-2">
-          <PlusCircle className="h-4 w-4" /> Adicionar AF
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleImportCsv} className="flex items-center gap-2">
+            <Upload className="h-4 w-4" /> Importar CSV
+          </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".csv"
+            className="hidden"
+          />
+          <Button variant="outline" onClick={handleExportCsv} className="flex items-center gap-2">
+            <Download className="h-4 w-4" /> Exportar CSV
+          </Button>
+          <Button variant="outline" onClick={handleExportJson} className="flex items-center gap-2">
+            <Download className="h-4 w-4" /> Exportar JSON
+          </Button>
+          <Button onClick={handleAddAf} className="flex items-center gap-2">
+            <PlusCircle className="h-4 w-4" /> Adicionar AF
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="relative mb-4">

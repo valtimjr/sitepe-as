@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,9 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService } from '@/services/partListService';
+import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -23,17 +23,20 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import Papa from 'papaparse';
 
 const PartManagementTable: React.FC = () => {
   const [parts, setParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false); // Para adicionar/editar peça
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false); // Para importação CSV
   const [currentPart, setCurrentPart] = useState<Part | null>(null);
   const [formCodigo, setFormCodigo] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set());
+  const [selectedPartIds, setSelectedPartIds] = new Set<string>(); // Usar Set para IDs selecionados
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const loadInitialParts = async () => {
@@ -202,16 +205,105 @@ const PartManagementTable: React.FC = () => {
     }
   };
 
+  const handleImportCsv = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const parsedData = results.data as any[];
+          const newParts: Part[] = parsedData.map(row => ({
+            id: row.id || uuidv4(), // Usa ID existente ou gera um novo
+            codigo: row.codigo,
+            descricao: row.descricao,
+            tags: row.tags || '',
+          })).filter(part => part.codigo && part.descricao); // Filtra linhas inválidas
+
+          if (newParts.length === 0) {
+            showError('Nenhum dado válido encontrado no arquivo CSV.');
+            return;
+          }
+
+          try {
+            await importParts(newParts);
+            showSuccess(`${newParts.length} peças importadas/atualizadas com sucesso!`);
+            loadPartsAfterAction();
+          } catch (error) {
+            showError('Erro ao importar peças do CSV.');
+            console.error('Failed to import parts from CSV:', error);
+          }
+        },
+        error: (error: any) => {
+          showError('Erro ao analisar o arquivo CSV.');
+          console.error('CSV parsing error:', error);
+        }
+      });
+    }
+  };
+
+  const handleExportCsv = async () => {
+    try {
+      const allParts = await getParts();
+      if (allParts.length === 0) {
+        showError('Nenhuma peça para exportar.');
+        return;
+      }
+      exportDataAsCsv(allParts, 'pecas.csv');
+      showSuccess('Peças exportadas para CSV com sucesso!');
+    } catch (error) {
+      showError('Erro ao exportar peças para CSV.');
+      console.error('Failed to export parts to CSV:', error);
+    }
+  };
+
+  const handleExportJson = async () => {
+    try {
+      const allParts = await getParts();
+      if (allParts.length === 0) {
+        showError('Nenhuma peça para exportar.');
+        return;
+      }
+      exportDataAsJson(allParts, 'pecas.json');
+      showSuccess('Peças exportadas para JSON com sucesso!');
+    } catch (error) {
+      showError('Erro ao exportar peças para JSON.');
+      console.error('Failed to export parts to JSON:', error);
+    }
+  };
+
   const isAllSelected = parts.length > 0 && selectedPartIds.size === parts.length;
   const isIndeterminate = selectedPartIds.size > 0 && selectedPartIds.size < parts.length;
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
         <CardTitle className="text-2xl font-bold">Gerenciar Peças</CardTitle>
-        <Button onClick={handleAddPart} className="flex items-center gap-2">
-          <PlusCircle className="h-4 w-4" /> Adicionar Peça
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleImportCsv} className="flex items-center gap-2">
+            <Upload className="h-4 w-4" /> Importar CSV
+          </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".csv"
+            className="hidden"
+          />
+          <Button variant="outline" onClick={handleExportCsv} className="flex items-center gap-2">
+            <Download className="h-4 w-4" /> Exportar CSV
+          </Button>
+          <Button variant="outline" onClick={handleExportJson} className="flex items-center gap-2">
+            <Download className="h-4 w-4" /> Exportar JSON
+          </Button>
+          <Button onClick={handleAddPart} className="flex items-center gap-2">
+            <PlusCircle className="h-4 w-4" /> Adicionar Peça
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="relative mb-4">

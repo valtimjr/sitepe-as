@@ -3,11 +3,11 @@ import Papa from 'papaparse';
 import {
   localDb,
   getLocalUniqueAfs,
-  bulkAddLocalParts,
+  bulkPutLocalParts, // Alterado para bulkPutLocalParts
   getLocalParts,
   searchLocalParts,
   updateLocalPart,
-  bulkAddLocalAfs,
+  bulkPutLocalAfs, // Alterado para bulkPutLocalAfs
   getLocalAfs,
   Part as LocalPart,
   SimplePartItem as LocalSimplePartItem,
@@ -72,7 +72,7 @@ const seedPartsFromJson = async (): Promise<void> => {
     console.log('Parts seeded from JSON to Supabase.');
 
     // Também adiciona ao IndexedDB para cache local
-    await bulkAddLocalParts(parsedParts);
+    await bulkPutLocalParts(parsedParts); // Alterado para bulkPutLocalParts
     console.log('Parts also seeded to IndexedDB.');
 
   } catch (error) {
@@ -168,7 +168,7 @@ const seedAfs = async (): Promise<void> => {
       }
       console.log(`seedAfs: AFs upserted from ${source} to Supabase.`);
 
-      await bulkAddLocalAfs(parsedAfs);
+      await bulkPutLocalAfs(parsedAfs); // Alterado para bulkPutLocalAfs
       console.log('seedAfs: AFs also seeded to IndexedDB.');
     } catch (dbError) {
       console.error("seedAfs: Failed to seed Supabase/IndexedDB with AFs:", dbError);
@@ -195,7 +195,7 @@ export const getParts = async (): Promise<Part[]> => {
 
   // Atualiza o cache local com os dados do Supabase
   await localDb.parts.clear();
-  await bulkAddLocalParts(data as Part[]);
+  await bulkPutLocalParts(data as Part[]); // Alterado para bulkPutLocalParts
   return data as Part[];
 };
 
@@ -342,7 +342,7 @@ export const getAfsFromService = async (): Promise<Af[]> => {
 
   // Atualiza o cache local com os dados do Supabase
   await localDb.afs.clear();
-  await bulkAddLocalAfs(data as Af[]);
+  await bulkPutLocalAfs(data as Af[]); // Alterado para bulkPutLocalAfs
   return data as Af[];
 };
 
@@ -395,7 +395,6 @@ export const deleteAf = async (id: string): Promise<void> => {
   await localDb.afs.delete(id);
 };
 
-
 // --- Funções para SimplePartItem (Lista de Peças Simples) ---
 export const getSimplePartsListItems = async (): Promise<SimplePartItem[]> => {
   return getLocalSimplePartsListItems();
@@ -423,7 +422,8 @@ export const getServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
 };
 
 export const addServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
-  return addLocalServiceOrderItem(item, customCreatedAt);
+  const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
+  return addLocalServiceOrderItem(newItem, customCreatedAt);
 };
 
 export const updateServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
@@ -445,4 +445,60 @@ export const getUniqueAfs = async (): Promise<string[]> => {
   console.log('getUniqueAfs: All AFs (including IDs) fetched:', allAfs);
   // Mapeia para retornar apenas os números dos AFs, como esperado pela interface.
   return allAfs.map(af => af.af_number).sort();
+};
+
+// --- Novas funções para importação e exportação ---
+
+export const importParts = async (parts: Part[]): Promise<void> => {
+  const { error: supabaseError } = await supabase
+    .from('parts')
+    .upsert(parts, { onConflict: 'id' });
+
+  if (supabaseError) {
+    console.error('Error importing parts to Supabase:', supabaseError);
+    throw new Error(`Erro ao importar peças para o Supabase: ${supabaseError.message}`);
+  }
+  await bulkPutLocalParts(parts);
+};
+
+export const importAfs = async (afs: Af[]): Promise<void> => {
+  const { error: supabaseError } = await supabase
+    .from('afs')
+    .upsert(afs, { onConflict: 'id' });
+
+  if (supabaseError) {
+    console.error('Error importing AFs to Supabase:', supabaseError);
+    throw new Error(`Erro ao importar AFs para o Supabase: ${supabaseError.message}`);
+  }
+  await bulkPutLocalAfs(afs);
+};
+
+export const exportDataAsCsv = (data: any[], filename: string): void => {
+  const csv = Papa.unparse(data);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  if (link.download !== undefined) {
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
+
+export const exportDataAsJson = (data: any[], filename: string): void => {
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+  const link = document.createElement('a');
+  if (link.download !== undefined) {
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 };

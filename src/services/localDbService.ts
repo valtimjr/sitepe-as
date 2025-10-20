@@ -117,8 +117,8 @@ export const addLocalPart = async (part: Omit<Part, 'id'>): Promise<string> => {
   return newPart.id;
 };
 
-export const bulkAddLocalParts = async (parts: Part[]): Promise<void> => {
-  await localDb.parts.bulkAdd(parts); // <--- AQUI: Esta função adiciona as peças (do CSV) à tabela 'parts'
+export const bulkPutLocalParts = async (parts: Part[]): Promise<void> => {
+  await localDb.parts.bulkPut(parts); // Alterado para bulkPut
 };
 
 export const getLocalParts = async (): Promise<Part[]> => {
@@ -203,8 +203,8 @@ export const clearLocalParts = async (): Promise<void> => {
 };
 
 // --- AFs Management (IndexedDB) ---
-export const bulkAddLocalAfs = async (afs: Af[]): Promise<void> => {
-  await localDb.afs.bulkAdd(afs); // <--- AQUI: Esta função adiciona os AFs (do CSV) à tabela 'afs'
+export const bulkPutLocalAfs = async (afs: Af[]): Promise<void> => {
+  await localDb.afs.bulkPut(afs); // Alterado para bulkPut
 };
 
 export const getLocalAfs = async (): Promise<Af[]> => {
