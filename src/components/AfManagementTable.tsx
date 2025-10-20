@@ -22,6 +22,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -32,7 +38,7 @@ const AfManagementTable: React.FC = () => {
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set()); // Inicialização correta
+  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -139,7 +145,7 @@ const AfManagementTable: React.FC = () => {
     }
     try {
       await Promise.all(Array.from(selectedAfIds).map(id => deleteAf(id)));
-      showSuccess(`${selectedAfIds?.size ?? 0} AFs excluídos com sucesso!`); // Verificação defensiva
+      showSuccess(`${selectedAfIds?.size ?? 0} AFs excluídos com sucesso!`);
       setSelectedAfIds(new Set()); // Limpa a seleção após a ação
       loadAfs();
     } catch (error) {
@@ -235,12 +241,21 @@ const AfManagementTable: React.FC = () => {
             accept=".csv"
             className="hidden"
           />
-          <Button variant="outline" onClick={handleExportCsv} className="flex items-center gap-2">
-            <Download className="h-4 w-4" /> Exportar CSV
-          </Button>
-          <Button variant="outline" onClick={handleExportJson} className="flex items-center gap-2">
-            <Download className="h-4 w-4" /> Exportar JSON
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <Download className="h-4 w-4" /> Exportar
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportCsv}>
+                Exportar CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportJson}>
+                Exportar JSON
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button onClick={handleAddAf} className="flex items-center gap-2">
             <PlusCircle className="h-4 w-4" /> Adicionar AF
           </Button>

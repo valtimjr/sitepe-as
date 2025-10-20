@@ -23,7 +23,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Papa from 'papaparse';
+import { v4 as uuidv4 } from 'uuid';
 
 const PartManagementTable: React.FC = () => {
   const [parts, setParts] = useState<Part[]>([]);
@@ -182,7 +189,7 @@ const PartManagementTable: React.FC = () => {
     }
     try {
       await Promise.all(Array.from(selectedPartIds).map(id => deletePart(id)));
-      showSuccess(`${selectedPartIds?.size ?? 0} peças excluídas com sucesso!`); // Verificação defensiva
+      showSuccess(`${selectedPartIds?.size ?? 0} peças excluídas com sucesso!`);
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao excluir peças selecionadas.');
@@ -198,7 +205,7 @@ const PartManagementTable: React.FC = () => {
     try {
       const partsToUpdate = parts.filter(part => selectedPartIds.has(part.id));
       await Promise.all(partsToUpdate.map(part => updatePart({ ...part, tags: '' })));
-      showSuccess(`Tags de ${selectedPartIds?.size ?? 0} peças limpas com sucesso!`); // Verificação defensiva
+      showSuccess(`Tags de ${selectedPartIds?.size ?? 0} peças limpas com sucesso!`);
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao limpar tags das peças selecionadas.');
@@ -295,12 +302,21 @@ const PartManagementTable: React.FC = () => {
             accept=".csv"
             className="hidden"
           />
-          <Button variant="outline" onClick={handleExportCsv} className="flex items-center gap-2">
-            <Download className="h-4 w-4" /> Exportar CSV
-          </Button>
-          <Button variant="outline" onClick={handleExportJson} className="flex items-center gap-2">
-            <Download className="h-4 w-4" /> Exportar JSON
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <Download className="h-4 w-4" /> Exportar
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportCsv}>
+                Exportar CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportJson}>
+                Exportar JSON
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button onClick={handleAddPart} className="flex items-center gap-2">
             <PlusCircle className="h-4 w-4" /> Adicionar Peça
           </Button>
