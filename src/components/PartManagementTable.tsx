@@ -35,7 +35,7 @@ const PartManagementTable: React.FC = () => {
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = new Set<string>(); // Usar Set para IDs selecionados
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set()); // CORRIGIDO AQUI
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
