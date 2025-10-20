@@ -8,9 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService } from '@/services/partListService'; // Importar searchPartsService
+import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService } from '@/services/partListService';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const PartManagementTable: React.FC = () => {
   const [parts, setParts] = useState<Part[]>([]);
@@ -21,8 +33,8 @@ const PartManagementTable: React.FC = () => {
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set());
 
-  // Carrega todas as peças inicialmente ou quando a query de busca está vazia
   useEffect(() => {
     const loadInitialParts = async () => {
       setIsLoading(true);
@@ -40,15 +52,15 @@ const PartManagementTable: React.FC = () => {
     if (!searchQuery) {
       loadInitialParts();
     }
-  }, [searchQuery]); // Depende de searchQuery para recarregar todas as peças quando a busca é limpa
+  }, [searchQuery]);
 
-  // Efeito para realizar a busca com debounce
   useEffect(() => {
     const fetchSearchResults = async () => {
       setIsLoading(true);
       try {
         const results = await searchPartsService(searchQuery);
-        setParts(results); // Atualiza as peças exibidas com os resultados da busca
+        setParts(results);
+        setSelectedPartIds(new Set()); // Limpa a seleção ao mudar a busca
       } catch (error) {
         showError('Erro ao buscar peças.');
         console.error('Failed to search parts:', error);
@@ -60,12 +72,12 @@ const PartManagementTable: React.FC = () => {
 
     const handler = setTimeout(() => {
       fetchSearchResults();
-    }, 300); // Debounce de 300ms
+    }, 300);
 
     return () => {
       clearTimeout(handler);
     };
-  }, [searchQuery]); // Dispara a busca sempre que a query muda
+  }, [searchQuery]);
 
   const handleAddPart = () => {
     setCurrentPart(null);
@@ -88,14 +100,7 @@ const PartManagementTable: React.FC = () => {
     try {
       await deletePart(id);
       showSuccess('Peça excluída com sucesso!');
-      // Após a exclusão, recarrega as peças com a query de busca atual
-      if (searchQuery) {
-        const results = await searchPartsService(searchQuery);
-        setParts(results);
-      } else {
-        const fetchedParts = await getParts();
-        setParts(fetchedParts);
-      }
+      loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao excluir peça.');
       console.error('Failed to delete part:', error);
@@ -111,7 +116,6 @@ const PartManagementTable: React.FC = () => {
 
     try {
       if (currentPart) {
-        // Update existing part
         await updatePart({
           ...currentPart,
           codigo: formCodigo,
@@ -120,7 +124,6 @@ const PartManagementTable: React.FC = () => {
         });
         showSuccess('Peça atualizada com sucesso!');
       } else {
-        // Add new part
         await addPart({
           codigo: formCodigo,
           descricao: formDescricao,
@@ -129,19 +132,78 @@ const PartManagementTable: React.FC = () => {
         showSuccess('Peça adicionada com sucesso!');
       }
       setIsDialogOpen(false);
-      // Após salvar, recarrega as peças com a query de busca atual
-      if (searchQuery) {
-        const results = await searchPartsService(searchQuery);
-        setParts(results);
-      } else {
-        const fetchedParts = await getParts();
-        setParts(fetchedParts);
-      }
+      loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao salvar peça.');
       console.error('Failed to save part:', error);
     }
   };
+
+  const loadPartsAfterAction = async () => {
+    if (searchQuery) {
+      const results = await searchPartsService(searchQuery);
+      setParts(results);
+    } else {
+      const fetchedParts = await getParts();
+      setParts(fetchedParts);
+    }
+    setSelectedPartIds(new Set()); // Limpa a seleção após a ação
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allVisiblePartIds = new Set(parts.map(part => part.id));
+      setSelectedPartIds(allVisiblePartIds);
+    } else {
+      setSelectedPartIds(new Set());
+    }
+  };
+
+  const handleSelectPart = (id: string, checked: boolean) => {
+    setSelectedPartIds(prev => {
+      const newSelection = new Set(prev);
+      if (checked) {
+        newSelection.add(id);
+      } else {
+        newSelection.delete(id);
+      }
+      return newSelection;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedPartIds.size === 0) {
+      showError('Nenhuma peça selecionada para exclusão.');
+      return;
+    }
+    try {
+      await Promise.all(Array.from(selectedPartIds).map(id => deletePart(id)));
+      showSuccess(`${selectedPartIds.size} peças excluídas com sucesso!`);
+      loadPartsAfterAction();
+    } catch (error) {
+      showError('Erro ao excluir peças selecionadas.');
+      console.error('Failed to bulk delete parts:', error);
+    }
+  };
+
+  const handleBulkClearTags = async () => {
+    if (selectedPartIds.size === 0) {
+      showError('Nenhuma peça selecionada para limpar tags.');
+      return;
+    }
+    try {
+      const partsToUpdate = parts.filter(part => selectedPartIds.has(part.id));
+      await Promise.all(partsToUpdate.map(part => updatePart({ ...part, tags: '' })));
+      showSuccess(`Tags de ${selectedPartIds.size} peças limpas com sucesso!`);
+      loadPartsAfterAction();
+    } catch (error) {
+      showError('Erro ao limpar tags das peças selecionadas.');
+      console.error('Failed to bulk clear tags:', error);
+    }
+  };
+
+  const isAllSelected = parts.length > 0 && selectedPartIds.size === parts.length;
+  const isIndeterminate = selectedPartIds.size > 0 && selectedPartIds.size < parts.length;
 
   return (
     <Card className="w-full">
@@ -162,6 +224,51 @@ const PartManagementTable: React.FC = () => {
             className="pl-9"
           />
         </div>
+
+        {selectedPartIds.size > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="flex items-center gap-2">
+                  <Trash2 className="h-4 w-4" /> Excluir Selecionados ({selectedPartIds.size})
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação irá remover {selectedPartIds.size} peças selecionadas. Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleBulkDelete}>Excluir</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <Tag className="h-4 w-4" /> Limpar Tags Selecionadas ({selectedPartIds.size})
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação irá remover as tags de {selectedPartIds.size} peças selecionadas. Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleBulkClearTags}>Limpar Tags</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
+
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando peças...</p>
         ) : parts.length === 0 && searchQuery.length > 0 ? (
@@ -173,6 +280,14 @@ const PartManagementTable: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]">
+                    <Checkbox
+                      checked={isAllSelected}
+                      indeterminate={isIndeterminate}
+                      onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                      aria-label="Selecionar todas as peças"
+                    />
+                  </TableHead>
                   <TableHead>Código</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Tags</TableHead>
@@ -182,6 +297,13 @@ const PartManagementTable: React.FC = () => {
               <TableBody>
                 {parts.map((part) => (
                   <TableRow key={part.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedPartIds.has(part.id)}
+                        onCheckedChange={(checked) => handleSelectPart(part.id, checked === true)}
+                        aria-label={`Selecionar peça ${part.codigo}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{part.codigo}</TableCell>
                     <TableCell>{part.descricao}</TableCell>
                     <TableCell>{part.tags || 'N/A'}</TableCell>
