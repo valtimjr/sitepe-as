@@ -289,9 +289,9 @@ const PartManagementTable: React.FC = () => {
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
+      <CardHeader className="flex flex-col space-y-2 pb-2"> {/* Alterado para flex-col */}
         <CardTitle className="text-2xl font-bold">Gerenciar Peças</CardTitle>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 justify-end"> {/* Adicionado justify-end */}
           <Button variant="outline" onClick={handleImportCsv} className="flex items-center gap-2">
             <Upload className="h-4 w-4" /> Importar CSV
           </Button>
