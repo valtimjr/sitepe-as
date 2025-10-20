@@ -20,18 +20,28 @@ const AdminDashboard: React.FC = () => {
   const handleLogout = async () => {
     try {
       console.log('AdminDashboard: Attempting logout...');
-      const { data: { session: currentSession }, error: getSessionError } = await supabase.auth.getSession();
-      
-      if (getSessionError) {
-        console.error('AdminDashboard: Erro ao obter sessão antes do logout:', getSessionError);
-        // Continua com o logout mesmo com erro ao obter a sessão, para tentar limpar o armazenamento local.
+
+      // Tenta atualizar a sessão primeiro para garantir que temos um refresh token válido
+      console.log('AdminDashboard: Attempting to refresh session before signOut...');
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+
+      if (refreshError) {
+        console.error('AdminDashboard: Error refreshing session:', refreshError);
+        // Se a atualização falhar, a sessão provavelmente está inválida. Procede para desconectar localmente.
+        await supabase.auth.signOut(); // Ainda chama signOut para limpar o armazenamento local
+        showError(`Sessão expirada ou inválida. Desconectado. (${refreshError.message})`);
+        console.log('AdminDashboard: Session refresh failed, performed local cleanup.');
+        return;
       }
-      console.log('AdminDashboard: Current session before signOut:', currentSession);
+
+      const currentSession = refreshData.session;
+      console.log('AdminDashboard: Current session after refresh (before signOut):', currentSession);
 
       if (!currentSession) {
-        await supabase.auth.signOut(); // Ainda chama para limpar qualquer resíduo
+        // Se não há sessão após a atualização, significa que a sessão já havia sumido ou estava inválida.
+        await supabase.auth.signOut(); // Ainda chama signOut para limpar o armazenamento local
         showSuccess('Você já estava desconectado. Limpando dados locais.');
-        console.log('AdminDashboard: No active session found, performed cleanup.');
+        console.log('AdminDashboard: No active session found after refresh, performed cleanup.');
         return;
       }
 
