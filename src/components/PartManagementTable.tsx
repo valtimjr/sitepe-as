@@ -35,7 +35,8 @@ const PartManagementTable: React.FC = () => {
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set()); // CORRIGIDO AQUI
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set()); // Inicialização correta
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -181,7 +182,7 @@ const PartManagementTable: React.FC = () => {
     }
     try {
       await Promise.all(Array.from(selectedPartIds).map(id => deletePart(id)));
-      showSuccess(`${selectedPartIds.size} peças excluídas com sucesso!`);
+      showSuccess(`${selectedPartIds?.size ?? 0} peças excluídas com sucesso!`); // Verificação defensiva
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao excluir peças selecionadas.');
@@ -197,7 +198,7 @@ const PartManagementTable: React.FC = () => {
     try {
       const partsToUpdate = parts.filter(part => selectedPartIds.has(part.id));
       await Promise.all(partsToUpdate.map(part => updatePart({ ...part, tags: '' })));
-      showSuccess(`Tags de ${selectedPartIds.size} peças limpas com sucesso!`);
+      showSuccess(`Tags de ${selectedPartIds?.size ?? 0} peças limpas com sucesso!`); // Verificação defensiva
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao limpar tags das peças selecionadas.');

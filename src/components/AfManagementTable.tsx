@@ -32,7 +32,7 @@ const AfManagementTable: React.FC = () => {
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set());
+  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set()); // Inicialização correta
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -139,7 +139,7 @@ const AfManagementTable: React.FC = () => {
     }
     try {
       await Promise.all(Array.from(selectedAfIds).map(id => deleteAf(id)));
-      showSuccess(`${selectedAfIds.size} AFs excluídos com sucesso!`);
+      showSuccess(`${selectedAfIds?.size ?? 0} AFs excluídos com sucesso!`); // Verificação defensiva
       setSelectedAfIds(new Set()); // Limpa a seleção após a ação
       loadAfs();
     } catch (error) {
