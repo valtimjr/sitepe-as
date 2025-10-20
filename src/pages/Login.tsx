@@ -33,14 +33,16 @@ const Login: React.FC = () => {
     );
   }
 
+  const handleGoHome = () => {
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
       <div className="w-full max-w-md flex justify-start mb-4"> {/* Adicionado div para o botão de voltar */}
-        <Link to="/">
-          <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar ao Início
-          </Button>
-        </Link>
+        <Button variant="outline" className="flex items-center gap-2" onClick={handleGoHome}>
+          <ArrowLeft className="h-4 w-4" /> Voltar ao Início
+        </Button>
       </div>
       <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
       <Card className="w-full max-w-md mx-auto">
