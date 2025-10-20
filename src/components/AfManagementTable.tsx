@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download } from 'lucide-react';
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast'; // Importar showLoading e dismissToast
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download, MoreHorizontal } from 'lucide-react'; // Adicionado MoreHorizontal
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson, getAllAfsForExport } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -28,6 +28,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator, // Adicionado para separar grupos de ações
+  DropdownMenuSub, // Adicionado para sub-menus
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
@@ -39,7 +43,8 @@ const AfManagementTable: React.FC = () => {
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set()); // Inicialização correta
+  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set());
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -59,7 +64,6 @@ const AfManagementTable: React.FC = () => {
     }
   };
 
-  // Filtra os AFs com base na query de busca
   const filteredAfs = afs.filter(af => {
     const lowerCaseQuery = searchQuery.toLowerCase();
     return af.af_number.toLowerCase().includes(lowerCaseQuery);
@@ -117,7 +121,6 @@ const AfManagementTable: React.FC = () => {
     }
   };
 
-  // Lógica de seleção múltipla
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       const allVisibleAfIds = new Set(filteredAfs.map(af => af.id));
@@ -147,7 +150,7 @@ const AfManagementTable: React.FC = () => {
     try {
       await Promise.all(Array.from(selectedAfIds).map(id => deleteAf(id)));
       showSuccess(`${selectedAfIds?.size ?? 0} AFs excluídos com sucesso!`);
-      setSelectedAfIds(new Set()); // Limpa a seleção após a ação
+      setSelectedAfIds(new Set());
       loadAfs();
     } catch (error) {
       showError('Erro ao excluir AFs selecionados.');
@@ -168,9 +171,9 @@ const AfManagementTable: React.FC = () => {
         complete: async (results) => {
           const parsedData = results.data as any[];
           const newAfs: Af[] = parsedData.map(row => ({
-            id: row.id || uuidv4(), // Usa ID existente ou gera um novo
+            id: row.id || uuidv4(),
             af_number: row.af_number,
-          })).filter(af => af.af_number); // Filtra linhas inválidas
+          })).filter(af => af.af_number);
 
           if (newAfs.length === 0) {
             showError('Nenhum dado válido encontrado no arquivo CSV.');
@@ -208,7 +211,7 @@ const AfManagementTable: React.FC = () => {
         exportDataAsCsv(dataToExport, 'afs_selecionados.csv');
         showSuccess(`${dataToExport.length} AFs selecionados exportados para CSV com sucesso!`);
       } else {
-        dataToExport = await getAllAfsForExport(); // Usa a nova função para exportar tudo
+        dataToExport = await getAllAfsForExport();
         if (dataToExport.length === 0) {
           showError('Nenhum AF para exportar.');
           return;
@@ -238,7 +241,7 @@ const AfManagementTable: React.FC = () => {
         exportDataAsJson(dataToExport, 'afs_selecionados.json');
         showSuccess(`${dataToExport.length} AFs selecionados exportados para JSON com sucesso!`);
       } else {
-        dataToExport = await getAllAfsForExport(); // Usa a nova função para exportar tudo
+        dataToExport = await getAllAfsForExport();
         if (dataToExport.length === 0) {
           showError('Nenhum AF para exportar.');
           return;
@@ -262,29 +265,60 @@ const AfManagementTable: React.FC = () => {
       <CardHeader className="flex flex-col space-y-2 pb-2">
         <CardTitle className="text-2xl font-bold">Gerenciar AFs</CardTitle>
         <div className="flex flex-wrap gap-2 justify-end">
-          <Button variant="outline" onClick={handleImportCsv} className="flex items-center gap-2">
-            <Upload className="h-4 w-4" /> Importar CSV
-          </Button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept=".csv"
-            className="hidden"
-          />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2">
-                <Download className="h-4 w-4" /> Exportar
+                <MoreHorizontal className="h-4 w-4" /> Ações
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleExportCsv}>
-                Exportar CSV
+              <DropdownMenuItem onClick={handleImportCsv}>
+                <Upload className="h-4 w-4 mr-2" /> Importar CSV
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportJson}>
-                Exportar JSON
-              </DropdownMenuItem>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".csv"
+                className="hidden"
+              />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Download className="h-4 w-4 mr-2" /> Exportar
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={handleExportCsv}>
+                    Exportar CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportJson}>
+                    Exportar JSON
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              {selectedAfIds.size > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                        <Trash2 className="h-4 w-4 mr-2" /> Excluir Selecionados ({selectedAfIds.size})
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta ação irá remover {selectedAfIds.size} AFs selecionados. Esta ação não pode ser desfeita.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleBulkDelete}>Excluir</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           <Button onClick={handleAddAf} className="flex items-center gap-2">
@@ -303,30 +337,6 @@ const AfManagementTable: React.FC = () => {
             className="pl-9"
           />
         </div>
-
-        {selectedAfIds.size > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="flex items-center gap-2">
-                  <Trash2 className="h-4 w-4" /> Excluir Selecionados ({selectedAfIds.size})
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta ação irá remover {selectedAfIds.size} AFs selecionados. Esta ação não pode ser desfeita.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleBulkDelete}>Excluir</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        )}
 
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando AFs...</p>
