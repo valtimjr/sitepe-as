@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Toaster } from '@/components/ui/sonner'; // Importar Toaster para mensagens
+import { Toaster } from '@/components/ui/sonner';
 
 interface SessionContextType {
   session: Session | null;
@@ -34,8 +34,9 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
             navigate('/login');
           }
         } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          // Se o usuário está logado e na página de login, redireciona para /admin
           if (location.pathname === '/login') {
-            navigate('/admin'); // Redireciona para o admin se logado e na página de login
+            navigate('/admin');
           }
         }
       }
@@ -46,8 +47,13 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       setSession(initialSession);
       setUser(initialSession?.user || null);
       setIsLoading(false);
+      // Se não há sessão e o usuário tenta acessar uma rota de admin, redireciona para login
       if (!initialSession && location.pathname.startsWith('/admin')) {
         navigate('/login');
+      }
+      // Se há sessão e o usuário está na página de login, redireciona para admin
+      if (initialSession && location.pathname === '/login') {
+        navigate('/admin');
       }
     });
 
@@ -66,7 +72,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   return (
     <SessionContext.Provider value={{ session, user, isLoading }}>
       {children}
-      <Toaster /> {/* Adiciona o Toaster para mensagens globais */}
+      <Toaster />
     </SessionContext.Provider>
   );
 };

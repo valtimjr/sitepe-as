@@ -5,11 +5,11 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
-import { useNavigate, Link } from 'react-router-dom'; // Importar Link
+import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MadeWithDyad } from '@/components/made-with-dyad';
-import { Button } from '@/components/ui/button'; // Importar Button
-import { ArrowLeft } from 'lucide-react'; // Importar ArrowLeft
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 
 const Login: React.FC = () => {
   const { session, isLoading } = useSession();
@@ -19,11 +19,8 @@ const Login: React.FC = () => {
     document.title = "Login - Gerenciador de Peças";
   }, []);
 
-  useEffect(() => {
-    if (!isLoading && session) {
-      navigate('/admin');
-    }
-  }, [session, isLoading, navigate]);
+  // Removido o useEffect que redirecionava para /admin,
+  // pois o SessionContextProvider agora gerencia isso.
 
   if (isLoading) {
     return (
@@ -39,7 +36,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
-      <div className="w-full max-w-md flex justify-start mb-4"> {/* Adicionado div para o botão de voltar */}
+      <div className="w-full max-w-md flex justify-start mb-4">
         <Button variant="outline" className="flex items-center gap-2" onClick={handleGoHome}>
           <ArrowLeft className="h-4 w-4" /> Voltar ao Início
         </Button>
@@ -52,7 +49,7 @@ const Login: React.FC = () => {
         <CardContent>
           <Auth
             supabaseClient={supabase}
-            providers={[]} // Sem provedores de terceiros por enquanto
+            providers={[]}
             appearance={{
               theme: ThemeSupa,
               variables: {
@@ -74,7 +71,7 @@ const Login: React.FC = () => {
               },
             }}
             theme="light"
-            redirectTo={window.location.origin + '/admin'}
+            // Removido redirectTo, o SessionContextProvider agora gerencia o redirecionamento pós-login
           />
         </CardContent>
       </Card>
