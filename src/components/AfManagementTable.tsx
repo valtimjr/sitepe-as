@@ -9,7 +9,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { Af, getAfsFromService, addAf, updateAf, deleteAf } from '@/services/partListService'; // Importar getAfsFromService
+import { Af, getAfsFromService, addAf, updateAf, deleteAf } from '@/services/partListService';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const AfManagementTable: React.FC = () => {
   const [afs, setAfs] = useState<Af[]>([]);
@@ -17,7 +29,8 @@ const AfManagementTable: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
-  const [searchQuery, setSearchQuery] = useState(''); // Novo estado para a query de busca
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set()); // Novo estado para seleção múltipla
 
   useEffect(() => {
     loadAfs();
@@ -26,7 +39,7 @@ const AfManagementTable: React.FC = () => {
   const loadAfs = async () => {
     setIsLoading(true);
     try {
-      const fetchedAfs = await getAfsFromService(); // Usar getAfsFromService para buscar os objetos Af
+      const fetchedAfs = await getAfsFromService();
       setAfs(fetchedAfs);
     } catch (error) {
       showError('Erro ao carregar AFs.');
@@ -75,14 +88,12 @@ const AfManagementTable: React.FC = () => {
 
     try {
       if (currentAf) {
-        // Update existing AF
         await updateAf({
           ...currentAf,
           af_number: formAfNumber.trim(),
         });
         showSuccess('AF atualizado com sucesso!');
       } else {
-        // Add new AF
         await addAf({
           af_number: formAfNumber.trim(),
         });
@@ -95,6 +106,47 @@ const AfManagementTable: React.FC = () => {
       console.error('Failed to save AF:', error);
     }
   };
+
+  // Lógica de seleção múltipla
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allVisibleAfIds = new Set(filteredAfs.map(af => af.id));
+      setSelectedAfIds(allVisibleAfIds);
+    } else {
+      setSelectedAfIds(new Set());
+    }
+  };
+
+  const handleSelectAf = (id: string, checked: boolean) => {
+    setSelectedAfIds(prev => {
+      const newSelection = new Set(prev);
+      if (checked) {
+        newSelection.add(id);
+      } else {
+        newSelection.delete(id);
+      }
+      return newSelection;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedAfIds.size === 0) {
+      showError('Nenhum AF selecionado para exclusão.');
+      return;
+    }
+    try {
+      await Promise.all(Array.from(selectedAfIds).map(id => deleteAf(id)));
+      showSuccess(`${selectedAfIds.size} AFs excluídos com sucesso!`);
+      setSelectedAfIds(new Set()); // Limpa a seleção após a ação
+      loadAfs();
+    } catch (error) {
+      showError('Erro ao excluir AFs selecionados.');
+      console.error('Failed to bulk delete AFs:', error);
+    }
+  };
+
+  const isAllSelected = filteredAfs.length > 0 && selectedAfIds.size === filteredAfs.length;
+  const isIndeterminate = selectedAfIds.size > 0 && selectedAfIds.size < filteredAfs.length;
 
   return (
     <Card className="w-full">
@@ -115,6 +167,31 @@ const AfManagementTable: React.FC = () => {
             className="pl-9"
           />
         </div>
+
+        {selectedAfIds.size > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="flex items-center gap-2">
+                  <Trash2 className="h-4 w-4" /> Excluir Selecionados ({selectedAfIds.size})
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação irá remover {selectedAfIds.size} AFs selecionados. Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleBulkDelete}>Excluir</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
+
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando AFs...</p>
         ) : filteredAfs.length === 0 && searchQuery.length > 0 ? (
@@ -126,6 +203,14 @@ const AfManagementTable: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]">
+                    <Checkbox
+                      checked={isAllSelected}
+                      indeterminate={isIndeterminate}
+                      onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                      aria-label="Selecionar todos os AFs"
+                    />
+                  </TableHead>
                   <TableHead>Número do AF</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -133,6 +218,13 @@ const AfManagementTable: React.FC = () => {
               <TableBody>
                 {filteredAfs.map((af) => (
                   <TableRow key={af.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedAfIds.has(af.id)}
+                        onCheckedChange={(checked) => handleSelectAf(af.id, checked === true)}
+                        aria-label={`Selecionar AF ${af.af_number}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{af.af_number}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => handleEditAf(af)} className="mr-2">
