@@ -194,32 +194,44 @@ const AfManagementTable: React.FC = () => {
   };
 
   const handleExportCsv = async () => {
-    try {
-      const allAfs = await getAfsFromService();
-      if (allAfs.length === 0) {
+    let dataToExport: Af[] = [];
+    if (selectedAfIds.size > 0) {
+      dataToExport = afs.filter(af => selectedAfIds.has(af.id));
+      if (dataToExport.length === 0) {
+        showError('Nenhum AF selecionado para exportar.');
+        return;
+      }
+      exportDataAsCsv(dataToExport, 'afs_selecionados.csv');
+      showSuccess(`${dataToExport.length} AFs selecionados exportados para CSV com sucesso!`);
+    } else {
+      dataToExport = await getAfsFromService();
+      if (dataToExport.length === 0) {
         showError('Nenhum AF para exportar.');
         return;
       }
-      exportDataAsCsv(allAfs, 'afs.csv');
-      showSuccess('AFs exportados para CSV com sucesso!');
-    } catch (error) {
-      showError('Erro ao exportar AFs para CSV.');
-      console.error('Failed to export AFs to CSV:', error);
+      exportDataAsCsv(dataToExport, 'todos_afs.csv');
+      showSuccess('Todos os AFs exportados para CSV com sucesso!');
     }
   };
 
   const handleExportJson = async () => {
-    try {
-      const allAfs = await getAfsFromService();
-      if (allAfs.length === 0) {
+    let dataToExport: Af[] = [];
+    if (selectedAfIds.size > 0) {
+      dataToExport = afs.filter(af => selectedAfIds.has(af.id));
+      if (dataToExport.length === 0) {
+        showError('Nenhum AF selecionado para exportar.');
+        return;
+      }
+      exportDataAsJson(dataToExport, 'afs_selecionados.json');
+      showSuccess(`${dataToExport.length} AFs selecionados exportados para JSON com sucesso!`);
+    } else {
+      dataToExport = await getAfsFromService();
+      if (dataToExport.length === 0) {
         showError('Nenhum AF para exportar.');
         return;
       }
-      exportDataAsJson(allAfs, 'afs.json');
-      showSuccess('AFs exportados para JSON com sucesso!');
-    } catch (error) {
-      showError('Erro ao exportar AFs para JSON.');
-      console.error('Failed to export AFs to JSON:', error);
+      exportDataAsJson(dataToExport, 'todos_afs.json');
+      showSuccess('Todos os AFs exportados para JSON com sucesso!');
     }
   };
 
@@ -228,9 +240,9 @@ const AfManagementTable: React.FC = () => {
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-col space-y-2 pb-2"> {/* Alterado para flex-col */}
+      <CardHeader className="flex flex-col space-y-2 pb-2">
         <CardTitle className="text-2xl font-bold">Gerenciar AFs</CardTitle>
-        <div className="flex flex-wrap gap-2 justify-end"> {/* Adicionado justify-end */}
+        <div className="flex flex-wrap gap-2 justify-end">
           <Button variant="outline" onClick={handleImportCsv} className="flex items-center gap-2">
             <Upload className="h-4 w-4" /> Importar CSV
           </Button>

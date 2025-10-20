@@ -255,32 +255,44 @@ const PartManagementTable: React.FC = () => {
   };
 
   const handleExportCsv = async () => {
-    try {
-      const allParts = await getParts();
-      if (allParts.length === 0) {
+    let dataToExport: Part[] = [];
+    if (selectedPartIds.size > 0) {
+      dataToExport = parts.filter(part => selectedPartIds.has(part.id));
+      if (dataToExport.length === 0) {
+        showError('Nenhuma peça selecionada para exportar.');
+        return;
+      }
+      exportDataAsCsv(dataToExport, 'pecas_selecionadas.csv');
+      showSuccess(`${dataToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
+    } else {
+      dataToExport = await getParts();
+      if (dataToExport.length === 0) {
         showError('Nenhuma peça para exportar.');
         return;
       }
-      exportDataAsCsv(allParts, 'pecas.csv');
-      showSuccess('Peças exportadas para CSV com sucesso!');
-    } catch (error) {
-      showError('Erro ao exportar peças para CSV.');
-      console.error('Failed to export parts to CSV:', error);
+      exportDataAsCsv(dataToExport, 'todas_pecas.csv');
+      showSuccess('Todas as peças exportadas para CSV com sucesso!');
     }
   };
 
   const handleExportJson = async () => {
-    try {
-      const allParts = await getParts();
-      if (allParts.length === 0) {
+    let dataToExport: Part[] = [];
+    if (selectedPartIds.size > 0) {
+      dataToExport = parts.filter(part => selectedPartIds.has(part.id));
+      if (dataToExport.length === 0) {
+        showError('Nenhuma peça selecionada para exportar.');
+        return;
+      }
+      exportDataAsJson(dataToExport, 'pecas_selecionadas.json');
+      showSuccess(`${dataToExport.length} peças selecionadas exportadas para JSON com sucesso!`);
+    } else {
+      dataToExport = await getParts();
+      if (dataToExport.length === 0) {
         showError('Nenhuma peça para exportar.');
         return;
       }
-      exportDataAsJson(allParts, 'pecas.json');
-      showSuccess('Peças exportadas para JSON com sucesso!');
-    } catch (error) {
-      showError('Erro ao exportar peças para JSON.');
-      console.error('Failed to export parts to JSON:', error);
+      exportDataAsJson(dataToExport, 'todas_pecas.json');
+      showSuccess('Todas as peças exportadas para JSON com sucesso!');
     }
   };
 
@@ -289,9 +301,9 @@ const PartManagementTable: React.FC = () => {
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-col space-y-2 pb-2"> {/* Alterado para flex-col */}
+      <CardHeader className="flex flex-col space-y-2 pb-2">
         <CardTitle className="text-2xl font-bold">Gerenciar Peças</CardTitle>
-        <div className="flex flex-wrap gap-2 justify-end"> {/* Adicionado justify-end */}
+        <div className="flex flex-wrap gap-2 justify-end">
           <Button variant="outline" onClick={handleImportCsv} className="flex items-center gap-2">
             <Upload className="h-4 w-4" /> Importar CSV
           </Button>
