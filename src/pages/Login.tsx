@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import React, { useEffect } from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
@@ -42,6 +43,7 @@ const Login: React.FC = () => {
           <CardTitle className="text-2xl text-center">Entrar</CardTitle>
         </CardHeader>
         <CardContent>
+          {/* Componente de autenticação do Supabase */}
           <Auth
             supabaseClient={supabase}
             providers={[]}
@@ -66,7 +68,7 @@ const Login: React.FC = () => {
               },
             }}
             theme="light"
-            redirectTo={window.location.origin + '/reset-password'} {/* Redireciona para a nova página de redefinição */}
+            redirectTo={window.location.origin + '/reset-password'}
             view="sign_in"
           />
         </CardContent>
