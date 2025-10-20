@@ -8,9 +8,10 @@ import NotFound from "./pages/NotFound";
 import SearchParts from "./pages/SearchParts";
 import PartsList from "./pages/PartsList";
 import ServiceOrderList from "./pages/ServiceOrderList";
-import Login from "./pages/Login"; // Importar a página de Login
-import AdminDashboard from "./pages/AdminDashboard"; // Importar a página de Admin
-import { SessionContextProvider } from "./components/SessionContextProvider"; // Importar o provedor de sessão
+import Login from "./pages/Login";
+import AdminDashboard from "./pages/AdminDashboard";
+import SignupPage from "./pages/SignupPage"; // Importar a nova página de cadastro
+import { SessionContextProvider } from "./components/SessionContextProvider";
 
 const queryClient = new QueryClient();
 
@@ -20,14 +21,15 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <SessionContextProvider> {/* Envolve toda a aplicação com o provedor de sessão */}
+        <SessionContextProvider>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/search-parts" element={<SearchParts />} />
             <Route path="/parts-list" element={<PartsList />} />
             <Route path="/service-orders" element={<ServiceOrderList />} />
-            <Route path="/login" element={<Login />} /> {/* Rota para a página de login */}
-            <Route path="/admin" element={<AdminDashboard />} /> {/* Rota para o painel de administração */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/signup/:uuid" element={<SignupPage />} /> {/* Nova rota para cadastro por convite */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
