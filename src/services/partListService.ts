@@ -184,7 +184,8 @@ export const getParts = async (): Promise<Part[]> => {
 
   const { data, error } = await supabase
     .from('parts')
-    .select('*');
+    .select('*')
+    .limit(null); // Adicionado para remover o limite de 1000 registros
 
   if (error) {
     console.error('Error fetching parts from Supabase:', error);
@@ -223,7 +224,8 @@ export const searchParts = async (query: string): Promise<Part[]> => {
 
   let queryBuilder = supabase
     .from('parts')
-    .select('*');
+    .select('*')
+    .limit(null); // Adicionado para remover o limite de 1000 registros
 
   if (lowerCaseQuery) {
     // Divide a query em palavras, filtra strings vazias e junta com '%' para buscar em sequência
@@ -331,7 +333,8 @@ export const getAfsFromService = async (): Promise<Af[]> => {
 
   const { data, error } = await supabase
     .from('afs')
-    .select('*');
+    .select('*')
+    .limit(null); // Adicionado para remover o limite de 1000 registros
 
   if (error) {
     console.error('Error fetching AFs from Supabase:', error);
