@@ -20,34 +20,36 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   const location = useLocation();
 
   useEffect(() => {
-    console.log('SessionContextProvider: Setting up auth state change listener.');
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        console.log('SessionContextProvider: Auth state changed. Event:', event, 'Session:', currentSession);
-        setSession(currentSession);
-        setUser(currentSession?.user || null);
-        setIsLoading(false);
-
-        if ((event === 'SIGNED_OUT' || event === 'USER_DELETED') && location.pathname.startsWith('/admin')) {
-          console.log('SessionContextProvider: User signed out or deleted, redirecting from /admin to /login.');
-          navigate('/login');
-        }
+    console.log('SessionContextProvider: Initializing session and listener.');
+    const getInitialSession = async () => {
+      setIsLoading(true);
+      const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('SessionContextProvider: Error getting initial session:', error);
       }
-    );
-
-    console.log('SessionContextProvider: Checking initial session.');
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      console.log('SessionContextProvider: Initial session data:', initialSession);
       setSession(initialSession);
       setUser(initialSession?.user || null);
       setIsLoading(false);
-    });
+      console.log('SessionContextProvider: Initial session set:', initialSession);
+    };
+
+    getInitialSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, currentSession) => {
+        console.log('SessionContextProvider: Auth state changed. Event:', event, 'Session:', currentSession);
+        setSession(currentSession);
+        setUser(currentSession?.user || null);
+        // Não é necessário definir isLoading aqui, pois o carregamento inicial é feito por getInitialSession
+        // e as mudanças subsequentes geralmente são rápidas.
+      }
+    );
 
     return () => {
       console.log('SessionContextProvider: Cleaning up auth state change listener.');
       authListener.subscription.unsubscribe();
     };
-  }, [navigate, location.pathname]);
+  }, []); // Array de dependências vazio para rodar apenas uma vez na montagem
 
   useEffect(() => {
     if (!isLoading) {
