@@ -5,9 +5,11 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom'; // Importar Link
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MadeWithDyad } from '@/components/made-with-dyad';
+import { Button } from '@/components/ui/button'; // Importar Button
+import { ArrowLeft } from 'lucide-react'; // Importar ArrowLeft
 
 const Login: React.FC = () => {
   const { session, isLoading } = useSession();
@@ -33,6 +35,13 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
+      <div className="w-full max-w-md flex justify-start mb-4"> {/* Adicionado div para o botão de voltar */}
+        <Link to="/">
+          <Button variant="outline" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" /> Voltar ao Início
+          </Button>
+        </Link>
+      </div>
       <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
       <Card className="w-full max-w-md mx-auto">
         <CardHeader>
