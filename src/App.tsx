@@ -10,7 +10,8 @@ import PartsList from "./pages/PartsList";
 import ServiceOrderList from "./pages/ServiceOrderList";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
-import SignupPage from "./pages/SignupPage"; // Importar a nova página de cadastro
+import SignupPage from "./pages/SignupPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage"; // Importar a nova página de redefinição de senha
 import { SessionContextProvider } from "./components/SessionContextProvider";
 
 const queryClient = new QueryClient();
@@ -29,7 +30,8 @@ const App = () => (
             <Route path="/service-orders" element={<ServiceOrderList />} />
             <Route path="/login" element={<Login />} />
             <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/signup/:uuid" element={<SignupPage />} /> {/* Nova rota para cadastro por convite */}
+            <Route path="/signup/:uuid" element={<SignupPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} /> {/* Nova rota para redefinição de senha */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
