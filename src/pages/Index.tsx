@@ -11,7 +11,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
-      <img src="/Logo.png" alt="Logo do Aplicativo" className="h-40 w-40 mb-6 mx-auto" />
+      <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
       <h1 className="text-5xl font-extrabold mb-12 text-center text-primary dark:text-primary">
         Bem-vindo ao Gerenciador de Peças
       </h1>
