@@ -121,7 +121,7 @@ const ServiceOrderList = () => {
           <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
         </Button>
       </div>
-      <img src="/Logo.png" alt="Logo do Aplicativo" className="mb-6 mx-auto" />
+      <img src="/Logo.png" alt="Logo do Aplicativo" className="h-40 w-40 mb-6 mx-auto" />
       <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary">
         Lista de Ordens de Serviço
       </h1>

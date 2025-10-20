@@ -41,7 +41,7 @@ const SearchParts = () => {
           </Button>
         </Link>
       </div>
-      <img src="/Logo.png" alt="Logo do Aplicativo" className="mb-6 mx-auto" />
+      <img src="/Logo.png" alt="Logo do Aplicativo" className="h-40 w-40 mb-6 mx-auto" />
       <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary">
         Pesquisar Peças
       </h1>
