@@ -15,6 +15,10 @@ const SearchParts = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    document.title = "Pesquisar Peças";
+  }, []);
+
+  useEffect(() => {
     const performSearch = async () => {
       setIsLoading(true);
       // Sempre chama searchPartsService, mesmo com uma query vazia, para garantir dados atualizados

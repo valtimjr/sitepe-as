@@ -24,6 +24,10 @@ const ServiceOrderList = () => {
   const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
   const [isCreatingNewOrder, setIsCreatingNewOrder] = useState(false);
 
+  useEffect(() => {
+    document.title = "Ordens de Serviço";
+  }, []);
+
   const loadListItems = useCallback(async () => {
     setIsLoading(true);
     try {

@@ -12,6 +12,10 @@ const PartsList = () => {
   const [listItems, setListItems] = useState<SimplePartItem[]>([]); // Agora usa SimplePartItem
   const [isLoading, setIsLoading] = useState(true);
 
+  useEffect(() => {
+    document.title = "Minha Lista de Peças";
+  }, []);
+
   const loadListItems = async () => {
     setIsLoading(true);
     try {
