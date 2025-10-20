@@ -134,7 +134,7 @@ const seedAfs = async (): Promise<void> => {
             skipEmptyLines: true,
             complete: (results: any) => {
               parsedAfs = results.data.map((row: any) => ({
-                id: uuidv4(),
+                id: row.id || uuidv4(),
                 af_number: row.af_number,
               }));
               source = 'CSV';
@@ -562,16 +562,17 @@ export const exportDataAsJson = (data: any[], filename: string): void => {
 
 export const cleanupEmptyParts = async (): Promise<number> => {
   let deletedCount = 0;
-  const pageSize = 1000;
+  const fetchPageSize = 1000; // Quantas peças buscar de uma vez
+  const deleteBatchSize = 500; // Quantos IDs excluir em uma chamada do Supabase
   let offset = 0;
-  let hasMore = true;
-  let idsToDelete: string[] = [];
+  let hasMoreToFetch = true;
+  let allIdsToDelete: string[] = [];
 
-  while (hasMore) {
+  while (hasMoreToFetch) {
     const { data, error } = await supabase
       .from('parts')
       .select('id, codigo, descricao')
-      .range(offset, offset + pageSize - 1);
+      .range(offset, offset + fetchPageSize - 1);
 
     if (error) {
       console.error('Error fetching parts for cleanup from Supabase (paginated):', error);
@@ -579,32 +580,37 @@ export const cleanupEmptyParts = async (): Promise<number> => {
     }
 
     if (data && data.length > 0) {
-      const emptyParts = data.filter(part => 
-        (!part.codigo || part.codigo.trim() === '') && 
-        (!part.descricao || part.descricao.trim() === '')
-      );
-      idsToDelete = idsToDelete.concat(emptyParts.map(part => part.id));
-      offset += pageSize;
+      const emptyPartsIds = data
+        .filter(part =>
+          (!part.codigo || part.codigo.trim() === '') &&
+          (!part.descricao || part.descricao.trim() === '')
+        )
+        .map(part => part.id);
+      allIdsToDelete = allIdsToDelete.concat(emptyPartsIds);
+      offset += fetchPageSize;
     } else {
-      hasMore = false;
+      hasMoreToFetch = false;
     }
   }
 
-  if (idsToDelete.length > 0) {
-    // Deleta do Supabase
-    const { error: deleteError } = await supabase
-      .from('parts')
-      .delete()
-      .in('id', idsToDelete);
+  if (allIdsToDelete.length > 0) {
+    // Realiza as exclusões em lotes
+    for (let i = 0; i < allIdsToDelete.length; i += deleteBatchSize) {
+      const batchIds = allIdsToDelete.slice(i, i + deleteBatchSize);
+      const { error: deleteError } = await supabase
+        .from('parts')
+        .delete()
+        .in('id', batchIds);
 
-    if (deleteError) {
-      console.error('Error deleting empty parts from Supabase:', deleteError);
-      throw new Error(`Erro ao excluir peças vazias do Supabase: ${deleteError.message}`);
+      if (deleteError) {
+        console.error('Error deleting empty parts batch from Supabase:', deleteError);
+        throw new Error(`Erro ao excluir peças vazias do Supabase (lote): ${deleteError.message}`);
+      }
+      deletedCount += batchIds.length;
     }
-    deletedCount = idsToDelete.length;
 
-    // Deleta do IndexedDB
-    await localDb.parts.bulkDelete(idsToDelete);
+    // Deleta do IndexedDB em massa após todas as exclusões do Supabase
+    await localDb.parts.bulkDelete(allIdsToDelete);
   }
 
   return deletedCount;
