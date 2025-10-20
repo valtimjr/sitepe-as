@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Save, XCircle } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { Part, getParts, addPart, updatePart, deletePart } from '@/services/partListService';
 
@@ -20,6 +20,7 @@ const PartManagementTable: React.FC = () => {
   const [formCodigo, setFormCodigo] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
+  const [searchQuery, setSearchQuery] = useState(''); // Novo estado para a query de busca
 
   useEffect(() => {
     loadParts();
@@ -37,6 +38,16 @@ const PartManagementTable: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Filtra as peças com base na query de busca
+  const filteredParts = parts.filter(part => {
+    const lowerCaseQuery = searchQuery.toLowerCase();
+    return (
+      part.codigo.toLowerCase().includes(lowerCaseQuery) ||
+      part.descricao.toLowerCase().includes(lowerCaseQuery) ||
+      (part.tags && part.tags.toLowerCase().includes(lowerCaseQuery))
+    );
+  });
 
   const handleAddPart = () => {
     setCurrentPart(null);
@@ -109,9 +120,21 @@ const PartManagementTable: React.FC = () => {
         </Button>
       </CardHeader>
       <CardContent>
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Buscar peça por código, descrição ou tags..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando peças...</p>
-        ) : parts.length === 0 ? (
+        ) : filteredParts.length === 0 && searchQuery.length > 0 ? (
+          <p className="text-center text-muted-foreground py-8">Nenhuma peça encontrada para "{searchQuery}".</p>
+        ) : filteredParts.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhuma peça cadastrada.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -125,7 +148,7 @@ const PartManagementTable: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {parts.map((part) => (
+                {filteredParts.map((part) => (
                   <TableRow key={part.id}>
                     <TableCell className="font-medium">{part.codigo}</TableCell>
                     <TableCell>{part.descricao}</TableCell>

@@ -7,9 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { Af, getUniqueAfs, addAf, updateAf, deleteAf } from '@/services/partListService';
+import { Af, getAfsFromService, addAf, updateAf, deleteAf } from '@/services/partListService'; // Importar getAfsFromService
 
 const AfManagementTable: React.FC = () => {
   const [afs, setAfs] = useState<Af[]>([]);
@@ -17,6 +17,7 @@ const AfManagementTable: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
+  const [searchQuery, setSearchQuery] = useState(''); // Novo estado para a query de busca
 
   useEffect(() => {
     loadAfs();
@@ -25,9 +26,7 @@ const AfManagementTable: React.FC = () => {
   const loadAfs = async () => {
     setIsLoading(true);
     try {
-      // getUniqueAfs retorna apenas strings, precisamos dos objetos Af completos
-      // Para isso, vamos buscar diretamente do Supabase ou IndexedDB
-      const fetchedAfs = await getAfsFromService(); // Nova função para buscar objetos Af
+      const fetchedAfs = await getAfsFromService(); // Usar getAfsFromService para buscar os objetos Af
       setAfs(fetchedAfs);
     } catch (error) {
       showError('Erro ao carregar AFs.');
@@ -36,6 +35,12 @@ const AfManagementTable: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Filtra os AFs com base na query de busca
+  const filteredAfs = afs.filter(af => {
+    const lowerCaseQuery = searchQuery.toLowerCase();
+    return af.af_number.toLowerCase().includes(lowerCaseQuery);
+  });
 
   const handleAddAf = () => {
     setCurrentAf(null);
@@ -100,9 +105,21 @@ const AfManagementTable: React.FC = () => {
         </Button>
       </CardHeader>
       <CardContent>
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Buscar AF por número..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando AFs...</p>
-        ) : afs.length === 0 ? (
+        ) : filteredAfs.length === 0 && searchQuery.length > 0 ? (
+          <p className="text-center text-muted-foreground py-8">Nenhum AF encontrado para "{searchQuery}".</p>
+        ) : filteredAfs.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhum AF cadastrado.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -114,7 +131,7 @@ const AfManagementTable: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {afs.map((af) => (
+                {filteredAfs.map((af) => (
                   <TableRow key={af.id}>
                     <TableCell className="font-medium">{af.af_number}</TableCell>
                     <TableCell className="text-right">
