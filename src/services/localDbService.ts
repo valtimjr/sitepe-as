@@ -149,34 +149,45 @@ export const searchLocalParts = async (query: string): Promise<Part[]> => {
     return codigoMatch || descricaoMatch || tagsMatch;
   });
 
-  // Prioriza resultados: correspondência exata no código > começa com o código > inclui o código > outras correspondências
-  results.sort((a, b) => {
-    const aCodigo = a.codigo.toLowerCase();
-    const bCodigo = b.codigo.toLowerCase();
+  // Helper para determinar a qualidade da correspondência em um campo
+  const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
+    if (!fieldValue) return 0;
+    const lowerFieldValue = fieldValue.toLowerCase();
 
-    const aMatchesExactCodigo = aCodigo === lowerCaseQuery;
-    const bMatchesExactCodigo = bCodigo === lowerCaseQuery;
-
-    const aStartsCodigo = aCodigo.startsWith(lowerCaseQuery);
-    const bStartsCodigo = bCodigo.startsWith(lowerCaseQuery);
-
-    const aIncludesCodigo = aCodigo.includes(lowerCaseQuery);
-    const bIncludesCodigo = bCodigo.includes(lowerCaseQuery);
-
-    // Correspondência exata no código primeiro
-    if (aMatchesExactCodigo && !bMatchesExactCodigo) return -1;
-    if (!aMatchesExactCodigo && bMatchesExactCodigo) return 1;
-
-    // Depois, começa com o código
-    if (aStartsCodigo && !bStartsCodigo) return -1;
-    if (!aStartsCodigo && bStartsCodigo) return 1;
-
-    // Depois, inclui o código
-    if (aIncludesCodigo && !bIncludesCodigo) return -1;
-    if (!aIncludesCodigo && bIncludesCodigo) return 1;
-
-    // Fallback para a ordem original ou critérios secundários, se necessário
+    if (isMultiWord) {
+      return regex.test(lowerFieldValue) ? 1 : 0; // Apenas verifica se a sequência existe
+    } else { // Query de palavra única
+      if (lowerFieldValue === query) return 3; // Correspondência exata
+      if (lowerFieldValue.startsWith(query)) return 2; // Começa com
+      if (lowerFieldValue.includes(query)) return 1; // Inclui
+    }
     return 0;
+  };
+
+  results.sort((a, b) => {
+    const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
+    const isMultiWordQuery = queryWords.length > 1;
+    // Usa o mesmo regexPattern do filtro para a pontuação
+    const sortRegexPattern = new RegExp(escapedWords.join('.*'), 'i');
+
+    const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
+    const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
+    const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
+
+    const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
+    const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
+    const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
+
+    // Prioriza tags
+    if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
+
+    // Depois código
+    if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
+
+    // Por último descrição
+    if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
+
+    return 0; // Mantém a ordem original se todas as pontuações forem iguais
   });
 
   console.log('Search results for query:', query, results);
