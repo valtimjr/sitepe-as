@@ -3,11 +3,11 @@ import Papa from 'papaparse';
 import {
   localDb,
   getLocalUniqueAfs,
-  bulkPutLocalParts, // Alterado para bulkPutLocalParts
+  bulkPutLocalParts,
   getLocalParts,
   searchLocalParts,
   updateLocalPart,
-  bulkPutLocalAfs, // Alterado para bulkPutLocalAfs
+  bulkPutLocalAfs,
   getLocalAfs,
   Part as LocalPart,
   SimplePartItem as LocalSimplePartItem,
@@ -72,7 +72,7 @@ const seedPartsFromJson = async (): Promise<void> => {
     console.log('Parts seeded from JSON to Supabase.');
 
     // Também adiciona ao IndexedDB para cache local
-    await bulkPutLocalParts(parsedParts); // Alterado para bulkPutLocalParts
+    await bulkPutLocalParts(parsedParts);
     console.log('Parts also seeded to IndexedDB.');
 
   } catch (error) {
@@ -168,7 +168,7 @@ const seedAfs = async (): Promise<void> => {
       }
       console.log(`seedAfs: AFs upserted from ${source} to Supabase.`);
 
-      await bulkPutLocalAfs(parsedAfs); // Alterado para bulkPutLocalAfs
+      await bulkPutLocalAfs(parsedAfs);
       console.log('seedAfs: AFs also seeded to IndexedDB.');
     } catch (dbError) {
       console.error("seedAfs: Failed to seed Supabase/IndexedDB with AFs:", dbError);
@@ -185,7 +185,7 @@ export const getParts = async (): Promise<Part[]> => {
   const { data, error } = await supabase
     .from('parts')
     .select('*')
-    .limit(null); // Adicionado para remover o limite de 1000 registros
+    .limit(1000); // Limite de 1000 para exibição
 
   if (error) {
     console.error('Error fetching parts from Supabase:', error);
@@ -196,7 +196,20 @@ export const getParts = async (): Promise<Part[]> => {
 
   // Atualiza o cache local com os dados do Supabase
   await localDb.parts.clear();
-  await bulkPutLocalParts(data as Part[]); // Alterado para bulkPutLocalParts
+  await bulkPutLocalParts(data as Part[]);
+  return data as Part[];
+};
+
+export const getAllPartsForExport = async (): Promise<Part[]> => {
+  const { data, error } = await supabase
+    .from('parts')
+    .select('*')
+    .limit(null); // Sem limite para exportação
+
+  if (error) {
+    console.error('Error fetching all parts for export from Supabase:', error);
+    throw new Error(`Erro ao buscar todas as peças para exportação: ${error.message}`);
+  }
   return data as Part[];
 };
 
@@ -225,7 +238,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
   let queryBuilder = supabase
     .from('parts')
     .select('*')
-    .limit(null); // Adicionado para remover o limite de 1000 registros
+    .limit(1000); // Limite de 1000 para exibição
 
   if (lowerCaseQuery) {
     // Divide a query em palavras, filtra strings vazias e junta com '%' para buscar em sequência
@@ -334,7 +347,7 @@ export const getAfsFromService = async (): Promise<Af[]> => {
   const { data, error } = await supabase
     .from('afs')
     .select('*')
-    .limit(null); // Adicionado para remover o limite de 1000 registros
+    .limit(1000); // Limite de 1000 para exibição
 
   if (error) {
     console.error('Error fetching AFs from Supabase:', error);
@@ -345,7 +358,20 @@ export const getAfsFromService = async (): Promise<Af[]> => {
 
   // Atualiza o cache local com os dados do Supabase
   await localDb.afs.clear();
-  await bulkPutLocalAfs(data as Af[]); // Alterado para bulkPutLocalAfs
+  await bulkPutLocalAfs(data as Af[]);
+  return data as Af[];
+};
+
+export const getAllAfsForExport = async (): Promise<Af[]> => {
+  const { data, error } = await supabase
+    .from('afs')
+    .select('*')
+    .limit(null); // Sem limite para exportação
+
+  if (error) {
+    console.error('Error fetching all AFs for export from Supabase:', error);
+    throw new Error(`Erro ao buscar todos os AFs para exportação: ${error.message}`);
+  }
   return data as Af[];
 };
 

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
+import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson, getAllAfsForExport } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -38,7 +38,7 @@ const AfManagementTable: React.FC = () => {
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set());
+  const [selectedAfIds, setSelectedAfIds] = new Set<string>(); // Inicialização correta
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -204,7 +204,7 @@ const AfManagementTable: React.FC = () => {
       exportDataAsCsv(dataToExport, 'afs_selecionados.csv');
       showSuccess(`${dataToExport.length} AFs selecionados exportados para CSV com sucesso!`);
     } else {
-      dataToExport = await getAfsFromService();
+      dataToExport = await getAllAfsForExport(); // Usa a nova função para exportar tudo
       if (dataToExport.length === 0) {
         showError('Nenhum AF para exportar.');
         return;
@@ -225,7 +225,7 @@ const AfManagementTable: React.FC = () => {
       exportDataAsJson(dataToExport, 'afs_selecionados.json');
       showSuccess(`${dataToExport.length} AFs selecionados exportados para JSON com sucesso!`);
     } else {
-      dataToExport = await getAfsFromService();
+      dataToExport = await getAllAfsForExport(); // Usa a nova função para exportar tudo
       if (dataToExport.length === 0) {
         showError('Nenhum AF para exportar.');
         return;

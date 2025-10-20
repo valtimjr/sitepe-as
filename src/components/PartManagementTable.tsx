@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
+import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -265,7 +265,7 @@ const PartManagementTable: React.FC = () => {
       exportDataAsCsv(dataToExport, 'pecas_selecionadas.csv');
       showSuccess(`${dataToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
     } else {
-      dataToExport = await getParts();
+      dataToExport = await getAllPartsForExport(); // Usa a nova função para exportar tudo
       if (dataToExport.length === 0) {
         showError('Nenhuma peça para exportar.');
         return;
@@ -286,7 +286,7 @@ const PartManagementTable: React.FC = () => {
       exportDataAsJson(dataToExport, 'pecas_selecionadas.json');
       showSuccess(`${dataToExport.length} peças selecionadas exportadas para JSON com sucesso!`);
     } else {
-      dataToExport = await getParts();
+      dataToExport = await getAllPartsForExport(); // Usa a nova função para exportar tudo
       if (dataToExport.length === 0) {
         showError('Nenhuma peça para exportar.');
         return;
