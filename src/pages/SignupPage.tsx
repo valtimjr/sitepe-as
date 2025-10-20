@@ -60,6 +60,10 @@ const SignupPage: React.FC = () => {
     // Listener para marcar o convite como usado após o cadastro
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user && isValidInvite) {
+        console.log('SignupPage: SIGNED_IN event detected. Attempting to mark invite as used.');
+        console.log('SignupPage: session.user.id:', session.user.id);
+        console.log('SignupPage: uuid from params:', uuid);
+
         try {
           const { error } = await supabase
             .from('invites')
@@ -67,13 +71,14 @@ const SignupPage: React.FC = () => {
             .eq('invite_code', uuid);
 
           if (error) {
-            console.error('Erro ao marcar convite como usado:', error);
+            console.error('SignupPage: Erro ao marcar convite como usado:', error);
+            console.error('SignupPage: Supabase update error details:', JSON.stringify(error, null, 2));
             showError('Erro ao finalizar o convite. Por favor, contate o suporte.');
           } else {
-            console.log('Convite marcado como usado com sucesso.');
+            console.log('SignupPage: Convite marcado como usado com sucesso.');
           }
         } catch (error) {
-          console.error('Erro inesperado ao marcar convite como usado:', error);
+          console.error('SignupPage: Erro inesperado ao marcar convite como usado:', error);
         }
       }
     });
