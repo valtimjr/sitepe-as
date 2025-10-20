@@ -127,20 +127,27 @@ export const getLocalParts = async (): Promise<Part[]> => {
 
 export const searchLocalParts = async (query: string): Promise<Part[]> => {
   console.log('Searching local parts with query:', query);
-  const lowerCaseQuery = query.toLowerCase();
+  const lowerCaseQuery = query.toLowerCase().trim();
 
   const allParts = await localDb.parts.toArray();
 
-  if (!query) {
+  if (!lowerCaseQuery) {
     console.log('Returning all parts (empty query):', allParts);
     return allParts;
   }
 
-  const results = allParts.filter(part =>
-    part.codigo.toLowerCase().startsWith(lowerCaseQuery) ||
-    part.descricao.toLowerCase().startsWith(lowerCaseQuery) ||
-    (part.tags && part.tags.toLowerCase().includes(lowerCaseQuery))
-  );
+  // Cria um padrão de regex para buscar palavras em sequência
+  // Escapa caracteres especiais de regex nas palavras da query
+  const escapedWords = lowerCaseQuery.split(/\s+/).filter(Boolean).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regexPattern = new RegExp(escapedWords.join('.*'), 'i'); // 'i' para case-insensitive
+
+  const results = allParts.filter(part => {
+    const codigoMatch = part.codigo.toLowerCase().match(regexPattern);
+    const descricaoMatch = part.descricao.toLowerCase().match(regexPattern);
+    const tagsMatch = part.tags && part.tags.toLowerCase().match(regexPattern);
+
+    return codigoMatch || descricaoMatch || tagsMatch;
+  });
 
   console.log('Search results for query:', query, results);
   return results;

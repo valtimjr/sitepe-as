@@ -202,16 +202,19 @@ export const getParts = async (): Promise<Part[]> => {
 export const searchParts = async (query: string): Promise<Part[]> => {
   await seedPartsFromJson(); // Garante que o Supabase esteja populado
 
-  const lowerCaseQuery = query.toLowerCase();
+  const lowerCaseQuery = query.toLowerCase().trim();
 
   let queryBuilder = supabase
     .from('parts')
     .select('*');
 
-  if (query) {
-    // Correção: Usar o método 'or' com uma string de condições 'ilike'
+  if (lowerCaseQuery) {
+    // Divide a query em palavras, filtra strings vazias e junta com '%' para buscar em sequência
+    const searchPattern = lowerCaseQuery.split(/\s+/).filter(Boolean).join('%');
+    
+    // Usa o padrão construído para busca 'ilike' nos campos relevantes
     queryBuilder = queryBuilder.or(
-      `codigo.ilike.%${lowerCaseQuery}%,descricao.ilike.%${lowerCaseQuery}%,tags.ilike.%${lowerCaseQuery}%`
+      `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%`
     );
   }
 
@@ -221,7 +224,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     console.error('Error searching parts in Supabase:', error);
     // Fallback para IndexedDB se Supabase falhar
     console.log('Falling back to IndexedDB for search.');
-    return searchLocalParts(query);
+    return searchLocalParts(query); // Passa a query original para a busca local
   }
 
   return data as Part[];
