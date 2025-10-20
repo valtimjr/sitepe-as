@@ -28,17 +28,12 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         setUser(currentSession?.user || null);
         setIsLoading(false);
 
-        // Redirecionamento baseado no estado de autenticação
-        if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
-          if (location.pathname.startsWith('/admin')) {
-            navigate('/login');
-          }
-        } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          // Se o usuário está logado e na página de login, redireciona para /admin
-          if (location.pathname === '/login') {
-            navigate('/admin');
-          }
+        // Se o usuário faz logout e está em uma rota de admin, redireciona para login
+        if ((event === 'SIGNED_OUT' || event === 'USER_DELETED') && location.pathname.startsWith('/admin')) {
+          navigate('/login');
         }
+        // A lógica de redirecionamento para /admin após login será tratada pelo redirectTo do Auth component
+        // e pelo useEffect de proteção de rotas abaixo.
       }
     );
 
@@ -47,14 +42,6 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       setSession(initialSession);
       setUser(initialSession?.user || null);
       setIsLoading(false);
-      // Se não há sessão e o usuário tenta acessar uma rota de admin, redireciona para login
-      if (!initialSession && location.pathname.startsWith('/admin')) {
-        navigate('/login');
-      }
-      // Se há sessão e o usuário está na página de login, redireciona para admin
-      if (initialSession && location.pathname === '/login') {
-        navigate('/admin');
-      }
     });
 
     return () => {
@@ -62,10 +49,21 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     };
   }, [navigate, location.pathname]);
 
-  // Protege rotas de administração
+  // Este useEffect é responsável por proteger rotas de administração
+  // e redirecionar usuários autenticados da página de login.
   useEffect(() => {
-    if (!isLoading && !session && location.pathname.startsWith('/admin')) {
-      navigate('/login');
+    if (!isLoading) {
+      if (session) {
+        // Se o usuário está autenticado e tenta acessar a página de login, redireciona para /admin
+        if (location.pathname === '/login') {
+          navigate('/admin');
+        }
+      } else {
+        // Se o usuário NÃO está autenticado e tenta acessar uma rota de admin, redireciona para /login
+        if (location.pathname.startsWith('/admin')) {
+          navigate('/login');
+        }
+      }
     }
   }, [isLoading, session, location.pathname, navigate]);
 

@@ -5,7 +5,7 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // Removido Link, pois não é mais usado diretamente
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ const Login: React.FC = () => {
 
   // Removido o useEffect que redirecionava para /admin,
   // pois o SessionContextProvider agora gerencia isso.
+  // A propriedade redirectTo do Auth component também fará o redirecionamento pós-login.
 
   if (isLoading) {
     return (
@@ -71,7 +72,7 @@ const Login: React.FC = () => {
               },
             }}
             theme="light"
-            // Removido redirectTo, o SessionContextProvider agora gerencia o redirecionamento pós-login
+            redirectTo={window.location.origin + '/admin'} {/* Reintroduzido redirectTo */}
           />
         </CardContent>
       </Card>
