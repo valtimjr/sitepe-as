@@ -81,46 +81,50 @@ const seedPartsFromJson = async (): Promise<void> => {
 };
 
 const seedAfs = async (): Promise<void> => {
+  console.log('--- Starting seedAfs process ---');
   // 1. Primeiro, verifica se há AFs no Supabase
   const { count: supabaseAfsCount, error: countError } = await supabase
     .from('afs')
     .select('*', { count: 'exact' });
 
   if (countError) {
-    console.error('Error checking Supabase AFs count:', countError);
+    console.error('seedAfs: Error checking Supabase AFs count:', countError);
     // Se houver erro ao contar, tenta carregar do IndexedDB como fallback
     const localAfsCount = await localDb.afs.count();
     if (localAfsCount > 0) {
-      console.log('Falling back to IndexedDB for AFs as Supabase check failed.');
+      console.log('seedAfs: Falling back to IndexedDB for AFs as Supabase check failed.');
       return;
     }
   }
 
   if (supabaseAfsCount && supabaseAfsCount > 0) {
-    console.log('AFs already seeded in Supabase.');
+    console.log('seedAfs: AFs already seeded in Supabase. Count:', supabaseAfsCount);
     return;
   }
+  console.log('seedAfs: Supabase AFs table is empty or check failed, attempting to seed.');
 
   let parsedAfs: Af[] = [];
   let source = '';
 
   // 2. Tenta carregar do public/data/afs.json
   try {
+    console.log('seedAfs: Attempting to fetch from /data/afs.json');
     const response = await fetch('/data/afs.json'); // Caminho atualizado
     if (response.ok) {
       parsedAfs = await response.json();
       source = 'JSON';
-      console.log('AFs loaded from JSON:', parsedAfs);
+      console.log('seedAfs: AFs loaded from JSON:', parsedAfs);
     } else {
-      console.warn('Failed to fetch afs.json, trying CSV. Status:', response.status);
+      console.warn('seedAfs: Failed to fetch afs.json, trying CSV. Status:', response.status);
     }
   } catch (jsonError) {
-    console.warn('Error fetching afs.json, trying CSV:', jsonError);
+    console.warn('seedAfs: Error fetching afs.json, trying CSV:', jsonError);
   }
 
   // 3. Se JSON falhou ou estava vazio, tenta carregar do public/afs.csv
   if (parsedAfs.length === 0) {
     try {
+      console.log('seedAfs: Attempting to fetch from /afs.csv');
       const response = await fetch('/afs.csv');
       if (response.ok) {
         const csvText = await response.text();
@@ -134,7 +138,7 @@ const seedAfs = async (): Promise<void> => {
                 af_number: row.af_number,
               }));
               source = 'CSV';
-              console.log('AFs loaded from CSV:', parsedAfs);
+              console.log('seedAfs: AFs loaded from CSV:', parsedAfs);
               resolve();
             },
             error: (error: Error) => {
@@ -146,31 +150,33 @@ const seedAfs = async (): Promise<void> => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch (csvError) {
-      console.error("Failed to fetch or parse afs.csv:", csvError);
+      console.error("seedAfs: Failed to fetch or parse afs.csv:", csvError);
     }
   }
 
   // 4. Se dados foram encontrados, adiciona ao Supabase e IndexedDB
   if (parsedAfs.length > 0) {
     try {
+      console.log('seedAfs: Inserting AFs into Supabase...');
       const { error: insertError } = await supabase
         .from('afs')
         .insert(parsedAfs);
 
       if (insertError) {
-        console.error('Failed to seed AFs to Supabase:', insertError);
+        console.error('seedAfs: Failed to seed AFs to Supabase:', insertError);
         throw insertError;
       }
-      console.log(`AFs seeded from ${source} to Supabase.`);
+      console.log(`seedAfs: AFs seeded from ${source} to Supabase.`);
 
       await bulkAddLocalAfs(parsedAfs);
-      console.log('AFs also seeded to IndexedDB.');
+      console.log('seedAfs: AFs also seeded to IndexedDB.');
     } catch (dbError) {
-      console.error("Failed to seed Supabase/IndexedDB with AFs:", dbError);
+      console.error("seedAfs: Failed to seed Supabase/IndexedDB with AFs:", dbError);
     }
   } else {
-    console.warn('No AFs found in JSON or CSV to seed.');
+    console.warn('seedAfs: No AFs found in JSON or CSV to seed.');
   }
+  console.log('--- Finished seedAfs process ---');
 };
 
 export const getParts = async (): Promise<Part[]> => {
@@ -281,22 +287,27 @@ export const clearServiceOrderList = async (): Promise<void> => {
 };
 
 export const getUniqueAfs = async (): Promise<string[]> => {
+  console.log('getUniqueAfs: Calling seedAfs...');
   await seedAfs(); // Garante que o Supabase esteja populado
 
+  console.log('getUniqueAfs: Attempting to fetch AFs from Supabase...');
   const { data, error } = await supabase
     .from('afs')
     .select('af_number');
 
   if (error) {
-    console.error('Error fetching AFs from Supabase:', error);
+    console.error('getUniqueAfs: Error fetching AFs from Supabase:', error);
     // Fallback para IndexedDB se Supabase falhar
-    console.log('Falling back to IndexedDB for AFs.');
+    console.log('getUniqueAfs: Falling back to IndexedDB for AFs.');
     const localAfs = await getLocalAfs();
+    console.log('getUniqueAfs: AFs from IndexedDB (fallback):', localAfs);
     return localAfs.map(af => af.af_number).sort();
   }
 
+  console.log('getUniqueAfs: AFs fetched from Supabase:', data);
   // Atualiza o cache local com os dados do Supabase
   await localDb.afs.clear();
   await bulkAddLocalAfs(data as Af[]); // data já é um array de { af_number: string }
+  console.log('getUniqueAfs: IndexedDB AFs cache updated.');
   return data.map(af => af.af_number).sort();
 };
