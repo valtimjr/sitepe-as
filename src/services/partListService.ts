@@ -559,3 +559,53 @@ export const exportDataAsJson = (data: any[], filename: string): void => {
     document.body.removeChild(link);
   }
 };
+
+export const cleanupEmptyParts = async (): Promise<number> => {
+  let deletedCount = 0;
+  const pageSize = 1000;
+  let offset = 0;
+  let hasMore = true;
+  let idsToDelete: string[] = [];
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('parts')
+      .select('id, codigo, descricao')
+      .range(offset, offset + pageSize - 1);
+
+    if (error) {
+      console.error('Error fetching parts for cleanup from Supabase (paginated):', error);
+      throw new Error(`Erro ao buscar peças para limpeza: ${error.message}`);
+    }
+
+    if (data && data.length > 0) {
+      const emptyParts = data.filter(part => 
+        (!part.codigo || part.codigo.trim() === '') && 
+        (!part.descricao || part.descricao.trim() === '')
+      );
+      idsToDelete = idsToDelete.concat(emptyParts.map(part => part.id));
+      offset += pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  if (idsToDelete.length > 0) {
+    // Deleta do Supabase
+    const { error: deleteError } = await supabase
+      .from('parts')
+      .delete()
+      .in('id', idsToDelete);
+
+    if (deleteError) {
+      console.error('Error deleting empty parts from Supabase:', deleteError);
+      throw new Error(`Erro ao excluir peças vazias do Supabase: ${deleteError.message}`);
+    }
+    deletedCount = idsToDelete.length;
+
+    // Deleta do IndexedDB
+    await localDb.parts.bulkDelete(idsToDelete);
+  }
+
+  return deletedCount;
+};

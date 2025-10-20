@@ -8,9 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download } from 'lucide-react';
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast'; // Importar showLoading e dismissToast
-import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport } from '@/services/partListService';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser } from 'lucide-react'; // Importar Eraser
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services/partListService'; // Importar cleanupEmptyParts
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -314,6 +314,25 @@ const PartManagementTable: React.FC = () => {
     }
   };
 
+  const handleCleanupEmptyParts = async () => {
+    let loadingToastId: string | undefined;
+    try {
+      loadingToastId = showLoading('Limpando peças vazias...');
+      const deletedCount = await cleanupEmptyParts();
+      if (deletedCount > 0) {
+        showSuccess(`${deletedCount} peças vazias foram removidas com sucesso!`);
+        loadPartsAfterAction(); // Recarrega a lista após a limpeza
+      } else {
+        showSuccess('Nenhuma peça vazia encontrada para remover.');
+      }
+    } catch (error) {
+      showError('Erro ao limpar peças vazias.');
+      console.error('Failed to cleanup empty parts:', error);
+    } finally {
+      if (loadingToastId) dismissToast(loadingToastId);
+    }
+  };
+
   const isAllSelected = parts.length > 0 && selectedPartIds.size === parts.length;
   const isIndeterminate = selectedPartIds.size > 0 && selectedPartIds.size < parts.length;
 
@@ -347,6 +366,25 @@ const PartManagementTable: React.FC = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2 text-destructive">
+                <Eraser className="h-4 w-4" /> Limpar Peças Vazias
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta ação irá remover todas as peças que não possuem Código e Descrição preenchidos. Esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCleanupEmptyParts}>Limpar Agora</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Button onClick={handleAddPart} className="flex items-center gap-2">
             <PlusCircle className="h-4 w-4" /> Adicionar Peça
           </Button>
