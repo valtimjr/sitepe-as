@@ -70,6 +70,13 @@ const Login: React.FC = () => {
             theme="light"
             redirectTo={window.location.origin + '/reset-password'}
             view="sign_in"
+            localization={{
+              variables: {
+                sign_in: {
+                  link_text_sign_up: '', // Remove o texto do link "Sign up"
+                },
+              },
+            }}
           />
         </CardContent>
       </Card>
