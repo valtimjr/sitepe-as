@@ -79,8 +79,5 @@
     @apply font-heading;
   }
 
-  /* Oculta o link "Don't have an account? Sign up" no Supabase Auth UI */
-  .supabase-auth-ui_ui__footer p:has(a[href*="/signup"]) {
-    display: none !important;
-  }
+  /* A regra CSS para ocultar o link de cadastro não é mais necessária, pois o componente Auth UI foi substituído. */
 }

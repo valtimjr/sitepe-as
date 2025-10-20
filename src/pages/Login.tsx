@@ -1,7 +1,5 @@
 /** @jsxImportSource react */
 import React, { useEffect } from 'react';
-import { Auth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import CustomLoginForm from '@/components/CustomLoginForm'; // Importar o novo componente
 
 const Login: React.FC = () => {
   const { session, isLoading } = useSession();
@@ -43,41 +42,7 @@ const Login: React.FC = () => {
           <CardTitle className="text-2xl text-center">Entrar</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Componente de autenticação do Supabase */}
-          <Auth
-            supabaseClient={supabase}
-            providers={[]}
-            appearance={{
-              theme: ThemeSupa,
-              variables: {
-                default: {
-                  colors: {
-                    brand: 'hsl(var(--primary))',
-                    brandAccent: 'hsl(var(--accent))',
-                    inputBackground: 'hsl(var(--input))',
-                    inputBorder: 'hsl(var(--border))',
-                    inputBorderHover: 'hsl(var(--ring))',
-                    inputBorderFocus: 'hsl(var(--ring))',
-                    inputText: 'hsl(var(--foreground))',
-                    defaultButtonBackground: 'hsl(var(--primary))',
-                    defaultButtonBackgroundHover: 'hsl(var(--primary-foreground))',
-                    defaultButtonBorder: 'hsl(var(--primary))',
-                    defaultButtonText: 'hsl(var(--primary-foreground))',
-                  },
-                },
-              },
-            }}
-            theme="light"
-            redirectTo={window.location.origin + '/reset-password'}
-            view="sign_in"
-            localization={{
-              variables: {
-                sign_in: {
-                  link_text_sign_up: '', // Remove o texto do link "Sign up"
-                },
-              },
-            }}
-          />
+          <CustomLoginForm /> {/* Usando o formulário de login personalizado */}
         </CardContent>
       </Card>
       <MadeWithDyad />
