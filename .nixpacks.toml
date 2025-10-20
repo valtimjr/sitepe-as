@@ -1,0 +1,9 @@
+# nixpacks.toml
+# This file configures Nixpacks to build your application.
+# For more information, see https://nixpacks.com/docs/configuration
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run preview"
