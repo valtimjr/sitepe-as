@@ -20,45 +20,46 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   const location = useLocation();
 
   useEffect(() => {
+    console.log('SessionContextProvider: Setting up auth state change listener.');
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
+        console.log('SessionContextProvider: Auth state changed. Event:', event, 'Session:', currentSession);
         setSession(currentSession);
         setUser(currentSession?.user || null);
         setIsLoading(false);
 
-        // Se o usuário faz logout e está em uma rota de admin, redireciona para login
         if ((event === 'SIGNED_OUT' || event === 'USER_DELETED') && location.pathname.startsWith('/admin')) {
+          console.log('SessionContextProvider: User signed out or deleted, redirecting from /admin to /login.');
           navigate('/login');
         }
-        // A lógica de redirecionamento para /admin após login será tratada pelo redirectTo do Auth component
-        // e pelo useEffect de proteção de rotas abaixo.
       }
     );
 
-    // Verifica a sessão inicial
+    console.log('SessionContextProvider: Checking initial session.');
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      console.log('SessionContextProvider: Initial session data:', initialSession);
       setSession(initialSession);
       setUser(initialSession?.user || null);
       setIsLoading(false);
     });
 
     return () => {
+      console.log('SessionContextProvider: Cleaning up auth state change listener.');
       authListener.subscription.unsubscribe();
     };
   }, [navigate, location.pathname]);
 
-  // Este useEffect é responsável por proteger rotas de administração
-  // e redirecionar usuários autenticados da página de login.
   useEffect(() => {
     if (!isLoading) {
+      console.log('SessionContextProvider: Redirect effect triggered. Session:', session, 'Path:', location.pathname);
       if (session) {
-        // Se o usuário está autenticado e tenta acessar a página de login, redireciona para /admin
         if (location.pathname === '/login') {
+          console.log('SessionContextProvider: Authenticated user on /login, redirecting to /admin.');
           navigate('/admin');
         }
       } else {
-        // Se o usuário NÃO está autenticado e tenta acessar uma rota de admin, redireciona para /login
         if (location.pathname.startsWith('/admin')) {
+          console.log('SessionContextProvider: Unauthenticated user on /admin, redirecting to /login.');
           navigate('/login');
         }
       }
