@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useEffect, useState } from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
@@ -83,7 +81,7 @@ const SignupPage: React.FC = () => {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [uuid, isValidInvite]); // Adicionado isValidInvite como dependência
+  }, [uuid, isValidInvite]);
 
   const handleGoHome = () => {
     navigate('/');
@@ -160,7 +158,7 @@ const SignupPage: React.FC = () => {
             }}
             theme="light"
             redirectTo={window.location.origin + '/admin'}
-            view="sign_up" {/* Configurado para a view de cadastro */}
+            view="sign_up"
           />
         </CardContent>
       </Card>
