@@ -141,12 +141,42 @@ export const searchLocalParts = async (query: string): Promise<Part[]> => {
   const escapedWords = lowerCaseQuery.split(/\s+/).filter(Boolean).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   const regexPattern = new RegExp(escapedWords.join('.*'), 'i'); // 'i' para case-insensitive
 
-  const results = allParts.filter(part => {
+  let results = allParts.filter(part => {
     const codigoMatch = part.codigo.toLowerCase().match(regexPattern);
     const descricaoMatch = part.descricao.toLowerCase().match(regexPattern);
     const tagsMatch = part.tags && part.tags.toLowerCase().match(regexPattern);
 
     return codigoMatch || descricaoMatch || tagsMatch;
+  });
+
+  // Prioriza resultados: correspondência exata no código > começa com o código > inclui o código > outras correspondências
+  results.sort((a, b) => {
+    const aCodigo = a.codigo.toLowerCase();
+    const bCodigo = b.codigo.toLowerCase();
+
+    const aMatchesExactCodigo = aCodigo === lowerCaseQuery;
+    const bMatchesExactCodigo = bCodigo === lowerCaseQuery;
+
+    const aStartsCodigo = aCodigo.startsWith(lowerCaseQuery);
+    const bStartsCodigo = bCodigo.startsWith(lowerCaseQuery);
+
+    const aIncludesCodigo = aCodigo.includes(lowerCaseQuery);
+    const bIncludesCodigo = bCodigo.includes(lowerCaseQuery);
+
+    // Correspondência exata no código primeiro
+    if (aMatchesExactCodigo && !bMatchesExactCodigo) return -1;
+    if (!aMatchesExactCodigo && bMatchesExactCodigo) return 1;
+
+    // Depois, começa com o código
+    if (aStartsCodigo && !bStartsCodigo) return -1;
+    if (!aStartsCodigo && bStartsCodigo) return 1;
+
+    // Depois, inclui o código
+    if (aIncludesCodigo && !bIncludesCodigo) return -1;
+    if (!aIncludesCodigo && bIncludesCodigo) return 1;
+
+    // Fallback para a ordem original ou critérios secundários, se necessário
+    return 0;
   });
 
   console.log('Search results for query:', query, results);

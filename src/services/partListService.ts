@@ -227,7 +227,41 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     return searchLocalParts(query); // Passa a query original para a busca local
   }
 
-  return data as Part[];
+  let results = data as Part[];
+
+  // Prioriza resultados: correspondência exata no código > começa com o código > inclui o código > outras correspondências
+  if (lowerCaseQuery) {
+    results.sort((a, b) => {
+      const aCodigo = a.codigo.toLowerCase();
+      const bCodigo = b.codigo.toLowerCase();
+
+      const aMatchesExactCodigo = aCodigo === lowerCaseQuery;
+      const bMatchesExactCodigo = bCodigo === lowerCaseQuery;
+
+      const aStartsCodigo = aCodigo.startsWith(lowerCaseQuery);
+      const bStartsCodigo = bCodigo.startsWith(lowerCaseQuery);
+
+      const aIncludesCodigo = aCodigo.includes(lowerCaseQuery);
+      const bIncludesCodigo = bCodigo.includes(lowerCaseQuery);
+
+      // Correspondência exata no código primeiro
+      if (aMatchesExactCodigo && !bMatchesExactCodigo) return -1;
+      if (!aMatchesExactCodigo && bMatchesExactCodigo) return 1;
+
+      // Depois, começa com o código
+      if (aStartsCodigo && !bStartsCodigo) return -1;
+      if (!aStartsCodigo && bStartsCodigo) return 1;
+
+      // Depois, inclui o código
+      if (aIncludesCodigo && !bIncludesCodigo) return -1;
+      if (!aIncludesCodigo && bIncludesCodigo) return 1;
+
+      // Fallback para a ordem original ou critérios secundários, se necessário
+      return 0;
+    });
+  }
+
+  return results;
 };
 
 export const updatePart = async (updatedPart: Part): Promise<void> => {
