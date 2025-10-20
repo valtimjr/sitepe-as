@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal } from 'lucide-react'; // Adicionado MoreHorizontal
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -29,6 +29,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator, // Adicionado para separar grupos de ações
+  DropdownMenuSub, // Adicionado para sub-menus
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
@@ -342,53 +346,62 @@ const PartManagementTable: React.FC = () => {
       <CardHeader className="flex flex-col space-y-2 pb-2">
         <CardTitle className="text-2xl font-bold">Gerenciar Peças</CardTitle>
         <div className="flex flex-wrap gap-2 justify-end">
-          <Button variant="outline" onClick={handleImportCsv} className="flex items-center gap-2">
-            <Upload className="h-4 w-4" /> Importar CSV
-          </Button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept=".csv"
-            className="hidden"
-          />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2">
-                <Download className="h-4 w-4" /> Exportar
+                <MoreHorizontal className="h-4 w-4" /> Ações
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleExportCsv}>
-                Exportar CSV
+              <DropdownMenuItem onClick={handleAddPart}>
+                <PlusCircle className="h-4 w-4 mr-2" /> Adicionar Peça
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportJson}>
-                Exportar JSON
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleImportCsv}>
+                <Upload className="h-4 w-4 mr-2" /> Importar CSV
               </DropdownMenuItem>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".csv"
+                className="hidden"
+              />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Download className="h-4 w-4 mr-2" /> Exportar
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={handleExportCsv}>
+                    Exportar CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportJson}>
+                    Exportar JSON
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                    <Eraser className="h-4 w-4 mr-2" /> Limpar Peças Vazias
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação irá remover todas as peças que não possuem Código e Descrição preenchidos. Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleCleanupEmptyParts}>Limpar Agora</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </DropdownMenuContent>
           </DropdownMenu>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2 text-destructive">
-                <Eraser className="h-4 w-4" /> Limpar Peças Vazias
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta ação irá remover todas as peças que não possuem Código e Descrição preenchidos. Esta ação não pode ser desfeita.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleCleanupEmptyParts}>Limpar Agora</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <Button onClick={handleAddPart} className="flex items-center gap-2">
-            <PlusCircle className="h-4 w-4" /> Adicionar Peça
-          </Button>
         </div>
       </CardHeader>
       <CardContent>
