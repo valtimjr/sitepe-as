@@ -46,7 +46,7 @@ const PartManagementTable: React.FC = () => {
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set());
+  const [selectedPartIds, setSelectedPartIds] = new Set<string>(); // Inicializado como Set vazio
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -495,7 +495,7 @@ const PartManagementTable: React.FC = () => {
                     </TableCell>
                     <TableCell className="font-medium">{part.codigo}</TableCell>
                     <TableCell>{part.descricao}</TableCell>
-                    <TableCell>{part.tags || 'N/A'}</TableCell>
+                    <TableCell>{part.tags || ''}</TableCell> {/* Alterado de 'N/A' para '' */}
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => handleEditPart(part)} className="mr-2">
                         <Edit className="h-4 w-4" />
