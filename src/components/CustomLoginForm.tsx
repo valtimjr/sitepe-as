@@ -75,7 +75,7 @@ const CustomLoginForm: React.FC = () => {
         )}
       </Button>
       <div className="text-center text-sm mt-4">
-        <Link to="/reset-password" className="text-primary hover:underline">
+        <Link to="/forgot-password" className="text-primary hover:underline"> {/* Link atualizado */}
           Esqueceu sua senha?
         </Link>
       </div>
