@@ -199,6 +199,23 @@ export const getParts = async (): Promise<Part[]> => {
   return data as Part[];
 };
 
+export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
+  const newPart = { ...part, id: uuidv4() }; // Gera um ID para o Supabase
+  const { data, error } = await supabase
+    .from('parts')
+    .insert(newPart)
+    .select();
+
+  if (error) {
+    console.error('Error adding part to Supabase:', error);
+    throw new Error(`Erro ao adicionar peça no Supabase: ${error.message}`);
+  }
+
+  // Adiciona ao IndexedDB também
+  await localDb.parts.add(newPart);
+  return data[0].id;
+};
+
 export const searchParts = async (query: string): Promise<Part[]> => {
   await seedPartsFromJson(); // Garante que o Supabase esteja populado
 
@@ -280,18 +297,104 @@ export const updatePart = async (updatedPart: Part): Promise<void> => {
   // Atualiza no Supabase
   const { error: supabaseError } = await supabase
     .from('parts')
-    .update({ tags: updatedPart.tags })
+    .update({ codigo: updatedPart.codigo, descricao: updatedPart.descricao, tags: updatedPart.tags })
     .eq('id', updatedPart.id);
 
   if (supabaseError) {
     console.error('Error updating part in Supabase:', supabaseError);
-    // Adicionado: Lança o erro para ser tratado no componente e mostrar um toast
     throw new Error(`Erro ao atualizar a peça no Supabase: ${supabaseError.message}`);
   }
 
   // Atualiza no IndexedDB
   await updateLocalPart(updatedPart);
 };
+
+export const deletePart = async (id: string): Promise<void> => {
+  // Deleta no Supabase
+  const { error: supabaseError } = await supabase
+    .from('parts')
+    .delete()
+    .eq('id', id);
+
+  if (supabaseError) {
+    console.error('Error deleting part from Supabase:', supabaseError);
+    throw new Error(`Erro ao excluir peça do Supabase: ${supabaseError.message}`);
+  }
+
+  // Deleta no IndexedDB
+  await localDb.parts.delete(id);
+};
+
+// --- Funções para AFs ---
+export const getAfsFromService = async (): Promise<Af[]> => {
+  await seedAfs(); // Garante que o Supabase esteja populado
+
+  const { data, error } = await supabase
+    .from('afs')
+    .select('*');
+
+  if (error) {
+    console.error('Error fetching AFs from Supabase:', error);
+    // Fallback para IndexedDB se Supabase falhar
+    console.log('Falling back to IndexedDB for AFs.');
+    return getLocalAfs();
+  }
+
+  // Atualiza o cache local com os dados do Supabase
+  await localDb.afs.clear();
+  await bulkAddLocalAfs(data as Af[]);
+  return data as Af[];
+};
+
+export const addAf = async (af: Omit<Af, 'id'>): Promise<string> => {
+  const newAf = { ...af, id: uuidv4() }; // Gera um ID para o Supabase
+  const { data, error } = await supabase
+    .from('afs')
+    .insert(newAf)
+    .select();
+
+  if (error) {
+    console.error('Error adding AF to Supabase:', error);
+    throw new Error(`Erro ao adicionar AF no Supabase: ${error.message}`);
+  }
+
+  // Adiciona ao IndexedDB também
+  await localDb.afs.add(newAf);
+  return data[0].id;
+};
+
+export const updateAf = async (updatedAf: Af): Promise<void> => {
+  // Atualiza no Supabase
+  const { error: supabaseError } = await supabase
+    .from('afs')
+    .update({ af_number: updatedAf.af_number })
+    .eq('id', updatedAf.id);
+
+  if (supabaseError) {
+    console.error('Error updating AF in Supabase:', supabaseError);
+    throw new Error(`Erro ao atualizar AF no Supabase: ${supabaseError.message}`);
+  }
+
+  // Atualiza no IndexedDB
+  await localDb.afs.update(updatedAf.id, updatedAf);
+};
+
+export const deleteAf = async (id: string): Promise<void> => {
+  // Deleta no Supabase
+  const { error: supabaseError } = await supabase
+    .from('afs')
+    .delete()
+    .eq('id', id);
+
+  if (supabaseError) {
+    console.error('Error deleting AF from Supabase:', supabaseError);
+    throw new Error(`Erro ao excluir AF do Supabase: ${supabaseError.message}`);
+  }
+
+  // Deleta no IndexedDB
+  await localDb.afs.delete(id);
+};
+
 
 // --- Funções para SimplePartItem (Lista de Peças Simples) ---
 export const getSimplePartsListItems = async (): Promise<SimplePartItem[]> => {

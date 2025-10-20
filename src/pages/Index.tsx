@@ -3,14 +3,33 @@ import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { LogIn } from 'lucide-react'; // Importar ícone de login
+import { useSession } from '@/components/SessionContextProvider'; // Importar o hook de sessão
 
 const Index = () => {
+  const { session } = useSession(); // Obter a sessão do contexto
+
   useEffect(() => {
     document.title = "Gerenciador de Peças - Início";
   }, []);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
+      <div className="absolute top-4 right-4"> {/* Posição do botão de login */}
+        {session ? (
+          <Link to="/admin">
+            <Button variant="outline" className="flex items-center gap-2">
+              <LogIn className="h-4 w-4" /> Admin
+            </Button>
+          </Link>
+        ) : (
+          <Link to="/login">
+            <Button variant="outline" className="flex items-center gap-2">
+              <LogIn className="h-4 w-4" /> Login
+            </Button>
+          </Link>
+        )}
+      </div>
       <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
       <h1 className="text-5xl font-extrabold mb-12 text-center text-primary dark:text-primary">
         Bem-vindo ao Gerenciador de Peças

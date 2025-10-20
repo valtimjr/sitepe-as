@@ -7,7 +7,10 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SearchParts from "./pages/SearchParts";
 import PartsList from "./pages/PartsList";
-import ServiceOrderList from "./pages/ServiceOrderList"; // Importar a nova página de Ordem de Serviço
+import ServiceOrderList from "./pages/ServiceOrderList";
+import Login from "./pages/Login"; // Importar a página de Login
+import AdminDashboard from "./pages/AdminDashboard"; // Importar a página de Admin
+import { SessionContextProvider } from "./components/SessionContextProvider"; // Importar o provedor de sessão
 
 const queryClient = new QueryClient();
 
@@ -17,14 +20,18 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/search-parts" element={<SearchParts />} />
-          <Route path="/parts-list" element={<PartsList />} />
-          <Route path="/service-orders" element={<ServiceOrderList />} /> {/* Nova rota para Ordens de Serviço */}
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <SessionContextProvider> {/* Envolve toda a aplicação com o provedor de sessão */}
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/search-parts" element={<SearchParts />} />
+            <Route path="/parts-list" element={<PartsList />} />
+            <Route path="/service-orders" element={<ServiceOrderList />} />
+            <Route path="/login" element={<Login />} /> {/* Rota para a página de login */}
+            <Route path="/admin" element={<AdminDashboard />} /> {/* Rota para o painel de administração */}
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </SessionContextProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
