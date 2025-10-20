@@ -157,16 +157,16 @@ const seedAfs = async (): Promise<void> => {
   // 4. Se dados foram encontrados, adiciona ao Supabase e IndexedDB
   if (parsedAfs.length > 0) {
     try {
-      console.log('seedAfs: Inserting AFs into Supabase...');
-      const { error: insertError } = await supabase
+      console.log('seedAfs: Upserting AFs into Supabase...');
+      const { error: upsertError } = await supabase
         .from('afs')
-        .insert(parsedAfs);
+        .upsert(parsedAfs, { onConflict: 'id' }); // Usando upsert para evitar duplicatas
 
-      if (insertError) {
-        console.error('seedAfs: Failed to seed AFs to Supabase:', insertError);
-        throw insertError;
+      if (upsertError) {
+        console.error('seedAfs: Failed to upsert AFs to Supabase:', upsertError);
+        throw upsertError;
       }
-      console.log(`seedAfs: AFs seeded from ${source} to Supabase.`);
+      console.log(`seedAfs: AFs upserted from ${source} to Supabase.`);
 
       await bulkAddLocalAfs(parsedAfs);
       console.log('seedAfs: AFs also seeded to IndexedDB.');
