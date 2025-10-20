@@ -201,16 +201,30 @@ export const getParts = async (): Promise<Part[]> => {
 };
 
 export const getAllPartsForExport = async (): Promise<Part[]> => {
-  const { data, error } = await supabase
-    .from('parts')
-    .select('*')
-    .limit(null); // Sem limite para exportação
+  let allData: Part[] = [];
+  const pageSize = 1000; // Define o tamanho da página
+  let offset = 0;
+  let hasMore = true;
 
-  if (error) {
-    console.error('Error fetching all parts for export from Supabase:', error);
-    throw new Error(`Erro ao buscar todas as peças para exportação: ${error.message}`);
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('parts')
+      .select('*')
+      .range(offset, offset + pageSize - 1); // Busca um intervalo de registros
+
+    if (error) {
+      console.error('Error fetching all parts for export from Supabase (paginated):', error);
+      throw new Error(`Erro ao buscar todas as peças para exportação: ${error.message}`);
+    }
+
+    if (data && data.length > 0) {
+      allData = allData.concat(data as Part[]);
+      offset += pageSize;
+    } else {
+      hasMore = false; // Não há mais dados para buscar
+    }
   }
-  return data as Part[];
+  return allData;
 };
 
 export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
@@ -363,16 +377,30 @@ export const getAfsFromService = async (): Promise<Af[]> => {
 };
 
 export const getAllAfsForExport = async (): Promise<Af[]> => {
-  const { data, error } = await supabase
-    .from('afs')
-    .select('*')
-    .limit(null); // Sem limite para exportação
+  let allData: Af[] = [];
+  const pageSize = 1000; // Define o tamanho da página
+  let offset = 0;
+  let hasMore = true;
 
-  if (error) {
-    console.error('Error fetching all AFs for export from Supabase:', error);
-    throw new Error(`Erro ao buscar todos os AFs para exportação: ${error.message}`);
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('afs')
+      .select('*')
+      .range(offset, offset + pageSize - 1); // Busca um intervalo de registros
+
+    if (error) {
+      console.error('Error fetching all AFs for export from Supabase (paginated):', error);
+      throw new Error(`Erro ao buscar todos os AFs para exportação: ${error.message}`);
+    }
+
+    if (data && data.length > 0) {
+      allData = allData.concat(data as Af[]);
+      offset += pageSize;
+    } else {
+      hasMore = false; // Não há mais dados para buscar
+    }
   }
-  return data as Af[];
+  return allData;
 };
 
 export const addAf = async (af: Omit<Af, 'id'>): Promise<string> => {
