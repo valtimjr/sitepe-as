@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { Part, getParts, addPart, updatePart, deletePart } from '@/services/partListService';
+import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService } from '@/services/partListService'; // Importar searchPartsService
 
 const PartManagementTable: React.FC = () => {
   const [parts, setParts] = useState<Part[]>([]);
@@ -20,34 +20,52 @@ const PartManagementTable: React.FC = () => {
   const [formCodigo, setFormCodigo] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
-  const [searchQuery, setSearchQuery] = useState(''); // Novo estado para a query de busca
+  const [searchQuery, setSearchQuery] = useState('');
 
+  // Carrega todas as peças inicialmente ou quando a query de busca está vazia
   useEffect(() => {
-    loadParts();
-  }, []);
+    const loadInitialParts = async () => {
+      setIsLoading(true);
+      try {
+        const fetchedParts = await getParts();
+        setParts(fetchedParts);
+      } catch (error) {
+        showError('Erro ao carregar peças.');
+        console.error('Failed to load parts:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const loadParts = async () => {
-    setIsLoading(true);
-    try {
-      const fetchedParts = await getParts();
-      setParts(fetchedParts);
-    } catch (error) {
-      showError('Erro ao carregar peças.');
-      console.error('Failed to load parts:', error);
-    } finally {
-      setIsLoading(false);
+    if (!searchQuery) {
+      loadInitialParts();
     }
-  };
+  }, [searchQuery]); // Depende de searchQuery para recarregar todas as peças quando a busca é limpa
 
-  // Filtra as peças com base na query de busca
-  const filteredParts = parts.filter(part => {
-    const lowerCaseQuery = searchQuery.toLowerCase();
-    return (
-      part.codigo.toLowerCase().includes(lowerCaseQuery) ||
-      part.descricao.toLowerCase().includes(lowerCaseQuery) ||
-      (part.tags && part.tags.toLowerCase().includes(lowerCaseQuery))
-    );
-  });
+  // Efeito para realizar a busca com debounce
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      setIsLoading(true);
+      try {
+        const results = await searchPartsService(searchQuery);
+        setParts(results); // Atualiza as peças exibidas com os resultados da busca
+      } catch (error) {
+        showError('Erro ao buscar peças.');
+        console.error('Failed to search parts:', error);
+        setParts([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const handler = setTimeout(() => {
+      fetchSearchResults();
+    }, 300); // Debounce de 300ms
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchQuery]); // Dispara a busca sempre que a query muda
 
   const handleAddPart = () => {
     setCurrentPart(null);
@@ -70,7 +88,14 @@ const PartManagementTable: React.FC = () => {
     try {
       await deletePart(id);
       showSuccess('Peça excluída com sucesso!');
-      loadParts();
+      // Após a exclusão, recarrega as peças com a query de busca atual
+      if (searchQuery) {
+        const results = await searchPartsService(searchQuery);
+        setParts(results);
+      } else {
+        const fetchedParts = await getParts();
+        setParts(fetchedParts);
+      }
     } catch (error) {
       showError('Erro ao excluir peça.');
       console.error('Failed to delete part:', error);
@@ -104,7 +129,14 @@ const PartManagementTable: React.FC = () => {
         showSuccess('Peça adicionada com sucesso!');
       }
       setIsDialogOpen(false);
-      loadParts();
+      // Após salvar, recarrega as peças com a query de busca atual
+      if (searchQuery) {
+        const results = await searchPartsService(searchQuery);
+        setParts(results);
+      } else {
+        const fetchedParts = await getParts();
+        setParts(fetchedParts);
+      }
     } catch (error) {
       showError('Erro ao salvar peça.');
       console.error('Failed to save part:', error);
@@ -132,9 +164,9 @@ const PartManagementTable: React.FC = () => {
         </div>
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando peças...</p>
-        ) : filteredParts.length === 0 && searchQuery.length > 0 ? (
+        ) : parts.length === 0 && searchQuery.length > 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhuma peça encontrada para "{searchQuery}".</p>
-        ) : filteredParts.length === 0 ? (
+        ) : parts.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhuma peça cadastrada.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -148,7 +180,7 @@ const PartManagementTable: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredParts.map((part) => (
+                {parts.map((part) => (
                   <TableRow key={part.id}>
                     <TableCell className="font-medium">{part.codigo}</TableCell>
                     <TableCell>{part.descricao}</TableCell>
