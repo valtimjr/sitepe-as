@@ -46,7 +46,7 @@ const PartManagementTable: React.FC = () => {
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = new Set<string>(); // Inicializado como Set vazio
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set()); // Corrigido: Usando useState para inicializar o Set
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -193,7 +193,7 @@ const PartManagementTable: React.FC = () => {
     }
     try {
       await Promise.all(Array.from(selectedPartIds).map(id => deletePart(id)));
-      showSuccess(`${selectedPartIds?.size ?? 0} peças excluídas com sucesso!`);
+      showSuccess(`${selectedPartIds.size ?? 0} peças excluídas com sucesso!`); // Corrigido: Removido o '?' desnecessário
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao excluir peças selecionadas.');
@@ -209,7 +209,7 @@ const PartManagementTable: React.FC = () => {
     try {
       const partsToUpdate = parts.filter(part => selectedPartIds.has(part.id));
       await Promise.all(partsToUpdate.map(part => updatePart({ ...part, tags: '' })));
-      showSuccess(`Tags de ${selectedPartIds?.size ?? 0} peças limpas com sucesso!`);
+      showSuccess(`Tags de ${selectedPartIds.size ?? 0} peças limpas com sucesso!`); // Corrigido: Removido o '?' desnecessário
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao limpar tags das peças selecionadas.');
@@ -295,7 +295,7 @@ const PartManagementTable: React.FC = () => {
       loadingToastId = showLoading('Preparando exportação de peças...');
       if (selectedPartIds.size > 0) {
         dataToExport = parts.filter(part => selectedPartIds.has(part.id));
-        if (dataToExport.length === 0) {
+        if (dataToToExport.length === 0) {
           showError('Nenhuma peça selecionada para exportar.');
           return;
         }
@@ -495,7 +495,7 @@ const PartManagementTable: React.FC = () => {
                     </TableCell>
                     <TableCell className="font-medium">{part.codigo}</TableCell>
                     <TableCell>{part.descricao}</TableCell>
-                    <TableCell>{part.tags || ''}</TableCell> {/* Alterado de 'N/A' para '' */}
+                    <TableCell>{part.tags || ''}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => handleEditPart(part)} className="mr-2">
                         <Edit className="h-4 w-4" />
