@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -460,7 +461,7 @@ const PartManagementTable: React.FC = () => {
                   <TableHead className="w-[40px]">
                     <Checkbox
                       checked={isAllSelected}
-                      indeterminate={isIndeterminate ? true : undefined} {/* Ajustado aqui */}
+                      indeterminate={isIndeterminate ? true : undefined}
                       onCheckedChange={(checked) => handleSelectAll(checked === true)}
                       aria-label="Selecionar todas as peças"
                     />
