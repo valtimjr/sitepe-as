@@ -38,7 +38,7 @@ const AfManagementTable: React.FC = () => {
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set()); // Inicialização correta
+  const [selectedAfIds, setSelectedAfIds] = new Set<string>(); // Inicialização correta
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -341,7 +341,7 @@ const AfManagementTable: React.FC = () => {
                   <TableHead className="w-[40px]">
                     <Checkbox
                       checked={isAllSelected}
-                      indeterminate={isIndeterminate}
+                      indeterminate={isIndeterminate ? true : undefined} {/* Ajustado aqui */}
                       onCheckedChange={(checked) => handleSelectAll(checked === true)}
                       aria-label="Selecionar todos os AFs"
                     />

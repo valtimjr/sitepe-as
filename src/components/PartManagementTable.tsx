@@ -8,9 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser } from 'lucide-react'; // Importar Eraser
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services/partListService'; // Importar cleanupEmptyParts
+import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -325,8 +325,8 @@ const PartManagementTable: React.FC = () => {
       } else {
         showSuccess('Nenhuma peça vazia encontrada para remover.');
       }
-    } catch (error) {
-      showError('Erro ao limpar peças vazias.');
+    } catch (error: any) {
+      showError(`Erro ao limpar peças vazias: ${error.message || 'Detalhes desconhecidos.'}`);
       console.error('Failed to cleanup empty parts:', error);
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
@@ -460,7 +460,7 @@ const PartManagementTable: React.FC = () => {
                   <TableHead className="w-[40px]">
                     <Checkbox
                       checked={isAllSelected}
-                      indeterminate={isIndeterminate}
+                      indeterminate={isIndeterminate ? true : undefined} {/* Ajustado aqui */}
                       onCheckedChange={(checked) => handleSelectAll(checked === true)}
                       aria-label="Selecionar todas as peças"
                     />
