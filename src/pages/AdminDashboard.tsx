@@ -19,8 +19,26 @@ const AdminDashboard: React.FC = () => {
 
   const handleLogout = async () => {
     try {
+      // Explicitamente obtém a sessão atual para verificar sua validade
+      const { data: { session: currentSession }, error: getSessionError } = await supabase.auth.getSession();
+      
+      if (getSessionError) {
+        console.error('Erro ao obter sessão antes do logout:', getSessionError);
+        // Continua com o logout mesmo com erro ao obter a sessão, para tentar limpar o armazenamento local.
+      }
+
+      if (!currentSession) {
+        // Se não há sessão ativa, o usuário já está efetivamente desconectado.
+        // Ainda chamamos signOut para garantir que qualquer token residual no localStorage seja limpo.
+        await supabase.auth.signOut();
+        showSuccess('Você já estava desconectado. Limpando dados locais.');
+        return;
+      }
+
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
       showSuccess('Você foi desconectado com sucesso!');
     } catch (error: any) {
       showError(`Erro ao desconectar: ${error.message}`);
