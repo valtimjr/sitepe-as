@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal } from 'lucide-react'; // Adicionado MoreHorizontal
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -29,8 +29,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator, // Adicionado para separar grupos de ações
-  DropdownMenuSub, // Adicionado para sub-menus
+  DropdownMenuSeparator,
+  DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
@@ -40,14 +40,13 @@ import { v4 as uuidv4 } from 'uuid';
 const PartManagementTable: React.FC = () => {
   const [parts, setParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false); // Para adicionar/editar peça
-  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false); // Para importação CSV
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentPart, setCurrentPart] = useState<Part | null>(null);
   const [formCodigo, setFormCodigo] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set()); // Inicialização correta
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,7 +75,7 @@ const PartManagementTable: React.FC = () => {
       try {
         const results = await searchPartsService(searchQuery);
         setParts(results);
-        setSelectedPartIds(new Set()); // Limpa a seleção ao mudar a busca
+        setSelectedPartIds(new Set());
       } catch (error) {
         showError('Erro ao buscar peças.');
         console.error('Failed to search parts:', error);
@@ -163,7 +162,7 @@ const PartManagementTable: React.FC = () => {
       const fetchedParts = await getParts();
       setParts(fetchedParts);
     }
-    setSelectedPartIds(new Set()); // Limpa a seleção após a ação
+    setSelectedPartIds(new Set());
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -231,11 +230,11 @@ const PartManagementTable: React.FC = () => {
         complete: async (results) => {
           const parsedData = results.data as any[];
           const newParts: Part[] = parsedData.map(row => ({
-            id: row.id || uuidv4(), // Usa ID existente ou gera um novo
+            id: row.id || uuidv4(),
             codigo: row.codigo,
             descricao: row.descricao,
             tags: row.tags || '',
-          })).filter(part => part.codigo && part.descricao); // Filtra linhas inválidas
+          })).filter(part => part.codigo && part.descricao);
 
           if (newParts.length === 0) {
             showError('Nenhum dado válido encontrado no arquivo CSV.');
@@ -273,7 +272,7 @@ const PartManagementTable: React.FC = () => {
         exportDataAsCsv(dataToExport, 'pecas_selecionadas.csv');
         showSuccess(`${dataToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
       } else {
-        dataToExport = await getAllPartsForExport(); // Usa a nova função para exportar tudo
+        dataToExport = await getAllPartsForExport();
         if (dataToExport.length === 0) {
           showError('Nenhuma peça para exportar.');
           return;
@@ -303,7 +302,7 @@ const PartManagementTable: React.FC = () => {
         exportDataAsJson(dataToExport, 'pecas_selecionadas.json');
         showSuccess(`${dataToExport.length} peças selecionadas exportadas para JSON com sucesso!`);
       } else {
-        dataToExport = await getAllPartsForExport(); // Usa a nova função para exportar tudo
+        dataToExport = await getAllPartsForExport();
         if (dataToExport.length === 0) {
           showError('Nenhuma peça para exportar.');
           return;
@@ -326,7 +325,7 @@ const PartManagementTable: React.FC = () => {
       const deletedCount = await cleanupEmptyParts();
       if (deletedCount > 0) {
         showSuccess(`${deletedCount} peças vazias foram removidas com sucesso!`);
-        loadPartsAfterAction(); // Recarrega a lista após a limpeza
+        loadPartsAfterAction();
       } else {
         showSuccess('Nenhuma peça vazia encontrada para remover.');
       }
@@ -353,10 +352,6 @@ const PartManagementTable: React.FC = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleAddPart}>
-                <PlusCircle className="h-4 w-4 mr-2" /> Adicionar Peça
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleImportCsv}>
                 <Upload className="h-4 w-4 mr-2" /> Importar CSV
               </DropdownMenuItem>
@@ -402,6 +397,9 @@ const PartManagementTable: React.FC = () => {
               </AlertDialog>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button onClick={handleAddPart} className="flex items-center gap-2">
+            <PlusCircle className="h-4 w-4" /> Adicionar Peça
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
