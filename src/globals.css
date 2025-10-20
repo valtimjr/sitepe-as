@@ -78,4 +78,9 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
   }
+
+  /* Oculta o link "Don't have an account? Sign up" no Supabase Auth UI */
+  .supabase-auth-ui_ui__footer p:has(a[href*="/signup"]) {
+    display: none !important;
+  }
 }
