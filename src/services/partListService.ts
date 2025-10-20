@@ -39,7 +39,7 @@ const seedPartsFromJson = async (): Promise<void> => {
 
   if (countError) {
     console.error('Error checking Supabase parts count:', countError);
-    // Se houver erro ao contar, tenta carregar do IndexedDB como fallback
+    // Fallback para IndexedDB para verificar se já há dados localmente
     const localPartsCount = await localDb.parts.count();
     if (localPartsCount > 0) {
       console.log('Falling back to IndexedDB for parts as Supabase check failed.');
@@ -439,27 +439,10 @@ export const clearServiceOrderList = async (): Promise<void> => {
 };
 
 export const getUniqueAfs = async (): Promise<string[]> => {
-  console.log('getUniqueAfs: Calling seedAfs...');
-  await seedAfs(); // Garante que o Supabase esteja populado
-
-  console.log('getUniqueAfs: Attempting to fetch AFs from Supabase...');
-  const { data, error } = await supabase
-    .from('afs')
-    .select('af_number');
-
-  if (error) {
-    console.error('getUniqueAfs: Error fetching AFs from Supabase:', error);
-    // Fallback para IndexedDB se Supabase falhar
-    console.log('getUniqueAfs: Falling back to IndexedDB for AFs.');
-    const localAfs = await getLocalAfs();
-    console.log('getUniqueAfs: AFs from IndexedDB (fallback):', localAfs);
-    return localAfs.map(af => af.af_number).sort();
-  }
-
-  console.log('getUniqueAfs: AFs fetched from Supabase:', data);
-  // Atualiza o cache local com os dados do Supabase
-  await localDb.afs.clear();
-  await bulkAddLocalAfs(data as Af[]); // data já é um array de { af_number: string }
-  console.log('getUniqueAfs: IndexedDB AFs cache updated.');
-  return data.map(af => af.af_number).sort();
+  console.log('getUniqueAfs: Calling getAfsFromService to ensure data is loaded and cached...');
+  // Chama getAfsFromService para garantir que os AFs completos (com ID) sejam buscados e o cache local seja atualizado.
+  const allAfs = await getAfsFromService(); 
+  console.log('getUniqueAfs: All AFs (including IDs) fetched:', allAfs);
+  // Mapeia para retornar apenas os números dos AFs, como esperado pela interface.
+  return allAfs.map(af => af.af_number).sort();
 };
