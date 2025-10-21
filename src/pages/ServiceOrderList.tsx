@@ -103,7 +103,6 @@ const ServiceOrderList = () => {
   }, [setEditingServiceOrder, showSuccess, setIsCreatingNewOrder]);
 
   const handleNewServiceOrder = useCallback(() => {
-    console.log("handleNewServiceOrder called: Setting editingServiceOrder to null and isCreatingNewOrder to true");
     setEditingServiceOrder(null);
     setIsCreatingNewOrder(true);
     showSuccess('Iniciando nova Ordem de Serviço.');

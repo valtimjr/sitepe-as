@@ -82,7 +82,7 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
         console.error('CustomSignupForm: Erro ao marcar convite como usado:', error);
         showError('Erro ao finalizar o convite. Por favor, contate o suporte.');
       } else {
-        console.log('CustomSignupForm: Convite marcado como usado com sucesso.');
+        // console.log('CustomSignupForm: Convite marcado como usado com sucesso.'); // Removido
       }
     } catch (error) {
       console.error('CustomSignupForm: Erro inesperado ao marcar convite como usado:', error);

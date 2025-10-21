@@ -27,7 +27,6 @@ const ResetPasswordPage: React.FC = () => {
         // Se o usuário já estiver logado (por exemplo, se o link de redefinição também o logar),
         // podemos redirecioná-lo para a página inicial ou admin.
         // Por enquanto, vamos apenas logar.
-        console.log('User signed in during reset flow, consider redirecting.');
       }
     });
 

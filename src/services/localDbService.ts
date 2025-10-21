@@ -126,13 +126,11 @@ export const getLocalParts = async (): Promise<Part[]> => {
 };
 
 export const searchLocalParts = async (query: string): Promise<Part[]> => {
-  console.log('Searching local parts with query:', query);
   const lowerCaseQuery = query.toLowerCase().trim();
 
   const allParts = await localDb.parts.toArray();
 
   if (!lowerCaseQuery) {
-    console.log('Returning all parts (empty query):', allParts);
     return allParts;
   }
 
@@ -190,7 +188,6 @@ export const searchLocalParts = async (query: string): Promise<Part[]> => {
     return 0; // Mantém a ordem original se todas as pontuações forem iguais
   });
 
-  console.log('Search results for query:', query, results);
   return results;
 };
 

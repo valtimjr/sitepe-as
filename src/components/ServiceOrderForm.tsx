@@ -66,7 +66,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   }, []);
 
   useEffect(() => {
-    console.log("ServiceOrderForm useEffect: editingServiceOrder changed to", editingServiceOrder);
     if (editingServiceOrder) {
       setAf(editingServiceOrder.af);
       setOs(editingServiceOrder.os);
@@ -92,7 +91,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       }
 
     } else {
-      console.log("ServiceOrderForm: Calling resetAllFieldsInternal()");
       resetAllFieldsInternal();
       setCurrentBlankOsItemId(null);
     }

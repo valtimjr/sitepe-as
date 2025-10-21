@@ -28,7 +28,6 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   // Função para buscar o perfil do usuário
   const fetchUserProfile = useCallback(async (userId: string): Promise<UserProfile | null> => {
-    console.log('SessionContextProvider: fetchUserProfile called for userId:', userId);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -40,7 +39,6 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         console.error('SessionContextProvider: Error fetching user profile from DB:', error);
         throw error;
       }
-      console.log('SessionContextProvider: User profile fetched:', data);
       return data as UserProfile || null;
     } catch (error: any) {
       console.error('SessionContextProvider: Error fetching user profile (catch block):', error);
@@ -50,7 +48,6 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   // Função para buscar as regras de acesso às páginas
   const fetchPageAccessRules = useCallback(async (): Promise<PageAccessRule[]> => {
-    console.log('SessionContextProvider: fetchPageAccessRules called.');
     try {
       const { data, error } = await supabase
         .from('page_access')
@@ -60,7 +57,6 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         console.error('SessionContextProvider: Error fetching page access rules from DB:', error);
         throw error;
       }
-      console.log('SessionContextProvider: Page access rules fetched:', data);
       return data as PageAccessRule[] || [];
     } catch (error: any) {
       console.error('SessionContextProvider: Error fetching page access rules (catch block):', error);
@@ -101,33 +97,28 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     } finally {
       // Define isLoadingSessionAndProfile como false APENAS depois que todos os estados foram atualizados
       setIsLoadingSessionAndProfile(false);
-      console.log('SessionContextProvider: All data loaded. isLoadingSessionAndProfile set to false.');
     }
   }, [fetchUserProfile, fetchPageAccessRules]);
 
 
   // Inicializa sessão, perfil e regras de acesso
   useEffect(() => {
-    console.log('SessionContextProvider: Initializing session, profile, and page access rules.');
     loadAllData(true); // Chamada inicial
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        console.log('SessionContextProvider: Auth state changed. Event:', event, 'Current Session:', currentSession);
         // Para mudanças de estado de autenticação, re-executamos a lógica de carregamento
         loadAllData(false, currentSession);
       }
     );
 
     return () => {
-      console.log('SessionContextProvider: Cleaning up auth state change listener.');
       authListener.subscription.unsubscribe();
     };
   }, [loadAllData]); // Dependência de loadAllData
 
   // Função para verificar o acesso à página
   const checkPageAccess = useCallback((path: string): boolean => {
-    console.log(`SessionContextProvider: checkPageAccess called for path: ${path}, current user role: ${profile?.role || 'guest'}`);
     const normalizedPath = path.split('/')[1] === 'signup' ? '/signup' : path;
 
     const rule = pageAccessRules.find(r => r.page_path === normalizedPath);
@@ -138,7 +129,6 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     if (!session) {
-      console.log(`SessionContextProvider: Guest user trying to access ${normalizedPath}. Guest access: ${rule.guest_access}`);
       return rule.guest_access;
     }
 
@@ -149,23 +139,18 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
     switch (profile.role) {
       case 'admin':
-        console.log(`SessionContextProvider: Admin user trying to access ${normalizedPath}. Admin access: ${rule.admin_access}`);
         return rule.admin_access;
       case 'moderator':
-        console.log(`SessionContextProvider: Moderator user trying to access ${normalizedPath}. Moderator access: ${rule.moderator_access}`);
         return rule.moderator_access;
       case 'user':
-        console.log(`SessionContextProvider: Regular user trying to access ${normalizedPath}. User access: ${rule.user_access}`);
         return rule.user_access;
       default:
-        console.log(`SessionContextProvider: Unknown role '${profile.role}' trying to access ${normalizedPath}. Denying access.`);
         return false;
     }
   }, [pageAccessRules, profile, session]);
 
   // Efeito para redirecionamento baseado no acesso
   useEffect(() => {
-    console.log('SessionContextProvider: Redirection effect triggered. isLoading (context):', isLoadingSessionAndProfile, 'session (context):', session, 'profile (context):', profile, 'path:', location.pathname);
     if (!isLoadingSessionAndProfile) {
       const currentPath = location.pathname;
       const isLoginPage = currentPath === '/login';
@@ -175,7 +160,6 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
       if (isLoginPage || isSignupPage || isResetPasswordPage || isForgotPasswordPage) {
         if (session && isLoginPage) {
-          console.log('SessionContextProvider: Logged in user on login page, redirecting to /');
           navigate('/');
           showError('Você já está logado.');
         }
@@ -185,17 +169,11 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       if (!checkPageAccess(currentPath)) {
         showError('Você não tem permissão para acessar esta página.');
         if (!session) {
-          console.log('SessionContextProvider: Unauthenticated user without access, redirecting to /login');
           navigate('/login');
         } else {
-          console.log('SessionContextProvider: Authenticated user without access, redirecting to /');
           navigate('/');
         }
-      } else {
-        console.log('SessionContextProvider: User has access to', currentPath);
       }
-    } else {
-      console.log('SessionContextProvider: Redirection effect skipped because isLoading is true.');
     }
   }, [isLoadingSessionAndProfile, session, location.pathname, navigate, checkPageAccess, profile]);
 

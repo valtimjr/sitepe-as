@@ -42,13 +42,11 @@ const seedPartsFromJson = async (): Promise<void> => {
     // Fallback para IndexedDB para verificar se já há dados localmente
     const localPartsCount = await localDb.parts.count();
     if (localPartsCount > 0) {
-      console.log('Falling back to IndexedDB for parts as Supabase check failed.');
       return;
     }
   }
 
   if (supabasePartsCount && supabasePartsCount > 0) {
-    console.log('Parts already seeded in Supabase.');
     return;
   }
 
@@ -58,7 +56,6 @@ const seedPartsFromJson = async (): Promise<void> => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const parsedParts: Part[] = await response.json();
-    console.log('Parsed parts from JSON:', parsedParts);
 
     // Adiciona ao Supabase
     const { error: insertError } = await supabase
@@ -69,11 +66,9 @@ const seedPartsFromJson = async (): Promise<void> => {
       console.error('Failed to seed parts to Supabase:', insertError);
       throw insertError;
     }
-    console.log('Parts seeded from JSON to Supabase.');
 
     // Também adiciona ao IndexedDB para cache local
     await bulkPutLocalParts(parsedParts);
-    console.log('Parts also seeded to IndexedDB.');
 
   } catch (error) {
     console.error("Failed to fetch or parse parts.json or seed Supabase/IndexedDB:", error);
@@ -81,7 +76,6 @@ const seedPartsFromJson = async (): Promise<void> => {
 };
 
 const seedAfs = async (): Promise<void> => {
-  console.log('--- Starting seedAfs process ---');
   // 1. Primeiro, verifica se há AFs no Supabase
   const { count: supabaseAfsCount, error: countError } = await supabase
     .from('afs')
@@ -92,28 +86,23 @@ const seedAfs = async (): Promise<void> => {
     // Se houver erro ao contar, tenta carregar do IndexedDB como fallback
     const localAfsCount = await localDb.afs.count();
     if (localAfsCount > 0) {
-      console.log('seedAfs: Falling back to IndexedDB for AFs as Supabase check failed.');
       return;
     }
   }
 
   if (supabaseAfsCount && supabaseAfsCount > 0) {
-    console.log('seedAfs: AFs already seeded in Supabase. Count:', supabaseAfsCount);
     return;
   }
-  console.log('seedAfs: Supabase AFs table is empty or check failed, attempting to seed.');
 
   let parsedAfs: Af[] = [];
   let source = '';
 
   // 2. Tenta carregar do public/data/afs.json
   try {
-    console.log('seedAfs: Attempting to fetch from /data/afs.json');
     const response = await fetch('/data/afs.json'); // Caminho atualizado
     if (response.ok) {
       parsedAfs = await response.json();
       source = 'JSON';
-      console.log('seedAfs: AFs loaded from JSON:', parsedAfs);
     } else {
       console.warn('seedAfs: Failed to fetch afs.json, trying CSV. Status:', response.status);
     }
@@ -124,7 +113,6 @@ const seedAfs = async (): Promise<void> => {
   // 3. Se JSON falhou ou estava vazio, tenta carregar do public/afs.csv
   if (parsedAfs.length === 0) {
     try {
-      console.log('seedAfs: Attempting to fetch from /afs.csv');
       const response = await fetch('/afs.csv');
       if (response.ok) {
         const csvText = await response.text();
@@ -138,7 +126,6 @@ const seedAfs = async (): Promise<void> => {
                 af_number: row.af_number,
               }));
               source = 'CSV';
-              console.log('seedAfs: AFs loaded from CSV:', parsedAfs);
               resolve();
             },
             error: (error: Error) => {
@@ -157,7 +144,6 @@ const seedAfs = async (): Promise<void> => {
   // 4. Se dados foram encontrados, adiciona ao Supabase e IndexedDB
   if (parsedAfs.length > 0) {
     try {
-      console.log('seedAfs: Upserting AFs into Supabase...');
       const { error: upsertError } = await supabase
         .from('afs')
         .upsert(parsedAfs, { onConflict: 'id' }); // Usando upsert para evitar duplicatas
@@ -166,17 +152,14 @@ const seedAfs = async (): Promise<void> => {
         console.error('seedAfs: Failed to upsert AFs to Supabase:', upsertError);
         throw upsertError;
       }
-      console.log(`seedAfs: AFs upserted from ${source} to Supabase.`);
 
       await bulkPutLocalAfs(parsedAfs);
-      console.log('seedAfs: AFs also seeded to IndexedDB.');
     } catch (dbError) {
       console.error("seedAfs: Failed to seed Supabase/IndexedDB with AFs:", dbError);
     }
   } else {
     console.warn('seedAfs: No AFs found in JSON or CSV to seed.');
   }
-  console.log('--- Finished seedAfs process ---');
 };
 
 export const getParts = async (): Promise<Part[]> => {
@@ -190,7 +173,6 @@ export const getParts = async (): Promise<Part[]> => {
   if (error) {
     console.error('Error fetching parts from Supabase:', error);
     // Fallback para IndexedDB se Supabase falhar
-    console.log('Falling back to IndexedDB for parts.');
     return getLocalParts();
   }
 
@@ -269,7 +251,6 @@ export const searchParts = async (query: string): Promise<Part[]> => {
   if (error) {
     console.error('Error searching parts in Supabase:', error);
     // Fallback para IndexedDB se Supabase falhar
-    console.log('Falling back to IndexedDB for search.');
     return searchLocalParts(query); // Passa a query original para a busca local
   }
 
@@ -366,7 +347,6 @@ export const getAfsFromService = async (): Promise<Af[]> => {
   if (error) {
     console.error('Error fetching AFs from Supabase:', error);
     // Fallback para IndexedDB se Supabase falhar
-    console.log('Falling back to IndexedDB for AFs.');
     return getLocalAfs();
   }
 
@@ -496,10 +476,8 @@ export const clearServiceOrderList = async (): Promise<void> => {
 };
 
 export const getUniqueAfs = async (): Promise<string[]> => {
-  console.log('getUniqueAfs: Calling getAfsFromService to ensure data is loaded and cached...');
   // Chama getAfsFromService para garantir que os AFs completos (com ID) sejam buscados e o cache local seja atualizado.
   const allAfs = await getAfsFromService(); 
-  console.log('getUniqueAfs: All AFs (including IDs) fetched:', allAfs);
   // Mapeia para retornar apenas os números dos AFs, como esperado pela interface.
   return allAfs.map(af => af.af_number).sort();
 };
