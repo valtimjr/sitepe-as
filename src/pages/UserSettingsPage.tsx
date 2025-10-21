@@ -110,9 +110,9 @@ const UserSettingsPage: React.FC = () => {
     }
   };
 
-  // O callback agora pode ser vazio, pois o formulário já exibe o toast de sucesso
+  // O callback agora aciona o recarregamento do perfil
   const handlePasswordChanged = () => {
-    // Nenhuma ação adicional necessária aqui, o formulário já exibe o toast
+    fetchUserProfile(); // Recarrega o perfil para resolver o estado de carregamento
   };
 
   if (isSessionLoading || isProfileLoading) {
