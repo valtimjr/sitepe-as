@@ -79,17 +79,12 @@ const AppHeader: React.FC = () => {
             </>
           ) : (
             <>
-              <span className="font-medium text-sm">Visitante</span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/login">
-                    <Button variant="ghost" size="icon" aria-label="Login">
-                      <LogIn className="h-5 w-5" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>Login</TooltipContent>
-              </Tooltip>
+              <span className="font-medium text-sm">Olá, Visitante</span> {/* Texto atualizado */}
+              <Link to="/login">
+                <Button variant="ghost" className="flex items-center gap-2"> {/* Botão com label e ícone */}
+                  <LogIn className="h-5 w-5" /> Login
+                </Button>
+              </Link>
             </>
           )}
         </div>
