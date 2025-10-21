@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, LogOut } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
@@ -12,52 +12,74 @@ import { useSession } from '@/components/SessionContextProvider';
 
 const AdminDashboard: React.FC = () => {
   const { user, isLoading } = useSession();
+  const navigate = useNavigate();
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isRoleLoading, setIsRoleLoading] = useState(true);
 
   useEffect(() => {
     document.title = "Admin - Gerenciador de Peças";
   }, []);
 
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (user) {
+        setIsRoleLoading(true);
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+          if (error) {
+            console.error('AdminDashboard: Error fetching user role:', error);
+            showError('Erro ao carregar seu perfil. Por favor, tente novamente.');
+            setUserRole(null);
+          } else if (data) {
+            setUserRole(data.role);
+            if (data.role !== 'admin') {
+              showError('Você não tem permissão para acessar esta página.');
+              navigate('/'); // Redireciona para a página inicial se não for admin
+            }
+          } else {
+            // Perfil não encontrado, pode ser um usuário recém-criado sem perfil ainda
+            console.warn('AdminDashboard: User profile not found for role check.');
+            showError('Seu perfil não foi encontrado. Redirecionando para o início.');
+            navigate('/');
+          }
+        } catch (error) {
+          console.error('AdminDashboard: Unexpected error fetching user role:', error);
+          showError('Ocorreu um erro inesperado ao verificar suas permissões.');
+          navigate('/');
+        } finally {
+          setIsRoleLoading(false);
+        }
+      } else if (!isLoading) {
+        // Se não há usuário e não está carregando, significa que não está autenticado
+        navigate('/login');
+      }
+    };
+
+    fetchUserRole();
+  }, [user, isLoading, navigate]);
+
   const handleLogout = async () => {
     try {
       console.log('AdminDashboard: Attempting logout...');
-
-      // Tenta atualizar a sessão primeiro para garantir que temos um refresh token válido
-      console.log('AdminDashboard: Attempting to refresh session before signOut...');
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-
-      if (refreshError) {
-        console.error('AdminDashboard: Error refreshing session:', refreshError);
-        // Se a atualização falhar, a sessão provavelmente está inválida. Procede para desconectar localmente.
-        await supabase.auth.signOut(); // Ainda chama signOut para limpar o armazenamento local
-        showError(`Sessão expirada ou inválida. Desconectado. (${refreshError.message})`);
-        console.log('AdminDashboard: Session refresh failed, performed local cleanup.');
-        return;
-      }
-
-      const currentSession = refreshData.session;
-      console.log('AdminDashboard: Current session after refresh (before signOut):', currentSession);
-
-      if (!currentSession) {
-        // Se não há sessão após a atualização, significa que a sessão já havia sumido ou estava inválida.
-        await supabase.auth.signOut(); // Ainda chama signOut para limpar o armazenamento local
-        showSuccess('Você já estava desconectado. Limpando dados locais.');
-        console.log('AdminDashboard: No active session found after refresh, performed cleanup.');
-        return;
-      }
-
       const { error } = await supabase.auth.signOut();
       if (error) {
         throw error;
       }
       showSuccess('Você foi desconectado com sucesso!');
       console.log('AdminDashboard: Successfully signed out.');
+      navigate('/login'); // Redireciona para o login após o logout
     } catch (error: any) {
       showError(`Erro ao desconectar: ${error.message}`);
       console.error('AdminDashboard: Logout error:', error);
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isRoleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <p>Carregando painel de administração...</p>
@@ -65,8 +87,8 @@ const AdminDashboard: React.FC = () => {
     );
   }
 
-  if (!user) {
-    // Redirecionamento é tratado pelo SessionContextProvider
+  if (!user || userRole !== 'admin') {
+    // Redirecionamento já é tratado no useEffect
     return null;
   }
 

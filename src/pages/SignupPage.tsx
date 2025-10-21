@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Auth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +6,7 @@ import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
+import CustomSignupForm from '@/components/CustomSignupForm'; // Importar o novo componente
 
 const SignupPage: React.FC = () => {
   const { uuid } = useParams<{ uuid: string }>();
@@ -57,36 +56,10 @@ const SignupPage: React.FC = () => {
 
     checkInvite();
 
-    // Listener para marcar o convite como usado após o cadastro
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user && isValidInvite) {
-        console.log('SignupPage: SIGNED_IN event detected. Attempting to mark invite as used.');
-        console.log('SignupPage: session.user.id:', session.user.id);
-        console.log('SignupPage: uuid from params:', uuid);
-
-        try {
-          const { error } = await supabase
-            .from('invites')
-            .update({ is_used: true, used_by: session.user.id, used_at: new Date().toISOString() })
-            .eq('invite_code', uuid);
-
-          if (error) {
-            console.error('SignupPage: Erro ao marcar convite como usado:', error);
-            console.error('SignupPage: Supabase update error details:', JSON.stringify(error, null, 2));
-            showError('Erro ao finalizar o convite. Por favor, contate o suporte.');
-          } else {
-            console.log('SignupPage: Convite marcado como usado com sucesso.');
-          }
-        } catch (error) {
-          console.error('SignupPage: Erro inesperado ao marcar convite como usado:', error);
-        }
-      }
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [uuid, isValidInvite]);
+    // O listener de authStateChange para marcar o convite como usado foi movido para CustomSignupForm
+    // para garantir que seja chamado no momento certo do processo de signup.
+    // Este useEffect agora apenas verifica a validade do convite.
+  }, [uuid]);
 
   const handleGoHome = () => {
     navigate('/');
@@ -138,33 +111,7 @@ const SignupPage: React.FC = () => {
           <CardTitle className="text-2xl text-center">Criar Conta</CardTitle>
         </CardHeader>
         <CardContent>
-          <Auth
-            supabaseClient={supabase}
-            providers={[]}
-            appearance={{
-              theme: ThemeSupa,
-              variables: {
-                default: {
-                  colors: {
-                    brand: 'hsl(var(--primary))',
-                    brandAccent: 'hsl(var(--accent))',
-                    inputBackground: 'hsl(var(--input))',
-                    inputBorder: 'hsl(var(--border))',
-                    inputBorderHover: 'hsl(var(--ring))',
-                    inputBorderFocus: 'hsl(var(--ring))',
-                    inputText: 'hsl(var(--foreground))',
-                    defaultButtonBackground: 'hsl(var(--primary))',
-                    defaultButtonBackgroundHover: 'hsl(var(--primary-foreground))',
-                    defaultButtonBorder: 'hsl(var(--primary))',
-                    defaultButtonText: 'hsl(var(--primary-foreground))',
-                  },
-                },
-              },
-            }}
-            theme="light"
-            redirectTo={window.location.origin + '/admin'}
-            view="sign_up"
-          />
+          <CustomSignupForm uuid={uuid} />
         </CardContent>
       </Card>
       <MadeWithDyad />
