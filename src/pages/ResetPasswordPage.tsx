@@ -18,7 +18,7 @@ const ResetPasswordPage: React.FC = () => {
 
   const handlePasswordReset = () => {
     // Esta função será chamada após a senha ser redefinida com sucesso
-    navigate('/login'); // Redireciona para a página de login
+    navigate('/'); // Redireciona para a página inicial
   };
 
   useEffect(() => {
