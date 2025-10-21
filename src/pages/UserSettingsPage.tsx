@@ -15,9 +15,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserProfile } from '@/types/supabase'; // Importar o tipo UserProfile
 
 const UserSettingsPage: React.FC = () => {
-  const { user, isLoading: isSessionLoading } = useSession();
+  const { user, isLoading: isSessionLoading, profile: sessionProfile } = useSession(); // Renomeado profile para sessionProfile para evitar conflito
   const navigate = useNavigate();
-  const [profileData, setProfileData] = useState<UserProfile | null>(null); // Renomeado para evitar conflito
+  const [profileData, setProfileData] = useState<UserProfile | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [badge, setBadge] = useState('');
@@ -30,9 +30,10 @@ const UserSettingsPage: React.FC = () => {
   }, []);
 
   const fetchUserProfile = useCallback(async () => {
+    console.log('UserSettingsPage: fetchUserProfile called. Current user:', user, 'isSessionLoading:', isSessionLoading);
     if (!user) {
-      console.warn('UserSettingsPage: No user found, redirecting to login.');
-      setIsProfileLoading(false); // Garante que o estado de carregamento seja limpo
+      console.warn('UserSettingsPage: No user found in session, redirecting to login.');
+      setIsProfileLoading(false);
       navigate('/login');
       return;
     }
@@ -40,11 +41,12 @@ const UserSettingsPage: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('first_name, last_name, badge, avatar_url, role, id, updated_at') // Selecionar todos os campos do UserProfile
+        .select('first_name, last_name, badge, avatar_url, role, id, updated_at')
         .eq('id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 means "no rows found"
+      if (error && error.code !== 'PGRST116') {
+        console.error('UserSettingsPage: Error fetching user profile from DB:', error);
         throw error;
       }
 
@@ -54,27 +56,30 @@ const UserSettingsPage: React.FC = () => {
         setLastName(data.last_name || '');
         setBadge(data.badge || '');
         setAvatarUrl(data.avatar_url || '');
+        console.log('UserSettingsPage: User profile data loaded:', data);
       } else {
-        // Se o perfil não existir, inicializa com valores vazios
-        setProfileData(null); // Não há perfil, então é null
+        console.log('UserSettingsPage: No profile found for user, initializing with empty values.');
+        setProfileData(null);
         setFirstName('');
         setLastName('');
         setBadge('');
         setAvatarUrl('');
       }
     } catch (error: any) {
-      console.error('Erro ao carregar perfil do usuário:', error);
+      console.error('UserSettingsPage: Error loading user profile (catch block):', error);
       showError(`Erro ao carregar perfil: ${error.message}`);
     } finally {
       setIsProfileLoading(false);
+      console.log('UserSettingsPage: Profile loading finished. isProfileLoading set to false.');
     }
-  }, [user, navigate]);
+  }, [user, navigate, isSessionLoading]); // Adicionado isSessionLoading como dependência para clareza
 
   useEffect(() => {
+    console.log('UserSettingsPage: Main useEffect triggered. isSessionLoading:', isSessionLoading, 'user:', user);
     if (!isSessionLoading) {
       fetchUserProfile();
     }
-  }, [isSessionLoading, fetchUserProfile]);
+  }, [isSessionLoading, fetchUserProfile, user]); // Adicionado user como dependência
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,21 +106,22 @@ const UserSettingsPage: React.FC = () => {
       }
 
       showSuccess('Perfil atualizado com sucesso!');
-      fetchUserProfile(); // Recarrega o perfil para garantir que os dados estejam sincronizados
+      await fetchUserProfile(); // Recarrega o perfil para garantir que os dados estejam sincronizados
     } catch (error: any) {
-      console.error('Erro ao atualizar perfil:', error);
+      console.error('UserSettingsPage: Error updating profile:', error);
       showError(`Erro ao atualizar perfil: ${error.message}`);
     } finally {
       setIsSavingProfile(false);
     }
   };
 
-  // O callback agora aciona o recarregamento do perfil
   const handlePasswordChanged = () => {
-    fetchUserProfile(); // Recarrega o perfil para resolver o estado de carregamento
+    console.log('UserSettingsPage: Password changed callback triggered.');
+    fetchUserProfile();
   };
 
   if (isSessionLoading || isProfileLoading) {
+    console.log('UserSettingsPage: Displaying loading state. isSessionLoading:', isSessionLoading, 'isProfileLoading:', isProfileLoading);
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <p>Carregando configurações do usuário...</p>
@@ -124,7 +130,8 @@ const UserSettingsPage: React.FC = () => {
   }
 
   if (!user) {
-    return null; // Redirecionamento já é tratado no useEffect
+    console.log('UserSettingsPage: No user, returning null (redirection expected from SessionContextProvider).');
+    return null;
   }
 
   const getInitials = (fName: string | null, lName: string | null) => {
@@ -135,7 +142,6 @@ const UserSettingsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      {/* Removido o div com o botão "Voltar ao Início" */}
       <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
       <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary">
         Configurações do Usuário
