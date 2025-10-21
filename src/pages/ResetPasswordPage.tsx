@@ -16,11 +16,6 @@ const ResetPasswordPage: React.FC = () => {
     document.title = "Redefinir Senha - Gerenciador de Peças";
   }, []);
 
-  // O handleGoHome foi removido, pois o logo no cabeçalho serve para isso.
-  // const handleGoHome = () => {
-  //   navigate('/');
-  // };
-
   const handlePasswordUpdated = () => {
     // Esta função será chamada após a senha ser atualizada com sucesso
     navigate('/login'); // Redireciona para a página de login
@@ -55,7 +50,7 @@ const ResetPasswordPage: React.FC = () => {
           <CardTitle className="text-2xl text-center">Redefinir Senha</CardTitle>
         </CardHeader>
         <CardContent>
-          <UpdatePasswordForm onPasswordUpdated={handlePasswordUpdated} />
+          <UpdatePasswordForm onPasswordUpdated={handlePasswordUpdated} isResetFlow={true} /> {/* Passando isResetFlow={true} */}
         </CardContent>
       </Card>
       <MadeWithDyad />

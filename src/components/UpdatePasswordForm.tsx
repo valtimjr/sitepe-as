@@ -7,15 +7,16 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Loader2 } from 'lucide-react';
-import { useSession } from '@/components/SessionContextProvider'; // Import useSession
+import { useSession } from '@/components/SessionContextProvider';
 
 interface UpdatePasswordFormProps {
   onPasswordUpdated: () => void;
+  isResetFlow?: boolean; // Nova prop para indicar se é um fluxo de redefinição
 }
 
-const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdated }) => {
-  const { user } = useSession(); // Get the current user from session context
-  const [currentPassword, setCurrentPassword] = useState(''); // New state for current password
+const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdated, isResetFlow = false }) => {
+  const { user } = useSession();
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -24,11 +25,6 @@ const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdat
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError('');
-
-    if (!user?.email) {
-      showError('Não foi possível obter o e-mail do usuário para verificação.');
-      return;
-    }
 
     if (newPassword.length < 6) {
       setPasswordError('A nova senha deve ter pelo menos 6 caracteres.');
@@ -40,29 +36,35 @@ const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdat
       return;
     }
 
-    if (currentPassword === newPassword) {
+    if (!isResetFlow && currentPassword === newPassword) {
       setPasswordError('A nova senha não pode ser igual à senha atual.');
       return;
     }
 
     setIsLoading(true);
     try {
-      // 1. Re-authenticate with current password
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: currentPassword,
-      });
-
-      if (signInError) {
-        if (signInError.message.includes('Invalid login credentials')) {
-          setPasswordError('A senha atual está incorreta.');
-        } else {
-          throw signInError;
+      if (!isResetFlow) {
+        // Modo "Atualizar Senha" (requer senha atual)
+        if (!user?.email) {
+          showError('Não foi possível obter o e-mail do usuário para verificação.');
+          return;
         }
-        return; // Stop if re-authentication fails
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: currentPassword,
+        });
+
+        if (signInError) {
+          if (signInError.message.includes('Invalid login credentials')) {
+            setPasswordError('A senha atual está incorreta.');
+          } else {
+            throw signInError;
+          }
+          return;
+        }
       }
 
-      // 2. If re-authentication successful, update the password
+      // Atualiza a senha (ocorre após reautenticação no modo normal, ou diretamente no reset flow)
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       });
@@ -72,8 +74,8 @@ const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdat
       }
 
       showSuccess('Sua senha foi atualizada com sucesso!');
-      onPasswordUpdated(); // Notifies parent to redirect or handle success
-      // Clear fields
+      onPasswordUpdated();
+      // Limpa os campos
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -87,18 +89,20 @@ const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdat
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label htmlFor="current-password">Senha Atual</Label>
-        <Input
-          id="current-password"
-          type="password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          placeholder="Digite sua senha atual"
-          required
-          disabled={isLoading}
-        />
-      </div>
+      {!isResetFlow && ( // Campo de senha atual visível apenas no modo normal
+        <div>
+          <Label htmlFor="current-password">Senha Atual</Label>
+          <Input
+            id="current-password"
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="Digite sua senha atual"
+            required
+            disabled={isLoading}
+          />
+        </div>
+      )}
       <div>
         <Label htmlFor="new-password">Nova Senha</Label>
         <Input
