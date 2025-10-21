@@ -39,6 +39,7 @@ const UserSettingsPage: React.FC = () => {
     }
     setIsProfileLoading(true);
     try {
+      console.log('UserSettingsPage: Attempting to fetch profile for user ID:', user.id); // NOVO LOG
       const { data, error } = await supabase
         .from('profiles')
         .select('first_name, last_name, badge, avatar_url, role, id, updated_at')
@@ -69,7 +70,7 @@ const UserSettingsPage: React.FC = () => {
       console.error('UserSettingsPage: Error loading user profile (catch block):', error);
       showError(`Erro ao carregar perfil: ${error.message}`);
     } finally {
-      console.log('UserSettingsPage: Inside fetchUserProfile finally block. Setting isProfileLoading to false.'); // NOVO LOG
+      console.log('UserSettingsPage: Inside fetchUserProfile finally block. Setting isProfileLoading to false.');
       setIsProfileLoading(false);
       console.log('UserSettingsPage: Profile loading finished. isProfileLoading set to false.');
     }
