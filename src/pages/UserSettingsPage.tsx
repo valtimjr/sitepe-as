@@ -31,6 +31,8 @@ const UserSettingsPage: React.FC = () => {
 
   const fetchUserProfile = useCallback(async () => {
     if (!user) {
+      console.warn('UserSettingsPage: No user found, redirecting to login.');
+      setIsProfileLoading(false); // Garante que o estado de carregamento seja limpo
       navigate('/login');
       return;
     }

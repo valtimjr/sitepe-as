@@ -73,11 +73,14 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       }
       setSession(initialSession);
       setUser(initialSession?.user || null);
+      console.log('SessionContextProvider: Initial session after update:', initialSession, 'Initial user after update:', initialSession?.user);
+
 
       if (initialSession?.user) {
         await fetchUserProfile(initialSession.user.id);
       } else {
         setProfile(null);
+        console.log('SessionContextProvider: Initial load - No user, profile set to null.');
       }
       await fetchPageAccessRules();
       setIsLoading(false);
@@ -91,11 +94,13 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         console.log('SessionContextProvider: Auth state changed. Event:', event, 'Session:', currentSession);
         setSession(currentSession);
         setUser(currentSession?.user || null);
+        console.log('SessionContextProvider: State updated. Current session:', currentSession, 'Current user:', currentSession?.user);
 
         if (currentSession?.user) {
           await fetchUserProfile(currentSession.user.id);
         } else {
           setProfile(null);
+          console.log('SessionContextProvider: User logged out, profile set to null.');
         }
         // Re-fetch page access rules on auth state change just in case (e.g., role change)
         await fetchPageAccessRules();
@@ -148,6 +153,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   // Efeito para redirecionamento baseado no acesso
   useEffect(() => {
+    console.log('SessionContextProvider: Redirection effect triggered. isLoading (context):', isLoading, 'session (context):', session, 'profile (context):', profile, 'path:', location.pathname);
     if (!isLoading) { // Certifica-se de que a sessão e o perfil foram carregados
       const currentPath = location.pathname;
       const isLoginPage = currentPath === '/login';
@@ -159,6 +165,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       // e que não devem redirecionar se o usuário já estiver logado (exceto a própria página de login)
       if (isLoginPage || isSignupPage || isResetPasswordPage || isForgotPasswordPage) {
         if (session && isLoginPage) {
+          console.log('SessionContextProvider: Logged in user on login page, redirecting to /');
           // Se logado e na página de login, redireciona para /
           navigate('/');
           showError('Você já está logado.');
@@ -172,13 +179,19 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         // Se não está logado e não tem acesso, redireciona para o login
         // Se está logado mas não tem acesso, redireciona para a página inicial
         if (!session) {
+          console.log('SessionContextProvider: Unauthenticated user without access, redirecting to /login');
           navigate('/login');
         } else {
+          console.log('SessionContextProvider: Authenticated user without access, redirecting to /');
           navigate('/');
         }
+      } else {
+        console.log('SessionContextProvider: User has access to', currentPath);
       }
+    } else {
+      console.log('SessionContextProvider: Redirection effect skipped because isLoading is true.');
     }
-  }, [isLoading, session, location.pathname, navigate, checkPageAccess]);
+  }, [isLoading, session, location.pathname, navigate, checkPageAccess, profile]);
 
 
   return (

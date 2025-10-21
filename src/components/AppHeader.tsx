@@ -24,15 +24,18 @@ const AppHeader: React.FC = () => {
 
   const handleLogout = async () => {
     try {
+      console.log('AppHeader: Attempting to log out...');
       const { error } = await supabase.auth.signOut();
       if (error) {
+        console.error('AppHeader: Supabase signOut error:', error);
         throw error;
       }
+      console.log('AppHeader: Supabase signOut successful. Navigating to /login.');
       showSuccess('Você foi desconectado com sucesso!');
       navigate('/login');
     } catch (error: any) {
       showError(`Erro ao desconectar: ${error.message}`);
-      console.error('Logout error:', error);
+      console.error('AppHeader: Logout error:', error);
     }
   };
 
