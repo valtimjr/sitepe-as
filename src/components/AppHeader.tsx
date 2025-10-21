@@ -110,7 +110,7 @@ const AppHeader: React.FC = () => {
                   <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
                 </Avatar>
                 <span className="font-medium text-sm hidden sm:inline">
-                  Olá, {profile?.first_name || user?.email?.split('@')[0] || 'Usuário'}
+                  Olá, {profile?.first_name || 'Usuário'}
                 </span>
               </div>
               <Tooltip>
