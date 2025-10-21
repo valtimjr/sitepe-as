@@ -26,36 +26,23 @@ const UserSettingsPage: React.FC = () => {
   
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // NOVO LOG DE RENDERIZAÇÃO
-  console.log('UserSettingsPage: Render. isSessionLoading:', isSessionLoading, 'sessionProfile:', sessionProfile, 'user:', user);
-
   useEffect(() => {
     document.title = "Configurações do Usuário - Gerenciador de Peças";
   }, []);
 
   // Populate form fields when sessionProfile changes or becomes available
   useEffect(() => {
-    console.log('UserSettingsPage: useEffect for populating fields triggered.');
-    console.log('  Current isSessionLoading:', isSessionLoading);
-    console.log('  Current sessionProfile:', sessionProfile);
-    console.log('  Current user:', user);
-
     if (!isSessionLoading && sessionProfile) {
-      console.log('UserSettingsPage: Conditions met: !isSessionLoading && sessionProfile is true.');
       setFirstName(sessionProfile.first_name || '');
       setLastName(sessionProfile.last_name || '');
       setBadge(sessionProfile.badge || '');
       setAvatarUrl(sessionProfile.avatar_url || '');
-      console.log('UserSettingsPage: Form fields populated from sessionProfile.');
     } else if (!isSessionLoading && !sessionProfile && user) {
       // If user is logged in but no profile found, initialize with empty values
-      console.log('UserSettingsPage: Conditions met: !isSessionLoading && !sessionProfile && user is true (user logged in but no profile).');
       setFirstName('');
       setLastName('');
       setBadge('');
       setAvatarUrl('');
-    } else {
-      console.log('UserSettingsPage: Conditions for populating fields not met. isSessionLoading:', isSessionLoading, 'sessionProfile:', sessionProfile, 'user:', user);
     }
   }, [sessionProfile, isSessionLoading, user]);
 
@@ -84,9 +71,6 @@ const UserSettingsPage: React.FC = () => {
       }
 
       showSuccess('Perfil atualizado com sucesso!');
-      // No need to call fetchUserProfile here, SessionContextProvider's onAuthStateChange will handle it
-      // or a manual refresh of the profile in context could be triggered if needed.
-      // For now, relying on the context to update.
     } catch (error: any) {
       console.error('UserSettingsPage: Error updating profile:', error);
       showError(`Erro ao atualizar perfil: ${error.message}`);
@@ -97,13 +81,10 @@ const UserSettingsPage: React.FC = () => {
 
   const handlePasswordChanged = () => {
     console.log('UserSettingsPage: Password changed callback triggered.');
-    // No need to fetch profile here, as password change doesn't affect profile data directly.
-    // If profile data was affected, SessionContextProvider would handle it.
   };
 
   // The main loading state for the page
   if (isSessionLoading) {
-    console.log('UserSettingsPage: Displaying loading state. isSessionLoading:', isSessionLoading);
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <p>Carregando configurações do usuário...</p>
@@ -113,7 +94,6 @@ const UserSettingsPage: React.FC = () => {
 
   // If not loading and no user, redirect to login (handled by SessionContextProvider, but good to have a fallback)
   if (!user) {
-    console.log('UserSettingsPage: No user, returning null (redirection expected from SessionContextProvider).');
     return null;
   }
 

@@ -68,66 +68,54 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     }
   }, []);
 
-  // Inicializa sessão, perfil e regras de acesso
-  useEffect(() => {
-    console.log('SessionContextProvider: Initializing session, profile, and page access rules.');
-    const getInitialData = async () => {
-      setIsLoadingSessionAndProfile(true); // Inicia o carregamento
-      try {
+  // Função centralizada para carregar todos os dados
+  const loadAllData = useCallback(async (initialCall: boolean, currentSession?: Session | null) => {
+    setIsLoadingSessionAndProfile(true);
+    let sessionToUse = currentSession;
+    let userToUse: User | null = null;
+
+    try {
+      if (initialCall) {
         const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) {
           console.error('SessionContextProvider: Error getting initial session:', sessionError);
         }
-        setSession(initialSession);
-        setUser(initialSession?.user || null);
-        console.log('SessionContextProvider: Initial session after update:', initialSession, 'Initial user after update:', initialSession?.user);
-
-        let fetchedProfile: UserProfile | null = null;
-        if (initialSession?.user) {
-          fetchedProfile = await fetchUserProfile(initialSession.user.id);
-          setProfile(fetchedProfile);
-        } else {
-          setProfile(null);
-          console.log('SessionContextProvider: Initial load - No user, profile set to null.');
-        }
-        
-        const fetchedRules = await fetchPageAccessRules();
-        setPageAccessRules(fetchedRules);
-
-      } catch (e) {
-        console.error('SessionContextProvider: Error during initial data fetch:', e);
-      } finally {
-        console.log('SessionContextProvider: Before setting isLoadingSessionAndProfile to false. Current profile state:', profile); // NOVO LOG
-        setIsLoadingSessionAndProfile(false); // Finaliza o carregamento apenas após tentar carregar sessão e perfil
-        console.log('SessionContextProvider: Initial data loading finished. isLoadingSessionAndProfile set to false.');
+        sessionToUse = initialSession;
       }
-    };
 
-    getInitialData();
+      setSession(sessionToUse);
+      userToUse = sessionToUse?.user || null;
+      setUser(userToUse);
+
+      let fetchedProfile: UserProfile | null = null;
+      if (userToUse) {
+        fetchedProfile = await fetchUserProfile(userToUse.id);
+      }
+      setProfile(fetchedProfile); // Este setProfile agora é aguardado antes de isLoading ser false
+
+      const fetchedRules = await fetchPageAccessRules();
+      setPageAccessRules(fetchedRules);
+
+    } catch (e) {
+      console.error('SessionContextProvider: Error during data fetch in loadAllData:', e);
+    } finally {
+      // Define isLoadingSessionAndProfile como false APENAS depois que todos os estados foram atualizados
+      setIsLoadingSessionAndProfile(false);
+      console.log('SessionContextProvider: All data loaded. isLoadingSessionAndProfile set to false.');
+    }
+  }, [fetchUserProfile, fetchPageAccessRules]);
+
+
+  // Inicializa sessão, perfil e regras de acesso
+  useEffect(() => {
+    console.log('SessionContextProvider: Initializing session, profile, and page access rules.');
+    loadAllData(true); // Chamada inicial
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         console.log('SessionContextProvider: Auth state changed. Event:', event, 'Current Session:', currentSession);
-        setIsLoadingSessionAndProfile(true); // Inicia o carregamento novamente na mudança de estado de autenticação
-        setSession(currentSession);
-        setUser(currentSession?.user || null);
-        console.log('SessionContextProvider: State updated by auth listener. Current session:', currentSession, 'Current user:', currentSession?.user);
-
-        let fetchedProfile: UserProfile | null = null;
-        if (currentSession?.user) {
-          fetchedProfile = await fetchUserProfile(currentSession.user.id);
-          setProfile(fetchedProfile);
-        } else {
-          setProfile(null);
-          console.log('SessionContextProvider: Auth listener - No user, profile set to null.');
-        }
-        
-        const fetchedRules = await fetchPageAccessRules();
-        setPageAccessRules(fetchedRules);
-
-        console.log('SessionContextProvider: Before setting isLoadingSessionAndProfile to false in auth listener. Current profile state:', profile); // NOVO LOG
-        setIsLoadingSessionAndProfile(false); // Finaliza o carregamento
-        console.log('SessionContextProvider: Auth state change processing finished. isLoadingSessionAndProfile set to false.');
+        // Para mudanças de estado de autenticação, re-executamos a lógica de carregamento
+        loadAllData(false, currentSession);
       }
     );
 
@@ -135,7 +123,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       console.log('SessionContextProvider: Cleaning up auth state change listener.');
       authListener.subscription.unsubscribe();
     };
-  }, [fetchUserProfile, fetchPageAccessRules]);
+  }, [loadAllData]); // Dependência de loadAllData
 
   // Função para verificar o acesso à página
   const checkPageAccess = useCallback((path: string): boolean => {
