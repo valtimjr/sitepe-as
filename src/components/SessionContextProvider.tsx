@@ -121,11 +121,17 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       return false;
     }
 
+    // Se não há sessão, é um usuário guest
+    if (!session) {
+      return rule.guest_access;
+    }
+
+    // Se há sessão, mas o perfil ainda não foi carregado, assume-se o acesso de usuário padrão
+    // ou nega para segurança até que o perfil seja carregado.
+    // Para este caso, vamos negar para segurança até que o perfil esteja disponível.
     if (!profile?.role) {
-      // Se não há perfil ou role, assume-se que não está autenticado ou perfil incompleto
-      // E verifica se a página permite acesso para não autenticados (que não é o caso aqui, mas boa prática)
-      // Para páginas públicas, a regra deve ter user_access: true
-      return rule.user_access; // Se user_access for true, permite. Caso contrário, nega.
+      console.warn(`SessionContextProvider: Authenticated user without loaded profile trying to access ${normalizedPath}. Denying access until profile is loaded.`);
+      return false;
     }
 
     switch (profile.role) {
@@ -138,7 +144,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       default:
         return false; // Role desconhecido, nega acesso
     }
-  }, [pageAccessRules, profile]);
+  }, [pageAccessRules, profile, session]);
 
   // Efeito para redirecionamento baseado no acesso
   useEffect(() => {
@@ -150,6 +156,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       const isForgotPasswordPage = currentPath === '/forgot-password';
 
       // Páginas que são sempre acessíveis (login, signup, reset, forgot password)
+      // e que não devem redirecionar se o usuário já estiver logado (exceto a própria página de login)
       if (isLoginPage || isSignupPage || isResetPasswordPage || isForgotPasswordPage) {
         if (session && isLoginPage) {
           // Se logado e na página de login, redireciona para /
@@ -162,7 +169,13 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       // Para todas as outras páginas, verifica o acesso
       if (!checkPageAccess(currentPath)) {
         showError('Você não tem permissão para acessar esta página.');
-        navigate('/'); // Redireciona para a página inicial
+        // Se não está logado e não tem acesso, redireciona para o login
+        // Se está logado mas não tem acesso, redireciona para a página inicial
+        if (!session) {
+          navigate('/login');
+        } else {
+          navigate('/');
+        }
       }
     }
   }, [isLoading, session, location.pathname, navigate, checkPageAccess]);

@@ -3,6 +3,7 @@ export interface PageAccessRule {
   admin_access: boolean;
   moderator_access: boolean;
   user_access: boolean;
+  guest_access: boolean; // Adicionado para o nível de acesso de convidados
 }
 
 export interface UserProfile {
