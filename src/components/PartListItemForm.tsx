@@ -15,7 +15,7 @@ interface PartListItemFormProps {
 }
 
 const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
-  const { profile, session } = useSession(); // Obter profile e session
+  const { checkPageAccess } = useSession(); // Obter checkPageAccess
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -127,7 +127,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   };
 
   // Lógica para desabilitar a edição de tags
-  const canEditTags = profile?.role === 'admin' || profile?.role === 'moderator';
+  const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
   const isSubmitDisabled = isLoadingParts || isLoadingAfs || !selectedPart;
 
@@ -181,7 +181,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
                   value={editedTags}
                   onChange={(e) => setEditedTags(e.target.value)}
                   placeholder="Adicione tags separadas por ';'"
-                  disabled={!canEditTags} // Desabilita o input de tags
+                  disabled={!canEditTags}
                 />
                 <Button
                   type="button"

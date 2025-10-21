@@ -39,7 +39,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
 
 const PartManagementTable: React.FC = () => {
-  const { profile, session } = useSession(); // Obter profile e session
+  const { checkPageAccess } = useSession(); // Obter checkPageAccess
   const [parts, setParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -48,7 +48,7 @@ const PartManagementTable: React.FC = () => {
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set());
+  const [selectedPartIds, setSelectedPartIds] = new Set<string>());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -345,7 +345,7 @@ const PartManagementTable: React.FC = () => {
   };
 
   // Lógica para desabilitar a edição de tags
-  const canEditTags = profile?.role === 'admin' || profile?.role === 'moderator';
+  const canEditTags = checkPageAccess('/manage-tags');
 
   const isAllSelected = parts.length > 0 && selectedPartIds.size === parts.length;
   const isIndeterminate = selectedPartIds.size > 0 && selectedPartIds.size < parts.length;
@@ -448,7 +448,7 @@ const PartManagementTable: React.FC = () => {
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2" disabled={!canEditTags}> {/* Desabilita o botão */}
+                <Button variant="outline" className="flex items-center gap-2" disabled={!canEditTags}>
                   <Tag className="h-4 w-4" /> Limpar Tags Selecionadas ({selectedPartIds.size})
                 </Button>
               </AlertDialogTrigger>
@@ -562,7 +562,7 @@ const PartManagementTable: React.FC = () => {
                 onChange={(e) => setFormTags(e.target.value)}
                 placeholder="tag1;tag2;tag3"
                 className="col-span-3"
-                disabled={!canEditTags} // Desabilita o input de tags no modal
+                disabled={!canEditTags}
               />
             </div>
             <DialogFooter>

@@ -32,7 +32,7 @@ interface ServiceOrderFormProps {
 }
 
 const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder, listItems, setIsCreatingNewOrder }) => {
-  const { profile, session } = useSession(); // Obter profile e session
+  const { checkPageAccess } = useSession(); // Obter checkPageAccess
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -323,7 +323,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   };
 
   // Lógica para desabilitar a edição de tags
-  const canEditTags = profile?.role === 'admin' || profile?.role === 'moderator';
+  const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
   const isSubmitDisabled = isLoadingParts || isLoadingAfs || !af || isOsInvalid || (editingServiceOrder?.mode === 'add_part' && !selectedPart);
 
@@ -468,7 +468,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                       value={editedTags}
                       onChange={(e) => setEditedTags(e.target.value)}
                       placeholder="Adicione tags separadas por ';'"
-                      disabled={!canEditTags} // Desabilita o input de tags
+                      disabled={!canEditTags}
                     />
                     <Button
                       type="button"
