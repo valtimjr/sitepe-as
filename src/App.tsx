@@ -22,8 +22,12 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
+      {/* O Toaster do Radix UI (components/ui/toaster) e o Toaster do Sonner (components/ui/sonner)
+          estavam sendo renderizados aqui e também dentro do SessionContextProvider.
+          Para evitar duplicação e o aviso do React, removemos daqui.
+          O SessionContextProvider agora é responsável por renderizar o Toaster do Sonner.
+          O Toaster do Radix UI não parece estar sendo usado ativamente pelas funções de toast em src/utils/toast.ts,
+          que utilizam 'sonner'. Se for necessário no futuro, pode ser reintroduzido. */}
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <SessionContextProvider>
           <AppHeader /> {/* Adicionar o cabeçalho aqui */}
