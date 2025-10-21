@@ -69,6 +69,7 @@ const UserSettingsPage: React.FC = () => {
       console.error('UserSettingsPage: Error loading user profile (catch block):', error);
       showError(`Erro ao carregar perfil: ${error.message}`);
     } finally {
+      console.log('UserSettingsPage: Inside fetchUserProfile finally block. Setting isProfileLoading to false.'); // NOVO LOG
       setIsProfileLoading(false);
       console.log('UserSettingsPage: Profile loading finished. isProfileLoading set to false.');
     }
