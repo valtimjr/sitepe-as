@@ -3,32 +3,27 @@ import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LogIn, Settings, User } from 'lucide-react';
+import { LogIn, Settings, User, Database } from 'lucide-react'; // Adicionado o ícone Database
 import { useSession } from '@/components/SessionContextProvider';
 
 const Index = () => {
-  const { session, user } = useSession();
+  const { session, checkPageAccess } = useSession(); // Obter checkPageAccess do contexto
 
   useEffect(() => {
     document.title = "Gerenciador de Peças - Início";
   }, []);
 
+  const canAccessAdmin = checkPageAccess('/admin'); // Verifica se o usuário pode acessar /admin
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
       <div className="absolute top-4 right-4 flex gap-2">
         {session ? (
-          <>
-            <Link to="/settings">
-              <Button variant="outline" className="flex items-center gap-2">
-                <Settings className="h-4 w-4" /> Configurações
-              </Button>
-            </Link>
-            <Link to="/admin"> {/* O caminho continua sendo /admin */}
-              <Button variant="outline" className="flex items-center gap-2">
-                <User className="h-4 w-4" /> Gerenciador de Banco de Dados
-              </Button>
-            </Link>
-          </>
+          <Link to="/settings">
+            <Button variant="outline" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" /> Configurações
+            </Button>
+          </Link>
         ) : (
           <Link to="/login">
             <Button variant="outline" className="flex items-center gap-2">
@@ -84,6 +79,24 @@ const Index = () => {
             </Link>
           </CardContent>
         </Card>
+
+        {canAccessAdmin && ( // Renderiza o card apenas se o usuário tiver acesso a /admin
+          <Card className="text-center">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <Database className="h-6 w-6" /> Gerenciador de Banco de Dados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-6 text-muted-foreground">
+                Adicione, edite e gerencie peças e AFs diretamente no banco de dados.
+              </p>
+              <Link to="/admin">
+                <Button className="w-full">Acessar Gerenciador</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
       </div>
       <MadeWithDyad />
     </div>
