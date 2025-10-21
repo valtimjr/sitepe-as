@@ -58,7 +58,7 @@ const ServiceOrderList = () => {
 
       const sortedUniqueOrders = Object.values(uniqueServiceOrders).sort((a, b) => {
         if (!a.created_at || !b.created_at) return 0;
-        return b.created_at.getTime() - a.created_at.getTime();
+        return a.created_at.getTime() - b.created_at.getTime();
       });
 
       if (sortedUniqueOrders.length > 0) {
@@ -111,12 +111,8 @@ const ServiceOrderList = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <div className="w-full max-w-6xl flex justify-between items-center mb-4">
-        <Link to="/">
-          <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar ao Início
-          </Button>
-        </Link>
+      <div className="w-full max-w-6xl flex justify-end items-center mb-4"> {/* Ajustado para apenas o botão de nova OS */}
+        {/* Removido o botão "Voltar ao Início" */}
         <Button onClick={handleNewServiceOrder} className="flex items-center gap-2">
           <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
         </Button>

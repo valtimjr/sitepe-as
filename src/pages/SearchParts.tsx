@@ -34,13 +34,7 @@ const SearchParts = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <div className="w-full max-w-4xl flex justify-start mb-4">
-        <Link to="/">
-          <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar ao Início
-          </Button>
-        </Link>
-      </div>
+      {/* Removido o div com o botão "Voltar ao Início" */}
       <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
       <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary">
         Pesquisar Peças

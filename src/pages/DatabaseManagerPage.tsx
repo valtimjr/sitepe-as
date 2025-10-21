@@ -11,7 +11,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
 
 const DatabaseManagerPage: React.FC = () => {
-  const { user, isLoading, profile } = useSession(); // Obter o perfil do contexto
+  const { isLoading } = useSession(); // Obter isLoading do contexto
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,21 +21,8 @@ const DatabaseManagerPage: React.FC = () => {
   // A verificação de role e redirecionamento agora é feita no SessionContextProvider
   // Este componente só será renderizado se o usuário tiver acesso.
 
-  const handleLogout = async () => {
-    try {
-      console.log('DatabaseManagerPage: Attempting logout...');
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        throw error;
-      }
-      showSuccess('Você foi desconectado com sucesso!');
-      console.log('DatabaseManagerPage: Successfully signed out.');
-      navigate('/login');
-    } catch (error: any) {
-      showError(`Erro ao desconectar: ${error.message}`);
-      console.error('DatabaseManagerPage: Logout error:', error);
-    }
-  };
+  // O handleLogout foi movido para o AppHeader
+  // const handleLogout = async () => { ... };
 
   if (isLoading) {
     return (
@@ -45,21 +32,9 @@ const DatabaseManagerPage: React.FC = () => {
     );
   }
 
-  // Se o usuário não estiver logado ou não tiver perfil, o SessionContextProvider já redirecionou.
-  // Este componente só será renderizado para usuários com acesso.
-
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <div className="w-full max-w-6xl flex justify-between items-center mb-4">
-        <Link to="/">
-          <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar ao Início
-          </Button>
-        </Link>
-        <Button variant="destructive" onClick={handleLogout} className="flex items-center gap-2">
-          <LogOut className="h-4 w-4" /> Sair
-        </Button>
-      </div>
+      {/* Removido o div com os botões "Voltar ao Início" e "Sair" */}
       <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
       <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary">
         Gerenciador de Banco de Dados

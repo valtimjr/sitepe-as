@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LogIn, Settings, User, Database } from 'lucide-react'; // Adicionado o ícone Database
+import { Database } from 'lucide-react'; // Removido LogIn, Settings, User
 import { useSession } from '@/components/SessionContextProvider';
 
 const Index = () => {
-  const { session, checkPageAccess } = useSession(); // Obter checkPageAccess do contexto
+  const { checkPageAccess } = useSession(); // Obter checkPageAccess do contexto
 
   useEffect(() => {
     document.title = "Gerenciador de Peças - Início";
@@ -16,22 +16,8 @@ const Index = () => {
   const canAccessAdmin = checkPageAccess('/admin'); // Verifica se o usuário pode acessar /admin
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
-      <div className="absolute top-4 right-4 flex gap-2">
-        {session ? (
-          <Link to="/settings">
-            <Button variant="outline" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" /> Configurações
-            </Button>
-          </Link>
-        ) : (
-          <Link to="/login">
-            <Button variant="outline" className="flex items-center gap-2">
-              <LogIn className="h-4 w-4" /> Login
-            </Button>
-          </Link>
-        )}
-      </div>
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
+      {/* Removido o div com os botões de login/configurações */}
       <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
       <h1 className="text-5xl font-extrabold mb-12 text-center text-primary dark:text-primary">
         Bem-vindo ao Gerenciador de Peças

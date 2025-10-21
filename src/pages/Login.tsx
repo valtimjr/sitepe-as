@@ -25,17 +25,14 @@ const Login: React.FC = () => {
     );
   }
 
-  const handleGoHome = () => {
-    navigate('/');
-  };
+  // O handleGoHome foi removido, pois o logo no cabeçalho serve para isso.
+  // const handleGoHome = () => {
+  //   navigate('/');
+  // };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
-      <div className="w-full max-w-md flex justify-start mb-4">
-        <Button variant="outline" className="flex items-center gap-2" onClick={handleGoHome}>
-          <ArrowLeft className="h-4 w-4" /> Voltar ao Início
-        </Button>
-      </div>
+      {/* Removido o div com o botão "Voltar ao Início" */}
       <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
       <Card className="w-full max-w-md mx-auto">
         <CardHeader>
