@@ -9,7 +9,7 @@ import { MadeWithDyad } from '@/components/made-with-dyad';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
-import UpdatePasswordForm from '@/components/UpdatePasswordForm';
+import ChangePasswordForm from '@/components/ChangePasswordForm'; // Importar o novo componente
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserProfile } from '@/types/supabase'; // Importar o tipo UserProfile
@@ -108,7 +108,7 @@ const UserSettingsPage: React.FC = () => {
     }
   };
 
-  const handlePasswordUpdated = () => {
+  const handlePasswordChanged = () => {
     showSuccess('Senha atualizada com sucesso!');
     // Não é necessário redirecionar, o usuário permanece na página de configurações
   };
@@ -225,7 +225,7 @@ const UserSettingsPage: React.FC = () => {
               <CardTitle className="text-xl">Alterar Senha</CardTitle>
             </CardHeader>
             <CardContent>
-              <UpdatePasswordForm onPasswordUpdated={handlePasswordUpdated} />
+              <ChangePasswordForm onPasswordChanged={handlePasswordChanged} />
             </CardContent>
           </Card>
         </TabsContent>

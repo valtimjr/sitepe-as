@@ -7,16 +7,12 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Loader2 } from 'lucide-react';
-import { useSession } from '@/components/SessionContextProvider';
 
-interface UpdatePasswordFormProps {
-  onPasswordUpdated: () => void;
-  isResetFlow?: boolean; // Nova prop para indicar se é um fluxo de redefinição
+interface ResetPasswordViaEmailFormProps {
+  onPasswordReset: () => void;
 }
 
-const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdated, isResetFlow = false }) => {
-  const { user } = useSession();
-  const [currentPassword, setCurrentPassword] = useState('');
+const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ onPasswordReset }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -36,35 +32,10 @@ const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdat
       return;
     }
 
-    if (!isResetFlow && currentPassword === newPassword) {
-      setPasswordError('A nova senha não pode ser igual à senha atual.');
-      return;
-    }
-
     setIsLoading(true);
     try {
-      if (!isResetFlow) {
-        // Modo "Atualizar Senha" (requer senha atual)
-        if (!user?.email) {
-          showError('Não foi possível obter o e-mail do usuário para verificação.');
-          return;
-        }
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: user.email,
-          password: currentPassword,
-        });
-
-        if (signInError) {
-          if (signInError.message.includes('Invalid login credentials')) {
-            setPasswordError('A senha atual está incorreta.');
-          } else {
-            throw signInError;
-          }
-          return;
-        }
-      }
-
-      // Atualiza a senha (ocorre após reautenticação no modo normal, ou diretamente no reset flow)
+      // No fluxo de redefinição de senha, a sessão já está autenticada pelo token do e-mail.
+      // Basta chamar updateUser diretamente.
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       });
@@ -73,15 +44,14 @@ const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdat
         throw updateError;
       }
 
-      showSuccess('Sua senha foi atualizada com sucesso!');
-      onPasswordUpdated();
-      // Limpa os campos
-      setCurrentPassword('');
+      showSuccess('Sua senha foi redefinida com sucesso!');
+      onPasswordReset();
+      // Clear fields
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
-      console.error('Erro ao atualizar senha:', error);
-      showError(`Erro ao atualizar senha: ${error.message}`);
+      console.error('Erro ao redefinir senha:', error);
+      showError(`Erro ao redefinir senha: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -89,20 +59,6 @@ const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdat
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {!isResetFlow && ( // Campo de senha atual visível apenas no modo normal
-        <div>
-          <Label htmlFor="current-password">Senha Atual</Label>
-          <Input
-            id="current-password"
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            placeholder="Digite sua senha atual"
-            required
-            disabled={isLoading}
-          />
-        </div>
-      )}
       <div>
         <Label htmlFor="new-password">Nova Senha</Label>
         <Input
@@ -134,14 +90,14 @@ const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdat
         {isLoading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Atualizando...
+            Redefinindo...
           </>
         ) : (
-          'Atualizar Senha'
+          'Redefinir Senha'
         )}
       </Button>
     </form>
   );
 };
 
-export default UpdatePasswordForm;
+export default ResetPasswordViaEmailForm;

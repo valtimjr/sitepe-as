@@ -7,7 +7,7 @@ import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
-import UpdatePasswordForm from '@/components/UpdatePasswordForm'; // Importar o novo componente
+import ResetPasswordViaEmailForm from '@/components/ResetPasswordViaEmailForm'; // Importar o novo componente
 
 const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -16,22 +16,18 @@ const ResetPasswordPage: React.FC = () => {
     document.title = "Redefinir Senha - Gerenciador de Peças";
   }, []);
 
-  const handlePasswordUpdated = () => {
-    // Esta função será chamada após a senha ser atualizada com sucesso
+  const handlePasswordReset = () => {
+    // Esta função será chamada após a senha ser redefinida com sucesso
     navigate('/login'); // Redireciona para a página de login
   };
 
-  // O listener de authStateChange para PASSWORD_UPDATED não é mais necessário aqui,
-  // pois o redirecionamento é tratado pelo `onPasswordUpdated` do formulário personalizado.
-  // No entanto, manteremos o listener para outros eventos se necessário, mas o foco principal
-  // de redirecionamento após a atualização da senha será via `onPasswordUpdated`.
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event) => {
-      // Se houver outros eventos que você queira tratar aqui, pode adicioná-los.
-      // Por exemplo, se o usuário já estiver logado e tentar acessar esta página,
-      // você pode redirecioná-lo para o painel.
       if (event === 'SIGNED_IN') {
-        // navigate('/admin'); // Exemplo: redirecionar se já estiver logado
+        // Se o usuário já estiver logado (por exemplo, se o link de redefinição também o logar),
+        // podemos redirecioná-lo para a página inicial ou admin.
+        // Por enquanto, vamos apenas logar.
+        console.log('User signed in during reset flow, consider redirecting.');
       }
     });
 
@@ -50,7 +46,7 @@ const ResetPasswordPage: React.FC = () => {
           <CardTitle className="text-2xl text-center">Redefinir Senha</CardTitle>
         </CardHeader>
         <CardContent>
-          <UpdatePasswordForm onPasswordUpdated={handlePasswordUpdated} isResetFlow={true} /> {/* Passando isResetFlow={true} */}
+          <ResetPasswordViaEmailForm onPasswordReset={handlePasswordReset} />
         </CardContent>
       </Card>
       <MadeWithDyad />
