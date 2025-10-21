@@ -4,15 +4,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { showError } from '@/utils/toast';
-import { PageAccessRule, UserProfile } from '@/types/supabase'; // Importar os tipos
+import { PageAccessRule, UserProfile } from '@/types/supabase';
 
 interface SessionContextType {
   session: Session | null;
   user: User | null;
-  profile: UserProfile | null; // Adicionar perfil ao contexto
-  isLoading: boolean;
-  pageAccessRules: PageAccessRule[]; // Adicionar regras de acesso às páginas
-  checkPageAccess: (path: string) => boolean; // Função para verificar acesso
+  profile: UserProfile | null;
+  isLoading: boolean; // Este será true até que a sessão E o perfil sejam carregados
+  pageAccessRules: PageAccessRule[];
+  checkPageAccess: (path: string) => boolean;
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
@@ -20,14 +20,14 @@ const SessionContext = createContext<SessionContextType | undefined>(undefined);
 export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null); // Estado para o perfil
-  const [isLoading, setIsLoading] = useState(true);
-  const [pageAccessRules, setPageAccessRules] = useState<PageAccessRule[]>([]); // Estado para regras de acesso
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [pageAccessRules, setPageAccessRules] = useState<PageAccessRule[]>([]);
+  const [isLoadingSessionAndProfile, setIsLoadingSessionAndProfile] = useState(true); // Novo estado para carregamento combinado
   const navigate = useNavigate();
   const location = useLocation();
 
   // Função para buscar o perfil do usuário
-  const fetchUserProfile = useCallback(async (userId: string) => {
+  const fetchUserProfile = useCallback(async (userId: string): Promise<UserProfile | null> => {
     console.log('SessionContextProvider: fetchUserProfile called for userId:', userId);
     try {
       const { data, error } = await supabase
@@ -40,16 +40,16 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         console.error('SessionContextProvider: Error fetching user profile from DB:', error);
         throw error;
       }
-      setProfile(data as UserProfile || null);
       console.log('SessionContextProvider: User profile fetched:', data);
+      return data as UserProfile || null;
     } catch (error: any) {
       console.error('SessionContextProvider: Error fetching user profile (catch block):', error);
-      setProfile(null);
+      return null;
     }
   }, []);
 
   // Função para buscar as regras de acesso às páginas
-  const fetchPageAccessRules = useCallback(async () => {
+  const fetchPageAccessRules = useCallback(async (): Promise<PageAccessRule[]> => {
     console.log('SessionContextProvider: fetchPageAccessRules called.');
     try {
       const { data, error } = await supabase
@@ -60,11 +60,11 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         console.error('SessionContextProvider: Error fetching page access rules from DB:', error);
         throw error;
       }
-      setPageAccessRules(data as PageAccessRule[] || []);
       console.log('SessionContextProvider: Page access rules fetched:', data);
+      return data as PageAccessRule[] || [];
     } catch (error: any) {
       console.error('SessionContextProvider: Error fetching page access rules (catch block):', error);
-      setPageAccessRules([]);
+      return [];
     }
   }, []);
 
@@ -72,7 +72,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     console.log('SessionContextProvider: Initializing session, profile, and page access rules.');
     const getInitialData = async () => {
-      setIsLoading(true);
+      setIsLoadingSessionAndProfile(true); // Inicia o carregamento
       try {
         const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) {
@@ -82,18 +82,23 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         setUser(initialSession?.user || null);
         console.log('SessionContextProvider: Initial session after update:', initialSession, 'Initial user after update:', initialSession?.user);
 
+        let fetchedProfile: UserProfile | null = null;
         if (initialSession?.user) {
-          await fetchUserProfile(initialSession.user.id);
+          fetchedProfile = await fetchUserProfile(initialSession.user.id);
+          setProfile(fetchedProfile);
         } else {
           setProfile(null);
           console.log('SessionContextProvider: Initial load - No user, profile set to null.');
         }
-        await fetchPageAccessRules();
+        
+        const fetchedRules = await fetchPageAccessRules();
+        setPageAccessRules(fetchedRules);
+
       } catch (e) {
         console.error('SessionContextProvider: Error during initial data fetch:', e);
       } finally {
-        setIsLoading(false);
-        console.log('SessionContextProvider: Initial data loading finished. isLoading set to false.');
+        setIsLoadingSessionAndProfile(false); // Finaliza o carregamento apenas após tentar carregar sessão e perfil
+        console.log('SessionContextProvider: Initial data loading finished. isLoadingSessionAndProfile set to false.');
       }
     };
 
@@ -102,17 +107,25 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         console.log('SessionContextProvider: Auth state changed. Event:', event, 'Current Session:', currentSession);
+        setIsLoadingSessionAndProfile(true); // Inicia o carregamento novamente na mudança de estado de autenticação
         setSession(currentSession);
         setUser(currentSession?.user || null);
         console.log('SessionContextProvider: State updated by auth listener. Current session:', currentSession, 'Current user:', currentSession?.user);
 
+        let fetchedProfile: UserProfile | null = null;
         if (currentSession?.user) {
-          await fetchUserProfile(currentSession.user.id);
+          fetchedProfile = await fetchUserProfile(currentSession.user.id);
+          setProfile(fetchedProfile);
         } else {
           setProfile(null);
           console.log('SessionContextProvider: Auth listener - No user, profile set to null.');
         }
-        await fetchPageAccessRules();
+        
+        const fetchedRules = await fetchPageAccessRules();
+        setPageAccessRules(fetchedRules);
+
+        setIsLoadingSessionAndProfile(false); // Finaliza o carregamento
+        console.log('SessionContextProvider: Auth state change processing finished. isLoadingSessionAndProfile set to false.');
       }
     );
 
@@ -162,8 +175,8 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   // Efeito para redirecionamento baseado no acesso
   useEffect(() => {
-    console.log('SessionContextProvider: Redirection effect triggered. isLoading (context):', isLoading, 'session (context):', session, 'profile (context):', profile, 'path:', location.pathname);
-    if (!isLoading) {
+    console.log('SessionContextProvider: Redirection effect triggered. isLoading (context):', isLoadingSessionAndProfile, 'session (context):', session, 'profile (context):', profile, 'path:', location.pathname);
+    if (!isLoadingSessionAndProfile) {
       const currentPath = location.pathname;
       const isLoginPage = currentPath === '/login';
       const isSignupPage = currentPath.startsWith('/signup');
@@ -194,11 +207,11 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     } else {
       console.log('SessionContextProvider: Redirection effect skipped because isLoading is true.');
     }
-  }, [isLoading, session, location.pathname, navigate, checkPageAccess, profile]);
+  }, [isLoadingSessionAndProfile, session, location.pathname, navigate, checkPageAccess, profile]);
 
 
   return (
-    <SessionContext.Provider value={{ session, user, profile, isLoading, pageAccessRules, checkPageAccess }}>
+    <SessionContext.Provider value={{ session, user, profile, isLoading: isLoadingSessionAndProfile, pageAccessRules, checkPageAccess }}>
       {children}
       <Toaster />
     </SessionContext.Provider>
