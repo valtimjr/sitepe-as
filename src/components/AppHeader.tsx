@@ -37,8 +37,8 @@ const AppHeader: React.FC = () => {
       showSuccess('Você foi desconectado com sucesso!');
       navigate('/login');
     } catch (error: any) {
-      showError(`Erro ao desconectar: ${error.message}`);
-      console.error('AppHeader: Logout error:', error);
+      console.error('AppHeader: Caught error during logout:', error); // Log mais detalhado
+      showError(`Erro ao desconectar: ${error.message || 'Detalhes desconhecidos.'}`);
     }
   };
 
