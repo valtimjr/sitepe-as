@@ -22,6 +22,9 @@ const AppHeader: React.FC = () => {
   const { session, user, profile, isLoading, checkPageAccess } = useSession();
   const navigate = useNavigate();
 
+  // Adicionando este log para depuração
+  console.log('AppHeader Render: profile =', profile, 'user =', user);
+
   const handleLogout = async () => {
     try {
       console.log('AppHeader: Attempting to log out...');
