@@ -32,8 +32,13 @@ const UserSettingsPage: React.FC = () => {
 
   // Populate form fields when sessionProfile changes or becomes available
   useEffect(() => {
-    console.log('UserSettingsPage: Populating form fields. sessionProfile:', sessionProfile, 'isSessionLoading:', isSessionLoading);
+    console.log('UserSettingsPage: useEffect for populating fields triggered.'); // NOVO LOG
+    console.log('  Current isSessionLoading:', isSessionLoading); // NOVO LOG
+    console.log('  Current sessionProfile:', sessionProfile); // NOVO LOG
+    console.log('  Current user:', user); // NOVO LOG
+
     if (!isSessionLoading && sessionProfile) {
+      console.log('UserSettingsPage: Conditions met: !isSessionLoading && sessionProfile is true.'); // NOVO LOG
       setFirstName(sessionProfile.first_name || '');
       setLastName(sessionProfile.last_name || '');
       setBadge(sessionProfile.badge || '');
@@ -41,11 +46,13 @@ const UserSettingsPage: React.FC = () => {
       console.log('UserSettingsPage: Form fields populated from sessionProfile.');
     } else if (!isSessionLoading && !sessionProfile && user) {
       // If user is logged in but no profile found, initialize with empty values
-      console.log('UserSettingsPage: User logged in but no profile found, initializing empty form fields.');
+      console.log('UserSettingsPage: Conditions met: !isSessionLoading && !sessionProfile && user is true (user logged in but no profile).'); // NOVO LOG
       setFirstName('');
       setLastName('');
       setBadge('');
       setAvatarUrl('');
+    } else {
+      console.log('UserSettingsPage: Conditions for populating fields not met. isSessionLoading:', isSessionLoading, 'sessionProfile:', sessionProfile, 'user:', user); // NOVO LOG
     }
   }, [sessionProfile, isSessionLoading, user]);
 

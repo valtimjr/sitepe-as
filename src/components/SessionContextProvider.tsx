@@ -97,6 +97,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       } catch (e) {
         console.error('SessionContextProvider: Error during initial data fetch:', e);
       } finally {
+        console.log('SessionContextProvider: Before setting isLoadingSessionAndProfile to false. Current profile state:', profile); // NOVO LOG
         setIsLoadingSessionAndProfile(false); // Finaliza o carregamento apenas após tentar carregar sessão e perfil
         console.log('SessionContextProvider: Initial data loading finished. isLoadingSessionAndProfile set to false.');
       }
@@ -124,6 +125,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         const fetchedRules = await fetchPageAccessRules();
         setPageAccessRules(fetchedRules);
 
+        console.log('SessionContextProvider: Before setting isLoadingSessionAndProfile to false in auth listener. Current profile state:', profile); // NOVO LOG
         setIsLoadingSessionAndProfile(false); // Finaliza o carregamento
         console.log('SessionContextProvider: Auth state change processing finished. isLoadingSessionAndProfile set to false.');
       }
