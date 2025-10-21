@@ -26,19 +26,22 @@ const UserSettingsPage: React.FC = () => {
   
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // NOVO LOG DE RENDERIZAÇÃO
+  console.log('UserSettingsPage: Render. isSessionLoading:', isSessionLoading, 'sessionProfile:', sessionProfile, 'user:', user);
+
   useEffect(() => {
     document.title = "Configurações do Usuário - Gerenciador de Peças";
   }, []);
 
   // Populate form fields when sessionProfile changes or becomes available
   useEffect(() => {
-    console.log('UserSettingsPage: useEffect for populating fields triggered.'); // NOVO LOG
-    console.log('  Current isSessionLoading:', isSessionLoading); // NOVO LOG
-    console.log('  Current sessionProfile:', sessionProfile); // NOVO LOG
-    console.log('  Current user:', user); // NOVO LOG
+    console.log('UserSettingsPage: useEffect for populating fields triggered.');
+    console.log('  Current isSessionLoading:', isSessionLoading);
+    console.log('  Current sessionProfile:', sessionProfile);
+    console.log('  Current user:', user);
 
     if (!isSessionLoading && sessionProfile) {
-      console.log('UserSettingsPage: Conditions met: !isSessionLoading && sessionProfile is true.'); // NOVO LOG
+      console.log('UserSettingsPage: Conditions met: !isSessionLoading && sessionProfile is true.');
       setFirstName(sessionProfile.first_name || '');
       setLastName(sessionProfile.last_name || '');
       setBadge(sessionProfile.badge || '');
@@ -46,13 +49,13 @@ const UserSettingsPage: React.FC = () => {
       console.log('UserSettingsPage: Form fields populated from sessionProfile.');
     } else if (!isSessionLoading && !sessionProfile && user) {
       // If user is logged in but no profile found, initialize with empty values
-      console.log('UserSettingsPage: Conditions met: !isSessionLoading && !sessionProfile && user is true (user logged in but no profile).'); // NOVO LOG
+      console.log('UserSettingsPage: Conditions met: !isSessionLoading && !sessionProfile && user is true (user logged in but no profile).');
       setFirstName('');
       setLastName('');
       setBadge('');
       setAvatarUrl('');
     } else {
-      console.log('UserSettingsPage: Conditions for populating fields not met. isSessionLoading:', isSessionLoading, 'sessionProfile:', sessionProfile, 'user:', user); // NOVO LOG
+      console.log('UserSettingsPage: Conditions for populating fields not met. isSessionLoading:', isSessionLoading, 'sessionProfile:', sessionProfile, 'user:', user);
     }
   }, [sessionProfile, isSessionLoading, user]);
 
