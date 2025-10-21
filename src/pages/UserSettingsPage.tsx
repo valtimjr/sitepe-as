@@ -9,79 +9,45 @@ import { MadeWithDyad } from '@/components/made-with-dyad';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
-import ChangePasswordForm from '@/components/ChangePasswordForm'; // Importar o novo componente
+import ChangePasswordForm from '@/components/ChangePasswordForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserProfile } from '@/types/supabase'; // Importar o tipo UserProfile
+import { UserProfile } from '@/types/supabase';
 
 const UserSettingsPage: React.FC = () => {
-  const { user, isLoading: isSessionLoading, profile: sessionProfile } = useSession(); // Renomeado profile para sessionProfile para evitar conflito
+  const { user, isLoading: isSessionLoading, profile: sessionProfile } = useSession();
   const navigate = useNavigate();
-  const [profileData, setProfileData] = useState<UserProfile | null>(null);
+  
+  // States for form fields, initialized from sessionProfile or empty
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [badge, setBadge] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
     document.title = "Configurações do Usuário - Gerenciador de Peças";
   }, []);
 
-  const fetchUserProfile = useCallback(async () => {
-    console.log('UserSettingsPage: fetchUserProfile called. Current user:', user, 'isSessionLoading:', isSessionLoading);
-    if (!user) {
-      console.warn('UserSettingsPage: No user found in session, redirecting to login.');
-      setIsProfileLoading(false);
-      navigate('/login');
-      return;
-    }
-    setIsProfileLoading(true);
-    try {
-      console.log('UserSettingsPage: Attempting to fetch profile for user ID:', user.id); // NOVO LOG
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, badge, avatar_url, role, id, updated_at')
-        .eq('id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('UserSettingsPage: Error fetching user profile from DB:', error);
-        throw error;
-      }
-
-      if (data) {
-        setProfileData(data as UserProfile);
-        setFirstName(data.first_name || '');
-        setLastName(data.last_name || '');
-        setBadge(data.badge || '');
-        setAvatarUrl(data.avatar_url || '');
-        console.log('UserSettingsPage: User profile data loaded:', data);
-      } else {
-        console.log('UserSettingsPage: No profile found for user, initializing with empty values.');
-        setProfileData(null);
-        setFirstName('');
-        setLastName('');
-        setBadge('');
-        setAvatarUrl('');
-      }
-    } catch (error: any) {
-      console.error('UserSettingsPage: Error loading user profile (catch block):', error);
-      showError(`Erro ao carregar perfil: ${error.message}`);
-    } finally {
-      console.log('UserSettingsPage: Inside fetchUserProfile finally block. Setting isProfileLoading to false.');
-      setIsProfileLoading(false);
-      console.log('UserSettingsPage: Profile loading finished. isProfileLoading set to false.');
-    }
-  }, [user, navigate, isSessionLoading]); // Adicionado isSessionLoading como dependência para clareza
-
+  // Populate form fields when sessionProfile changes or becomes available
   useEffect(() => {
-    console.log('UserSettingsPage: Main useEffect triggered. isSessionLoading:', isSessionLoading, 'user:', user);
-    if (!isSessionLoading) {
-      fetchUserProfile();
+    console.log('UserSettingsPage: Populating form fields. sessionProfile:', sessionProfile, 'isSessionLoading:', isSessionLoading);
+    if (!isSessionLoading && sessionProfile) {
+      setFirstName(sessionProfile.first_name || '');
+      setLastName(sessionProfile.last_name || '');
+      setBadge(sessionProfile.badge || '');
+      setAvatarUrl(sessionProfile.avatar_url || '');
+      console.log('UserSettingsPage: Form fields populated from sessionProfile.');
+    } else if (!isSessionLoading && !sessionProfile && user) {
+      // If user is logged in but no profile found, initialize with empty values
+      console.log('UserSettingsPage: User logged in but no profile found, initializing empty form fields.');
+      setFirstName('');
+      setLastName('');
+      setBadge('');
+      setAvatarUrl('');
     }
-  }, [isSessionLoading, fetchUserProfile, user]); // Adicionado user como dependência
+  }, [sessionProfile, isSessionLoading, user]);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,7 +74,9 @@ const UserSettingsPage: React.FC = () => {
       }
 
       showSuccess('Perfil atualizado com sucesso!');
-      await fetchUserProfile(); // Recarrega o perfil para garantir que os dados estejam sincronizados
+      // No need to call fetchUserProfile here, SessionContextProvider's onAuthStateChange will handle it
+      // or a manual refresh of the profile in context could be triggered if needed.
+      // For now, relying on the context to update.
     } catch (error: any) {
       console.error('UserSettingsPage: Error updating profile:', error);
       showError(`Erro ao atualizar perfil: ${error.message}`);
@@ -119,11 +87,13 @@ const UserSettingsPage: React.FC = () => {
 
   const handlePasswordChanged = () => {
     console.log('UserSettingsPage: Password changed callback triggered.');
-    fetchUserProfile();
+    // No need to fetch profile here, as password change doesn't affect profile data directly.
+    // If profile data was affected, SessionContextProvider would handle it.
   };
 
-  if (isSessionLoading || isProfileLoading) {
-    console.log('UserSettingsPage: Displaying loading state. isSessionLoading:', isSessionLoading, 'isProfileLoading:', isProfileLoading);
+  // The main loading state for the page
+  if (isSessionLoading) {
+    console.log('UserSettingsPage: Displaying loading state. isSessionLoading:', isSessionLoading);
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <p>Carregando configurações do usuário...</p>
@@ -131,6 +101,7 @@ const UserSettingsPage: React.FC = () => {
     );
   }
 
+  // If not loading and no user, redirect to login (handled by SessionContextProvider, but good to have a fallback)
   if (!user) {
     console.log('UserSettingsPage: No user, returning null (redirection expected from SessionContextProvider).');
     return null;
