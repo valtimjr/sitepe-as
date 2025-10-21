@@ -9,11 +9,11 @@ import SearchParts from "./pages/SearchParts";
 import PartsList from "./pages/PartsList";
 import ServiceOrderList from "./pages/ServiceOrderList";
 import Login from "./pages/Login";
-import AdminDashboard from "./pages/AdminDashboard";
+import DatabaseManagerPage from "./pages/DatabaseManagerPage"; // Importar o novo nome
 import SignupPage from "./pages/SignupPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import UserSettingsPage from "./pages/UserSettingsPage"; // Importar a nova página
+import UserSettingsPage from "./pages/UserSettingsPage";
 import { SessionContextProvider } from "./components/SessionContextProvider";
 
 const queryClient = new QueryClient();
@@ -31,11 +31,11 @@ const App = () => (
             <Route path="/parts-list" element={<PartsList />} />
             <Route path="/service-orders" element={<ServiceOrderList />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin" element={<DatabaseManagerPage />} /> {/* Usar o novo nome aqui */}
             <Route path="/signup/:uuid" element={<SignupPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/settings" element={<UserSettingsPage />} /> {/* Nova rota */}
+            <Route path="/settings" element={<UserSettingsPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

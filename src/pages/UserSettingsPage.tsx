@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Save, User as UserIcon, Loader2 } from 'lucide-react'; // Importar Loader2
+import { ArrowLeft, Save, User as UserIcon, Loader2 } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
@@ -12,18 +12,12 @@ import { useSession } from '@/components/SessionContextProvider';
 import UpdatePasswordForm from '@/components/UpdatePasswordForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-
-interface UserProfile {
-  first_name: string | null;
-  last_name: string | null;
-  badge: string | null;
-  avatar_url: string | null;
-}
+import { UserProfile } from '@/types/supabase'; // Importar o tipo UserProfile
 
 const UserSettingsPage: React.FC = () => {
   const { user, isLoading: isSessionLoading } = useSession();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileData, setProfileData] = useState<UserProfile | null>(null); // Renomeado para evitar conflito
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [badge, setBadge] = useState('');
@@ -44,7 +38,7 @@ const UserSettingsPage: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('first_name, last_name, badge, avatar_url')
+        .select('first_name, last_name, badge, avatar_url, role, id, updated_at') // Selecionar todos os campos do UserProfile
         .eq('id', user.id)
         .single();
 
@@ -53,14 +47,14 @@ const UserSettingsPage: React.FC = () => {
       }
 
       if (data) {
-        setProfile(data);
+        setProfileData(data as UserProfile);
         setFirstName(data.first_name || '');
         setLastName(data.last_name || '');
         setBadge(data.badge || '');
         setAvatarUrl(data.avatar_url || '');
       } else {
         // Se o perfil não existir, inicializa com valores vazios
-        setProfile({ first_name: '', last_name: '', badge: '', avatar_url: '' });
+        setProfileData(null); // Não há perfil, então é null
         setFirstName('');
         setLastName('');
         setBadge('');

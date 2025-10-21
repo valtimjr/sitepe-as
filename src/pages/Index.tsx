@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LogIn, Settings, User } from 'lucide-react'; // Importar ícones de login e configurações
-import { useSession } from '@/components/SessionContextProvider'; // Importar o hook de sessão
+import { LogIn, Settings, User } from 'lucide-react';
+import { useSession } from '@/components/SessionContextProvider';
 
 const Index = () => {
-  const { session, user } = useSession(); // Obter a sessão e o usuário do contexto
+  const { session, user } = useSession();
 
   useEffect(() => {
     document.title = "Gerenciador de Peças - Início";
@@ -15,7 +15,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
-      <div className="absolute top-4 right-4 flex gap-2"> {/* Posição dos botões de login/admin/settings */}
+      <div className="absolute top-4 right-4 flex gap-2">
         {session ? (
           <>
             <Link to="/settings">
@@ -23,9 +23,9 @@ const Index = () => {
                 <Settings className="h-4 w-4" /> Configurações
               </Button>
             </Link>
-            <Link to="/admin">
+            <Link to="/admin"> {/* O caminho continua sendo /admin */}
               <Button variant="outline" className="flex items-center gap-2">
-                <User className="h-4 w-4" /> Admin
+                <User className="h-4 w-4" /> Gerenciador de Banco de Dados
               </Button>
             </Link>
           </>
