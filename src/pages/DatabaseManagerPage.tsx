@@ -15,7 +15,7 @@ const DatabaseManagerPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = "Gerenciador de Banco de Dados";
+    document.title = "Gerenciador de Banco de Dados - Gerenciador de Peças";
   }, []);
 
   // A verificação de role e redirecionamento agora é feita no SessionContextProvider

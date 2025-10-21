@@ -15,7 +15,7 @@ const SearchParts = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    document.title = "Pesquisar Peças";
+    document.title = "Pesquisar Peças - Gerenciador de Peças";
   }, []);
 
   useEffect(() => {
