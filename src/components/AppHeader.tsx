@@ -29,16 +29,20 @@ const AppHeader: React.FC = () => {
     try {
       console.log('AppHeader: Attempting to log out...');
       const { error } = await supabase.auth.signOut();
+      console.log('AppHeader: supabase.auth.signOut() call completed.'); // Novo log
       if (error) {
         console.error('AppHeader: Supabase signOut error:', error);
         throw error;
       }
-      console.log('AppHeader: Supabase signOut successful. Navigating to /login.');
+      console.log('AppHeader: Supabase signOut successful.');
       showSuccess('Você foi desconectado com sucesso!');
-      navigate('/login');
     } catch (error: any) {
       console.error('AppHeader: Caught error during logout:', error); // Log mais detalhado
       showError(`Erro ao desconectar: ${error.message || 'Detalhes desconhecidos.'}`);
+    } finally {
+      // Garante que a navegação ocorra, mesmo que o signOut tenha falhado ou travado
+      console.log('AppHeader: Navigating to /login in finally block.');
+      navigate('/login');
     }
   };
 
