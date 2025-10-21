@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Home } from 'lucide-react'; // Adicionado Home
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -85,11 +85,11 @@ const AppHeader: React.FC = () => {
           </SheetContent>
         </Sheet>
 
-        {/* Logo "Voltar ao Início" */}
+        {/* Ícone "Voltar ao Início" */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Link to="/" className="flex items-center gap-2">
-              <img src="/Logo.png" alt="Logo do Aplicativo" className="h-8 w-8" />
+              <Home className="h-8 w-8 text-primary" /> {/* Substituído o <img> pelo ícone Home */}
               <span className="sr-only">Página Inicial</span>
             </Link>
           </TooltipTrigger>
