@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addServiceOrderItem, getParts, getUniqueAfs, searchParts as searchPartsService, updatePart, deleteServiceOrderItem, ServiceOrderItem, updateServiceOrderItem } from '@/services/partListService'; // Usar ServiceOrderItem e novas funções
+import { Part, addServiceOrderItem, getParts, getUniqueAfs, searchParts as searchPartsService, updatePart, deleteServiceOrderItem, ServiceOrderItem, updateServiceOrderItem } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
@@ -11,6 +11,7 @@ import { Save, Plus, FilePlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
 
 interface ServiceOrderDetails {
   af: string;
@@ -26,11 +27,12 @@ interface ServiceOrderFormProps {
   onItemAdded: () => void;
   editingServiceOrder: ServiceOrderDetails | null;
   onNewServiceOrder: () => void;
-  listItems: ServiceOrderItem[]; // Agora espera ServiceOrderItem
+  listItems: ServiceOrderItem[];
   setIsCreatingNewOrder: (isCreating: boolean) => void;
 }
 
 const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder, listItems, setIsCreatingNewOrder }) => {
+  const { profile, session } = useSession(); // Obter profile e session
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -219,7 +221,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       if (itemsToUpdate.length > 0) {
         try {
           for (const item of itemsToUpdate) {
-            await updateServiceOrderItem({ // Chama a nova função
+            await updateServiceOrderItem({
               ...item,
               af,
               os,
@@ -235,7 +237,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         }
       } else {
         try {
-          await addServiceOrderItem({ // Chama a nova função
+          await addServiceOrderItem({
             af,
             os,
             hora_inicio: horaInicio || undefined,
@@ -265,11 +267,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
 
       try {
         if (currentBlankOsItemId) {
-          await deleteServiceOrderItem(currentBlankOsItemId); // Chama a nova função
+          await deleteServiceOrderItem(currentBlankOsItemId);
           setCurrentBlankOsItemId(null);
         }
 
-        await addServiceOrderItem({ // Chama a nova função
+        await addServiceOrderItem({
           codigo_peca: selectedPart.codigo,
           descricao: selectedPart.descricao,
           quantidade: quantidade,
@@ -297,7 +299,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
           return;
         }
 
-        const newBlankId = await addServiceOrderItem({ // Chama a nova função
+        const newBlankId = await addServiceOrderItem({
           af,
           os: os,
           hora_inicio: horaInicio || undefined,
@@ -320,7 +322,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     }
   };
 
-  const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags;
+  // Lógica para desabilitar a edição de tags
+  const canEditTags = profile?.role === 'admin' || profile?.role === 'moderator';
+  const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
   const isSubmitDisabled = isLoadingParts || isLoadingAfs || !af || isOsInvalid || (editingServiceOrder?.mode === 'add_part' && !selectedPart);
 
   const isOsDetailsReadOnly = editingServiceOrder?.mode === 'add_part';
@@ -464,6 +468,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                       value={editedTags}
                       onChange={(e) => setEditedTags(e.target.value)}
                       placeholder="Adicione tags separadas por ';'"
+                      disabled={!canEditTags} // Desabilita o input de tags
                     />
                     <Button
                       type="button"

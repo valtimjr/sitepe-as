@@ -36,8 +36,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
+import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
 
 const PartManagementTable: React.FC = () => {
+  const { profile, session } = useSession(); // Obter profile e session
   const [parts, setParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -46,7 +48,7 @@ const PartManagementTable: React.FC = () => {
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set()); // Corrigido: Usando useState para inicializar o Set
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -129,13 +131,18 @@ const PartManagementTable: React.FC = () => {
       return;
     }
 
+    // Se o usuário não pode editar tags, garante que as tags não sejam alteradas
+    if (!canEditTags && currentPart) {
+      setFormTags(currentPart.tags || ''); // Reverte para as tags originais
+    }
+
     try {
       if (currentPart) {
         await updatePart({
           ...currentPart,
           codigo: formCodigo,
           descricao: formDescricao,
-          tags: formTags,
+          tags: formTags, // Usa formTags (que pode ter sido revertido se !canEditTags)
         });
         showSuccess('Peça atualizada com sucesso!');
       } else {
@@ -193,7 +200,7 @@ const PartManagementTable: React.FC = () => {
     }
     try {
       await Promise.all(Array.from(selectedPartIds).map(id => deletePart(id)));
-      showSuccess(`${selectedPartIds.size ?? 0} peças excluídas com sucesso!`); // Corrigido: Removido o '?' desnecessário
+      showSuccess(`${selectedPartIds.size ?? 0} peças excluídas com sucesso!`);
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao excluir peças selecionadas.');
@@ -209,7 +216,7 @@ const PartManagementTable: React.FC = () => {
     try {
       const partsToUpdate = parts.filter(part => selectedPartIds.has(part.id));
       await Promise.all(partsToUpdate.map(part => updatePart({ ...part, tags: '' })));
-      showSuccess(`Tags de ${selectedPartIds.size ?? 0} peças limpas com sucesso!`); // Corrigido: Removido o '?' desnecessário
+      showSuccess(`Tags de ${selectedPartIds.size ?? 0} peças limpas com sucesso!`);
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao limpar tags das peças selecionadas.');
@@ -295,7 +302,7 @@ const PartManagementTable: React.FC = () => {
       loadingToastId = showLoading('Preparando exportação de peças...');
       if (selectedPartIds.size > 0) {
         dataToExport = parts.filter(part => selectedPartIds.has(part.id));
-        if (dataToToExport.length === 0) {
+        if (dataToExport.length === 0) {
           showError('Nenhuma peça selecionada para exportar.');
           return;
         }
@@ -336,6 +343,9 @@ const PartManagementTable: React.FC = () => {
       if (loadingToastId) dismissToast(loadingToastId);
     }
   };
+
+  // Lógica para desabilitar a edição de tags
+  const canEditTags = profile?.role === 'admin' || profile?.role === 'moderator';
 
   const isAllSelected = parts.length > 0 && selectedPartIds.size === parts.length;
   const isIndeterminate = selectedPartIds.size > 0 && selectedPartIds.size < parts.length;
@@ -438,7 +448,7 @@ const PartManagementTable: React.FC = () => {
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2">
+                <Button variant="outline" className="flex items-center gap-2" disabled={!canEditTags}> {/* Desabilita o botão */}
                   <Tag className="h-4 w-4" /> Limpar Tags Selecionadas ({selectedPartIds.size})
                 </Button>
               </AlertDialogTrigger>
@@ -552,6 +562,7 @@ const PartManagementTable: React.FC = () => {
                 onChange={(e) => setFormTags(e.target.value)}
                 placeholder="tag1;tag2;tag3"
                 className="col-span-3"
+                disabled={!canEditTags} // Desabilita o input de tags no modal
               />
             </div>
             <DialogFooter>

@@ -5,24 +5,26 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Part, addSimplePartItem, getParts, searchParts as searchPartsService, updatePart, getUniqueAfs } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
-import AfSearchInput from './AfSearchInput'; // Importar AfSearchInput
+import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save } from 'lucide-react';
+import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
 
 interface PartListItemFormProps {
   onItemAdded: () => void;
 }
 
 const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
+  const { profile, session } = useSession(); // Obter profile e session
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
-  const [af, setAf] = useState(''); // Estado para o AF
+  const [af, setAf] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]); // Estado para AFs disponíveis
+  const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
-  const [isLoadingAfs, setIsLoadingAfs] = useState(true); // Estado para carregamento de AFs
+  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
 
   useEffect(() => {
@@ -32,7 +34,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       setAllAvailableParts(parts);
       setIsLoadingParts(false);
 
-      setIsLoadingAfs(true); // Carregar AFs
+      setIsLoadingAfs(true);
       const afs = await getUniqueAfs();
       setAllAvailableAfs(afs);
       setIsLoadingAfs(false);
@@ -88,10 +90,8 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     try {
       await updatePart({ ...selectedPart, tags: editedTags });
       showSuccess('Tags da peça atualizadas com sucesso!');
-      // Atualiza a lista de peças disponíveis para refletir a mudança
       const updatedParts = await getParts();
       setAllAvailableParts(updatedParts);
-      // Atualiza a peça selecionada para refletir as novas tags
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
       showError('Erro ao atualizar as tags da peça.');
@@ -107,28 +107,29 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     }
 
     try {
-      // Sempre adiciona à simplePartsList, incluindo o AF se preenchido
       await addSimplePartItem({
         codigo_peca: selectedPart.codigo,
         descricao: selectedPart.descricao,
         quantidade,
-        af: af.trim() !== '' ? af : undefined, // Adiciona AF se não estiver vazio
+        af: af.trim() !== '' ? af : undefined,
       });
       showSuccess('Item adicionado à lista de Peças!');
       
       setSelectedPart(null);
       setQuantidade(1);
-      setAf(''); // Limpar o campo AF após adicionar
+      setAf('');
       setEditedTags('');
-      onItemAdded(); // Notifica o pai para recarregar as listas
+      onItemAdded();
     } catch (error) {
       showError('Erro ao adicionar item à lista.');
       console.error('Failed to add item to list:', error);
     }
   };
 
-  const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags;
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !selectedPart; // Desabilitar apenas se não houver peça selecionada
+  // Lógica para desabilitar a edição de tags
+  const canEditTags = profile?.role === 'admin' || profile?.role === 'moderator';
+  const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
+  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !selectedPart;
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -180,6 +181,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
                   value={editedTags}
                   onChange={(e) => setEditedTags(e.target.value)}
                   placeholder="Adicione tags separadas por ';'"
+                  disabled={!canEditTags} // Desabilita o input de tags
                 />
                 <Button
                   type="button"
@@ -205,7 +207,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               required
             />
           </div>
-          {/* AF movido para o final */}
           <div>
             <Label htmlFor="af">AF (Número de Frota) (Opcional)</Label>
             {isLoadingAfs ? (
