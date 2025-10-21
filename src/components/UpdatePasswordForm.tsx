@@ -7,12 +7,15 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Loader2 } from 'lucide-react';
+import { useSession } from '@/components/SessionContextProvider'; // Import useSession
 
 interface UpdatePasswordFormProps {
   onPasswordUpdated: () => void;
 }
 
 const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdated }) => {
+  const { user } = useSession(); // Get the current user from session context
+  const [currentPassword, setCurrentPassword] = useState(''); // New state for current password
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -22,28 +25,58 @@ const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdat
     e.preventDefault();
     setPasswordError('');
 
+    if (!user?.email) {
+      showError('Não foi possível obter o e-mail do usuário para verificação.');
+      return;
+    }
+
     if (newPassword.length < 6) {
-      setPasswordError('A senha deve ter pelo menos 6 caracteres.');
+      setPasswordError('A nova senha deve ter pelo menos 6 caracteres.');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordError('As senhas não coincidem.');
+      setPasswordError('As novas senhas não coincidem.');
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      setPasswordError('A nova senha não pode ser igual à senha atual.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({
+      // 1. Re-authenticate with current password
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        if (signInError.message.includes('Invalid login credentials')) {
+          setPasswordError('A senha atual está incorreta.');
+        } else {
+          throw signInError;
+        }
+        return; // Stop if re-authentication fails
+      }
+
+      // 2. If re-authentication successful, update the password
+      const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       });
 
-      if (error) {
-        throw error;
+      if (updateError) {
+        throw updateError;
       }
 
       showSuccess('Sua senha foi atualizada com sucesso!');
-      onPasswordUpdated(); // Notifica o pai para redirecionar
+      onPasswordUpdated(); // Notifies parent to redirect or handle success
+      // Clear fields
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
     } catch (error: any) {
       console.error('Erro ao atualizar senha:', error);
       showError(`Erro ao atualizar senha: ${error.message}`);
@@ -54,6 +87,18 @@ const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdat
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="current-password">Senha Atual</Label>
+        <Input
+          id="current-password"
+          type="password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          placeholder="Digite sua senha atual"
+          required
+          disabled={isLoading}
+        />
+      </div>
       <div>
         <Label htmlFor="new-password">Nova Senha</Label>
         <Input
@@ -67,7 +112,7 @@ const UpdatePasswordForm: React.FC<UpdatePasswordFormProps> = ({ onPasswordUpdat
         />
       </div>
       <div>
-        <Label htmlFor="confirm-password">Confirmar Senha</Label>
+        <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
         <Input
           id="confirm-password"
           type="password"
