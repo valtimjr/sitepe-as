@@ -108,9 +108,9 @@ const UserSettingsPage: React.FC = () => {
     }
   };
 
+  // O callback agora pode ser vazio, pois o formulário já exibe o toast de sucesso
   const handlePasswordChanged = () => {
-    showSuccess('Senha atualizada com sucesso!');
-    // Não é necessário redirecionar, o usuário permanece na página de configurações
+    // Nenhuma ação adicional necessária aqui, o formulário já exibe o toast
   };
 
   if (isSessionLoading || isProfileLoading) {

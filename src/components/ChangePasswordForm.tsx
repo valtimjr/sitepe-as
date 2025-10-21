@@ -27,6 +27,7 @@ const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onPasswordChang
 
     if (!user?.email) {
       showError('Não foi possível obter o e-mail do usuário para verificação.');
+      setIsLoading(false); // Garante que o botão seja reativado em caso de erro inicial
       return;
     }
 
@@ -72,8 +73,8 @@ const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onPasswordChang
       }
 
       showSuccess('Sua senha foi atualizada com sucesso!');
-      onPasswordChanged();
-      // Clear fields
+      onPasswordChanged(); // Chama o callback para qualquer ação adicional (ex: fechar modal)
+      // Limpa os campos após o sucesso
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -81,7 +82,7 @@ const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onPasswordChang
       console.error('Erro ao atualizar senha:', error);
       showError(`Erro ao atualizar senha: ${error.message}`);
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Garante que o botão seja reativado
     }
   };
 

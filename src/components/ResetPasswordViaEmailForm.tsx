@@ -45,10 +45,10 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
       }
 
       showSuccess('Sua senha foi redefinida com sucesso!');
-      onPasswordReset();
-      // Clear fields
+      // Limpa os campos antes de chamar o callback que pode navegar
       setNewPassword('');
       setConfirmPassword('');
+      onPasswordReset(); // Chama o callback para redirecionar
     } catch (error: any) {
       console.error('Erro ao redefinir senha:', error);
       // Adiciona uma verificação específica para o erro de senha igual à antiga
@@ -58,7 +58,7 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
         showError(`Erro ao redefinir senha: ${error.message}`);
       }
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Garante que o botão seja reativado
     }
   };
 
