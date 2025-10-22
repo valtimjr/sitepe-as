@@ -6,6 +6,7 @@ import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PartManagementTable from '@/components/PartManagementTable';
 import AfManagementTable from '@/components/AfManagementTable';
+import InviteManager from '@/components/InviteManager'; // Importar o novo componente
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
@@ -41,15 +42,19 @@ const DatabaseManagerPage: React.FC = () => {
       </h1>
 
       <Tabs defaultValue="parts" className="w-full max-w-6xl">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>
           <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>
+          <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>
         </TabsList>
         <TabsContent value="parts">
           <PartManagementTable />
         </TabsContent>
         <TabsContent value="afs">
           <AfManagementTable />
+        </TabsContent>
+        <TabsContent value="invites">
+          <InviteManager />
         </TabsContent>
       </Tabs>
       <MadeWithDyad />
