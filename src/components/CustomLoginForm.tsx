@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { PasswordInput } from './PasswordInput'; // Importar PasswordInput
 
 const CustomLoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -54,9 +55,8 @@ const CustomLoginForm: React.FC = () => {
       </div>
       <div>
         <Label htmlFor="password">Senha</Label>
-        <Input
+        <PasswordInput // Usando PasswordInput
           id="password"
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Sua senha"
@@ -75,7 +75,7 @@ const CustomLoginForm: React.FC = () => {
         )}
       </Button>
       <div className="text-center text-sm mt-4">
-        <Link to="/forgot-password" className="text-primary hover:underline"> {/* Link atualizado */}
+        <Link to="/forgot-password" className="text-primary hover:underline">
           Esqueceu sua senha?
         </Link>
       </div>

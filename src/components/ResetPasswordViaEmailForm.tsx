@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Loader2 } from 'lucide-react';
+import { PasswordInput } from './PasswordInput'; // Importar PasswordInput
 
 interface ResetPasswordViaEmailFormProps {
   onPasswordReset: () => void;
@@ -66,9 +67,8 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <Label htmlFor="new-password">Nova Senha</Label>
-        <Input
+        <PasswordInput // Usando PasswordInput
           id="new-password"
-          type="password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           placeholder="Digite sua nova senha"
@@ -78,9 +78,8 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
       </div>
       <div>
         <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
-        <Input
+        <PasswordInput // Usando PasswordInput
           id="confirm-password"
-          type="password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Confirme sua nova senha"

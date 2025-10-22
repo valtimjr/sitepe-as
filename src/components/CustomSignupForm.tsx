@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { PasswordInput } from './PasswordInput'; // Importar PasswordInput
 
 interface CustomSignupFormProps {
   uuid: string; // O UUID do convite
@@ -140,9 +141,8 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
       </div>
       <div>
         <Label htmlFor="password">Senha</Label>
-        <Input
+        <PasswordInput // Usando PasswordInput
           id="password"
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Crie sua senha"

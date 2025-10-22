@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Loader2 } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
+import { PasswordInput } from './PasswordInput'; // Importar PasswordInput
 
 interface ChangePasswordFormProps {
   onPasswordChanged: () => void;
@@ -90,9 +91,8 @@ const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onPasswordChang
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <Label htmlFor="current-password">Senha Atual</Label>
-        <Input
+        <PasswordInput // Usando PasswordInput
           id="current-password"
-          type="password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
           placeholder="Digite sua senha atual"
@@ -102,9 +102,8 @@ const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onPasswordChang
       </div>
       <div>
         <Label htmlFor="new-password">Nova Senha</Label>
-        <Input
+        <PasswordInput // Usando PasswordInput
           id="new-password"
-          type="password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           placeholder="Digite sua nova senha"
@@ -114,9 +113,8 @@ const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onPasswordChang
       </div>
       <div>
         <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
-        <Input
+        <PasswordInput // Usando PasswordInput
           id="confirm-password"
-          type="password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Confirme sua nova senha"
