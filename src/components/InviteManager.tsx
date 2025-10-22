@@ -19,7 +19,7 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSession } from './SessionContextProvider';
-import { v4 as uuidv4 } from 'uuid';
+// Removido a importação de uuidv4
 
 interface Invite {
   id: string;
@@ -68,13 +68,11 @@ const InviteManager: React.FC = () => {
     setIsCopied(false);
 
     try {
-      // Gera um novo UUID para o invite_code, embora o DB deva ter um DEFAULT
-      const newInviteCode = uuidv4(); 
-      
+      // Removendo a inserção explícita de invite_code para permitir que o DB use o valor DEFAULT (gen_random_uuid())
       const { data, error } = await supabase
         .from('invites')
-        .insert({ invite_code: newInviteCode }) 
-        .select('invite_code')
+        .insert({}) // Insere uma linha vazia, confiando nos valores DEFAULT do DB
+        .select('invite_code') // Seleciona o invite_code gerado pelo DB
         .single();
 
       if (error) throw error;
