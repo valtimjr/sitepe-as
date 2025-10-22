@@ -10,7 +10,7 @@ const Index = () => {
   const { checkPageAccess } = useSession(); // Obter checkPageAccess do contexto
 
   useEffect(() => {
-    document.title = "Gerenciador de Peças - Início";
+    document.title = "Início - AutoBoard";
   }, []);
 
   const canAccessAdmin = checkPageAccess('/admin'); // Verifica se o usuário pode acessar /admin

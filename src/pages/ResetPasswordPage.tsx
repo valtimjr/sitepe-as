@@ -13,7 +13,7 @@ const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = "Redefinir Senha - Gerenciador de Peças";
+    document.title = "Redefinir Senha - AutoBoard";
   }, []);
 
   const handlePasswordReset = () => {

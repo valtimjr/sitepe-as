@@ -27,7 +27,7 @@ const UserSettingsPage: React.FC = () => {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
-    document.title = "Configurações do Usuário - Gerenciador de Peças";
+    document.title = "Configurações do Usuário - AutoBoard";
   }, []);
 
   // Populate form fields when sessionProfile changes or becomes available

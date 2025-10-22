@@ -16,7 +16,7 @@ const ForgotPasswordPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    document.title = "Esqueceu a Senha - Gerenciador de Peças";
+    document.title = "Esqueceu a Senha - AutoBoard";
   }, []);
 
   // O handleGoHome foi removido, pois o logo no cabeçalho serve para isso.

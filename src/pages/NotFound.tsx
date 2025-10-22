@@ -5,7 +5,7 @@ const NotFound = () => {
   const location = useLocation();
 
   useEffect(() => {
-    document.title = "Página Não Encontrada - 404";
+    document.title = "Página Não Encontrada - AutoBoard";
   }, []);
 
   useEffect(() => {

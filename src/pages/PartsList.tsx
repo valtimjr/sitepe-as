@@ -13,7 +13,7 @@ const PartsList = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    document.title = "Minha Lista de Peças - Gerenciador de Peças";
+    document.title = "Minha Lista de Peças - AutoBoard";
   }, []);
 
   const loadListItems = async () => {

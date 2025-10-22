@@ -25,7 +25,7 @@ const ServiceOrderList = () => {
   const [isCreatingNewOrder, setIsCreatingNewOrder] = useState(false);
 
   useEffect(() => {
-    document.title = "Ordens de Serviço - Gerenciador de Peças";
+    document.title = "Ordens de Serviço - AutoBoard";
   }, []);
 
   const loadListItems = useCallback(async () => {

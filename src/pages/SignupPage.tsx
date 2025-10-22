@@ -15,7 +15,7 @@ const SignupPage: React.FC = () => {
   const [isLoadingInvite, setIsLoadingInvite] = useState(true);
 
   useEffect(() => {
-    document.title = "Cadastro por Convite - Gerenciador de Peças";
+    document.title = "Cadastro por Convite - AutoBoard";
   }, []);
 
   useEffect(() => {

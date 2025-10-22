@@ -14,7 +14,7 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = "Login - Gerenciador de Peças";
+    document.title = "Login - AutoBoard";
   }, []);
 
   if (isLoading) {
