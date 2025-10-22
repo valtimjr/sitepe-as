@@ -43,7 +43,6 @@ const InviteManager: React.FC = () => {
 
     setIsLoadingInvites(true);
     try {
-      // Assumindo que a tabela 'invites' existe e tem as colunas corretas
       const { data, error } = await supabase
         .from('invites')
         .select('id, invite_code, is_used, used_by, created_at, used_at')
