@@ -20,7 +20,7 @@ const Index = () => {
       {/* Removido o div com os botões de login/configurações */}
       <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
       <h1 className="text-5xl font-extrabold mb-12 text-center text-primary dark:text-primary">
-        Bem-vindo ao Gerenciador de Peças
+        Bem-vindo ao AutoBoard
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-4xl">
