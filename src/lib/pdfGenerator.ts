@@ -7,9 +7,18 @@ applyPlugin(jsPDF);
 
 export const generatePartsListPdf = (listItems: SimplePartItem[], title: string = 'Lista de Peças'): void => {
   const doc = new jsPDF();
+  let currentY = 22;
 
   doc.setFontSize(18);
-  doc.text(title, 14, 22);
+  doc.text('Lista de Peças', 14, currentY);
+  currentY += 8;
+
+  // Adiciona o título personalizado (Título da Lista)
+  if (title && title !== 'Lista de Peças Simples') {
+    doc.setFontSize(12);
+    doc.text(title, 14, currentY);
+    currentY += 8;
+  }
 
   // Colunas simplificadas para a lista de peças
   const tableColumn = ["Código da Peça", "Descrição", "Quantidade", "AF"]; // AF movido para o final
@@ -28,7 +37,7 @@ export const generatePartsListPdf = (listItems: SimplePartItem[], title: string 
   (doc as any).autoTable({
     head: [tableColumn],
     body: tableRows,
-    startY: 30,
+    startY: currentY,
     styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 240, 240] },

@@ -18,14 +18,18 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
   onListChanged: () => void;
+  listTitle: string;
+  onTitleChange: (title: string) => void;
 }
 
-const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged }) => {
+const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged, listTitle, onTitleChange }) => {
   const displayedItems = listItems;
 
   const handleExportPdf = () => {
@@ -33,7 +37,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    generatePartsListPdf(displayedItems, 'Lista de Peças Simples');
+    // Passa o título personalizado para a função de geração de PDF
+    generatePartsListPdf(displayedItems, listTitle);
     showSuccess('PDF gerado com sucesso!');
   };
 
@@ -74,6 +79,9 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
 
     let formattedText = '';
+
+    // Adiciona o título da lista
+    formattedText += `${listTitle}\n\n`;
 
     // Adiciona a linha do cabeçalho com espaçamento exato
     formattedText +=
@@ -158,42 +166,55 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       <CardHeader className="pb-2">
         <CardTitle className="text-2xl font-bold">Lista de Peças</CardTitle>
       </CardHeader>
-      <div className="flex flex-wrap justify-end gap-2 p-4 pt-0">
-          <Button onClick={handleCopyList} disabled={displayedItems.length === 0} className="flex items-center gap-2">
-            <Copy className="h-4 w-4" /> Copiar Lista
-          </Button>
-          <Button 
-            onClick={handleShareOnWhatsApp} 
-            disabled={displayedItems.length === 0} 
-            variant="ghost" 
-            className="h-10 w-10 p-0 rounded-full" 
-            aria-label="Compartilhar no WhatsApp" 
-          >
-            <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
-          </Button>
-          <Button onClick={handleExportPdf} disabled={displayedItems.length === 0} className="flex items-center gap-2">
-            <Download className="h-4 w-4" /> Exportar PDF
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={displayedItems.length === 0} className="flex items-center gap-2">
-                <Trash2 className="h-4 w-4" /> Limpar Lista
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta ação irá remover todos os itens da sua lista de peças simples. Esta ação não pode ser desfeita.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearList}>Limpar</AlertDialogAction>
-              </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+      <CardContent className="p-4 pt-0">
+        <div className="mb-4">
+          <Label htmlFor="list-title">Título da Lista (para PDF/Cópia)</Label>
+          <Input
+            id="list-title"
+            type="text"
+            value={listTitle}
+            onChange={(e) => onTitleChange(e.target.value)}
+            placeholder="Ex: Peças para Manutenção de Frota X"
+            className="w-full"
+          />
         </div>
+        <div className="flex flex-wrap justify-end gap-2">
+            <Button onClick={handleCopyList} disabled={displayedItems.length === 0} className="flex items-center gap-2">
+              <Copy className="h-4 w-4" /> Copiar Lista
+            </Button>
+            <Button 
+              onClick={handleShareOnWhatsApp} 
+              disabled={displayedItems.length === 0} 
+              variant="ghost" 
+              className="h-10 w-10 p-0 rounded-full" 
+              aria-label="Compartilhar no WhatsApp" 
+            >
+              <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
+            </Button>
+            <Button onClick={handleExportPdf} disabled={displayedItems.length === 0} className="flex items-center gap-2">
+              <Download className="h-4 w-4" /> Exportar PDF
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={displayedItems.length === 0} className="flex items-center gap-2">
+                  <Trash2 className="h-4 w-4" /> Limpar Lista
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação irá remover todos os itens da sua lista de peças simples. Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearList}>Limpar</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </CardContent>
       <CardContent>
         {displayedItems.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione peças para começar!</p>

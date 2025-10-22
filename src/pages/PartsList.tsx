@@ -11,6 +11,7 @@ import { showSuccess, showError } from '@/utils/toast';
 const PartsList = () => {
   const [listItems, setListItems] = useState<SimplePartItem[]>([]); // Agora usa SimplePartItem
   const [isLoading, setIsLoading] = useState(true);
+  const [listTitle, setListTitle] = useState('Lista de Peças Simples'); // Novo estado para o título
 
   useEffect(() => {
     document.title = "Minha Lista de Peças - AutoBoard";
@@ -46,7 +47,12 @@ const PartsList = () => {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
           <PartListItemForm onItemAdded={loadListItems} />
-          <PartsListDisplay listItems={listItems} onListChanged={loadListItems} />
+          <PartsListDisplay 
+            listItems={listItems} 
+            onListChanged={loadListItems} 
+            listTitle={listTitle} // Passando o título
+            onTitleChange={setListTitle} // Passando a função de atualização
+          />
         </div>
       )}
       <MadeWithDyad />
