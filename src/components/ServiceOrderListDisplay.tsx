@@ -300,6 +300,33 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
   });
 
   const sortedGroups = Object.values(groupedForDisplay).sort((a, b) => {
+    // 1. Ordenar por hora_inicio (se presente)
+    const timeA = a.hora_inicio || '';
+    const timeB = b.hora_inicio || '';
+
+    if (timeA && timeB) {
+      if (timeA < timeB) return -1;
+      if (timeA > timeB) return 1;
+    } else if (timeA && !timeB) {
+      return -1; // A com hora_inicio vem antes de B sem
+    } else if (!timeA && timeB) {
+      return 1; // B com hora_inicio vem antes de A sem
+    }
+
+    // 2. Ordenar por hora_final (se presente)
+    const timeEndA = a.hora_final || '';
+    const timeEndB = b.hora_final || '';
+
+    if (timeEndA && timeEndB) {
+      if (timeEndA < timeEndB) return -1;
+      if (timeEndA > timeEndB) return 1;
+    } else if (timeEndA && !timeEndB) {
+      return -1; // A com hora_final vem antes de B sem
+    } else if (!timeEndA && timeEndB) {
+      return 1; // B com hora_final vem antes de A sem
+    }
+
+    // 3. Fallback para created_at
     if (!a.createdAt || !b.createdAt) return 0;
     return a.createdAt.getTime() - b.createdAt.getTime();
   });
@@ -349,7 +376,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando sua lista de ordens de serviço...</p>
         ) : listItems.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione peças para começar!</p>
+          <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione itens antes de começar!</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
