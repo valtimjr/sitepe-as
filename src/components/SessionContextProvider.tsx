@@ -17,6 +17,9 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
+// Rotas que devem ser sempre acessíveis a convidados, independentemente das regras do DB
+const PUBLIC_ROUTES = ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/search-parts'];
+
 export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -121,23 +124,36 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   const checkPageAccess = useCallback((path: string): boolean => {
     const normalizedPath = path.split('/')[1] === 'signup' ? '/signup' : path;
 
+    // 1. Permite acesso a rotas públicas se não houver sessão
+    if (!session && PUBLIC_ROUTES.includes(normalizedPath)) {
+      return true;
+    }
+
+    // 2. Se a sessão estiver carregando, nega acesso a rotas privadas
+    if (isLoadingSessionAndProfile) {
+      // Se for uma rota pública, permite o acesso mesmo durante o carregamento
+      return PUBLIC_ROUTES.includes(normalizedPath);
+    }
+
+    // 3. Se o usuário está autenticado, mas o perfil não carregou, nega acesso a rotas privadas
+    if (session && !profile) {
+      return PUBLIC_ROUTES.includes(normalizedPath);
+    }
+
     const rule = pageAccessRules.find(r => r.page_path === normalizedPath);
 
     if (!rule) {
-      console.warn(`SessionContextProvider: No access rule found for path: ${normalizedPath}. Denying access.`);
-      return false;
+      // Se não houver regra no DB, verifica se é uma rota pública
+      return PUBLIC_ROUTES.includes(normalizedPath);
     }
 
+    // 4. Verifica o acesso baseado na regra e no perfil
     if (!session) {
       return rule.guest_access;
     }
 
-    if (!profile?.role) {
-      console.warn(`SessionContextProvider: Authenticated user without loaded profile trying to access ${normalizedPath}. Denying access until profile is loaded.`);
-      return false;
-    }
-
-    switch (profile.role) {
+    // Se chegou aqui, o usuário está logado e o perfil está carregado (ou profile é null, mas a verificação acima já tratou isso)
+    switch (profile?.role) {
       case 'admin':
         return rule.admin_access;
       case 'moderator':
@@ -145,9 +161,10 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       case 'user':
         return rule.user_access;
       default:
+        // Se o perfil não tem role (o que não deveria acontecer se o perfil foi carregado), nega.
         return false;
     }
-  }, [pageAccessRules, profile, session]);
+  }, [pageAccessRules, profile, session, isLoadingSessionAndProfile]);
 
   // Efeito para redirecionamento baseado no acesso
   useEffect(() => {
@@ -158,14 +175,14 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       const isResetPasswordPage = currentPath === '/reset-password';
       const isForgotPasswordPage = currentPath === '/forgot-password';
 
-      if (isLoginPage || isSignupPage || isResetPasswordPage || isForgotPasswordPage) {
-        if (session && isLoginPage) {
-          navigate('/');
-          showError('Você já está logado.');
-        }
+      // Se o usuário está logado, redireciona de páginas de autenticação
+      if (session && (isLoginPage || isSignupPage || isResetPasswordPage || isForgotPasswordPage)) {
+        navigate('/');
+        showError('Você já está logado.');
         return;
       }
 
+      // Verifica o acesso para todas as outras páginas
       if (!checkPageAccess(currentPath)) {
         showError('Você não tem permissão para acessar esta página.');
         if (!session) {
