@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Copy, PlusCircle, Loader2, Trash2, Check, XCircle } from 'lucide-react';
+import { Copy, PlusCircle, Loader2, Trash2, Check, XCircle, Link as LinkIcon } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -19,7 +19,8 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSession } from './SessionContextProvider';
-// Removido a importação de uuidv4
+import { v4 as uuidv4 } from 'uuid';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Invite {
   id: string;
@@ -68,11 +69,10 @@ const InviteManager: React.FC = () => {
     setIsCopied(false);
 
     try {
-      // Removendo a inserção explícita de invite_code para permitir que o DB use o valor DEFAULT (gen_random_uuid())
       const { data, error } = await supabase
         .from('invites')
-        .insert({}) // Insere uma linha vazia, confiando nos valores DEFAULT do DB
-        .select('invite_code') // Seleciona o invite_code gerado pelo DB
+        .insert({})
+        .select('invite_code')
         .single();
 
       if (error) throw error;
@@ -90,18 +90,22 @@ const InviteManager: React.FC = () => {
     }
   };
 
-  const handleCopyLink = async () => {
-    if (newInviteLink) {
-      try {
-        await navigator.clipboard.writeText(newInviteLink);
-        setIsCopied(true);
-        showSuccess('Link copiado para a área de transferência!');
-        setTimeout(() => setIsCopied(false), 2000);
-      } catch (err) {
-        showError('Falha ao copiar o link.');
-        console.error('Failed to copy link:', err);
-      }
+  const handleCopyLink = async (linkToCopy: string) => {
+    try {
+      await navigator.clipboard.writeText(linkToCopy);
+      setIsCopied(true);
+      showSuccess('Link copiado para a área de transferência!');
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      showError('Falha ao copiar o link.');
+      console.error('Failed to copy link:', err);
     }
+  };
+
+  const handleShowLink = (inviteCode: string) => {
+    const link = `${window.location.origin}/signup/${inviteCode}`;
+    setNewInviteLink(link);
+    setIsCopied(false); // Resetar o estado de cópia ao mostrar um novo link
   };
 
   const handleDeleteInvite = async (id: string) => {
@@ -143,7 +147,7 @@ const InviteManager: React.FC = () => {
             <Label>Link de Convite Gerado:</Label>
             <div className="flex w-full max-w-md items-center space-x-2">
               <Input type="text" value={newInviteLink} readOnly className="truncate" />
-              <Button onClick={handleCopyLink} type="button" variant="secondary" size="icon">
+              <Button onClick={() => handleCopyLink(newInviteLink)} type="button" variant="secondary" size="icon">
                 {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
@@ -191,15 +195,35 @@ const InviteManager: React.FC = () => {
                     <TableCell>
                       {invite.used_by || 'N/A'}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => handleDeleteInvite(invite.id)}
-                        aria-label="Excluir convite"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                    <TableCell className="text-right flex justify-end items-center space-x-2">
+                      {!invite.is_used && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleShowLink(invite.invite_code)}
+                              aria-label="Mostrar link de convite"
+                            >
+                              <LinkIcon className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Mostrar Link de Convite</TooltipContent>
+                        </Tooltip>
+                      )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => handleDeleteInvite(invite.id)}
+                            aria-label="Excluir convite"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Excluir Convite</TooltipContent>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}
