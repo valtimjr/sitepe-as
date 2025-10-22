@@ -42,70 +42,51 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     showSuccess('PDF gerado com sucesso!');
   };
 
-  // Algoritmo para calcular as larguras dinâmicas das colunas
-  const calculateDynamicColumnWidths = () => {
-    const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
-    const buffer = 2; // Espaços extras para legibilidade entre as colunas
-
-    // Inicializa as larguras máximas com o comprimento dos cabeçalhos
-    const maxLengths = headers.map(header => header.length);
-
-    displayedItems.forEach(item => {
-      const codigo = item.codigo_peca || '';
-      const descricao = item.descricao || '';
-      const quantidade = item.quantidade !== undefined ? item.quantidade.toString() : '';
-      const af = item.af || '';
-
-      maxLengths[0] = Math.max(maxLengths[0], codigo.length);
-      maxLengths[1] = Math.max(maxLengths[1], descricao.length);
-      maxLengths[2] = Math.max(maxLengths[2], quantidade.length);
-      maxLengths[3] = Math.max(maxLengths[3], af.length);
-    });
-
-    // Adiciona o buffer a cada largura máxima, exceto para a última coluna
-    const widths = maxLengths.map((length, index) => {
-      // A última coluna não precisa de buffer *depois* dela, pois é o fim da linha
-      return index < maxLengths.length - 1 ? length + buffer : length;
-    });
-    
-    return widths;
-  };
-
-  // Função para formatar o texto para a área de transferência (com larguras dinâmicas e espaçamento exato)
-  const formatListTextForClipboard = () => {
+  // Nova função para formatar o texto agrupado por AF
+  const formatListTextGroupedByAf = () => {
     if (displayedItems.length === 0) return '';
 
-    const [codigoWidth, descricaoWidth, quantidadeWidth, afWidth] = calculateDynamicColumnWidths();
-    const headers = ['Código', 'Descrição', 'Quantidade', 'AF'];
+    // 1. Agrupar e ordenar itens
+    const groupedByAf: { [key: string]: SimplePartItem[] } = {};
+    displayedItems.forEach(item => {
+      const afKey = item.af || 'SEM_AF';
+      if (!groupedByAf[afKey]) {
+        groupedByAf[afKey] = [];
+      }
+      groupedByAf[afKey].push(item);
+    });
+
+    // Ordenar as chaves (AFs) numericamente, colocando 'SEM_AF' por último
+    const sortedAfKeys = Object.keys(groupedByAf).sort((a, b) => {
+      if (a === 'SEM_AF') return 1;
+      if (b === 'SEM_AF') return -1;
+      return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
 
     let formattedText = '';
 
-    // Adiciona o título da lista
+    // 2. Adicionar o título da lista
     formattedText += `${listTitle}\n\n`;
 
-    // Adiciona a linha do cabeçalho com espaçamento exato
-    formattedText +=
-      headers[0].padEnd(codigoWidth) +
-      headers[1].padEnd(descricaoWidth) +
-      headers[2].padEnd(quantidadeWidth) +
-      headers[3].padEnd(afWidth) + '\n';
+    // 3. Iterar sobre os grupos e formatar
+    sortedAfKeys.forEach(afKey => {
+      const items = groupedByAf[afKey];
+      const afDisplay = afKey === 'SEM_AF' ? 'SEM AF' : afKey;
 
-    // Adiciona as linhas de dados com espaçamento exato
-    displayedItems.forEach(item => {
-      formattedText +=
-        String(item.codigo_peca || '').padEnd(codigoWidth) +
-        String(item.descricao || '').padEnd(descricaoWidth) +
-        String(item.quantidade !== undefined ? item.quantidade.toString() : '').padEnd(quantidadeWidth) +
-        String(item.af || '').padEnd(afWidth) + '\n';
+      formattedText += `AF:${afDisplay}\n`;
+
+      items.forEach(item => {
+        const quantidade = item.quantidade ?? 1;
+        const codigo = item.codigo_peca || '';
+        const descricao = item.descricao || '';
+        
+        // Formato: [QUANTIDADE] - [CÓDIGO] [DESCRIÇÃO]
+        formattedText += `${quantidade} - ${codigo} ${descricao}`.trim() + '\n';
+      });
+      formattedText += '\n'; // Linha em branco entre grupos
     });
 
     return formattedText.trim();
-  };
-
-  // Função para formatar o texto especificamente para o WhatsApp (usando a mesma lógica de espaçamento exato)
-  const formatListTextForWhatsApp = () => {
-    // Reutiliza a função de formatação para a área de transferência, pois a lógica é a mesma
-    return formatListTextForClipboard();
   };
 
   const handleCopyList = async () => {
@@ -114,7 +95,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       return;
     }
 
-    const textToCopy = formatListTextForClipboard();
+    const textToCopy = formatListTextGroupedByAf();
 
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -131,7 +112,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       return;
     }
 
-    const textToShare = formatListTextForWhatsApp();
+    const textToShare = formatListTextGroupedByAf();
     const encodedText = encodeURIComponent(textToShare);
     const whatsappUrl = `https://wa.me/?text=${encodedText}`;
 
