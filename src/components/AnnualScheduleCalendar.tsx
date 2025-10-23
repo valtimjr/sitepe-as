@@ -159,13 +159,14 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
                 <TooltipTrigger asChild>
                   <div
                     className={cn(
-                      "h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium text-white cursor-default transition-colors duration-100", // Revertido para flex, removido pt-px e translate-y
+                      "h-6 w-6 rounded-full relative cursor-default transition-colors duration-100", // Adicionado relative
                       colorClass,
                       isCurrentDay && 'ring-2 ring-offset-1 ring-primary dark:ring-primary',
                     )}
-                    style={{ paddingTop: '0.5px' }} // Adicionado ajuste fino de 0.5px
                   >
-                    {dayOfMonth}
+                    <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
+                      {dayOfMonth}
+                    </span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
