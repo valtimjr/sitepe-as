@@ -81,3 +81,10 @@
 
   /* A regra CSS para ocultar o link de cadastro não é mais necessária, pois o componente Auth UI foi substituído. */
 }
+
+@layer components {
+  /* Classe utilitária para centralização vertical perfeita em elementos de 24px (h-6) */
+  .day-center {
+    line-height: 24px;
+  }
+}
