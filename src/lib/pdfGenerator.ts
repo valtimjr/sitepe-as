@@ -229,65 +229,59 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
   doc.text(title, 14, currentY);
   currentY += 8;
 
+  // Definindo as colunas: Dia, Entrada, Saída, Status/Total
   const tableColumn = ["Dia", "Entrada", "Saída", "Status / Total"];
-  const tableRows: string[][] = [];
+  const tableRows: any[] = [];
 
   apontamentos.forEach(a => {
     const day = format(parseISO(a.date), 'dd/MM (EEE)', { locale: ptBR });
     
-    let entry: string;
-    let exit: string;
-    let statusOrTotal: string;
+    const hasStatus = !!a.status;
     
-    if (a.status) {
-      entry = ''; // Em branco
-      exit = ''; // Em branco
-      statusOrTotal = a.status; // Exibe o status completo
+    if (hasStatus) {
+      // Se tem status, a linha terá 2 colunas mescladas para o status
+      tableRows.push([
+        day, 
+        { content: a.status, colSpan: 3, styles: { halign: 'center', fontStyle: 'bold' } }
+      ]);
     } else {
-      entry = a.entry_time || ''; // Em branco se vazio
-      exit = a.exit_time || ''; // Em branco se vazio
-      statusOrTotal = calculateTotalHours(a.entry_time, a.exit_time);
+      // Se não tem status, a linha terá 4 colunas normais
+      const entry = a.entry_time || '';
+      const exit = a.exit_time || '';
+      const statusOrTotal = calculateTotalHours(a.entry_time, a.exit_time);
+      
+      tableRows.push([day, entry, exit, statusOrTotal]);
     }
-
-    tableRows.push([day, entry, exit, statusOrTotal]);
   });
 
   (doc as any).autoTable({
     head: [tableColumn],
     body: tableRows,
     startY: currentY,
-    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak', halign: 'center' },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     columnStyles: {
-      0: { cellWidth: 30 }, // Dia
-      1: { cellWidth: 25, halign: 'center' }, // Entrada
-      2: { cellWidth: 25, halign: 'center' }, // Saída
-      3: { cellWidth: 80, halign: 'center' }, // Status / Total
+      0: { cellWidth: 30, halign: 'left' }, // Dia (esquerda)
+      1: { cellWidth: 25 }, // Entrada
+      2: { cellWidth: 25 }, // Saída
+      3: { cellWidth: 80 }, // Status / Total
     },
-    headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 240, 240] },
     margin: { top: 10 },
     didParseCell: (data: any) => {
       const rowData = apontamentos[data.row.index];
       const hasStatus = !!rowData?.status;
-      const statusKey = hasStatus ? (rowData.status.includes('Outros') ? 'Outros' : rowData.status) : null;
-      const statusColors = statusKey ? PDF_STATUS_COLORS[statusKey as keyof typeof PDF_STATUS_COLORS] : null;
-
+      
       if (hasStatus) {
-        // Coluna Status / Total (index 3)
-        if (data.column.index === 3) {
-          data.cell.styles.halign = 'center';
-          data.cell.colSpan = 2; // Mescla com a coluna 'Saída'
-          data.cell.styles.fontStyle = 'bold';
+        const statusKey = rowData.status.includes('Outros') ? 'Outros' : rowData.status.split(':')[0];
+        const statusColors = PDF_STATUS_COLORS[statusKey as keyof typeof PDF_STATUS_COLORS];
+
+        // A célula mesclada é a segunda célula (index 1) na linha do body
+        if (data.column.index === 1) {
           if (statusColors) {
             data.cell.styles.fillColor = statusColors.fill;
             data.cell.styles.textColor = statusColors.text;
           }
-        }
-        // Coluna Entrada (index 1) e Saída (index 2)
-        if (data.column.index === 1 || data.column.index === 2) {
-          data.cell.text = ['']; // Garante que o texto esteja vazio
-          data.cell.styles.cellWidth = 0.0001; // Minimiza a largura
         }
       }
     }
