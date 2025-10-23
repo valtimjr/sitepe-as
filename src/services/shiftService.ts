@@ -11,7 +11,7 @@ const SHIFT_SCHEDULES = {
     3: { entry: '07:00', exit: '15:00' }, // Quarta
     4: { entry: '07:00', exit: '15:00' }, // Quinta
     5: { entry: '07:00', exit: '19:00' }, // Sexta
-    6: { entry: '07:00', exit: '19:00' }, // Sábado (Atualizado para 07:00 - 19:00)
+    6: { entry: '07:00', exit: '19:00' }, // Sábado
   },
   Intermediario: {
     0: { status: 'Folga' }, // Domingo folga
@@ -29,7 +29,7 @@ const SHIFT_SCHEDULES = {
     3: { entry: '23:00', exit: '07:00', overnight: true }, // Quarta
     4: { entry: '23:00', exit: '07:00', overnight: true }, // Quinta
     5: { entry: '19:00', exit: '07:00', overnight: true }, // Sexta
-    6: { status: 'Folga' }, // Sábado (Folga)
+    6: { status: 'Folga' }, // Sábado (Folga) - CORRIGIDO
   },
 };
 
@@ -37,14 +37,12 @@ const SHIFT_SCHEDULES = {
 const SHIFT_ORDER = ['Dia', 'Intermediario', 'Noite'];
 const TURNS = ['Turno A', 'Turno B', 'Turno C'];
 
-// Mapeamento de Turno para o índice da escala na Semana 1 (2024-01-01)
-// Turno A = Noite (Índice 2)
-// Turno B = Dia (Índice 0)
-// Turno C = Intermediário (Índice 1)
+// Mapeamento de Turno para o índice da escala na Semana de Referência (2024-01-01)
+// Assumindo que Turno A começa na escala Dia (0)
 const TURN_BASE_INDEX: { [key: string]: number } = {
-  'Turno A': 2, // Noite
-  'Turno B': 0, // Dia
-  'Turno C': 1, // Intermediário
+  'Turno A': 0, // Dia
+  'Turno B': 1, // Intermediário
+  'Turno C': 2, // Noite
 };
 
 // Data de Referência (Ponto de partida do ciclo)
