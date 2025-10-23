@@ -229,19 +229,30 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
   doc.setFontSize(14);
   
   // Divide o título em linhas para melhor formatação
-  const titleLines = title.split('\n');
+  const titleLines = title.split('\n').filter(line => line.trim() !== ''); // Filtra linhas vazias
   
-  // Primeira linha (Crachá - Nome Completo)
-  doc.setFontSize(16);
-  doc.setFont(undefined, 'bold');
-  doc.text(titleLines[0], 14, currentY);
-  currentY += 7;
+  if (titleLines.length > 0) {
+    // Primeira linha (Crachá - Nome Completo)
+    const employeeHeader = titleLines[0];
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(employeeHeader, 14, currentY);
+    currentY += 7;
 
-  // Segunda linha (Mês/Ano)
-  doc.setFontSize(12);
-  doc.setFont(undefined, 'normal');
-  doc.text(titleLines[1], 14, currentY);
-  currentY += 8;
+    if (titleLines.length > 1) {
+      // Segunda linha (Mês/Ano)
+      const monthYear = titleLines[1];
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'normal');
+      doc.text(monthYear, 14, currentY);
+      currentY += 8;
+    }
+  } else {
+    // Fallback se o título estiver completamente vazio
+    doc.setFontSize(18);
+    doc.text('Apontamento de Horas', 14, currentY);
+    currentY += 8;
+  }
 
   // Definindo as colunas: Dia, Entrada, Saída, Status/Total
   const tableColumn = ["Dia", "Entrada", "Saída", "Total / Status"];
@@ -308,5 +319,9 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     }
   });
 
-  doc.save(`${titleLines[0].replace(/\s/g, '_')}_${titleLines[1].replace(/\s/g, '_')}.pdf`);
+  // Cria um nome de arquivo seguro, usando apenas a primeira linha (cabeçalho do funcionário) e a segunda (mês/ano)
+  const fileNamePart1 = titleLines[0] ? titleLines[0].replace(/[^a-zA-Z0-9_]/g, '_') : 'Apontamento';
+  const fileNamePart2 = titleLines[1] ? titleLines[1].replace(/[^a-zA-Z0-9_]/g, '_') : format(new Date(), 'MMMM_yyyy');
+  
+  doc.save(`${fileNamePart1}_${fileNamePart2}.pdf`);
 };
