@@ -25,7 +25,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { localDb } from '@/services/localDbService';
-import { Separator } from '@/components/ui/separator';
 
 interface ServiceOrderDetails {
   af: string;
@@ -383,10 +382,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             <Table>
               <TableHeader>
                 <TableRow>
+                  {/* Removendo cabeçalhos redundantes */}
                   <TableHead className="w-fit">Opções</TableHead>
-                  <TableHead className="w-fit">AF</TableHead>
-                  <TableHead className="w-[4rem]">OS</TableHead>
-                  <TableHead className="w-fit">Horário</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words">Peça</TableHead>
                   <TableHead className="w-[4rem]">Qtd</TableHead>
                 </TableRow>
@@ -408,7 +405,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                     <React.Fragment key={`${group.af}-${group.os || 'no_os'}-${groupIndex}`}>
                       {/* Linha de Detalhes da OS (Agrupamento) */}
                       <TableRow className="border-t-4 border-primary dark:border-primary bg-muted/50 hover:bg-muted/80">
-                        <TableCell colSpan={6} className="font-semibold py-2">
+                        <TableCell colSpan={3} className="font-semibold py-2">
                           <div className="flex flex-col space-y-1">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-2">
@@ -488,10 +485,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                       {/* Linhas de Peças */}
                       {group.parts.filter(p => p.codigo_peca || p.descricao).map((part, partIndex) => (
                         <TableRow key={part.id} className={isEditingThisServiceOrder ? 'bg-accent/10' : ''}>
-                          {/* Células vazias para manter o layout da tabela, mas visualmente agrupadas */}
-                          <TableCell className="w-fit"></TableCell>
-                          <TableCell className="w-fit"></TableCell>
-                          <TableCell className="w-[4rem]"></TableCell>
+                          {/* Célula de Opções (vazia para alinhamento) */}
                           <TableCell className="w-fit"></TableCell>
                           
                           <TableCell className="w-auto whitespace-normal break-words flex justify-between items-center">
@@ -517,7 +511,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                       {/* Se não houver peças, mas houver um item em branco (para manter a OS), exibe uma linha de aviso */}
                       {group.parts.filter(p => p.codigo_peca || p.descricao).length === 0 && (
                         <TableRow className="text-muted-foreground italic">
-                          <TableCell colSpan={6} className="text-center">
+                          <TableCell colSpan={3} className="text-center">
                             Nenhuma peça adicionada a esta OS.
                           </TableCell>
                         </TableRow>
