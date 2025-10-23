@@ -7,6 +7,26 @@ import { ptBR } from 'date-fns/locale';
 // Aplica o plugin explicitamente ao jsPDF
 applyPlugin(jsPDF);
 
+// Mapeamento de Status para Cores RGB (para PDF)
+const PDF_STATUS_COLORS = {
+  Folga: {
+    text: [255, 255, 255], // Branco
+    fill: [22, 163, 74], // Verde (similar ao green-600)
+  },
+  Falta: {
+    text: [255, 255, 255], // Branco
+    fill: [220, 38, 38], // Vermelho (similar ao red-600)
+  },
+  Suspensao: {
+    text: [255, 255, 255], // Branco
+    fill: [202, 138, 4], // Amarelo/Ouro (similar ao yellow-600)
+  },
+  Outros: {
+    text: [255, 255, 255], // Branco
+    fill: [37, 99, 235], // Azul (similar ao blue-600)
+  },
+};
+
 // Função auxiliar para calcular a diferença de tempo (duplicada do componente, mas necessária para o PDF)
 const calculateTotalHours = (entry?: string, exit?: string): string => {
   if (!entry || !exit) return '';
@@ -218,14 +238,18 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     let entry: string;
     let exit: string;
     let statusOrTotal: string;
+    
+    const hasStatus = !!a.status;
+    const statusKey = hasStatus ? (a.status.includes('Outros') ? 'Outros' : a.status) : null;
+    const statusColors = statusKey ? PDF_STATUS_COLORS[statusKey as keyof typeof PDF_STATUS_COLORS] : null;
 
-    if (a.status) {
-      entry = 'N/A'; // Mantém N/A se houver status (comportamento anterior)
-      exit = 'N/A'; // Mantém N/A se houver status (comportamento anterior)
-      statusOrTotal = a.status;
+    if (hasStatus) {
+      entry = ''; // Em branco
+      exit = ''; // Em branco
+      statusOrTotal = a.status; // Exibe o status completo
     } else {
-      entry = a.entry_time || 'N/A';
-      exit = a.exit_time || 'N/A';
+      entry = a.entry_time || ''; // Em branco se vazio
+      exit = a.exit_time || ''; // Em branco se vazio
       statusOrTotal = calculateTotalHours(a.entry_time, a.exit_time);
     }
 
@@ -240,6 +264,30 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 240, 240] },
     margin: { top: 10 },
+    didParseCell: (data: any) => {
+      const rowData = apontamentos[data.row.index];
+      const hasStatus = !!rowData?.status;
+      const statusKey = hasStatus ? (rowData.status.includes('Outros') ? 'Outros' : rowData.status) : null;
+      const statusColors = statusKey ? PDF_STATUS_COLORS[statusKey as keyof typeof PDF_STATUS_COLORS] : null;
+
+      if (hasStatus) {
+        // Coluna Status / Total (index 3)
+        if (data.column.index === 3) {
+          data.cell.styles.halign = 'center';
+          data.cell.colSpan = 2; // Mescla com a coluna 'Saída'
+          data.cell.styles.fontStyle = 'bold';
+          if (statusColors) {
+            data.cell.styles.fillColor = statusColors.fill;
+            data.cell.styles.textColor = statusColors.text;
+          }
+        }
+        // Coluna Entrada (index 1) e Saída (index 2)
+        if (data.column.index === 1 || data.column.index === 2) {
+          data.cell.text = ['']; // Garante que o texto esteja vazio
+          data.cell.styles.cellWidth = 0.0001; // Minimiza a largura
+        }
+      }
+    }
   });
 
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);
