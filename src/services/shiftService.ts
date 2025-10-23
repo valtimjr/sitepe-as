@@ -55,7 +55,7 @@ const SHIFT_SCHEDULES = {
 // 2. Definição da Rotação
 const SHIFT_ORDER = ['Dia', 'Intermediario', 'Noite'];
 const ROTATING_TURNS = ['Turno A', 'Turno B', 'Turno C'];
-const FIXED_TURNS = ['Turno Dia 07:00 - 17:00', 'Turno Dia 07:30 - 17:00'];
+const FIXED_TURNS = ['Turno Dia 07:00 - 17:00', 'Turno Dia 07:30 - 17:00']; // Mantido para referência interna, mas não exportado
 
 // Mapeamento de Turno para o índice da escala na Semana 1 (2024-01-01)
 // Turno A = Noite (Índice 2)
@@ -152,4 +152,5 @@ export const generateMonthlyApontamentos = (monthDate: Date, turn: string, userI
 };
 
 export type ShiftTurn = 'Turno A' | 'Turno B' | 'Turno C' | 'Turno Dia 07:00 - 17:00' | 'Turno Dia 07:30 - 17:00';
+export const ROTATING_TURNS_ONLY: ShiftTurn[] = [...ROTATING_TURNS] as ShiftTurn[];
 export const ALL_TURNS: ShiftTurn[] = [...ROTATING_TURNS, ...FIXED_TURNS] as ShiftTurn[];

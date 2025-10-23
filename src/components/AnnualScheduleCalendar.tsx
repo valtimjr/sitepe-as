@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ALL_TURNS, getShiftSchedule, ShiftTurn } from '@/services/shiftService';
+import { ROTATING_TURNS_ONLY, getShiftSchedule, ShiftTurn } from '@/services/shiftService';
 import { 
   format, 
   startOfYear, 
@@ -51,8 +51,14 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
   const [currentYear, setCurrentYear] = useState(getYear(new Date()));
 
   useEffect(() => {
-    setSelectedTurn(initialTurn);
-  }, [initialTurn]);
+    // Garante que o turno inicial seja um dos turnos rotativos se o anterior era fixo
+    if (!ROTATING_TURNS_ONLY.includes(initialTurn)) {
+      setSelectedTurn(ROTATING_TURNS_ONLY[0]);
+      onTurnChange(ROTATING_TURNS_ONLY[0]);
+    } else {
+      setSelectedTurn(initialTurn);
+    }
+  }, [initialTurn, onTurnChange]);
 
   const handleTurnChange = (turn: ShiftTurn) => {
     setSelectedTurn(turn);
@@ -112,16 +118,7 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
 
   const months = Array.from({ length: 12 }, (_, i) => new Date(currentYear, i, 1));
 
-  const Legend: React.FC = () => (
-    <div className="flex flex-wrap gap-4 justify-center text-sm mt-4">
-      {Object.keys(SCHEDULE_COLORS).map(key => (
-        <div key={key} className="flex items-center gap-1">
-          <div className={cn("h-3 w-3 rounded-full", SCHEDULE_COLORS[key])} />
-          <span>{SCHEDULE_DISPLAY_NAMES[key] || key}</span>
-        </div>
-      ))}
-    </div>
-  );
+  // Removida a função Legend
 
   const renderMonth = (monthStart: Date) => {
     const monthIndex = getMonth(monthStart);
@@ -205,14 +202,14 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
               <SelectValue placeholder="Selecione o Turno" />
             </SelectTrigger>
             <SelectContent>
-              {ALL_TURNS.map(turn => (
+              {ROTATING_TURNS_ONLY.map(turn => (
                 <SelectItem key={turn} value={turn}>{turn}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
-        <Legend />
+        {/* Legenda removida */}
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {months.map(renderMonth)}
