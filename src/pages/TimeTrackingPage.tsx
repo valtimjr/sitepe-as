@@ -293,13 +293,18 @@ const TimeTrackingPage: React.FC = () => {
       : fullName || 'Usuário Não Identificado';
   }, [profile]);
 
-  const formatListText = () => {
-    const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
-    
-    // Novo cabeçalho do funcionário
-    const header = `${employeeHeader}\n${monthName}`;
+  const monthYearTitle = useMemo(() => {
+    return format(currentDate, 'MMMM yyyy', { locale: ptBR });
+  }, [currentDate]);
 
-    let text = `${header}\n\n`;
+  const formatListText = () => {
+    // Novo formato:
+    // Linha 1: Apontamento de Horas - Mês Ano
+    // Linha 2: Crachá - Nome Completo
+    const headerTitle = `Apontamento de Horas - ${monthYearTitle}`;
+    const headerSubtitle = employeeHeader;
+
+    let text = `${headerTitle}\n${headerSubtitle}\n\n`;
 
     const currentMonthApontamentos = apontamentos
       .filter(a => {
@@ -315,16 +320,14 @@ const TimeTrackingPage: React.FC = () => {
       if (a.status) {
         statusDisplay = `Status: ${a.status}`;
       } else {
-        // Se não há status, mas as horas estão vazias, usa string vazia em vez de 'N/A'
         const entry = a.entry_time || '';
         const exit = a.exit_time || '';
         const total = calculateTotalHours(a.entry_time, a.exit_time);
         
-        // Se houver tempo, exibe o total. Se não houver tempo, exibe apenas as horas (que podem ser vazias)
         if (entry || exit) {
           statusDisplay = `Entrada: ${entry}, Saída: ${exit}, Total: ${total}`;
         } else {
-          statusDisplay = `Entrada: ${entry}, Saída: ${exit}`; // Se ambos vazios, será "Entrada: , Saída: "
+          statusDisplay = `Entrada: ${entry}, Saída: ${exit}`;
         }
       }
       
@@ -355,9 +358,8 @@ const TimeTrackingPage: React.FC = () => {
   };
 
   const handleExportPdf = () => {
-    const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
-    
-    const header = `${employeeHeader}\n${monthName}`;
+    // O título passado para o PDF agora deve ser formatado com quebras de linha
+    const pdfTitle = `Apontamento de Horas - ${monthYearTitle}\n${employeeHeader}`;
 
     const currentMonthApontamentos = apontamentos
       .filter(a => {
@@ -371,7 +373,7 @@ const TimeTrackingPage: React.FC = () => {
       return;
     }
 
-    generateTimeTrackingPdf(currentMonthApontamentos, header);
+    generateTimeTrackingPdf(currentMonthApontamentos, pdfTitle);
     showSuccess('PDF gerado com sucesso!');
   };
 

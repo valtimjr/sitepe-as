@@ -225,30 +225,29 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
   const doc = new jsPDF();
   let currentY = 22;
 
-  // O 'title' agora já deve incluir o cabeçalho do funcionário e o mês
-  doc.setFontSize(14);
-  
-  // Divide o título em linhas para melhor formatação
-  const titleLines = title.split('\n').filter(line => line.trim() !== ''); // Filtra linhas vazias
+  // O 'title' é esperado no formato:
+  // Linha 1: Apontamento de Horas - Mês Ano
+  // Linha 2: Crachá - Nome Completo
+  const titleLines = title.split('\n').filter(line => line.trim() !== '');
   
   if (titleLines.length > 0) {
-    // Primeira linha (Crachá - Nome Completo)
-    const employeeHeader = titleLines[0];
-    doc.setFontSize(16);
+    // Linha 1: Título Principal (Apontamento de Horas - Mês Ano)
+    const mainTitle = titleLines[0];
+    doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
-    doc.text(employeeHeader, 14, currentY);
+    doc.text(mainTitle, 14, currentY);
     currentY += 7;
 
     if (titleLines.length > 1) {
-      // Segunda linha (Mês/Ano)
-      const monthYear = titleLines[1];
+      // Linha 2: Subtítulo (Crachá - Nome Completo)
+      const subTitle = titleLines[1];
       doc.setFontSize(12);
       doc.setFont(undefined, 'normal');
-      doc.text(monthYear, 14, currentY);
+      doc.text(subTitle, 14, currentY);
       currentY += 8;
     }
   } else {
-    // Fallback se o título estiver completamente vazio
+    // Fallback
     doc.setFontSize(18);
     doc.text('Apontamento de Horas', 14, currentY);
     currentY += 8;
@@ -319,7 +318,7 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     }
   });
 
-  // Cria um nome de arquivo seguro, usando apenas a primeira linha (cabeçalho do funcionário) e a segunda (mês/ano)
+  // Cria um nome de arquivo seguro, usando o título principal e o subtítulo
   const fileNamePart1 = titleLines[0] ? titleLines[0].replace(/[^a-zA-Z0-9_]/g, '_') : 'Apontamento';
   const fileNamePart2 = titleLines[1] ? titleLines[1].replace(/[^a-zA-Z0-9_]/g, '_') : format(new Date(), 'MMMM_yyyy');
   
