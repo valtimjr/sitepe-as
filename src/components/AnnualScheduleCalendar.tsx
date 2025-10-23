@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ROTATING_TURNS_ONLY, getShiftSchedule, ShiftTurn } from '@/services/shiftService';
@@ -10,16 +10,18 @@ import {
   getMonth, 
   getYear, 
   isToday, 
-  isWeekend,
   endOfMonth,
   getDay
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Download, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 
 // Mapeamento de cores para os tipos de escala
 const SCHEDULE_COLORS: { [key: string]: string } = {
@@ -49,6 +51,8 @@ interface AnnualScheduleCalendarProps {
 const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initialTurn, onTurnChange }) => {
   const [selectedTurn, setSelectedTurn] = useState<ShiftTurn>(initialTurn);
   const [currentYear, setCurrentYear] = useState(getYear(new Date()));
+  const [isExporting, setIsExporting] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Garante que o turno inicial seja um dos turnos rotativos se o anterior era fixo
@@ -118,7 +122,16 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
 
   const months = Array.from({ length: 12 }, (_, i) => new Date(currentYear, i, 1));
 
-  // Removida a função Legend
+  const Legend: React.FC = () => (
+    <div className="flex flex-wrap gap-4 justify-center text-sm mt-4">
+      {Object.keys(SCHEDULE_COLORS).map(key => (
+        <div key={key} className="flex items-center gap-1">
+          <div className={cn("h-3 w-3 rounded-full", SCHEDULE_COLORS[key])} />
+          <span>{SCHEDULE_DISPLAY_NAMES[key] || key}</span>
+        </div>
+      ))}
+    </div>
+  );
 
   const renderMonth = (monthStart: Date) => {
     const monthIndex = getMonth(monthStart);
@@ -178,6 +191,62 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
     );
   };
 
+  const exportCalendar = async (formatType: 'pdf' | 'jpg') => {
+    if (!calendarRef.current) return;
+
+    setIsExporting(true);
+    const loadingToastId = showLoading(`Gerando arquivo ${formatType.toUpperCase()}...`);
+
+    try {
+      const canvas = await html2canvas(calendarRef.current, {
+        scale: 2, // Aumenta a escala para melhor qualidade
+        useCORS: true,
+        backgroundColor: null, // Permite fundo transparente se necessário
+      });
+
+      const filename = `Escala_Anual_${selectedTurn.replace(/\s/g, '_')}_${currentYear}`;
+
+      if (formatType === 'jpg') {
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `${filename}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showSuccess('Exportação JPG concluída!');
+      } else if (formatType === 'pdf') {
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        const imgWidth = 210; // A4 width in mm
+        const pageHeight = 297; // A4 height in mm
+        const imgHeight = canvas.height * imgWidth / canvas.width;
+        let heightLeft = imgHeight;
+
+        const doc = new jsPDF('p', 'mm', 'a4');
+        let position = 0;
+
+        doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft >= 0) {
+          position = heightLeft - imgHeight;
+          doc.addPage();
+          doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+
+        doc.save(`${filename}.pdf`);
+        showSuccess('Exportação PDF concluída!');
+      }
+    } catch (error) {
+      showError('Erro ao exportar o calendário.');
+      console.error('Export error:', error);
+    } finally {
+      dismissToast(loadingToastId);
+      setIsExporting(false);
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -195,23 +264,51 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <Label htmlFor="shift-turn" className="shrink-0">Selecione o Turno:</Label>
-          <Select value={selectedTurn} onValueChange={handleTurnChange}>
-            <SelectTrigger id="shift-turn" className="w-full sm:w-[300px]">
-              <SelectValue placeholder="Selecione o Turno" />
-            </SelectTrigger>
-            <SelectContent>
-              {ROTATING_TURNS_ONLY.map(turn => (
-                <SelectItem key={turn} value={turn}>{turn}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+          <div className="flex items-center gap-4 w-full sm:w-auto">
+            <Label htmlFor="shift-turn" className="shrink-0">Selecione o Turno:</Label>
+            <Select value={selectedTurn} onValueChange={handleTurnChange}>
+              <SelectTrigger id="shift-turn" className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Selecione o Turno" />
+              </SelectTrigger>
+              <SelectContent>
+                {ROTATING_TURNS_ONLY.map(turn => (
+                  <SelectItem key={turn} value={turn}>{turn}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button 
+              onClick={() => exportCalendar('pdf')} 
+              disabled={isExporting}
+              className="flex items-center gap-2 w-full sm:w-auto"
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              Exportar PDF
+            </Button>
+            <Button 
+              onClick={() => exportCalendar('jpg')} 
+              disabled={isExporting}
+              className="flex items-center gap-2 w-full sm:w-auto"
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ImageIcon className="h-4 w-4" />
+              )}
+              Exportar JPG
+            </Button>
+          </div>
         </div>
 
         {/* Legenda removida */}
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" ref={calendarRef}>
           {months.map(renderMonth)}
         </div>
       </CardContent>
