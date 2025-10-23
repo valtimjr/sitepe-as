@@ -84,7 +84,5 @@
 
 @layer components {
   /* Classe utilitária para centralização vertical perfeita em elementos de 24px (h-6) */
-  .day-center {
-    line-height: 24px;
-  }
+  /* Removida a classe day-center que não funcionou */
 }

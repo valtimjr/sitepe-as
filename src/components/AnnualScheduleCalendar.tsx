@@ -159,7 +159,7 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
                 <TooltipTrigger asChild>
                   <div
                     className={cn(
-                      "h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium text-white cursor-default transition-colors duration-100 day-center", // Adicionado day-center
+                      "h-6 w-6 rounded-full grid place-items-center text-xs font-medium text-white cursor-default transition-colors duration-100 leading-none", // Alterado para grid place-items-center
                       colorClass,
                       isCurrentDay && 'ring-2 ring-offset-1 ring-primary dark:ring-primary',
                     )}
