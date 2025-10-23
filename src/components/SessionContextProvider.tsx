@@ -18,7 +18,7 @@ interface SessionContextType {
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
 // Rotas que devem ser sempre acessíveis a convidados, independentemente das regras do DB
-const PUBLIC_ROUTES = ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/search-parts', '/parts-list', '/service-orders'];
+const PUBLIC_ROUTES = ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/search-parts', '/parts-list', '/service-orders', '/schedule-view'];
 // Rotas que exigem autenticação, mas são acessíveis a todos os usuários logados (user, moderator, admin)
 const AUTH_REQUIRED_ROUTES = ['/time-tracking', '/settings'];
 
