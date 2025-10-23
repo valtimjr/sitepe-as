@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -77,6 +77,9 @@ const AppHeader: React.FC = () => {
                 </Link>
                 <Link to="/service-orders" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
                   <ClipboardList className="h-5 w-5" /> Ordens de Serviço
+                </Link>
+                <Link to="/schedule-view" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
+                  <CalendarDays className="h-5 w-5" /> Escala Anual
                 </Link>
                 {canAccessTimeTracking && (
                   <Link to="/time-tracking" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
