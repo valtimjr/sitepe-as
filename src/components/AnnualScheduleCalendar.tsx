@@ -2,13 +2,23 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ALL_TURNS, getShiftSchedule, ShiftTurn } from '@/services/shiftService';
-import { format, startOfYear, endOfYear, eachDayOfInterval, getMonth, getYear, isSameMonth, isToday, isWeekend } from 'date-fns';
+import { 
+  format, 
+  startOfYear, 
+  endOfYear, 
+  eachDayOfInterval, 
+  getMonth, 
+  getYear, 
+  isToday, 
+  isWeekend,
+  endOfMonth // Adicionado
+} from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label'; // Importação adicionada
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; // Importação adicionada
+import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Mapeamento de cores para os tipos de escala
 const SCHEDULE_COLORS: { [key: string]: string } = {
