@@ -239,11 +239,7 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     let exit: string;
     let statusOrTotal: string;
     
-    const hasStatus = !!a.status;
-    const statusKey = hasStatus ? (a.status.includes('Outros') ? 'Outros' : a.status) : null;
-    const statusColors = statusKey ? PDF_STATUS_COLORS[statusKey as keyof typeof PDF_STATUS_COLORS] : null;
-
-    if (hasStatus) {
+    if (a.status) {
       entry = ''; // Em branco
       exit = ''; // Em branco
       statusOrTotal = a.status; // Exibe o status completo
@@ -261,6 +257,13 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     body: tableRows,
     startY: currentY,
     styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+    headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
+    columnStyles: {
+      0: { cellWidth: 30 }, // Dia
+      1: { cellWidth: 25, halign: 'center' }, // Entrada
+      2: { cellWidth: 25, halign: 'center' }, // Saída
+      3: { cellWidth: 80, halign: 'center' }, // Status / Total
+    },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 240, 240] },
     margin: { top: 10 },
