@@ -233,28 +233,28 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
   if (titleLines.length > 0) {
     // Linha 1: Título Principal (Apontamento de Horas - Mês Ano)
     const mainTitle = titleLines[0];
-    doc.setFontSize(18);
+    doc.setFontSize(14); // Reduzido de 18 para 14
     doc.setFont(undefined, 'bold');
     doc.text(mainTitle, 14, currentY);
-    currentY += 7;
+    currentY += 6; // Reduzido o espaçamento
 
     if (titleLines.length > 1) {
       // Linha 2: Subtítulo (Crachá - Nome Completo)
       const subTitle = titleLines[1];
-      doc.setFontSize(12);
+      doc.setFontSize(10); // Reduzido de 12 para 10
       doc.setFont(undefined, 'normal');
       doc.text(subTitle, 14, currentY);
-      currentY += 8;
+      currentY += 7; // Reduzido o espaçamento
     }
   } else {
     // Fallback
-    doc.setFontSize(18);
+    doc.setFontSize(14);
     doc.text('Apontamento de Horas', 14, currentY);
-    currentY += 8;
+    currentY += 7;
   }
 
-  // Definindo as colunas: Dia, Entrada, Saída, Status/Total
-  const tableColumn = ["Dia", "Entrada", "Saída", "Total / Status"];
+  // Definindo as colunas: Dia, Horas (Entrada - Saída), Total / Status
+  const tableColumn = ["Dia", "Horas (Entrada - Saída)", "Total / Status"];
   const tableRows: any[] = [];
 
   apontamentos.forEach(a => {
@@ -266,15 +266,16 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
       // Se tem status, a linha terá 2 colunas mescladas para o status
       tableRows.push([
         day, 
-        { content: a.status, colSpan: 3, styles: { halign: 'center', fontStyle: 'bold' } }
+        { content: a.status, colSpan: 2, styles: { halign: 'center', fontStyle: 'bold' } }
       ]);
     } else {
-      // Se não tem status, a linha terá 4 colunas normais
+      // Se não tem status, a linha terá 3 colunas normais
       const entry = a.entry_time || '';
       const exit = a.exit_time || '';
+      const hoursDisplay = entry && exit ? `${entry} - ${exit}` : entry || exit || '';
       const statusOrTotal = calculateTotalHours(a.entry_time, a.exit_time);
       
-      tableRows.push([day, entry, exit, statusOrTotal]);
+      tableRows.push([day, hoursDisplay, statusOrTotal]);
     }
   });
 
@@ -282,16 +283,15 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     head: [tableColumn],
     body: tableRows,
     startY: currentY,
-    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-    headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
+    styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' }, // Reduzido o tamanho da fonte e padding
+    headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 }, // Reduzido o tamanho da fonte do cabeçalho
     columnStyles: {
-      0: { cellWidth: 30, halign: 'left' }, // Dia
-      1: { cellWidth: 25, halign: 'center' }, // Entrada
-      2: { cellWidth: 25, halign: 'center' }, // Saída
-      3: { cellWidth: 80, halign: 'center' }, // Status / Total
+      0: { cellWidth: 25, halign: 'left' }, // Dia
+      1: { cellWidth: 50, halign: 'center' }, // Horas
+      2: { cellWidth: 30, halign: 'center' }, // Status / Total
     },
     alternateRowStyles: { fillColor: [240, 240, 240] },
-    margin: { top: 10 },
+    margin: { top: 10, left: 14, right: 14 }, // Margens padrão
     didParseCell: (data: any) => {
       const rowData = apontamentos[data.row.index];
       const hasStatus = !!rowData?.status;
@@ -302,8 +302,8 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
 
         // A célula mesclada é a segunda célula (index 1) na linha do body
         if (data.column.index === 1) {
-          // Esta célula é a que contém o status e deve ter colSpan=3
-          data.cell.colSpan = 3; 
+          // Esta célula é a que contém o status e deve ter colSpan=2
+          data.cell.colSpan = 2; 
           data.cell.styles.halign = 'center';
           data.cell.styles.fontStyle = 'bold';
           if (statusColors) {
@@ -311,9 +311,6 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
             data.cell.styles.textColor = statusColors.text;
           }
         }
-        // As colunas 2 e 3 (Saída e Status/Total) devem ser ignoradas pelo autotable
-        // quando a coluna 1 tem colSpan=3.
-        // Não precisamos definir explicitamente cellWidth=0.0001, pois o colSpan deve resolver.
       }
     }
   });
