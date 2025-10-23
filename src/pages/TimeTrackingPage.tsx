@@ -482,8 +482,8 @@ const TimeTrackingPage: React.FC = () => {
           <Link to="/schedule-view">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Visualizar Escala Anual">
-                  <CalendarDays className="h-6 w-6 text-primary" />
+                <Button variant="ghost" size="icon" aria-label="Visualizar Escala Anual" className="h-12 w-12">
+                  <CalendarDays className="h-10 w-10 text-primary" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Visualizar Escala Anual</TooltipContent>
