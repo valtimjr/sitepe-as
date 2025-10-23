@@ -23,7 +23,7 @@ const SHIFT_SCHEDULES = {
     6: { entry: '19:00', exit: '07:00', overnight: true }, // Sábado
   },
   Noite: {
-    0: { entry: '19:00', exit: '07:00', overnight: true }, // Domingo
+    0: { entry: '07:00', exit: '19:00' }, // Domingo: ALTERADO para 07:00 - 19:00
     1: { entry: '23:00', exit: '07:00', overnight: true }, // Segunda
     2: { entry: '23:00', exit: '07:00', overnight: true }, // Terça
     3: { entry: '23:00', exit: '07:00', overnight: true }, // Quarta
