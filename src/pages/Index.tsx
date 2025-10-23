@@ -3,17 +3,18 @@ import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database, Home } from 'lucide-react';
+import { Database, Home, Clock, Search, List, ClipboardList } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
 
 const Index = () => {
-  const { checkPageAccess } = useSession();
+  const { checkPageAccess, session } = useSession();
 
   useEffect(() => {
     document.title = "Início - AutoBoard";
   }, []);
 
   const canAccessAdmin = checkPageAccess('/admin');
+  const canAccessTimeTracking = checkPageAccess('/time-tracking');
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -22,10 +23,12 @@ const Index = () => {
         Bem-vindo ao AutoBoard
       </h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-4xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl">
         <Card className="text-center">
           <CardHeader>
-            <CardTitle className="text-2xl">Pesquisar Peças</CardTitle>
+            <CardTitle className="text-2xl flex items-center justify-center gap-2">
+              <Search className="h-6 w-6" /> Pesquisar Peças
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="mb-6 text-muted-foreground">
@@ -39,7 +42,9 @@ const Index = () => {
 
         <Card className="text-center">
           <CardHeader>
-            <CardTitle className="text-2xl">Minha Lista de Peças</CardTitle>
+            <CardTitle className="text-2xl flex items-center justify-center gap-2">
+              <List className="h-6 w-6" /> Minha Lista de Peças
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="mb-6 text-muted-foreground">
@@ -53,7 +58,9 @@ const Index = () => {
 
         <Card className="text-center">
           <CardHeader>
-            <CardTitle className="text-2xl">Ordens de Serviço</CardTitle>
+            <CardTitle className="text-2xl flex items-center justify-center gap-2">
+              <ClipboardList className="h-6 w-6" /> Ordens de Serviço
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="mb-6 text-muted-foreground">
@@ -64,6 +71,24 @@ const Index = () => {
             </Link>
           </CardContent>
         </Card>
+
+        {canAccessTimeTracking && (
+          <Card className="text-center">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <Clock className="h-6 w-6" /> Apontamento de Horas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-6 text-muted-foreground">
+                Registre suas horas de entrada e saída para controle mensal.
+              </p>
+              <Link to="/time-tracking">
+                <Button className="w-full">Fazer Apontamento</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
 
         {canAccessAdmin && (
           <Card className="text-center">

@@ -1,9 +1,40 @@
 import jsPDF from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
-import { SimplePartItem, ServiceOrderItem } from '@/services/partListService'; // Importar as novas interfaces
+import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 // Aplica o plugin explicitamente ao jsPDF
 applyPlugin(jsPDF);
+
+// Função auxiliar para calcular a diferença de tempo (duplicada do componente, mas necessária para o PDF)
+const calculateTotalHours = (entry?: string, exit?: string): string => {
+  if (!entry || !exit) return '';
+  
+  try {
+    const [entryH, entryM] = entry.split(':').map(Number);
+    const [exitH, exitM] = exit.split(':').map(Number);
+
+    let entryTime = new Date(0, 0, 0, entryH, entryM);
+    let exitTime = new Date(0, 0, 0, exitH, exitM);
+
+    // Se a hora de saída for anterior à de entrada, assume que passou da meia-noite
+    if (exitTime.getTime() < entryTime.getTime()) {
+      exitTime.setDate(exitTime.getDate() + 1);
+    }
+
+    const diffMs = exitTime.getTime() - entryTime.getTime();
+    if (diffMs < 0) return 'Inválido';
+
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    return `${hours}h ${minutes}m`;
+  } catch {
+    return 'Inválido';
+  }
+};
 
 export const generatePartsListPdf = (listItems: SimplePartItem[], title: string = 'Lista de Peças'): void => {
   const doc = new jsPDF();
@@ -92,11 +123,35 @@ export const generateServiceOrderPdf = (listItems: ServiceOrderItem[], title: st
   });
 
   const sortedGroups = Object.values(groupedForPdf).sort((a, b) => {
-    if (a.af < b.af) return -1;
-    if (a.af > b.af) return 1;
-    if ((a.os || 0) < (b.os || 0)) return -1;
-    if ((a.os || 0) > (b.os || 0)) return 1;
-    return 0;
+    // 1. Ordenar por hora_inicio (se presente)
+    const timeA = a.hora_inicio || '';
+    const timeB = b.hora_inicio || '';
+
+    if (timeA && timeB) {
+      if (timeA < timeB) return -1;
+      if (timeA > timeB) return 1;
+    } else if (timeA && !timeB) {
+      return -1; // A com hora_inicio vem antes de B sem
+    } else if (!timeA && timeB) {
+      return 1; // B com hora_inicio vem antes de A sem
+    }
+
+    // 2. Ordenar por hora_final (se presente)
+    const timeEndA = a.hora_final || '';
+    const timeEndB = b.hora_final || '';
+
+    if (timeEndA && timeEndB) {
+      if (timeEndA < timeEndB) return -1;
+      if (timeEndA > timeEndB) return 1;
+    } else if (timeEndA && !timeEndB) {
+      return -1; // A com hora_final vem antes de B sem
+    } else if (!timeEndA && timeEndB) {
+      return 1; // B com hora_final vem antes de A sem
+    }
+
+    // 3. Fallback para created_at
+    if (!a.createdAt || !b.createdAt) return 0;
+    return a.createdAt.getTime() - b.createdAt.getTime();
   });
 
   sortedGroups.forEach(group => {
@@ -141,6 +196,39 @@ export const generateServiceOrderPdf = (listItems: ServiceOrderItem[], title: st
         // Se a borda for essencial, precisaremos de uma abordagem mais robusta para rastrear os grupos no PDF.
       }
     }
+  });
+
+  doc.save(`${title.replace(/\s/g, '_')}.pdf`);
+};
+
+export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: string): void => {
+  const doc = new jsPDF();
+  let currentY = 22;
+
+  doc.setFontSize(18);
+  doc.text(title, 14, currentY);
+  currentY += 8;
+
+  const tableColumn = ["Dia", "Entrada", "Saída", "Total"];
+  const tableRows: string[][] = [];
+
+  apontamentos.forEach(a => {
+    const day = format(parseISO(a.date), 'dd/MM (EEE)', { locale: ptBR });
+    const entry = a.entry_time || 'N/A';
+    const exit = a.exit_time || 'N/A';
+    const total = calculateTotalHours(a.entry_time, a.exit_time);
+
+    tableRows.push([day, entry, exit, total]);
+  });
+
+  (doc as any).autoTable({
+    head: [tableColumn],
+    body: tableRows,
+    startY: currentY,
+    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+    headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [240, 240, 240] },
+    margin: { top: 10 },
   });
 
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);

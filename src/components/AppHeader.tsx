@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +48,7 @@ const AppHeader: React.FC = () => {
   }
 
   const canAccessAdmin = checkPageAccess('/admin');
+  const canAccessTimeTracking = checkPageAccess('/time-tracking');
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -77,6 +78,11 @@ const AppHeader: React.FC = () => {
                 <Link to="/service-orders" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
                   <ClipboardList className="h-5 w-5" /> Ordens de Serviço
                 </Link>
+                {canAccessTimeTracking && (
+                  <Link to="/time-tracking" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
+                    <Clock className="h-5 w-5" /> Apontamento de Horas
+                  </Link>
+                )}
                 {canAccessAdmin && (
                   <>
                     <Separator className="my-2" />
@@ -105,7 +111,7 @@ const AppHeader: React.FC = () => {
           {session ? (
             <>
               <div className="flex items-center gap-2">
-                <Avatar className="h-8 w-8 rounded-full"> {/* Adicionado rounded-full */}
+                <Avatar className="h-8 w-8 rounded-full">
                   <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar do Usuário" />
                   <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
                 </Avatar>

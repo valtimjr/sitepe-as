@@ -13,6 +13,7 @@ import {
   SimplePartItem as LocalSimplePartItem,
   ServiceOrderItem as LocalServiceOrderItem,
   Af as LocalAf,
+  Apontamento as LocalApontamento, // Importar nova interface
   addLocalSimplePartItem,
   getLocalSimplePartsListItems,
   updateLocalSimplePartItem,
@@ -23,6 +24,10 @@ import {
   updateLocalServiceOrderItem,
   deleteLocalServiceOrderItem,
   clearLocalServiceOrderItems,
+  getLocalApontamentos, // Importar novas funções
+  putLocalApontamento,
+  bulkPutLocalApontamentos,
+  clearLocalApontamentos,
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -30,6 +35,7 @@ export interface Part extends LocalPart {}
 export interface SimplePartItem extends LocalSimplePartItem {}
 export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends LocalAf {}
+export interface Apontamento extends LocalApontamento {} // Exportar nova interface
 
 const seedPartsFromJson = async (): Promise<void> => {
   // Primeiro, verifica se há peças no Supabase
@@ -482,7 +488,103 @@ export const getUniqueAfs = async (): Promise<string[]> => {
   return allAfs.map(af => af.af_number).sort();
 };
 
-// --- Novas funções para importação e exportação ---
+// --- Funções para Apontamentos (Time Tracking) ---
+
+// Sincroniza dados do Supabase para o IndexedDB
+export const syncApontamentosFromSupabase = async (userId: string): Promise<Apontamento[]> => {
+  const { data, error } = await supabase
+    .from('apontamentos')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error fetching apontamentos from Supabase:', error);
+    // Em caso de erro, retorna o cache local
+    return getLocalApontamentos(userId);
+  }
+
+  const apontamentos = data.map(item => ({
+    ...item,
+    created_at: new Date(item.created_at),
+    synced_at: new Date(),
+  })) as Apontamento[];
+
+  // Atualiza o cache local
+  await clearLocalApontamentos(userId);
+  await bulkPutLocalApontamentos(apontamentos);
+  
+  return apontamentos;
+};
+
+// Sincroniza dados do IndexedDB para o Supabase (bidirecional)
+export const syncApontamentoToSupabase = async (apontamento: Apontamento): Promise<Apontamento> => {
+  const { id, user_id, date, entry_time, exit_time, created_at } = apontamento;
+  
+  const payload = {
+    id,
+    user_id,
+    date,
+    entry_time: entry_time || null,
+    exit_time: exit_time || null,
+    created_at: created_at?.toISOString() || new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('apontamentos')
+    .upsert(payload, { onConflict: 'id' })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error upserting apontamento to Supabase:', error);
+    throw new Error(`Erro ao sincronizar apontamento: ${error.message}`);
+  }
+
+  const syncedApontamento: Apontamento = {
+    ...data,
+    created_at: new Date(data.created_at),
+    synced_at: new Date(),
+  };
+
+  // Atualiza o item no IndexedDB com o timestamp de sincronização
+  await putLocalApontamento(syncedApontamento);
+  
+  return syncedApontamento;
+};
+
+export const getApontamentos = async (userId: string): Promise<Apontamento[]> => {
+  // Tenta sincronizar do Supabase primeiro para obter os dados mais recentes
+  try {
+    return await syncApontamentosFromSupabase(userId);
+  } catch (e) {
+    console.warn("Failed to sync from Supabase, falling back to local data:", e);
+    return getLocalApontamentos(userId);
+  }
+};
+
+export const updateApontamento = async (apontamento: Apontamento): Promise<Apontamento> => {
+  // Atualiza localmente e sincroniza com o Supabase
+  await putLocalApontamento(apontamento);
+  return syncApontamentoToSupabase(apontamento);
+};
+
+export const deleteApontamento = async (id: string): Promise<void> => {
+  // Deleta no Supabase
+  const { error: supabaseError } = await supabase
+    .from('apontamentos')
+    .delete()
+    .eq('id', id);
+
+  if (supabaseError) {
+    console.error('Error deleting apontamento from Supabase:', supabaseError);
+    throw new Error(`Erro ao excluir apontamento do Supabase: ${supabaseError.message}`);
+  }
+
+  // Deleta no IndexedDB
+  await localDb.apontamentos.delete(id);
+};
+
+// --- Funções de Importação e Exportação (mantidas) ---
 
 export const importParts = async (parts: Part[]): Promise<void> => {
   const { error: supabaseError } = await supabase

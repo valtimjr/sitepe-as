@@ -35,18 +35,29 @@ export interface Af {
   af_number: string;
 }
 
+export interface Apontamento {
+  id: string;
+  user_id: string; // Adicionado para RLS local (embora o Dexie não precise, ajuda na sincronização)
+  date: string; // Formato 'YYYY-MM-DD'
+  entry_time?: string; // Formato 'HH:MM'
+  exit_time?: string; // Formato 'HH:MM'
+  created_at?: Date;
+  synced_at?: Date; // Para controle de sincronização
+}
+
 class LocalDexieDb extends Dexie {
   simplePartsList!: Table<SimplePartItem>;
   serviceOrderItems!: Table<ServiceOrderItem>;
-  parts!: Table<Part>; // <--- AQUI: A tabela 'parts' é declarada
-  afs!: Table<Af>;     // <--- AQUI: A tabela 'afs' é declarada
+  parts!: Table<Part>;
+  afs!: Table<Af>;
+  apontamentos!: Table<Apontamento>; // Nova tabela
 
   constructor() {
     super('PartsListDatabase');
     this.version(1).stores({
       listItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
-      parts: '++id, codigo, descricao, tags', // <--- AQUI: O esquema da tabela 'parts' é definido
-      afs: '++id, af_number',                 // <--- AQUI: O esquema da tabela 'afs' é definido
+      parts: '++id, codigo, descricao, tags',
+      afs: '++id, af_number',
     });
     this.version(2).stores({
       simplePartsList: '++id, codigo_peca, descricao, created_at',
@@ -54,14 +65,13 @@ class LocalDexieDb extends Dexie {
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number',
     }).upgrade(async tx => {
-      // Migração de dados da versão 1 para a versão 2
+      // Migração de dados da versão 1 para a versão 2 (mantida)
       const oldListItems = await tx.table('listItems').toArray();
       const simpleItems: SimplePartItem[] = [];
       const serviceItems: ServiceOrderItem[] = [];
 
       oldListItems.forEach((item: any) => {
         if (item.af && item.af.trim() !== '') {
-          // É um item de ordem de serviço
           serviceItems.push({
             id: item.id,
             codigo_peca: item.codigo_peca,
@@ -75,8 +85,6 @@ class LocalDexieDb extends Dexie {
             created_at: item.created_at,
           });
         } else {
-          // É um item de peça simples
-          // Garante que os campos obrigatórios para SimplePartItem estejam presentes
           if (item.codigo_peca && item.descricao && item.quantidade !== undefined) {
             simpleItems.push({
               id: item.id,
@@ -91,18 +99,21 @@ class LocalDexieDb extends Dexie {
 
       await tx.table('simplePartsList').bulkAdd(simpleItems);
       await tx.table('serviceOrderItems').bulkAdd(serviceItems);
-      // A tabela 'listItems' será implicitamente removida/redefinida pelo Dexie
-      // ao aplicar o novo esquema da versão 2.
     });
     this.version(3).stores({
-      simplePartsList: '++id, codigo_peca, descricao, quantidade, af, created_at', // Adicionado 'af'
+      simplePartsList: '++id, codigo_peca, descricao, quantidade, af, created_at',
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number',
     }).upgrade(async tx => {
-      // Migração de dados da versão 2 para a versão 3
-      // Para o campo 'af' em 'simplePartsList', itens existentes terão 'af' como undefined, o que é aceitável.
-      // Nenhuma transformação complexa é necessária, apenas a atualização do esquema.
+      // Migração de dados da versão 2 para a versão 3 (mantida)
+    });
+    this.version(4).stores({
+      simplePartsList: '++id, codigo_peca, descricao, quantidade, af, created_at',
+      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
+      parts: '++id, codigo, descricao, tags',
+      afs: '++id, af_number',
+      apontamentos: 'id, user_id, date, synced_at', // Novo esquema para apontamentos
     });
   }
 }
@@ -263,4 +274,24 @@ export const clearLocalServiceOrderItems = async (): Promise<void> => {
 export const getLocalUniqueAfs = async (): Promise<string[]> => {
   const afs = await localDb.afs.toArray();
   return afs.map(af => af.af_number).sort();
+};
+
+// --- Apontamentos Management (IndexedDB) ---
+
+export const getLocalApontamentos = async (userId: string): Promise<Apontamento[]> => {
+  return localDb.apontamentos.where('user_id').equals(userId).toArray();
+};
+
+export const putLocalApontamento = async (apontamento: Apontamento): Promise<void> => {
+  // Usa put para inserir ou atualizar (baseado na chave primária 'id')
+  await localDb.apontamentos.put(apontamento);
+};
+
+export const bulkPutLocalApontamentos = async (apontamentos: Apontamento[]): Promise<void> => {
+  await localDb.apontamentos.bulkPut(apontamentos);
+};
+
+export const clearLocalApontamentos = async (userId: string): Promise<void> => {
+  const idsToDelete = await localDb.apontamentos.where('user_id').equals(userId).keys();
+  await localDb.apontamentos.bulkDelete(idsToDelete);
 };

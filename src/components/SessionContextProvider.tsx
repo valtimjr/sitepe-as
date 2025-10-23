@@ -19,6 +19,8 @@ const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
 // Rotas que devem ser sempre acessíveis a convidados, independentemente das regras do DB
 const PUBLIC_ROUTES = ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/search-parts', '/parts-list', '/service-orders'];
+// Rotas que exigem autenticação, mas são acessíveis a todos os usuários logados (user, moderator, admin)
+const AUTH_REQUIRED_ROUTES = ['/time-tracking', '/settings'];
 
 export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -123,36 +125,37 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   // Função para verificar o acesso à página
   const checkPageAccess = useCallback((path: string): boolean => {
     const normalizedPath = path.split('/')[1] === 'signup' ? '/signup' : path;
+    const isAuthRequiredRoute = AUTH_REQUIRED_ROUTES.includes(normalizedPath);
 
-    // 1. Permite acesso a rotas públicas se não houver sessão
-    if (!session && PUBLIC_ROUTES.includes(normalizedPath)) {
-      return true;
-    }
-
-    // 2. Se a sessão estiver carregando, nega acesso a rotas privadas
+    // 1. Se a sessão estiver carregando, permite apenas rotas públicas
     if (isLoadingSessionAndProfile) {
-      // Se for uma rota pública, permite o acesso mesmo durante o carregamento
       return PUBLIC_ROUTES.includes(normalizedPath);
     }
 
-    // 3. Se o usuário está autenticado, mas o perfil não carregou, nega acesso a rotas privadas
-    if (session && !profile) {
-      return PUBLIC_ROUTES.includes(normalizedPath);
+    // 2. Se o usuário não está logado
+    if (!session) {
+      if (PUBLIC_ROUTES.includes(normalizedPath)) {
+        return true;
+      }
+      // Verifica se há regra de convidado no DB
+      const rule = pageAccessRules.find(r => r.page_path === normalizedPath);
+      return rule?.guest_access || false;
     }
 
+    // 3. Se o usuário está logado
+    if (isAuthRequiredRoute) {
+      return true; // Todos os usuários logados têm acesso a estas rotas
+    }
+
+    // 4. Verifica acesso baseado em regras do DB (para rotas não públicas/não AUTH_REQUIRED)
     const rule = pageAccessRules.find(r => r.page_path === normalizedPath);
 
     if (!rule) {
-      // Se não houver regra no DB, verifica se é uma rota pública
+      // Se não houver regra no DB, e não for rota pública/AUTH_REQUIRED, nega por padrão
       return PUBLIC_ROUTES.includes(normalizedPath);
     }
 
-    // 4. Verifica o acesso baseado na regra e no perfil
-    if (!session) {
-      return rule.guest_access;
-    }
-
-    // Se chegou aqui, o usuário está logado e o perfil está carregado (ou profile é null, mas a verificação acima já tratou isso)
+    // 5. Verifica o acesso baseado na regra e no perfil
     switch (profile?.role) {
       case 'admin':
         return rule.admin_access;
@@ -174,9 +177,10 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       const isSignupPage = currentPath.startsWith('/signup');
       const isResetPasswordPage = currentPath === '/reset-password';
       const isForgotPasswordPage = currentPath === '/forgot-password';
+      const isAuthPage = isLoginPage || isSignupPage || isResetPasswordPage || isForgotPasswordPage;
 
       // Se o usuário está logado, redireciona de páginas de autenticação
-      if (session && (isLoginPage || isSignupPage || isResetPasswordPage || isForgotPasswordPage)) {
+      if (session && isAuthPage) {
         navigate('/');
         showError('Você já está logado.');
         return;

@@ -14,6 +14,7 @@ import SignupPage from "./pages/SignupPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import UserSettingsPage from "./pages/UserSettingsPage";
+import TimeTrackingPage from "./pages/TimeTrackingPage"; // Importar nova página
 import { SessionContextProvider } from "./components/SessionContextProvider";
 import AppHeader from "./components/AppHeader"; // Importar o novo cabeçalho
 
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/settings" element={<UserSettingsPage />} />
+            <Route path="/time-tracking" element={<TimeTrackingPage />} /> {/* Nova Rota */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
