@@ -31,24 +31,24 @@ const SHIFT_SCHEDULES = {
     5: { entry: '19:00', exit: '07:00', overnight: true }, // Sexta
     6: { status: 'Folga' }, // Sábado (Folga)
   },
-  // Turnos Fixos: As chaves devem ser idênticas aos nomes dos turnos
+  // Turnos Fixos: Agora preenchem todos os 7 dias da semana
   'Turno Dia 07:00 - 17:00': {
-    0: { status: 'Folga' }, // Domingo folga
-    1: { entry: '07:00', exit: '17:00' },
-    2: { entry: '07:00', exit: '17:00' },
-    3: { entry: '07:00', exit: '17:00' },
-    4: { entry: '07:00', exit: '17:00' },
-    5: { entry: '07:00', exit: '17:00' },
-    6: { status: 'Folga' }, // Sábado folga
+    0: { entry: '07:00', exit: '17:00' }, // Domingo
+    1: { entry: '07:00', exit: '17:00' }, // Segunda
+    2: { entry: '07:00', exit: '17:00' }, // Terça
+    3: { entry: '07:00', exit: '17:00' }, // Quarta
+    4: { entry: '07:00', exit: '17:00' }, // Quinta
+    5: { entry: '07:00', exit: '17:00' }, // Sexta
+    6: { entry: '07:00', exit: '17:00' }, // Sábado
   },
   'Turno Dia 07:30 - 17:00': {
-    0: { status: 'Folga' }, // Domingo folga
-    1: { entry: '07:30', exit: '17:00' },
-    2: { entry: '07:30', exit: '17:00' },
-    3: { entry: '07:30', exit: '17:00' },
-    4: { entry: '07:30', exit: '17:00' },
-    5: { entry: '07:30', exit: '17:00' },
-    6: { status: 'Folga' }, // Sábado folga
+    0: { entry: '07:30', exit: '17:00' }, // Domingo
+    1: { entry: '07:30', exit: '17:00' }, // Segunda
+    2: { entry: '07:30', exit: '17:00' }, // Terça
+    3: { entry: '07:30', exit: '17:00' }, // Quarta
+    4: { entry: '07:30', exit: '17:00' }, // Quinta
+    5: { entry: '07:30', exit: '17:00' }, // Sexta
+    6: { entry: '07:30', exit: '17:00' }, // Sábado
   },
 };
 
@@ -95,7 +95,8 @@ export const getShiftSchedule = (date: Date, turn: string): { entry?: string; ex
   if (FIXED_TURNS.includes(turn)) {
     // Para turnos fixos, o nome do turno é a chave da escala
     const schedule = SHIFT_SCHEDULES[turn as keyof typeof SHIFT_SCHEDULES];
-    return schedule[dayOfWeek as keyof typeof schedule] || { status: 'Folga' };
+    // Se o horário for definido, retorna o horário. Caso contrário, retorna um objeto vazio (que será tratado como dia normal sem preenchimento se não for Folga)
+    return schedule[dayOfWeek as keyof typeof schedule] || {};
   }
 
   // Lógica para turnos rotativos
