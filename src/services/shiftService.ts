@@ -31,8 +31,8 @@ const SHIFT_SCHEDULES = {
     5: { entry: '19:00', exit: '07:00', overnight: true }, // Sexta
     6: { status: 'Folga' }, // Sábado (Folga)
   },
-  // Novas escalas fixas (Segunda a Sexta)
-  'Dia Fixo 07:00-17:00': {
+  // Turnos Fixos: As chaves devem ser idênticas aos nomes dos turnos
+  'Turno Dia 07:00 - 17:00': {
     0: { status: 'Folga' }, // Domingo folga
     1: { entry: '07:00', exit: '17:00' },
     2: { entry: '07:00', exit: '17:00' },
@@ -41,7 +41,7 @@ const SHIFT_SCHEDULES = {
     5: { entry: '07:00', exit: '17:00' },
     6: { status: 'Folga' }, // Sábado folga
   },
-  'Dia Fixo 07:30-17:00': {
+  'Turno Dia 07:30 - 17:00': {
     0: { status: 'Folga' }, // Domingo folga
     1: { entry: '07:30', exit: '17:00' },
     2: { entry: '07:30', exit: '17:00' },
@@ -93,7 +93,7 @@ export const getShiftSchedule = (date: Date, turn: string): { entry?: string; ex
   const dayOfWeek = getDay(date); // 0 (Dom) a 6 (Sáb)
 
   if (FIXED_TURNS.includes(turn)) {
-    // Lógica para turnos fixos
+    // Para turnos fixos, o nome do turno é a chave da escala
     const schedule = SHIFT_SCHEDULES[turn as keyof typeof SHIFT_SCHEDULES];
     return schedule[dayOfWeek as keyof typeof schedule] || { status: 'Folga' };
   }
