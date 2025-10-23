@@ -83,7 +83,16 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
         type = 'Folga';
       } else if (schedule.entry && schedule.exit) {
         time = `${schedule.entry}-${schedule.exit}`;
-        type = schedule.shiftName; // Usa o nome da escala retornado pelo serviço
+        
+        // Usa o nome da escala retornado pelo serviço
+        type = schedule.shiftName; 
+
+        // REGRA ESPECÍFICA: Se for o turno Intermediario e o horário for noturno (19:00-07:00),
+        // mapeia o tipo para 'Noite' para usar a cor azul.
+        if (type === 'Intermediario' && time === '19:00-07:00') {
+          type = 'Noite';
+        }
+
       } else {
         type = 'Outros';
       }
