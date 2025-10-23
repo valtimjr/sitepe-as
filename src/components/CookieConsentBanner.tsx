@@ -2,19 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Cookie, Settings, Check, X, ArrowLeft } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 const COOKIE_CONSENT_KEY = 'cookie_consent_given';
 const COOKIE_PREFERENCES_KEY = 'cookie_preferences';
@@ -80,17 +74,17 @@ const CookieConsentBanner: React.FC = () => {
     setPreferences(prev => ({ ...prev, [key]: checked }));
   };
 
-  const renderPreferences = () => (
+  const renderPreferencesContent = () => (
     <div className="space-y-4">
-      <DialogTitle className="flex items-center gap-2 text-lg">
+      <CardTitle className="flex items-center gap-2 text-lg">
         <Settings className="h-5 w-5" /> Gerenciar Preferências
-      </DialogTitle>
-      <DialogDescription className="text-sm">
+      </CardTitle>
+      <p className="text-sm text-muted-foreground">
         Você pode escolher quais tipos de cookies deseja permitir. Os cookies essenciais são obrigatórios para o funcionamento do site.
-      </DialogDescription>
+      </p>
       <Separator />
       
-      <ScrollArea className="h-80 pr-4">
+      <ScrollArea className="h-60 pr-4">
         <div className="space-y-6">
           {/* Essenciais */}
           <div className="flex items-start space-x-3">
@@ -168,17 +162,17 @@ const CookieConsentBanner: React.FC = () => {
     </div>
   );
 
-  const renderMainBanner = () => (
+  const renderMainBannerContent = () => (
     <div className="space-y-4">
-      <DialogTitle className="flex items-center gap-2 text-lg">
+      <CardTitle className="flex items-center gap-2 text-lg">
         <Cookie className="h-5 w-5 text-primary" />
         Controle sua privacidade
-      </DialogTitle>
-      <DialogDescription className="text-sm">
+      </CardTitle>
+      <p className="text-sm text-muted-foreground">
         Nosso site usa cookies para melhorar sua experiência de navegação. Ao continuar navegando, você concorda com nossa política de cookies.
         <br /><br />
         Você pode exercer seus direitos de acesso, retificação e exclusão de dados entrando em contato com o administrador.
-      </DialogDescription>
+      </p>
       <div className="flex flex-col sm:flex-row gap-2 pt-2">
         <a href="#" className="text-sm text-primary hover:underline">Política de Privacidade</a>
         <a href="#" className="text-sm text-primary hover:underline">Política de Cookies</a>
@@ -186,38 +180,55 @@ const CookieConsentBanner: React.FC = () => {
     </div>
   );
 
+  if (!isOpen) {
+    return null;
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-lg rounded-lg shadow-xl p-4 sm:p-6 z-[100] data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-full sm:data-[state=open]:slide-in-from-bottom-0">
-        <DialogHeader className="text-left">
-          {showPreferences ? renderPreferences() : renderMainBanner()}
-        </DialogHeader>
-        <DialogFooter className="flex flex-col sm:flex-row-reverse gap-2 pt-4">
-          {showPreferences ? (
-            <Button onClick={handleSavePreferences} className="w-full sm:w-auto flex items-center gap-2">
-              <Check className="h-4 w-4" /> Salvar Preferências
+    <Card 
+      className={cn(
+        "fixed bottom-4 right-4 w-full max-w-sm shadow-xl z-[100]",
+        showPreferences ? "max-w-md" : "max-w-sm"
+      )}
+    >
+      <CardHeader className="p-4 pb-0">
+        {showPreferences ? renderPreferencesContent() : renderMainBannerContent()}
+      </CardHeader>
+      <CardContent className="p-4 pt-2">
+        {/* Conteúdo principal ou de preferências */}
+      </CardContent>
+      <CardFooter className="flex flex-col sm:flex-row-reverse gap-2 p-4 pt-0">
+        {showPreferences ? (
+          <Button onClick={handleSavePreferences} className="w-full sm:w-auto flex items-center gap-2">
+            <Check className="h-4 w-4" /> Salvar Preferências
+          </Button>
+        ) : (
+          <>
+            <Button onClick={handleAcceptAll} className="w-full sm:w-auto flex items-center gap-2">
+              <Check className="h-4 w-4" /> Concordar
             </Button>
+            <Button onClick={handleRejectAll} variant="outline" className="w-full sm:w-auto flex items-center gap-2">
+              <X className="h-4 w-4" /> Recusar
+            </Button>
+          </>
+        )}
+        <Button 
+          onClick={() => setShowPreferences(prev => !prev)} 
+          variant="secondary" 
+          className="w-full sm:w-auto flex items-center gap-2"
+        >
+          {showPreferences ? (
+            <>
+              <ArrowLeft className="h-4 w-4" /> Voltar
+            </>
           ) : (
             <>
-              <Button onClick={handleAcceptAll} className="w-full sm:w-auto flex items-center gap-2">
-                <Check className="h-4 w-4" /> Concordar
-              </Button>
-              <Button onClick={handleRejectAll} variant="outline" className="w-full sm:w-auto flex items-center gap-2">
-                <X className="h-4 w-4" /> Recusar
-              </Button>
-              <Button onClick={() => setShowPreferences(true)} variant="secondary" className="w-full sm:w-auto flex items-center gap-2">
-                <Settings className="h-4 w-4" /> Gerenciar Preferências
-              </Button>
+              <Settings className="h-4 w-4" /> Gerenciar
             </>
           )}
-          {showPreferences && (
-            <Button onClick={() => setShowPreferences(false)} variant="ghost" className="w-full sm:w-auto flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" /> Voltar
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
 
