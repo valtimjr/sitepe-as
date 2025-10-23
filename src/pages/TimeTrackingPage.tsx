@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, ArrowRight, Clock, Copy, Download, MessageSquare, Trash2, Save, Loader2, MoreHorizontal, CalendarCheck, X, Clock3 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Copy, Download, MessageSquare, Trash2, Save, Loader2, MoreHorizontal, CalendarCheck, X, Clock3, XCircle, CheckCircle, Ban, Info } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, setHours, setMinutes, getHours, getMinutes, subMonths, addMonths, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Apontamento, getApontamentos, updateApontamento, deleteApontamento } from '@/services/partListService';
@@ -22,6 +22,35 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+
+// Mapeamento de Status para Ícone e Estilo
+const STATUS_MAP = {
+  Folga: {
+    icon: CheckCircle,
+    color: 'text-green-600 dark:text-green-400',
+    bgColor: 'bg-green-50 dark:bg-green-900/20',
+    displayName: 'Folga',
+  },
+  Falta: {
+    icon: XCircle,
+    color: 'text-red-600 dark:text-red-400',
+    bgColor: 'bg-red-50 dark:bg-red-900/20',
+    displayName: 'Falta',
+  },
+  Suspensao: {
+    icon: Ban,
+    color: 'text-yellow-600 dark:text-yellow-400',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+    displayName: 'Suspensão',
+  },
+  Outros: {
+    icon: Info,
+    color: 'text-blue-600 dark:text-blue-400',
+    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    displayName: 'Outros',
+  },
+};
 
 const TimeTrackingPage: React.FC = () => {
   const { user, isLoading: isSessionLoading } = useSession();
@@ -92,7 +121,6 @@ const TimeTrackingPage: React.FC = () => {
     }
 
     const dateString = format(day, 'yyyy-MM-dd');
-    // Usa a função de busca local para obter o estado mais recente
     const existingApontamento = getApontamentoForDay(day);
     
     const newValue = value.trim() === '' ? undefined : value;
@@ -125,7 +153,29 @@ const TimeTrackingPage: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [userId, handleDeleteApontamento, apontamentos]); // Mantendo 'apontamentos' aqui para garantir que getApontamentoForDay funcione corretamente dentro do useCallback
+  }, [userId, handleDeleteApontamento, apontamentos]);
+
+  const handleClearStatus = useCallback(async (day: Date) => {
+    const existingApontamento = getApontamentoForDay(day);
+    if (!existingApontamento) return;
+
+    // Se não houver tempo, deleta o registro. Se houver, apenas limpa o status.
+    if (!existingApontamento.entry_time && !existingApontamento.exit_time) {
+      await handleDeleteApontamento(existingApontamento.id);
+    } else {
+      setIsSaving(true);
+      try {
+        const updated = await updateApontamento({ ...existingApontamento, status: undefined });
+        updateApontamentoState(updated);
+        showSuccess('Status removido. Campos de hora liberados.');
+      } catch (error) {
+        showError('Erro ao remover status.');
+        console.error('Failed to clear status:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  }, [handleDeleteApontamento, apontamentos]);
 
   const handleStatusChange = useCallback(async (day: Date, status: string) => {
     if (!userId) {
@@ -157,7 +207,7 @@ const TimeTrackingPage: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [userId, apontamentos]); // Mantendo 'apontamentos' aqui
+  }, [userId, apontamentos]);
 
   const handleOpenOtherStatusDialog = (day: Date) => {
     setDayForOtherStatus(day);
@@ -176,28 +226,6 @@ const TimeTrackingPage: React.FC = () => {
     setOtherStatusText('');
     setDayForOtherStatus(null);
   };
-
-  const handleClearStatus = useCallback(async (day: Date) => {
-    const existingApontamento = getApontamentoForDay(day);
-    if (!existingApontamento) return;
-
-    // Se não houver tempo, deleta o registro. Se houver, apenas limpa o status.
-    if (!existingApontamento.entry_time && !existingApontamento.exit_time) {
-      await handleDeleteApontamento(existingApontamento.id);
-    } else {
-      setIsSaving(true);
-      try {
-        const updated = await updateApontamento({ ...existingApontamento, status: undefined });
-        updateApontamentoState(updated);
-        showSuccess('Status removido. Campos de hora liberados.');
-      } catch (error) {
-        showError('Erro ao remover status.');
-        console.error('Failed to clear status:', error);
-      } finally {
-        setIsSaving(false);
-      }
-    }
-  }, [handleDeleteApontamento, apontamentos]); // Mantendo 'apontamentos' aqui
 
   const handleMonthChange = (direction: 'prev' | 'next') => {
     const newDate = direction === 'prev' ? subMonths(currentDate, 1) : addMonths(currentDate, 1);
@@ -360,6 +388,12 @@ const TimeTrackingPage: React.FC = () => {
                     const dayName = format(day, 'EEE', { locale: ptBR });
                     const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                     const hasStatus = !!apontamento?.status;
+                    
+                    const statusKey = hasStatus ? (apontamento.status.includes('Outros') ? 'Outros' : apontamento.status) : null;
+                    const statusInfo = statusKey ? STATUS_MAP[statusKey as keyof typeof STATUS_MAP] : null;
+                    const StatusIcon = statusInfo?.icon;
+                    const statusDisplayName = statusInfo?.displayName || 'Status';
+                    const statusDescription = apontamento?.status?.includes(':') ? apontamento.status.split(': ')[1] : '';
 
                     return (
                       <TableRow key={dateString} className={isWeekend ? 'bg-muted/50' : ''}>
@@ -370,13 +404,19 @@ const TimeTrackingPage: React.FC = () => {
                         {/* Coluna de Entrada / Status */}
                         <TableCell className="space-y-2">
                           {hasStatus ? (
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-primary dark:text-primary">
-                                {apontamento.status.split(':')[0]}
-                              </span>
-                              {apontamento.status.includes(':') && (
-                                <span className="text-sm text-muted-foreground ml-2 truncate">
-                                  {apontamento.status.split(': ')[1]}
+                            <div className={cn(
+                              "flex flex-col items-center justify-center p-2 rounded-md",
+                              statusInfo?.bgColor
+                            )}>
+                              <div className="flex items-center gap-2">
+                                {StatusIcon && <StatusIcon className={cn("h-5 w-5", statusInfo?.color)} />}
+                                <span className={cn("font-semibold", statusInfo?.color)}>
+                                  {statusDisplayName}
+                                </span>
+                              </div>
+                              {statusDescription && (
+                                <span className="text-xs text-muted-foreground mt-1 text-center">
+                                  {statusDescription}
                                 </span>
                               )}
                             </div>
@@ -408,7 +448,7 @@ const TimeTrackingPage: React.FC = () => {
 
                         {/* Coluna Total */}
                         <TableCell className="font-semibold text-sm">
-                          {hasStatus ? apontamento.status.split(':')[0] : calculateTotalHours(apontamento?.entry_time, apontamento?.exit_time)}
+                          {hasStatus ? statusDisplayName : calculateTotalHours(apontamento?.entry_time, apontamento?.exit_time)}
                         </TableCell>
 
                         {/* Coluna Ações */}

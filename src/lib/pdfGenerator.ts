@@ -214,13 +214,18 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
 
   apontamentos.forEach(a => {
     const day = format(parseISO(a.date), 'dd/MM (EEE)', { locale: ptBR });
-    const entry = a.entry_time || 'N/A';
-    const exit = a.exit_time || 'N/A';
     
+    let entry: string;
+    let exit: string;
     let statusOrTotal: string;
+
     if (a.status) {
-      statusOrTotal = a.status.includes(':') ? a.status.split(': ')[0] : a.status;
+      entry = 'N/A';
+      exit = 'N/A';
+      statusOrTotal = a.status; // Exibe o status completo (incluindo descrição de Outros)
     } else {
+      entry = a.entry_time || 'N/A';
+      exit = a.exit_time || 'N/A';
       statusOrTotal = calculateTotalHours(a.entry_time, a.exit_time);
     }
 
