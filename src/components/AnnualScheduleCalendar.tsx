@@ -87,10 +87,14 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
         // Usa o nome da escala retornado pelo serviço
         type = schedule.shiftName; 
 
-        // REGRA ESPECÍFICA: Se for o turno Intermediario e o horário for noturno (19:00-07:00),
-        // mapeia o tipo para 'Noite' para usar a cor azul.
+        // REGRA ESPECÍFICA 1: Intermediario com horário noturno (Sáb/Dom) deve ser azul (Noite)
         if (type === 'Intermediario' && time === '19:00-07:00') {
           type = 'Noite';
+        }
+        
+        // REGRA ESPECÍFICA 2: Noite com horário diurno (Domingo) deve ser verde (Dia)
+        if (type === 'Noite' && time === '07:00-19:00') {
+          type = 'Dia';
         }
 
       } else {
