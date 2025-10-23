@@ -7,7 +7,7 @@ import { Part, searchParts as searchPartsService } from '@/services/partListServ
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Search } from 'lucide-react';
 
 const SearchParts = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,7 +34,8 @@ const SearchParts = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary">
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
+        <Search className="h-8 w-8 text-primary" />
         Pesquisar Peças
       </h1>
 

@@ -5,7 +5,7 @@ import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
 import { getServiceOrderItems, ServiceOrderItem } from '@/services/partListService'; // Usar getServiceOrderItems e ServiceOrderItem
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, FilePlus } from 'lucide-react';
+import { ArrowLeft, FilePlus, ClipboardList } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 
 interface ServiceOrderDetails {
@@ -110,7 +110,8 @@ const ServiceOrderList = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-4 mt-8 text-center text-primary dark:text-primary">
+      <h1 className="text-4xl font-extrabold mb-4 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
+        <ClipboardList className="h-8 w-8 text-primary" />
         Lista de Ordens de Serviço
       </h1>
       

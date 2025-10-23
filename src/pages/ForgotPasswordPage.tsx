@@ -7,7 +7,7 @@ import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Lock } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 
 const ForgotPasswordPage: React.FC = () => {
@@ -46,7 +46,8 @@ const ForgotPasswordPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary">
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
+        <Lock className="h-8 w-8 text-primary" />
         Esqueceu sua Senha?
       </h1>
       <Card className="w-full max-w-md mx-auto">

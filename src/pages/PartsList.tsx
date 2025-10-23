@@ -5,7 +5,7 @@ import PartsListDisplay from '@/components/PartsListDisplay';
 import { getSimplePartsListItems, SimplePartItem } from '@/services/partListService'; // Usar getSimplePartsListItems e SimplePartItem
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, List } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 
 const PartsList = () => {
@@ -37,7 +37,8 @@ const PartsList = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary">
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
+        <List className="h-8 w-8 text-primary" />
         Minha Lista de Peças
       </h1>
       {isLoading ? (

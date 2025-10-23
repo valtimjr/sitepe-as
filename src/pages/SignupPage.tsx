@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, UserPlus, Frown } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import CustomSignupForm from '@/components/CustomSignupForm'; // Importar o novo componente
 
@@ -72,7 +72,8 @@ const SignupPage: React.FC = () => {
   if (!isValidInvite) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
-        <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary">
+        <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
+          <Frown className="h-8 w-8 text-destructive" />
           Cadastro por Convite
         </h1>
         <Card className="w-full max-w-md mx-auto">
@@ -93,7 +94,8 @@ const SignupPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary">
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
+        <UserPlus className="h-8 w-8 text-primary" />
         Criar Conta
       </h1>
       <Card className="w-full max-w-md mx-auto">

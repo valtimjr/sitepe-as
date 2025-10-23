@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database } from 'lucide-react';
+import { Database, Home } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
 
 const Index = () => {
@@ -17,7 +17,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <h1 className="text-5xl font-extrabold mb-12 mt-8 text-center text-primary dark:text-primary">
+      <h1 className="text-5xl font-extrabold mb-12 mt-8 text-center text-primary dark:text-primary flex items-center gap-4">
+        <Home className="h-10 w-10 text-primary" />
         Bem-vindo ao AutoBoard
       </h1>
 
