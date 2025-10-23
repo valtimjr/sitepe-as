@@ -286,17 +286,20 @@ const TimeTrackingPage: React.FC = () => {
     }
   };
 
+  const employeeHeader = useMemo(() => {
+    const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim();
+    return profile?.badge && fullName
+      ? `${profile.badge} - ${fullName}`
+      : fullName || 'Usuário Não Identificado';
+  }, [profile]);
+
   const formatListText = () => {
     const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
     
     // Novo cabeçalho do funcionário
-    const employeeHeader = profile?.badge && profile?.first_name
-      ? `${profile.badge} - ${profile.first_name} ${profile.last_name || ''}`.trim()
-      : profile?.first_name
-        ? `${profile.first_name} ${profile.last_name || ''}`.trim()
-        : 'Apontamento de Horas';
+    const header = `${employeeHeader}\n${monthName}`;
 
-    let text = `${employeeHeader}\n${monthName}\n\n`;
+    let text = `${header}\n\n`;
 
     const currentMonthApontamentos = apontamentos
       .filter(a => {
@@ -354,11 +357,7 @@ const TimeTrackingPage: React.FC = () => {
   const handleExportPdf = () => {
     const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
     
-    const employeeHeader = profile?.badge && profile?.first_name
-      ? `${profile.badge} - ${profile.first_name} ${profile.last_name || ''}`.trim()
-      : profile?.first_name
-        ? `${profile.first_name} ${profile.last_name || ''}`.trim()
-        : 'Apontamento de Horas';
+    const header = `${employeeHeader}\n${monthName}`;
 
     const currentMonthApontamentos = apontamentos
       .filter(a => {
@@ -372,7 +371,7 @@ const TimeTrackingPage: React.FC = () => {
       return;
     }
 
-    generateTimeTrackingPdf(currentMonthApontamentos, `${employeeHeader} - ${monthName}`);
+    generateTimeTrackingPdf(currentMonthApontamentos, header);
     showSuccess('PDF gerado com sucesso!');
   };
 
@@ -455,10 +454,15 @@ const TimeTrackingPage: React.FC = () => {
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <div className="w-full max-w-4xl">
         <div className="flex justify-between items-center mb-4 mt-8">
-          <h1 className="text-4xl font-extrabold text-primary dark:text-primary flex items-center gap-3">
-            <Clock className="h-8 w-8 text-primary" />
-            Apontamento de Horas
-          </h1>
+          <div className="flex flex-col items-start">
+            <h1 className="text-4xl font-extrabold text-primary dark:text-primary flex items-center gap-3">
+              <Clock className="h-8 w-8 text-primary" />
+              Apontamento de Horas
+            </h1>
+            <p className="text-lg font-semibold text-foreground/70 mt-1">
+              {employeeHeader}
+            </p>
+          </div>
           <div className="flex gap-2">
             <Button onClick={handleCopyText} variant="outline" size="icon" aria-label="Copiar Texto">
               <Copy className="h-4 w-4" />
