@@ -298,13 +298,16 @@ const TimeTrackingPage: React.FC = () => {
   }, [currentDate]);
 
   const formatListText = () => {
-    // Novo formato:
-    // Linha 1: Apontamento de Horas - Mês Ano
-    // Linha 2: Crachá - Nome Completo
-    const headerTitle = `Apontamento de Horas - ${monthYearTitle}`;
-    const headerSubtitle = employeeHeader;
-
-    let text = `${headerTitle}\n${headerSubtitle}\n\n`;
+    // Novo formato desejado:
+    // Linha 1: Outubro
+    // Linha 2: 15042 - Valter Rogerio Paulino Mortagua Junior
+    // Linha 3: 01/10 23:00 - 07:00
+    // Linha 4: 04/10 Folga
+    
+    const monthName = format(currentDate, 'MMMM', { locale: ptBR });
+    
+    let text = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)}\n`;
+    text += `${employeeHeader}\n`;
 
     const currentMonthApontamentos = apontamentos
       .filter(a => {
@@ -314,27 +317,34 @@ const TimeTrackingPage: React.FC = () => {
       .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
 
     currentMonthApontamentos.forEach(a => {
-      const day = format(parseISO(a.date), 'dd/MM (EEE)', { locale: ptBR });
+      const day = format(parseISO(a.date), 'dd/MM');
       
-      let statusDisplay = '';
+      let line = `${day} `;
+
       if (a.status) {
-        statusDisplay = `Status: ${a.status}`;
+        // Se tem status, usa o nome do status (ex: Folga, Falta, Suspensao, Outros: Férias)
+        line += a.status.split(':')[0];
       } else {
-        const entry = a.entry_time || '';
-        const exit = a.exit_time || '';
-        const total = calculateTotalHours(a.entry_time, a.exit_time);
+        // Se não tem status, usa o formato de horas condensado
+        const entry = a.entry_time ? a.entry_time.substring(0, 5) : ''; // Remove segundos
+        const exit = a.exit_time ? a.exit_time.substring(0, 5) : ''; // Remove segundos
         
-        if (entry || exit) {
-          statusDisplay = `Entrada: ${entry}, Saída: ${exit}, Total: ${total}`;
+        if (entry && exit) {
+          line += `${entry} - ${exit}`;
+        } else if (entry) {
+          line += `${entry} - `;
+        } else if (exit) {
+          line += ` - ${exit}`;
         } else {
-          statusDisplay = `Entrada: ${entry}, Saída: ${exit}`;
+          // Se não há status e nem horas, pula a linha (embora o filtro de apontamentos deva evitar isso)
+          return;
         }
       }
       
-      text += `${day}: ${statusDisplay}\n`;
+      text += `${line}\n`;
     });
 
-    return text;
+    return text.trim();
   };
 
   const handleCopyText = async () => {
@@ -358,7 +368,9 @@ const TimeTrackingPage: React.FC = () => {
   };
 
   const handleExportPdf = () => {
-    // O título passado para o PDF agora deve ser formatado com quebras de linha
+    const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
+    
+    // O título para o PDF mantém o formato mais detalhado para o cabeçalho do documento
     const pdfTitle = `Apontamento de Horas - ${monthYearTitle}\n${employeeHeader}`;
 
     const currentMonthApontamentos = apontamentos
