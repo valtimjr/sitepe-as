@@ -10,7 +10,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours
 import { ptBR } from 'date-fns/locale';
 import { Apontamento, getApontamentos, updateApontamento, deleteApontamento } from '@/services/partListService';
 import { useSession } from '@/components/SessionContextProvider';
-import { showSuccess, showError } from '@/utils/toast';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { generateTimeTrackingPdf } from '@/lib/pdfGenerator';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -356,8 +356,12 @@ const TimeTrackingPage: React.FC = () => {
   };
 
   const handleGenerateSchedule = async () => {
-    if (!userId || !selectedTurn) {
-      showError('Selecione um turno e faça login.');
+    if (!userId) {
+      showError('Usuário não autenticado.');
+      return;
+    }
+    if (!selectedTurn) {
+      showError('Selecione um turno antes de gerar a escala.');
       return;
     }
 
