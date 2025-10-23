@@ -368,7 +368,9 @@ const TimeTrackingPage: React.FC = () => {
   };
 
   const handleExportPdf = () => {
-    // O título passado para o PDF agora deve ser formatado com quebras de linha
+    const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
+    
+    // O título para o PDF mantém o formato mais detalhado para o cabeçalho do documento
     const pdfTitle = `Apontamento de Horas - ${monthYearTitle}\n${employeeHeader}`;
 
     const currentMonthApontamentos = apontamentos
@@ -475,7 +477,6 @@ const TimeTrackingPage: React.FC = () => {
               {employeeHeader}
             </p>
           </div>
-          {/* Removido o div de ações daqui */}
         </div>
 
         <Card className="mb-4">
@@ -546,12 +547,12 @@ const TimeTrackingPage: React.FC = () => {
               </Button>
             </div>
             
-            {/* NOVO LOCAL PARA OS BOTÕES DE AÇÃO */}
-            <div className="flex flex-wrap justify-center gap-2 pt-2">
+            {/* NOVO LOCAL PARA OS BOTÕES DE AÇÃO - FORMATO ALINHADO À DIREITA */}
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
               <Button onClick={handleCopyText} variant="outline" size="sm" className="flex items-center gap-2">
                 <Copy className="h-4 w-4" /> Copiar Texto
               </Button>
-              <Button onClick={handleShareOnWhatsApp} variant="ghost" size="sm" className="flex items-center gap-2">
+              <Button onClick={handleShareOnWhatsApp} variant="outline" size="sm" className="flex items-center gap-2">
                 <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-5 w-5" /> WhatsApp
               </Button>
               <Button onClick={handleExportPdf} variant="outline" size="sm" className="flex items-center gap-2">
