@@ -11,7 +11,7 @@ const SHIFT_SCHEDULES = {
     3: { entry: '07:00', exit: '15:00' }, // Quarta
     4: { entry: '07:00', exit: '15:00' }, // Quinta
     5: { entry: '07:00', exit: '19:00' }, // Sexta
-    6: { entry: '07:00', exit: '15:00' }, // Sábado
+    6: { entry: '07:00', exit: '19:00' }, // Sábado (Atualizado para 07:00 - 19:00)
   },
   Intermediario: {
     0: { status: 'Folga' }, // Domingo folga
@@ -65,9 +65,9 @@ const calculateCycleIndex = (date: Date): number => {
 
 /**
  * Determina o horário de trabalho para um turno específico em uma data.
- * @param date A data para verificar.
- * @param turn O turno (Turno A, Turno B, Turno C).
- * @returns O horário de entrada e saída (ou status de folga).
+ * @param date The date to check.
+ * @param turn The shift turn (Turno A, Turno B, Turno C).
+ * @returns The entry and exit times (or status for day off).
  */
 export const getShiftSchedule = (date: Date, turn: string): { entry?: string; exit?: string; status?: string } => {
   const cycleIndex = calculateCycleIndex(date); // 0, 1, ou 2
