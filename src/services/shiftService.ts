@@ -31,11 +31,31 @@ const SHIFT_SCHEDULES = {
     5: { entry: '19:00', exit: '07:00', overnight: true }, // Sexta
     6: { status: 'Folga' }, // Sábado (Folga)
   },
+  // Novas escalas fixas (Segunda a Sexta)
+  'Dia Fixo 07:00-17:00': {
+    0: { status: 'Folga' }, // Domingo folga
+    1: { entry: '07:00', exit: '17:00' },
+    2: { entry: '07:00', exit: '17:00' },
+    3: { entry: '07:00', exit: '17:00' },
+    4: { entry: '07:00', exit: '17:00' },
+    5: { entry: '07:00', exit: '17:00' },
+    6: { status: 'Folga' }, // Sábado folga
+  },
+  'Dia Fixo 07:30-17:00': {
+    0: { status: 'Folga' }, // Domingo folga
+    1: { entry: '07:30', exit: '17:00' },
+    2: { entry: '07:30', exit: '17:00' },
+    3: { entry: '07:30', exit: '17:00' },
+    4: { entry: '07:30', exit: '17:00' },
+    5: { entry: '07:30', exit: '17:00' },
+    6: { status: 'Folga' }, // Sábado folga
+  },
 };
 
 // 2. Definição da Rotação
 const SHIFT_ORDER = ['Dia', 'Intermediario', 'Noite'];
-const TURNS = ['Turno A', 'Turno B', 'Turno C'];
+const ROTATING_TURNS = ['Turno A', 'Turno B', 'Turno C'];
+const FIXED_TURNS = ['Turno Dia 07:00 - 17:00', 'Turno Dia 07:30 - 17:00'];
 
 // Mapeamento de Turno para o índice da escala na Semana 1 (2024-01-01)
 // Turno A = Noite (Índice 2)
@@ -66,14 +86,20 @@ const calculateCycleIndex = (date: Date): number => {
 /**
  * Determina o horário de trabalho para um turno específico em uma data.
  * @param date The date to check.
- * @param turn The shift turn (Turno A, Turno B, Turno C).
+ * @param turn The shift turn (Turno A, Turno B, Turno C, Turno Dia 07:00 - 17:00, etc.).
  * @returns The entry and exit times (or status for day off).
  */
 export const getShiftSchedule = (date: Date, turn: string): { entry?: string; exit?: string; status?: string } => {
-  const cycleIndex = calculateCycleIndex(date); // 0, 1, ou 2
   const dayOfWeek = getDay(date); // 0 (Dom) a 6 (Sáb)
 
-  // 1. Determinar qual escala (Dia, Intermediário, Noite) o turno está nesta semana
+  if (FIXED_TURNS.includes(turn)) {
+    // Lógica para turnos fixos
+    const schedule = SHIFT_SCHEDULES[turn as keyof typeof SHIFT_SCHEDULES];
+    return schedule[dayOfWeek as keyof typeof schedule] || { status: 'Folga' };
+  }
+
+  // Lógica para turnos rotativos
+  const cycleIndex = calculateCycleIndex(date); // 0, 1, ou 2
   const turnBaseIndex = TURN_BASE_INDEX[turn];
   if (typeof turnBaseIndex === 'undefined') return {};
 
@@ -100,7 +126,7 @@ export const getShiftSchedule = (date: Date, turn: string): { entry?: string; ex
 /**
  * Gera os apontamentos automáticos para um mês inteiro.
  * @param monthDate Qualquer data dentro do mês desejado.
- * @param turn O turno selecionado (Turno A, Turno B, Turno C).
+ * @param turn O turno selecionado (Turno A, Turno B, Turno C, etc.).
  * @param userId O ID do usuário para preencher o apontamento.
  * @returns Uma lista de objetos Apontamento.
  */
@@ -125,5 +151,5 @@ export const generateMonthlyApontamentos = (monthDate: Date, turn: string, userI
   });
 };
 
-export type ShiftTurn = 'Turno A' | 'Turno B' | 'Turno C';
-export const ALL_TURNS: ShiftTurn[] = TURNS as ShiftTurn[];
+export type ShiftTurn = 'Turno A' | 'Turno B' | 'Turno C' | 'Turno Dia 07:00 - 17:00' | 'Turno Dia 07:30 - 17:00';
+export const ALL_TURNS: ShiftTurn[] = [...ROTATING_TURNS, ...FIXED_TURNS] as ShiftTurn[];
