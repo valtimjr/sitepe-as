@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Home } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,7 +52,7 @@ const AppHeader: React.FC = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
-        <div className="flex items-center gap-2"> {/* Novo wrapper para o menu e o ícone Home */}
+        <div className="flex items-center gap-2">
           {/* Menu Lateral */}
           <Sheet>
             <SheetTrigger asChild>
@@ -65,6 +65,9 @@ const AppHeader: React.FC = () => {
                 <SheetTitle className="text-2xl font-bold text-primary">Navegação</SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col gap-4">
+                <Link to="/" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
+                  <Search className="h-5 w-5" /> Início
+                </Link>
                 <Link to="/search-parts" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
                   <Search className="h-5 w-5" /> Pesquisar Peças
                 </Link>
@@ -86,11 +89,11 @@ const AppHeader: React.FC = () => {
             </SheetContent>
           </Sheet>
 
-          {/* Ícone "Voltar ao Início" */}
+          {/* Banner no lugar do ícone Home */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Link to="/" className="flex items-center gap-2">
-                <Home className="h-8 w-8 text-primary" />
+              <Link to="/" className="flex items-center gap-2 h-10">
+                <img src="/Banner.png" alt="AutoBoard Banner" className="h-full w-auto" />
                 <span className="sr-only">Página Inicial</span>
               </Link>
             </TooltipTrigger>

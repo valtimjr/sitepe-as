@@ -3,23 +3,21 @@ import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database } from 'lucide-react'; // Removido LogIn, Settings, User
+import { Database } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
 
 const Index = () => {
-  const { checkPageAccess } = useSession(); // Obter checkPageAccess do contexto
+  const { checkPageAccess } = useSession();
 
   useEffect(() => {
     document.title = "Início - AutoBoard";
   }, []);
 
-  const canAccessAdmin = checkPageAccess('/admin'); // Verifica se o usuário pode acessar /admin
+  const canAccessAdmin = checkPageAccess('/admin');
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      {/* Removido o div com os botões de login/configurações */}
-      <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
-      <h1 className="text-5xl font-extrabold mb-12 text-center text-primary dark:text-primary">
+      <h1 className="text-5xl font-extrabold mb-12 mt-8 text-center text-primary dark:text-primary">
         Bem-vindo ao AutoBoard
       </h1>
 
@@ -66,7 +64,7 @@ const Index = () => {
           </CardContent>
         </Card>
 
-        {canAccessAdmin && ( // Renderiza o card apenas se o usuário tiver acesso a /admin
+        {canAccessAdmin && (
           <Card className="text-center">
             <CardHeader>
               <CardTitle className="text-2xl flex items-center justify-center gap-2">

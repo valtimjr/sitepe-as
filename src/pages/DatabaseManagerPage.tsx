@@ -19,12 +19,6 @@ const DatabaseManagerPage: React.FC = () => {
     document.title = "Gerenciador de Banco de Dados - Gerenciador de Peças";
   }, []);
 
-  // A verificação de role e redirecionamento agora é feita no SessionContextProvider
-  // Este componente só será renderizado se o usuário tiver acesso.
-
-  // O handleLogout foi movido para o AppHeader
-  // const handleLogout = async () => { ... };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
@@ -35,9 +29,7 @@ const DatabaseManagerPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      {/* Removido o div com os botões "Voltar ao Início" e "Sair" */}
-      <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary">
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary">
         Gerenciador de Banco de Dados
       </h1>
 

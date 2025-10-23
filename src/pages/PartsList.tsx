@@ -37,10 +37,8 @@ const PartsList = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      {/* Removido o div com o botão "Voltar ao Início" */}
-      <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary">
-        Lista de Peças
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary">
+        Minha Lista de Peças
       </h1>
       {isLoading ? (
         <p className="text-center text-muted-foreground py-8">Carregando sua lista de peças...</p>

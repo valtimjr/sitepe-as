@@ -61,11 +61,6 @@ const SignupPage: React.FC = () => {
     // Este useEffect agora apenas verifica a validade do convite.
   }, [uuid]);
 
-  // O handleGoHome foi removido, pois o logo no cabeçalho serve para isso.
-  // const handleGoHome = () => {
-  //   navigate('/');
-  // };
-
   if (isLoadingInvite) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
@@ -77,8 +72,9 @@ const SignupPage: React.FC = () => {
   if (!isValidInvite) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
-        {/* Removido o div com o botão "Voltar ao Início" */}
-        <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
+        <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary">
+          Cadastro por Convite
+        </h1>
         <Card className="w-full max-w-md mx-auto">
           <CardHeader>
             <CardTitle className="text-2xl text-center text-destructive">Convite Inválido</CardTitle>
@@ -97,8 +93,9 @@ const SignupPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
-      {/* Removido o div com o botão "Voltar ao Início" */}
-      <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary">
+        Criar Conta
+      </h1>
       <Card className="w-full max-w-md mx-auto">
         <CardHeader>
           <CardTitle className="text-2xl text-center">Criar Conta</CardTitle>

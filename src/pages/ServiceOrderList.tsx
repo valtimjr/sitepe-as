@@ -110,13 +110,10 @@ const ServiceOrderList = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      {/* Removido o div com o botão de nova OS que estava no topo */}
-      <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
-      <h1 className="text-4xl font-extrabold mb-4 text-center text-primary dark:text-primary">
+      <h1 className="text-4xl font-extrabold mb-4 mt-8 text-center text-primary dark:text-primary">
         Lista de Ordens de Serviço
       </h1>
       
-      {/* Botão movido para baixo do título */}
       <div className="w-full max-w-6xl flex justify-center mb-8">
         <Button onClick={handleNewServiceOrder} className="flex items-center gap-2">
           <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço

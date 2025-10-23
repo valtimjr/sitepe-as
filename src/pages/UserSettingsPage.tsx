@@ -105,8 +105,7 @@ const UserSettingsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <img src="/Logo.png" alt="Logo do Aplicativo" className="h-80 w-80 mb-6 mx-auto" />
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary">
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary">
         Configurações do Usuário
       </h1>
 
