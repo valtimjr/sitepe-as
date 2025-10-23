@@ -549,13 +549,18 @@ const TimeTrackingPage: React.FC = () => {
             
             {/* NOVO LOCAL PARA OS BOTÕES DE AÇÃO - FORMATO ALINHADO À DIREITA */}
             <div className="flex flex-wrap justify-end gap-2 pt-2">
-              <Button onClick={handleCopyText} variant="outline" size="sm" className="flex items-center gap-2">
+              <Button onClick={handleCopyText} className="flex items-center gap-2">
                 <Copy className="h-4 w-4" /> Copiar Texto
               </Button>
-              <Button onClick={handleShareOnWhatsApp} variant="outline" size="sm" className="flex items-center gap-2">
-                <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-5 w-5" /> WhatsApp
+              <Button 
+                onClick={handleShareOnWhatsApp} 
+                variant="ghost" 
+                className="h-10 w-10 p-0 rounded-full" 
+                aria-label="Compartilhar no WhatsApp" 
+              >
+                <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-full w-full" />
               </Button>
-              <Button onClick={handleExportPdf} variant="outline" size="sm" className="flex items-center gap-2">
+              <Button onClick={handleExportPdf} className="flex items-center gap-2">
                 <Download className="h-4 w-4" /> Exportar PDF
               </Button>
             </div>
