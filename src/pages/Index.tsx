@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database, Home, Clock, Search, List, ClipboardList } from 'lucide-react';
+import { Database, Home, Clock, Search, List, ClipboardList, CalendarDays } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
 
 const Index = () => {
@@ -68,6 +68,23 @@ const Index = () => {
             </p>
             <Link to="/service-orders">
               <Button className="w-full">Ir para Ordens</Button>
+            </Link>
+          </CardContent>
+        </Card>
+        
+        {/* NOVO CARD: Escala Anual */}
+        <Card className="text-center">
+          <CardHeader>
+            <CardTitle className="text-2xl flex items-center justify-center gap-2">
+              <CalendarDays className="h-6 w-6" /> Escala Anual
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-6 text-muted-foreground">
+              Visualize a escala de turnos rotativos para o ano inteiro.
+            </p>
+            <Link to="/schedule-view">
+              <Button className="w-full">Ver Escala</Button>
             </Link>
           </CardContent>
         </Card>
