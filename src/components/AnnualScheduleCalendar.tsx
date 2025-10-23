@@ -159,14 +159,13 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
                 <TooltipTrigger asChild>
                   <div
                     className={cn(
-                      "h-6 w-6 rounded-full relative cursor-default transition-colors duration-100", // Adicionado relative
+                      "h-6 w-6 rounded-full text-xs font-medium text-white cursor-default transition-colors duration-100 text-center", // Removido flex/absolute, adicionado text-center
                       colorClass,
                       isCurrentDay && 'ring-2 ring-offset-1 ring-primary dark:ring-primary',
                     )}
+                    style={{ lineHeight: '24px' }} // Força line-height igual à altura (h-6 = 24px)
                   >
-                    <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
-                      {dayOfMonth}
-                    </span>
+                    {dayOfMonth}
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
