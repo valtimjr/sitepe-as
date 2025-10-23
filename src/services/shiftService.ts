@@ -14,7 +14,7 @@ const SHIFT_SCHEDULES = {
     6: { entry: '07:00', exit: '19:00' }, // Sábado
   },
   Intermediario: {
-    0: { status: 'Folga' }, // Domingo folga
+    0: { entry: '19:00', exit: '07:00', overnight: true }, // Domingo
     1: { entry: '15:00', exit: '23:00' }, // Segunda
     2: { entry: '15:00', exit: '23:00' }, // Terça
     3: { entry: '15:00', exit: '23:00' }, // Quarta
