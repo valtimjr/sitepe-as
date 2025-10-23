@@ -5,7 +5,7 @@ import { Apontamento } from './partListService'; // Importando Apontamento para 
 // 1. Definição dos Horários de Trabalho por Escala (Dia da Semana: 0=Dom, 1=Seg, ..., 6=Sáb)
 const SHIFT_SCHEDULES = {
   Dia: {
-    0: { entry: '07:00', exit: '19:00' }, // Domingo
+    0: { status: 'Folga' }, // Domingo folga
     1: { entry: '07:00', exit: '15:00' }, // Segunda
     2: { entry: '07:00', exit: '15:00' }, // Terça
     3: { entry: '07:00', exit: '15:00' }, // Quarta
