@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth } from '@/services/partListService';
@@ -37,6 +37,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Link } from 'react-router-dom';
 
 // Mapeamento de Status para Ícone e Estilo
 const STATUS_MAP = {
@@ -477,6 +478,16 @@ const TimeTrackingPage: React.FC = () => {
               {employeeHeader}
             </p>
           </div>
+          <Link to="/schedule-view">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Visualizar Escala Anual">
+                  <CalendarDays className="h-6 w-6 text-primary" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Visualizar Escala Anual</TooltipContent>
+            </Tooltip>
+          </Link>
         </div>
 
         <Card className="mb-4">
