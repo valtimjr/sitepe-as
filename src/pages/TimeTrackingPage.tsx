@@ -5,14 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, ArrowRight, Clock, Copy, Download, MessageSquare, Trash2, Save, Loader2 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, setHours, setMinutes, getHours, getMinutes, subMonths, addMonths } from 'date-fns';
+import { ArrowLeft, ArrowRight, Clock, Copy, Download, MessageSquare, Trash2, Save, Loader2, MoreHorizontal, CalendarCheck, X, Clock3 } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, setHours, setMinutes, getHours, getMinutes, subMonths, addMonths, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Apontamento, getApontamentos, updateApontamento, deleteApontamento } from '@/services/partListService';
 import { useSession } from '@/components/SessionContextProvider';
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import { generateTimeTrackingPdf } from '@/lib/pdfGenerator';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 const TimeTrackingPage: React.FC = () => {
   const { user, isLoading: isSessionLoading } = useSession();
@@ -20,6 +29,9 @@ const TimeTrackingPage: React.FC = () => {
   const [apontamentos, setApontamentos] = useState<Apontamento[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [otherStatusText, setOtherStatusText] = useState('');
+  const [dayForOtherStatus, setDayForOtherStatus] = useState<Date | null>(null);
 
   useEffect(() => {
     document.title = "Apontamento de Horas - AutoBoard";
@@ -54,6 +66,13 @@ const TimeTrackingPage: React.FC = () => {
     return apontamentos.find(a => a.date === dateString);
   };
 
+  const updateApontamentoState = (updated: Apontamento) => {
+    setApontamentos(prev => {
+      const filtered = prev.filter(a => a.id !== updated.id);
+      return [...filtered, updated];
+    });
+  };
+
   const handleTimeChange = useCallback(async (day: Date, field: 'entry_time' | 'exit_time', value: string) => {
     if (!userId) {
       showError('Usuário não autenticado.');
@@ -63,11 +82,10 @@ const TimeTrackingPage: React.FC = () => {
     const dateString = format(day, 'yyyy-MM-dd');
     const existingApontamento = getApontamentoForDay(day);
     
-    // Se o valor for vazio, definimos como undefined para limpar o campo no DB
     const newValue = value.trim() === '' ? undefined : value;
 
     const newApontamento: Apontamento = existingApontamento
-      ? { ...existingApontamento, [field]: newValue }
+      ? { ...existingApontamento, [field]: newValue, status: undefined } // Limpa o status ao inserir tempo
       : {
           id: uuidv4(),
           user_id: userId,
@@ -77,8 +95,8 @@ const TimeTrackingPage: React.FC = () => {
           created_at: new Date(),
         };
 
-    // Se ambos os campos estiverem vazios, deletamos o apontamento (se existir)
-    if (!newApontamento.entry_time && !newApontamento.exit_time && existingApontamento) {
+    // Se ambos os campos de tempo e status estiverem vazios, deletamos o apontamento (se existir)
+    if (!newApontamento.entry_time && !newApontamento.exit_time && !newApontamento.status && existingApontamento) {
       await handleDeleteApontamento(existingApontamento.id);
       return;
     }
@@ -86,10 +104,7 @@ const TimeTrackingPage: React.FC = () => {
     setIsSaving(true);
     try {
       const updated = await updateApontamento(newApontamento);
-      setApontamentos(prev => {
-        const filtered = prev.filter(a => a.id !== updated.id);
-        return [...filtered, updated];
-      });
+      updateApontamentoState(updated);
       showSuccess('Apontamento salvo!');
     } catch (error) {
       showError('Erro ao salvar apontamento.');
@@ -98,6 +113,78 @@ const TimeTrackingPage: React.FC = () => {
       setIsSaving(false);
     }
   }, [userId, getApontamentoForDay, apontamentos]);
+
+  const handleStatusChange = useCallback(async (day: Date, status: string) => {
+    if (!userId) {
+      showError('Usuário não autenticado.');
+      return;
+    }
+
+    const dateString = format(day, 'yyyy-MM-dd');
+    const existingApontamento = getApontamentoForDay(day);
+
+    const newApontamento: Apontamento = existingApontamento
+      ? { ...existingApontamento, status, entry_time: undefined, exit_time: undefined } // Limpa o tempo ao definir status
+      : {
+          id: uuidv4(),
+          user_id: userId,
+          date: dateString,
+          status,
+          created_at: new Date(),
+        };
+
+    setIsSaving(true);
+    try {
+      const updated = await updateApontamento(newApontamento);
+      updateApontamentoState(updated);
+      showSuccess(`Dia marcado como ${status.split(':')[0]}!`);
+    } catch (error) {
+      showError('Erro ao marcar status.');
+      console.error('Failed to set status:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [userId, getApontamentoForDay]);
+
+  const handleOpenOtherStatusDialog = (day: Date) => {
+    setDayForOtherStatus(day);
+    const existing = getApontamentoForDay(day);
+    const currentStatus = existing?.status || '';
+    const match = currentStatus.match(/^Outros: (.*)/);
+    setOtherStatusText(match ? match[1] : '');
+    setIsDialogOpen(true);
+  };
+
+  const handleSaveOtherStatus = async () => {
+    if (!dayForOtherStatus) return;
+    const status = otherStatusText.trim() === '' ? 'Outros' : `Outros: ${otherStatusText.trim()}`;
+    await handleStatusChange(dayForOtherStatus, status);
+    setIsDialogOpen(false);
+    setOtherStatusText('');
+    setDayForOtherStatus(null);
+  };
+
+  const handleClearStatus = useCallback(async (day: Date) => {
+    const existingApontamento = getApontamentoForDay(day);
+    if (!existingApontamento) return;
+
+    // Se não houver tempo, deleta o registro. Se houver, apenas limpa o status.
+    if (!existingApontamento.entry_time && !existingApontamento.exit_time) {
+      await handleDeleteApontamento(existingApontamento.id);
+    } else {
+      setIsSaving(true);
+      try {
+        const updated = await updateApontamento({ ...existingApontamento, status: undefined });
+        updateApontamentoState(updated);
+        showSuccess('Status removido. Campos de hora liberados.');
+      } catch (error) {
+        showError('Erro ao remover status.');
+        console.error('Failed to clear status:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  }, [getApontamentoForDay, handleDeleteApontamento]);
 
   const handleDeleteApontamento = async (id: string) => {
     try {
@@ -127,7 +214,7 @@ const TimeTrackingPage: React.FC = () => {
 
       // Se a hora de saída for anterior à de entrada, assume que passou da meia-noite
       if (exitTime.getTime() < entryTime.getTime()) {
-        exitTime = addMonths(exitTime, 1); // Corrigido para usar addMonths, mas deveria ser addDays. Como addDays não está importado, vou manter a lógica de data-fns, mas o cálculo de horas deve ser feito com base em milissegundos para ser robusto.
+        exitTime = addDays(exitTime, 1);
       }
 
       const diffMs = exitTime.getTime() - entryTime.getTime();
@@ -156,11 +243,18 @@ const TimeTrackingPage: React.FC = () => {
 
     currentMonthApontamentos.forEach(a => {
       const day = format(parseISO(a.date), 'dd/MM (EEE)', { locale: ptBR });
-      const entry = a.entry_time || 'N/A';
-      const exit = a.exit_time || 'N/A';
-      const total = calculateTotalHours(a.entry_time, a.exit_time);
       
-      text += `${day}: Entrada: ${entry}, Saída: ${exit}, Total: ${total}\n`;
+      let statusDisplay = '';
+      if (a.status) {
+        statusDisplay = `Status: ${a.status}`;
+      } else {
+        const entry = a.entry_time || 'N/A';
+        const exit = a.exit_time || 'N/A';
+        const total = calculateTotalHours(a.entry_time, a.exit_time);
+        statusDisplay = `Entrada: ${entry}, Saída: ${exit}, Total: ${total}`;
+      }
+      
+      text += `${day}: ${statusDisplay}\n`;
     });
 
     return text;
@@ -252,10 +346,9 @@ const TimeTrackingPage: React.FC = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[100px]">Dia</TableHead>
-                    <TableHead className="w-[120px]">Entrada</TableHead>
-                    <TableHead className="w-[120px]">Saída</TableHead>
+                    <TableHead className="w-auto min-w-[200px]">Entrada / Status</TableHead>
                     <TableHead className="w-[100px]">Total</TableHead>
-                    <TableHead className="w-[40px] text-right">Ações</TableHead>
+                    <TableHead className="w-[120px] text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -264,47 +357,108 @@ const TimeTrackingPage: React.FC = () => {
                     const dateString = format(day, 'yyyy-MM-dd');
                     const dayName = format(day, 'EEE', { locale: ptBR });
                     const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                    const hasStatus = !!apontamento?.status;
 
                     return (
                       <TableRow key={dateString} className={isWeekend ? 'bg-muted/50' : ''}>
                         <TableCell className="font-medium">
                           {format(day, 'dd/MM')} ({dayName})
                         </TableCell>
-                        <TableCell>
-                          <Label htmlFor={`entry-${dateString}`} className="sr-only">Entrada</Label>
-                          <Input
-                            id={`entry-${dateString}`}
-                            type="time"
-                            value={apontamento?.entry_time || ''}
-                            onChange={(e) => handleTimeChange(day, 'entry_time', e.target.value)}
-                            disabled={isSaving}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Label htmlFor={`exit-${dateString}`} className="sr-only">Saída</Label>
-                          <Input
-                            id={`exit-${dateString}`}
-                            type="time"
-                            value={apontamento?.exit_time || ''}
-                            onChange={(e) => handleTimeChange(day, 'exit_time', e.target.value)}
-                            disabled={isSaving}
-                          />
-                        </TableCell>
-                        <TableCell className="font-semibold text-sm">
-                          {calculateTotalHours(apontamento?.entry_time, apontamento?.exit_time)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {apontamento && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteApontamento(apontamento.id)}
-                              disabled={isSaving}
-                              aria-label="Excluir apontamento"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                        
+                        {/* Coluna de Entrada / Status */}
+                        <TableCell className="space-y-2">
+                          {hasStatus ? (
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-primary dark:text-primary">
+                                {apontamento.status.split(':')[0]}
+                              </span>
+                              {apontamento.status.includes(':') && (
+                                <span className="text-sm text-muted-foreground ml-2 truncate">
+                                  {apontamento.status.split(': ')[1]}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <div className="flex-1">
+                                <Label htmlFor={`entry-${dateString}`} className="sr-only">Entrada</Label>
+                                <Input
+                                  id={`entry-${dateString}`}
+                                  type="time"
+                                  value={apontamento?.entry_time || ''}
+                                  onChange={(e) => handleTimeChange(day, 'entry_time', e.target.value)}
+                                  disabled={isSaving}
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <Label htmlFor={`exit-${dateString}`} className="sr-only">Saída</Label>
+                                <Input
+                                  id={`exit-${dateString}`}
+                                  type="time"
+                                  value={apontamento?.exit_time || ''}
+                                  onChange={(e) => handleTimeChange(day, 'exit_time', e.target.value)}
+                                  disabled={isSaving}
+                                />
+                              </div>
+                            </div>
                           )}
+                        </TableCell>
+
+                        {/* Coluna Total */}
+                        <TableCell className="font-semibold text-sm">
+                          {hasStatus ? apontamento.status.split(':')[0] : calculateTotalHours(apontamento?.entry_time, apontamento?.exit_time)}
+                        </TableCell>
+
+                        {/* Coluna Ações */}
+                        <TableCell className="text-right">
+                          <div className="flex justify-end items-center gap-1">
+                            {hasStatus ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleClearStatus(day)}
+                                disabled={isSaving}
+                                aria-label="Reverter para Horas"
+                              >
+                                <Clock3 className="h-4 w-4 text-primary" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleStatusChange(day, 'Folga')}
+                                disabled={isSaving}
+                                className="text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50"
+                              >
+                                Folga
+                              </Button>
+                            )}
+                            
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" disabled={isSaving}>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleStatusChange(day, 'Falta')} disabled={hasStatus}>
+                                  Falta
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleStatusChange(day, 'Suspensao')} disabled={hasStatus}>
+                                  Suspensão
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenOtherStatusDialog(day)} disabled={hasStatus}>
+                                  Outros...
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {apontamento && (
+                                  <DropdownMenuItem onClick={() => handleDeleteApontamento(apontamento.id)} className="text-destructive">
+                                    <Trash2 className="h-4 w-4 mr-2" /> Excluir Registro
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -316,6 +470,33 @@ const TimeTrackingPage: React.FC = () => {
         </Card>
       </div>
       <MadeWithDyad />
+
+      {/* Dialog para Outros Status */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Marcar Outro Status</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Label htmlFor="other-status">Descrição (Ex: Férias, Atestado)</Label>
+            <Textarea
+              id="other-status"
+              value={otherStatusText}
+              onChange={(e) => setOtherStatusText(e.target.value)}
+              placeholder="Descreva o motivo da marcação"
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <X className="h-4 w-4 mr-2" /> Cancelar
+            </Button>
+            <Button type="button" onClick={handleSaveOtherStatus} disabled={isSaving}>
+              <Save className="h-4 w-4 mr-2" /> Salvar Status
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

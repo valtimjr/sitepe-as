@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, setHours, setMinutes, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 // Aplica o plugin explicitamente ao jsPDF
@@ -15,12 +15,12 @@ const calculateTotalHours = (entry?: string, exit?: string): string => {
     const [entryH, entryM] = entry.split(':').map(Number);
     const [exitH, exitM] = exit.split(':').map(Number);
 
-    let entryTime = new Date(0, 0, 0, entryH, entryM);
-    let exitTime = new Date(0, 0, 0, exitH, exitM);
+    let entryTime = setHours(setMinutes(new Date(), entryM), entryH);
+    let exitTime = setHours(setMinutes(new Date(), exitM), exitH);
 
     // Se a hora de saída for anterior à de entrada, assume que passou da meia-noite
     if (exitTime.getTime() < entryTime.getTime()) {
-      exitTime.setDate(exitTime.getDate() + 1);
+      exitTime = addDays(exitTime, 1);
     }
 
     const diffMs = exitTime.getTime() - entryTime.getTime();
@@ -209,16 +209,22 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
   doc.text(title, 14, currentY);
   currentY += 8;
 
-  const tableColumn = ["Dia", "Entrada", "Saída", "Total"];
+  const tableColumn = ["Dia", "Entrada", "Saída", "Status / Total"];
   const tableRows: string[][] = [];
 
   apontamentos.forEach(a => {
     const day = format(parseISO(a.date), 'dd/MM (EEE)', { locale: ptBR });
     const entry = a.entry_time || 'N/A';
     const exit = a.exit_time || 'N/A';
-    const total = calculateTotalHours(a.entry_time, a.exit_time);
+    
+    let statusOrTotal: string;
+    if (a.status) {
+      statusOrTotal = a.status.includes(':') ? a.status.split(': ')[0] : a.status;
+    } else {
+      statusOrTotal = calculateTotalHours(a.entry_time, a.exit_time);
+    }
 
-    tableRows.push([day, entry, exit, total]);
+    tableRows.push([day, entry, exit, statusOrTotal]);
   });
 
   (doc as any).autoTable({

@@ -41,6 +41,7 @@ export interface Apontamento {
   date: string; // Formato 'YYYY-MM-DD'
   entry_time?: string; // Formato 'HH:MM'
   exit_time?: string; // Formato 'HH:MM'
+  status?: string; // Novo campo para Folga, Falta, Suspensao, Outros
   created_at?: Date;
   synced_at?: Date; // Para controle de sincronização
 }

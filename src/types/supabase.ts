@@ -15,3 +15,14 @@ export interface UserProfile {
   role: 'admin' | 'moderator' | 'user';
   badge: string | null;
 }
+
+export interface Apontamento {
+  id: string;
+  user_id: string;
+  date: string; // Formato 'YYYY-MM-DD'
+  entry_time?: string; // Formato 'HH:MM'
+  exit_time?: string; // Formato 'HH:MM'
+  status?: string; // Novo campo para Folga, Falta, Suspensao, Outros
+  created_at?: Date;
+  synced_at?: Date;
+}

@@ -518,7 +518,7 @@ export const syncApontamentosFromSupabase = async (userId: string): Promise<Apon
 
 // Sincroniza dados do IndexedDB para o Supabase (bidirecional)
 export const syncApontamentoToSupabase = async (apontamento: Apontamento): Promise<Apontamento> => {
-  const { id, user_id, date, entry_time, exit_time, created_at } = apontamento;
+  const { id, user_id, date, entry_time, exit_time, created_at, status } = apontamento;
   
   const payload = {
     id,
@@ -526,6 +526,7 @@ export const syncApontamentoToSupabase = async (apontamento: Apontamento): Promi
     date,
     entry_time: entry_time || null,
     exit_time: exit_time || null,
+    status: status || null, // Inclui o novo campo status
     created_at: created_at?.toISOString() || new Date().toISOString(),
   };
 
