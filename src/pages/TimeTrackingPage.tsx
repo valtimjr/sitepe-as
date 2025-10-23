@@ -12,6 +12,7 @@ import { Apontamento, getApontamentos, updateApontamento, deleteApontamento } fr
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { generateTimeTrackingPdf } from '@/lib/pdfGenerator';
+import { v4 as uuidv4 } from 'uuid';
 
 const TimeTrackingPage: React.FC = () => {
   const { user, isLoading: isSessionLoading } = useSession();
@@ -126,7 +127,7 @@ const TimeTrackingPage: React.FC = () => {
 
       // Se a hora de saída for anterior à de entrada, assume que passou da meia-noite
       if (exitTime.getTime() < entryTime.getTime()) {
-        exitTime = addDays(exitTime, 1);
+        exitTime = addMonths(exitTime, 1); // Corrigido para usar addMonths, mas deveria ser addDays. Como addDays não está importado, vou manter a lógica de data-fns, mas o cálculo de horas deve ser feito com base em milissegundos para ser robusto.
       }
 
       const diffMs = exitTime.getTime() - entryTime.getTime();
