@@ -61,6 +61,7 @@ const TimeTrackingPage: React.FC = () => {
   const currentMonthEnd = endOfMonth(currentDate);
   const daysInMonth = useMemo(() => eachDayOfInterval({ start: currentMonthStart, end: currentMonthEnd }), [currentMonthStart, currentMonthEnd]);
 
+  // Função auxiliar para obter o apontamento mais recente (usa o estado atual)
   const getApontamentoForDay = (day: Date): Apontamento | undefined => {
     const dateString = format(day, 'yyyy-MM-dd');
     return apontamentos.find(a => a.date === dateString);
@@ -82,7 +83,7 @@ const TimeTrackingPage: React.FC = () => {
       showError('Erro ao excluir apontamento.');
       console.error('Failed to delete apontamento:', error);
     }
-  }, []); // Não depende de apontamentos, apenas do setter
+  }, []);
 
   const handleTimeChange = useCallback(async (day: Date, field: 'entry_time' | 'exit_time', value: string) => {
     if (!userId) {
@@ -91,6 +92,7 @@ const TimeTrackingPage: React.FC = () => {
     }
 
     const dateString = format(day, 'yyyy-MM-dd');
+    // Usa a função de busca local para obter o estado mais recente
     const existingApontamento = getApontamentoForDay(day);
     
     const newValue = value.trim() === '' ? undefined : value;
@@ -123,29 +125,7 @@ const TimeTrackingPage: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [userId, getApontamentoForDay, handleDeleteApontamento]); // Adicionado handleDeleteApontamento
-
-  const handleClearStatus = useCallback(async (day: Date) => {
-    const existingApontamento = getApontamentoForDay(day);
-    if (!existingApontamento) return;
-
-    // Se não houver tempo, deleta o registro. Se houver, apenas limpa o status.
-    if (!existingApontamento.entry_time && !existingApontamento.exit_time) {
-      await handleDeleteApontamento(existingApontamento.id);
-    } else {
-      setIsSaving(true);
-      try {
-        const updated = await updateApontamento({ ...existingApontamento, status: undefined });
-        updateApontamentoState(updated);
-        showSuccess('Status removido. Campos de hora liberados.');
-      } catch (error) {
-        showError('Erro ao remover status.');
-        console.error('Failed to clear status:', error);
-      } finally {
-        setIsSaving(false);
-      }
-    }
-  }, [getApontamentoForDay, handleDeleteApontamento]); // Adicionado handleDeleteApontamento
+  }, [userId, handleDeleteApontamento, apontamentos]); // Mantendo 'apontamentos' aqui para garantir que getApontamentoForDay funcione corretamente dentro do useCallback
 
   const handleStatusChange = useCallback(async (day: Date, status: string) => {
     if (!userId) {
@@ -177,7 +157,7 @@ const TimeTrackingPage: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [userId, getApontamentoForDay]);
+  }, [userId, apontamentos]); // Mantendo 'apontamentos' aqui
 
   const handleOpenOtherStatusDialog = (day: Date) => {
     setDayForOtherStatus(day);
@@ -196,6 +176,28 @@ const TimeTrackingPage: React.FC = () => {
     setOtherStatusText('');
     setDayForOtherStatus(null);
   };
+
+  const handleClearStatus = useCallback(async (day: Date) => {
+    const existingApontamento = getApontamentoForDay(day);
+    if (!existingApontamento) return;
+
+    // Se não houver tempo, deleta o registro. Se houver, apenas limpa o status.
+    if (!existingApontamento.entry_time && !existingApontamento.exit_time) {
+      await handleDeleteApontamento(existingApontamento.id);
+    } else {
+      setIsSaving(true);
+      try {
+        const updated = await updateApontamento({ ...existingApontamento, status: undefined });
+        updateApontamentoState(updated);
+        showSuccess('Status removido. Campos de hora liberados.');
+      } catch (error) {
+        showError('Erro ao remover status.');
+        console.error('Failed to clear status:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  }, [handleDeleteApontamento, apontamentos]); // Mantendo 'apontamentos' aqui
 
   const handleMonthChange = (direction: 'prev' | 'next') => {
     const newDate = direction === 'prev' ? subMonths(currentDate, 1) : addMonths(currentDate, 1);
