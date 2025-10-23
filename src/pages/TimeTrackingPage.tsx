@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, ArrowRight, Clock, Copy, Download, MessageSquare, Trash2, Save, Loader2, MoreHorizontal, CalendarCheck, X, Clock3, XCircle, CheckCircle, Ban, Info } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, setHours, setMinutes, getHours, getMinutes, subMonths, addMonths, addDays } from 'date-fns';
+import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Apontamento, getApontamentos, updateApontamento, deleteApontamento } from '@/services/partListService';
 import { useSession } from '@/components/SessionContextProvider';
@@ -23,6 +23,9 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { ALL_TURNS, generateMonthlyApontamentos, ShiftTurn } from '@/services/shiftService'; // Importar serviço de turno
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { localDb } from '@/services/localDbService';
 
 // Mapeamento de Status para Ícone e Estilo
 const STATUS_MAP = {
@@ -61,12 +64,24 @@ const TimeTrackingPage: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [otherStatusText, setOtherStatusText] = useState('');
   const [dayForOtherStatus, setDayForOtherStatus] = useState<Date | null>(null);
+  const [selectedTurn, setSelectedTurn] = useState<ShiftTurn | ''>('');
+  const [isGeneratingSchedule, setIsGeneratingSchedule] = useState(false);
 
   useEffect(() => {
     document.title = "Apontamento de Horas - AutoBoard";
   }, []);
 
   const userId = user?.id;
+
+  // Carrega o turno salvo localmente na inicialização
+  useEffect(() => {
+    const savedTurn = localStorage.getItem('selectedShiftTurn') as ShiftTurn;
+    if (savedTurn && ALL_TURNS.includes(savedTurn)) {
+      setSelectedTurn(savedTurn);
+    } else {
+      setSelectedTurn(ALL_TURNS[0]); // Default para Turno A
+    }
+  }, []);
 
   const loadApontamentos = useCallback(async () => {
     if (!userId) return;
@@ -335,6 +350,47 @@ const TimeTrackingPage: React.FC = () => {
     showSuccess('PDF gerado com sucesso!');
   };
 
+  const handleTurnChange = (turn: ShiftTurn) => {
+    setSelectedTurn(turn);
+    localStorage.setItem('selectedShiftTurn', turn);
+  };
+
+  const handleGenerateSchedule = async () => {
+    if (!userId || !selectedTurn) {
+      showError('Selecione um turno e faça login.');
+      return;
+    }
+
+    setIsGeneratingSchedule(true);
+    const loadingToastId = showLoading('Gerando escala e sincronizando...');
+
+    try {
+      const generatedApontamentos = generateMonthlyApontamentos(currentDate, selectedTurn, userId);
+      
+      // Filtra apenas os dias que não têm um apontamento manual (com status ou tempo)
+      const existingDates = new Set(apontamentos.map(a => a.date));
+      const newApontamentosToSave = generatedApontamentos.filter(genA => !existingDates.has(genA.date));
+
+      if (newApontamentosToSave.length === 0) {
+        showSuccess('A escala já está preenchida para este mês ou não há novos dias para preencher.');
+        return;
+      }
+
+      // Salva no IndexedDB e sincroniza com o Supabase
+      const syncPromises = newApontamentosToSave.map(a => updateApontamento(a));
+      await Promise.all(syncPromises);
+
+      showSuccess(`${newApontamentosToSave.length} dias da escala do ${selectedTurn} foram preenchidos!`);
+      loadApontamentos(); // Recarrega todos os dados para atualizar a UI
+    } catch (error) {
+      showError('Erro ao gerar a escala de horários.');
+      console.error('Failed to generate schedule:', error);
+    } finally {
+      dismissToast(loadingToastId);
+      setIsGeneratingSchedule(false);
+    }
+  };
+
   if (isSessionLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
@@ -347,7 +403,7 @@ const TimeTrackingPage: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <div className="w-full max-w-4xl">
-        <div className="flex justify-between items-center mb-8 mt-8">
+        <div className="flex justify-between items-center mb-4 mt-8">
           <h1 className="text-4xl font-extrabold text-primary dark:text-primary flex items-center gap-3">
             <Clock className="h-8 w-8 text-primary" />
             Apontamento de Horas
@@ -364,6 +420,39 @@ const TimeTrackingPage: React.FC = () => {
             </Button>
           </div>
         </div>
+
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle className="text-xl">Gerar Escala Automática</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1 w-full">
+              <Label htmlFor="shift-turn">Selecione seu Turno</Label>
+              <Select value={selectedTurn} onValueChange={handleTurnChange} disabled={isGeneratingSchedule}>
+                <SelectTrigger id="shift-turn" className="w-full">
+                  <SelectValue placeholder="Selecione o Turno" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALL_TURNS.map(turn => (
+                    <SelectItem key={turn} value={turn}>{turn}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              onClick={handleGenerateSchedule} 
+              disabled={!selectedTurn || isGeneratingSchedule || isSaving}
+              className="w-full sm:w-auto"
+            >
+              {isGeneratingSchedule ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CalendarCheck className="mr-2 h-4 w-4" />
+              )}
+              Gerar Escala de {format(currentDate, 'MMMM', { locale: ptBR })}
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card className="mb-8">
           <CardHeader className="flex flex-row items-center justify-between">
@@ -393,7 +482,7 @@ const TimeTrackingPage: React.FC = () => {
                     const apontamento = getApontamentoForDay(day);
                     const dateString = format(day, 'yyyy-MM-dd');
                     const dayName = format(day, 'EEE', { locale: ptBR });
-                    const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                    const isWeekend = getDay(day) === 0 || getDay(day) === 6;
                     const hasStatus = !!apontamento?.status;
                     
                     const statusKey = hasStatus ? (apontamento.status.includes('Outros') ? 'Outros' : apontamento.status) : null;

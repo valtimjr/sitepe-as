@@ -230,7 +230,7 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
   currentY += 8;
 
   // Definindo as colunas: Dia, Entrada, Saída, Status/Total
-  const tableColumn = ["Dia", "Entrada", "Saída", "Status / Total"];
+  const tableColumn = ["Dia", "Entrada", "Saída", "Total / Status"];
   const tableRows: any[] = [];
 
   apontamentos.forEach(a => {
@@ -258,13 +258,13 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     head: [tableColumn],
     body: tableRows,
     startY: currentY,
-    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak', halign: 'center' },
+    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     columnStyles: {
-      0: { cellWidth: 30, halign: 'left' }, // Dia (esquerda)
-      1: { cellWidth: 25 }, // Entrada
-      2: { cellWidth: 25 }, // Saída
-      3: { cellWidth: 80 }, // Status / Total
+      0: { cellWidth: 30, halign: 'left' }, // Dia
+      1: { cellWidth: 25, halign: 'center' }, // Entrada
+      2: { cellWidth: 25, halign: 'center' }, // Saída
+      3: { cellWidth: 80, halign: 'center' }, // Status / Total
     },
     alternateRowStyles: { fillColor: [240, 240, 240] },
     margin: { top: 10 },
@@ -278,11 +278,18 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
 
         // A célula mesclada é a segunda célula (index 1) na linha do body
         if (data.column.index === 1) {
+          // Esta célula é a que contém o status e deve ter colSpan=3
+          data.cell.colSpan = 3; 
+          data.cell.styles.halign = 'center';
+          data.cell.styles.fontStyle = 'bold';
           if (statusColors) {
             data.cell.styles.fillColor = statusColors.fill;
             data.cell.styles.textColor = statusColors.text;
           }
         }
+        // As colunas 2 e 3 (Saída e Status/Total) devem ser ignoradas pelo autotable
+        // quando a coluna 1 tem colSpan=3.
+        // Não precisamos definir explicitamente cellWidth=0.0001, pois o colSpan deve resolver.
       }
     }
   });
