@@ -105,7 +105,7 @@ const AppHeader: React.FC = () => {
           {session ? (
             <>
               <div className="flex items-center gap-2">
-                <Avatar className="h-8 w-8">
+                <Avatar className="h-8 w-8 rounded-full"> {/* Adicionado rounded-full */}
                   <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar do Usuário" />
                   <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
                 </Avatar>

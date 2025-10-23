@@ -123,7 +123,7 @@ const UserSettingsPage: React.FC = () => {
             <CardContent>
               <form onSubmit={handleProfileSubmit} className="space-y-4">
                 <div className="flex flex-col items-center gap-4 mb-4">
-                  <Avatar className="h-24 w-24">
+                  <Avatar className="h-24 w-24 rounded-full"> {/* Adicionado rounded-full */}
                     <AvatarImage src={avatarUrl || undefined} alt="Avatar do Usuário" />
                     <AvatarFallback>{getInitials(firstName, lastName)}</AvatarFallback>
                   </Avatar>
