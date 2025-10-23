@@ -73,6 +73,17 @@ const TimeTrackingPage: React.FC = () => {
     });
   };
 
+  const handleDeleteApontamento = useCallback(async (id: string) => {
+    try {
+      await deleteApontamento(id);
+      setApontamentos(prev => prev.filter(a => a.id !== id));
+      showSuccess('Apontamento excluído.');
+    } catch (error) {
+      showError('Erro ao excluir apontamento.');
+      console.error('Failed to delete apontamento:', error);
+    }
+  }, []); // Não depende de apontamentos, apenas do setter
+
   const handleTimeChange = useCallback(async (day: Date, field: 'entry_time' | 'exit_time', value: string) => {
     if (!userId) {
       showError('Usuário não autenticado.');
@@ -112,7 +123,29 @@ const TimeTrackingPage: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [userId, getApontamentoForDay, apontamentos]);
+  }, [userId, getApontamentoForDay, handleDeleteApontamento]); // Adicionado handleDeleteApontamento
+
+  const handleClearStatus = useCallback(async (day: Date) => {
+    const existingApontamento = getApontamentoForDay(day);
+    if (!existingApontamento) return;
+
+    // Se não houver tempo, deleta o registro. Se houver, apenas limpa o status.
+    if (!existingApontamento.entry_time && !existingApontamento.exit_time) {
+      await handleDeleteApontamento(existingApontamento.id);
+    } else {
+      setIsSaving(true);
+      try {
+        const updated = await updateApontamento({ ...existingApontamento, status: undefined });
+        updateApontamentoState(updated);
+        showSuccess('Status removido. Campos de hora liberados.');
+      } catch (error) {
+        showError('Erro ao remover status.');
+        console.error('Failed to clear status:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  }, [getApontamentoForDay, handleDeleteApontamento]); // Adicionado handleDeleteApontamento
 
   const handleStatusChange = useCallback(async (day: Date, status: string) => {
     if (!userId) {
@@ -162,39 +195,6 @@ const TimeTrackingPage: React.FC = () => {
     setIsDialogOpen(false);
     setOtherStatusText('');
     setDayForOtherStatus(null);
-  };
-
-  const handleClearStatus = useCallback(async (day: Date) => {
-    const existingApontamento = getApontamentoForDay(day);
-    if (!existingApontamento) return;
-
-    // Se não houver tempo, deleta o registro. Se houver, apenas limpa o status.
-    if (!existingApontamento.entry_time && !existingApontamento.exit_time) {
-      await handleDeleteApontamento(existingApontamento.id);
-    } else {
-      setIsSaving(true);
-      try {
-        const updated = await updateApontamento({ ...existingApontamento, status: undefined });
-        updateApontamentoState(updated);
-        showSuccess('Status removido. Campos de hora liberados.');
-      } catch (error) {
-        showError('Erro ao remover status.');
-        console.error('Failed to clear status:', error);
-      } finally {
-        setIsSaving(false);
-      }
-    }
-  }, [getApontamentoForDay, handleDeleteApontamento]);
-
-  const handleDeleteApontamento = async (id: string) => {
-    try {
-      await deleteApontamento(id);
-      setApontamentos(prev => prev.filter(a => a.id !== id));
-      showSuccess('Apontamento excluído.');
-    } catch (error) {
-      showError('Erro ao excluir apontamento.');
-      console.error('Failed to delete apontamento:', error);
-    }
   };
 
   const handleMonthChange = (direction: 'prev' | 'next') => {
