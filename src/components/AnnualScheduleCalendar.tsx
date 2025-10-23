@@ -15,7 +15,7 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, ArrowRight, Download, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -122,17 +122,6 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
 
   const months = Array.from({ length: 12 }, (_, i) => new Date(currentYear, i, 1));
 
-  const Legend: React.FC = () => (
-    <div className="flex flex-wrap gap-4 justify-center text-sm mt-4">
-      {Object.keys(SCHEDULE_COLORS).map(key => (
-        <div key={key} className="flex items-center gap-1">
-          <div className={cn("h-3 w-3 rounded-full", SCHEDULE_COLORS[key])} />
-          <span>{SCHEDULE_DISPLAY_NAMES[key] || key}</span>
-        </div>
-      ))}
-    </div>
-  );
-
   const renderMonth = (monthStart: Date) => {
     const monthIndex = getMonth(monthStart);
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: endOfMonth(monthStart) });
@@ -142,7 +131,7 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
     const emptyCells = Array.from({ length: firstDayOfWeek }, (_, i) => <div key={`empty-${i}`} className="h-6 w-6" />);
 
     return (
-      <div key={monthIndex} className="p-2 border rounded-lg shadow-sm">
+      <div key={monthIndex} className="p-2 border rounded-lg shadow-sm bg-white dark:bg-gray-800"> {/* Adicionado fundo branco/escuro explícito */}
         <h3 className="text-center font-semibold mb-2 text-sm">
           {format(monthStart, 'MMM', { locale: ptBR })}
         </h3>
@@ -201,7 +190,9 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
       const canvas = await html2canvas(calendarRef.current, {
         scale: 2, // Aumenta a escala para melhor qualidade
         useCORS: true,
-        backgroundColor: null, // Permite fundo transparente se necessário
+        backgroundColor: '#ffffff', // Força o fundo branco para evitar problemas de transparência/tema escuro
+        logging: false,
+        allowTaint: true,
       });
 
       const filename = `Escala_Anual_${selectedTurn.replace(/\s/g, '_')}_${currentYear}`;
@@ -306,10 +297,11 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
           </div>
         </div>
 
-        {/* Legenda removida */}
-
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" ref={calendarRef}>
-          {months.map(renderMonth)}
+        {/* Adicionado um contêiner explícito para a captura, com fundo branco e padding zero */}
+        <div ref={calendarRef} className="p-0 bg-white dark:bg-gray-900 rounded-lg shadow-xl">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
+            {months.map(renderMonth)}
+          </div>
         </div>
       </CardContent>
     </Card>
