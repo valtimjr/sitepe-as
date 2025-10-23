@@ -23,13 +23,13 @@ const SHIFT_SCHEDULES = {
     6: { status: 'Folga' }, // Sábado folga
   },
   Noite: {
-    0: { entry: '19:00', exit: '07:00', overnight: true }, // Domingo (entra 19:00, sai 07:00 na Segunda)
-    1: { entry: '23:00', exit: '07:00', overnight: true }, // Segunda (entra 23:00, sai 07:00 na Terça)
-    2: { entry: '23:00', exit: '07:00', overnight: true }, // Terça (entra 23:00, sai 07:00 na Quarta)
-    3: { entry: '23:00', exit: '07:00', overnight: true }, // Quarta (entra 23:00, sai 07:00 na Quinta)
-    4: { entry: '23:00', exit: '07:00', overnight: true }, // Quinta (entra 23:00, sai 07:00 na Sexta)
-    5: { entry: '19:00', exit: '07:00', overnight: true }, // Sexta (entra 19:00, sai 07:00 no Sábado)
-    6: { entry: '19:00', exit: '07:00', overnight: true }, // Sábado (entra 19:00, sai 07:00 no Domingo)
+    0: { entry: '19:00', exit: '07:00', overnight: true }, // Domingo
+    1: { entry: '23:00', exit: '07:00', overnight: true }, // Segunda
+    2: { entry: '23:00', exit: '07:00', overnight: true }, // Terça
+    3: { entry: '23:00', exit: '07:00', overnight: true }, // Quarta
+    4: { entry: '23:00', exit: '07:00', overnight: true }, // Quinta
+    5: { entry: '19:00', exit: '07:00', overnight: true }, // Sexta
+    6: { status: 'Folga' }, // Sábado (Folga)
   },
 };
 
