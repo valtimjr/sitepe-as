@@ -7,6 +7,8 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label'; // Importação adicionada
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; // Importação adicionada
 
 // Mapeamento de cores para os tipos de escala
 const SCHEDULE_COLORS: { [key: string]: string } = {
