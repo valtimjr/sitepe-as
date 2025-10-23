@@ -43,6 +43,21 @@ const SCHEDULE_DISPLAY_NAMES: { [key: string]: string } = {
   'Turno Dia 07:30 - 17:00': 'Fixo 07:30-17',
 };
 
+// Definição da Legenda para Turnos Rotativos
+const ROTATING_LEGEND = [
+  { type: 'Dia', label: 'Turno Dia (07:00-15:00 / 07:00-19:00)' },
+  { type: 'Intermediario', label: 'Turno Intermediário (15:00-23:00 / 19:00-07:00)' },
+  { type: 'Noite', label: 'Turno Noite (23:00-07:00 / 19:00-07:00)' },
+  { type: 'Folga', label: 'Folga' },
+];
+
+// Definição da Legenda para Turnos Fixos (simplificada, pois o nome já é descritivo)
+const FIXED_LEGEND = [
+  { type: 'Turno Dia 07:00 - 17:00', label: 'Fixo 07:00 - 17:00' },
+  { type: 'Turno Dia 07:30 - 17:00', label: 'Fixo 07:30 - 17:00' },
+  { type: 'Folga', label: 'Folga' },
+];
+
 interface AnnualScheduleCalendarProps {
   initialTurn: ShiftTurn;
   onTurnChange: (turn: ShiftTurn) => void;
@@ -238,6 +253,8 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
     }
   };
 
+  const currentLegend = ROTATING_TURNS_ONLY.includes(selectedTurn) ? ROTATING_LEGEND : FIXED_LEGEND;
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -297,7 +314,23 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
           </div>
         </div>
 
-        {/* Adicionado um contêiner explícito para a captura, com fundo branco e padding zero */}
+        {/* Legenda */}
+        <div className="p-4 border rounded-lg bg-muted/50">
+          <h4 className="text-sm font-semibold mb-2">Legenda de Escalas:</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+            {currentLegend.map(({ type, label }) => {
+              const colorClass = SCHEDULE_COLORS[type] || 'bg-gray-300';
+              return (
+                <div key={type} className="flex items-center gap-2">
+                  <div className={cn("h-4 w-4 rounded-full shrink-0", colorClass)} />
+                  <span className="text-muted-foreground">{label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Calendário */}
         <div ref={calendarRef} className="p-0 bg-white dark:bg-gray-900 rounded-lg shadow-xl">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
             {months.map(renderMonth)}
