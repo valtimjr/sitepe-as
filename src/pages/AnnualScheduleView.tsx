@@ -26,9 +26,9 @@ const AnnualScheduleView: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <div className="w-full max-w-6xl flex justify-between items-center mb-4 mt-8">
-        <Link to="/time-tracking">
+        <Link to="/">
           <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar para Apontamento
+            <ArrowLeft className="h-4 w-4" /> Voltar para o Início
           </Button>
         </Link>
       </div>
