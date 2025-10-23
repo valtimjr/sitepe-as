@@ -87,22 +87,21 @@ const calculateCycleIndex = (date: Date): number => {
  * Determina o horário de trabalho para um turno específico em uma data.
  * @param date The date to check.
  * @param turn The shift turn (Turno A, Turno B, Turno C, Turno Dia 07:00 - 17:00, etc.).
- * @returns The entry and exit times (or status for day off).
+ * @returns The entry and exit times (or status for day off), PLUS the determined shift name.
  */
-export const getShiftSchedule = (date: Date, turn: string): { entry?: string; exit?: string; status?: string } => {
+export const getShiftSchedule = (date: Date, turn: string): { entry?: string; exit?: string; status?: string; shiftName: string } => {
   const dayOfWeek = getDay(date); // 0 (Dom) a 6 (Sáb)
 
   if (FIXED_TURNS.includes(turn)) {
-    // Para turnos fixos, o nome do turno é a chave da escala
     const schedule = SHIFT_SCHEDULES[turn as keyof typeof SHIFT_SCHEDULES];
-    // Se o horário for definido, retorna o horário. Caso contrário, retorna um objeto vazio (que será tratado como dia normal sem preenchimento se não for Folga)
-    return schedule[dayOfWeek as keyof typeof schedule] || {};
+    const shift = schedule[dayOfWeek as keyof typeof schedule] || {};
+    return { ...shift, shiftName: turn };
   }
 
   // Lógica para turnos rotativos
   const cycleIndex = calculateCycleIndex(date); // 0, 1, ou 2
   const turnBaseIndex = TURN_BASE_INDEX[turn];
-  if (typeof turnBaseIndex === 'undefined') return {};
+  if (typeof turnBaseIndex === 'undefined') return { shiftName: 'Outros' };
 
   // O índice da escala de horário para o turno é (BaseIndex + cycleIndex) % 3
   const scheduleIndex = (turnBaseIndex + cycleIndex) % 3;
@@ -114,14 +113,14 @@ export const getShiftSchedule = (date: Date, turn: string): { entry?: string; ex
 
   if (shift) {
     if (shift.status === 'Folga') {
-      return { status: 'Folga' };
+      return { status: 'Folga', shiftName: 'Folga' };
     }
-    // Retorna os horários de entrada e saída
-    return { entry: shift.entry, exit: shift.exit };
+    // Retorna os horários de entrada e saída e o nome da escala (Dia, Intermediario, Noite)
+    return { entry: shift.entry, exit: shift.exit, shiftName: scheduleName };
   }
 
   // Se não houver regra definida para o dia da semana na escala atual, é folga.
-  return { status: 'Folga' };
+  return { status: 'Folga', shiftName: 'Folga' };
 };
 
 /**

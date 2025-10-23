@@ -83,33 +83,7 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
         type = 'Folga';
       } else if (schedule.entry && schedule.exit) {
         time = `${schedule.entry}-${schedule.exit}`;
-        
-        // Para turnos fixos, o nome do turno é o tipo de escala
-        if (selectedTurn.startsWith('Turno Dia')) {
-          type = selectedTurn;
-        } else {
-          // Para turnos rotativos (A, B, C), precisamos determinar qual escala (Dia, Intermediario, Noite) está ativa.
-          // A maneira mais segura é mapear os horários de volta para o nome da escala rotativa,
-          // pois o shiftService.ts usa a rotação para determinar qual escala (Dia/Intermediario/Noite) se aplica.
-          
-          const entryExitKey = `${schedule.entry}-${schedule.exit}`;
-          
-          switch (entryExitKey) {
-            case '07:00-15:00':
-            case '07:00-19:00':
-              type = 'Dia';
-              break;
-            case '15:00-23:00':
-              type = 'Intermediario';
-              break;
-            case '23:00-07:00':
-            case '19:00-07:00':
-              type = 'Noite';
-              break;
-            default:
-              type = 'Outros';
-          }
-        }
+        type = schedule.shiftName; // Usa o nome da escala retornado pelo serviço
       } else {
         type = 'Outros';
       }
@@ -162,7 +136,6 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
             const dayOfMonth = Number(format(day, 'd'));
             const schedule = scheduleData[monthIndex]?.[dayOfMonth];
             const isCurrentDay = isToday(day);
-            const isWeekendDay = isWeekend(day);
             
             const scheduleType = schedule?.type || 'Outros';
             const colorClass = SCHEDULE_COLORS[scheduleType] || 'bg-gray-300 hover:bg-gray-400';
@@ -177,7 +150,6 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
                       "h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium text-white cursor-default transition-colors duration-100",
                       colorClass,
                       isCurrentDay && 'ring-2 ring-offset-1 ring-primary dark:ring-primary',
-                      isWeekendDay && !schedule?.status && !schedule?.entry && 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                     )}
                   >
                     {dayOfMonth}
