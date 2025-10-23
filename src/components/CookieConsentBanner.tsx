@@ -10,7 +10,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Cookie, Settings, Check, X } from 'lucide-react';
+import { Cookie, Settings, Check, X, ArrowLeft } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
@@ -82,12 +82,12 @@ const CookieConsentBanner: React.FC = () => {
 
   const renderPreferences = () => (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold flex items-center gap-2">
+      <DialogTitle className="flex items-center gap-2 text-lg">
         <Settings className="h-5 w-5" /> Gerenciar Preferências
-      </h3>
-      <p className="text-sm text-muted-foreground">
+      </DialogTitle>
+      <DialogDescription className="text-sm">
         Você pode escolher quais tipos de cookies deseja permitir. Os cookies essenciais são obrigatórios para o funcionamento do site.
-      </p>
+      </DialogDescription>
       <Separator />
       
       <ScrollArea className="h-80 pr-4">
@@ -170,15 +170,15 @@ const CookieConsentBanner: React.FC = () => {
 
   const renderMainBanner = () => (
     <div className="space-y-4">
-      <AlertDialogTitle className="flex items-center gap-2 text-lg">
+      <DialogTitle className="flex items-center gap-2 text-lg">
         <Cookie className="h-5 w-5 text-primary" />
         Controle sua privacidade
-      </AlertDialogTitle>
-      <AlertDialogDescription className="text-sm">
+      </DialogTitle>
+      <DialogDescription className="text-sm">
         Nosso site usa cookies para melhorar sua experiência de navegação. Ao continuar navegando, você concorda com nossa política de cookies.
         <br /><br />
         Você pode exercer seus direitos de acesso, retificação e exclusão de dados entrando em contato com o administrador.
-      </AlertDialogDescription>
+      </DialogDescription>
       <div className="flex flex-col sm:flex-row gap-2 pt-2">
         <a href="#" className="text-sm text-primary hover:underline">Política de Privacidade</a>
         <a href="#" className="text-sm text-primary hover:underline">Política de Cookies</a>
