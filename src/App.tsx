@@ -18,6 +18,7 @@ import TimeTrackingPage from "./pages/TimeTrackingPage"; // Importar nova págin
 import AnnualScheduleView from "./pages/AnnualScheduleView"; // Importar nova página
 import { SessionContextProvider } from "./components/SessionContextProvider";
 import AppHeader from "./components/AppHeader"; // Importar o novo cabeçalho
+import CookieConsentBanner from "./components/CookieConsentBanner"; // Importar o novo componente
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => (
         </SessionContextProvider>
       </BrowserRouter>
     </TooltipProvider>
+    <CookieConsentBanner />
   </QueryClientProvider>
 );
 
