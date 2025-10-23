@@ -484,7 +484,7 @@ const TimeTrackingPage: React.FC = () => {
               <TooltipTrigger asChild>
                 <Button 
                   variant="ghost" 
-                  className="h-16 w-16 !p-0" 
+                  className="h-16 w-16 !p-0 [&>svg]:!h-16 [&>svg]:!w-16" 
                   aria-label="Visualizar Escala Anual"
                 >
                   <CalendarDays className="h-16 w-16 text-primary" />
