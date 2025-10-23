@@ -67,7 +67,7 @@ const STATUS_MAP = {
 };
 
 const TimeTrackingPage: React.FC = () => {
-  const { user, isLoading: isSessionLoading } = useSession();
+  const { user, profile, isLoading: isSessionLoading } = useSession();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [apontamentos, setApontamentos] = useState<Apontamento[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -288,7 +288,15 @@ const TimeTrackingPage: React.FC = () => {
 
   const formatListText = () => {
     const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
-    let text = `Apontamento de Horas - ${monthName}\n\n`;
+    
+    // Novo cabeçalho do funcionário
+    const employeeHeader = profile?.badge && profile?.first_name
+      ? `${profile.badge} - ${profile.first_name} ${profile.last_name || ''}`.trim()
+      : profile?.first_name
+        ? `${profile.first_name} ${profile.last_name || ''}`.trim()
+        : 'Apontamento de Horas';
+
+    let text = `${employeeHeader}\n${monthName}\n\n`;
 
     const currentMonthApontamentos = apontamentos
       .filter(a => {
@@ -345,6 +353,13 @@ const TimeTrackingPage: React.FC = () => {
 
   const handleExportPdf = () => {
     const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
+    
+    const employeeHeader = profile?.badge && profile?.first_name
+      ? `${profile.badge} - ${profile.first_name} ${profile.last_name || ''}`.trim()
+      : profile?.first_name
+        ? `${profile.first_name} ${profile.last_name || ''}`.trim()
+        : 'Apontamento de Horas';
+
     const currentMonthApontamentos = apontamentos
       .filter(a => {
         const date = parseISO(a.date);
@@ -357,7 +372,7 @@ const TimeTrackingPage: React.FC = () => {
       return;
     }
 
-    generateTimeTrackingPdf(currentMonthApontamentos, `Apontamento de Horas - ${monthName}`);
+    generateTimeTrackingPdf(currentMonthApontamentos, `${employeeHeader} - ${monthName}`);
     showSuccess('PDF gerado com sucesso!');
   };
 

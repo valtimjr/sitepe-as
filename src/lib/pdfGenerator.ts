@@ -225,8 +225,22 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
   const doc = new jsPDF();
   let currentY = 22;
 
-  doc.setFontSize(18);
-  doc.text(title, 14, currentY);
+  // O 'title' agora já deve incluir o cabeçalho do funcionário e o mês
+  doc.setFontSize(14);
+  
+  // Divide o título em linhas para melhor formatação
+  const titleLines = title.split('\n');
+  
+  // Primeira linha (Crachá - Nome Completo)
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  doc.text(titleLines[0], 14, currentY);
+  currentY += 7;
+
+  // Segunda linha (Mês/Ano)
+  doc.setFontSize(12);
+  doc.setFont(undefined, 'normal');
+  doc.text(titleLines[1], 14, currentY);
   currentY += 8;
 
   // Definindo as colunas: Dia, Entrada, Saída, Status/Total
@@ -294,5 +308,5 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     }
   });
 
-  doc.save(`${title.replace(/\s/g, '_')}.pdf`);
+  doc.save(`${titleLines[0].replace(/\s/g, '_')}_${titleLines[1].replace(/\s/g, '_')}.pdf`);
 };
