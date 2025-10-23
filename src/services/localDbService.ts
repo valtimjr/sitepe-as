@@ -296,3 +296,13 @@ export const clearLocalApontamentos = async (userId: string): Promise<void> => {
   const idsToDelete = await localDb.apontamentos.where('user_id').equals(userId).keys();
   await localDb.apontamentos.bulkDelete(idsToDelete);
 };
+
+export const deleteLocalApontamentosByDateRange = async (userId: string, startDate: string, endDate: string): Promise<number> => {
+  const idsToDelete = await localDb.apontamentos
+    .where('user_id').equals(userId)
+    .and(a => a.date >= startDate && a.date <= endDate)
+    .keys();
+  
+  await localDb.apontamentos.bulkDelete(idsToDelete);
+  return idsToDelete.length;
+};

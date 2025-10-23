@@ -28,6 +28,7 @@ import {
   putLocalApontamento,
   bulkPutLocalApontamentos,
   clearLocalApontamentos,
+  deleteLocalApontamentosByDateRange,
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -106,11 +107,11 @@ const seedAfs = async (): Promise<void> => {
   // 2. Tenta carregar do public/data/afs.json
   try {
     const response = await fetch('/data/afs.json'); // Caminho atualizado
-    if (response.ok) {
+    if (!response.ok) {
+      console.warn('seedAfs: Failed to fetch afs.json, trying CSV. Status:', response.status);
+    } else {
       parsedAfs = await response.json();
       source = 'JSON';
-    } else {
-      console.warn('seedAfs: Failed to fetch afs.json, trying CSV. Status:', response.status);
     }
   } catch (jsonError) {
     console.warn('seedAfs: Error fetching afs.json, trying CSV:', jsonError);
@@ -583,6 +584,29 @@ export const deleteApontamento = async (id: string): Promise<void> => {
 
   // Deleta no IndexedDB
   await localDb.apontamentos.delete(id);
+};
+
+export const deleteApontamentosByMonth = async (userId: string, startDate: Date, endDate: Date): Promise<number> => {
+  const startString = startDate.toISOString().split('T')[0];
+  const endString = endDate.toISOString().split('T')[0];
+  
+  // 1. Deleta no Supabase
+  const { error: supabaseError, count } = await supabase
+    .from('apontamentos')
+    .delete({ count: 'exact' })
+    .eq('user_id', userId)
+    .gte('date', startString)
+    .lte('date', endString);
+
+  if (supabaseError) {
+    console.error('Error deleting apontamentos by month from Supabase:', supabaseError);
+    throw new Error(`Erro ao excluir apontamentos do Supabase: ${supabaseError.message}`);
+  }
+
+  // 2. Deleta no IndexedDB
+  const deletedLocalCount = await deleteLocalApontamentosByDateRange(userId, startString, endString);
+
+  return count || deletedLocalCount;
 };
 
 // --- Funções de Importação e Exportação (mantidas) ---

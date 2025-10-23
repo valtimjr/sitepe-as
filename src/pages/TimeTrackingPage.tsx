@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Apontamento, getApontamentos, updateApontamento, deleteApontamento } from '@/services/partListService';
+import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth } from '@/services/partListService';
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { generateTimeTrackingPdf } from '@/lib/pdfGenerator';
@@ -26,6 +26,17 @@ import { cn } from '@/lib/utils';
 import { ALL_TURNS, generateMonthlyApontamentos, ShiftTurn } from '@/services/shiftService'; // Importar serviço de turno
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { localDb } from '@/services/localDbService';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Mapeamento de Status para Ícone e Estilo
 const STATUS_MAP = {
@@ -356,12 +367,8 @@ const TimeTrackingPage: React.FC = () => {
   };
 
   const handleGenerateSchedule = async () => {
-    if (!userId) {
-      showError('Usuário não autenticado.');
-      return;
-    }
-    if (!selectedTurn) {
-      showError('Selecione um turno antes de gerar a escala.');
+    if (!userId || !selectedTurn) {
+      showError('Selecione um turno e faça login.');
       return;
     }
 
@@ -392,6 +399,31 @@ const TimeTrackingPage: React.FC = () => {
     } finally {
       dismissToast(loadingToastId);
       setIsGeneratingSchedule(false);
+    }
+  };
+
+  const handleClearMonth = async () => {
+    if (!userId) {
+      showError('Usuário não autenticado.');
+      return;
+    }
+
+    const loadingToastId = showLoading('Limpando apontamentos do mês...');
+    try {
+      const deletedCount = await deleteApontamentosByMonth(userId, currentMonthStart, currentMonthEnd);
+      
+      if (deletedCount > 0) {
+        showSuccess(`${deletedCount} apontamentos de ${format(currentDate, 'MMMM', { locale: ptBR })} foram removidos!`);
+      } else {
+        showSuccess('Nenhum apontamento encontrado para limpar neste mês.');
+      }
+      
+      loadApontamentos(); // Recarrega os dados
+    } catch (error) {
+      showError('Erro ao limpar apontamentos do mês.');
+      console.error('Failed to clear month entries:', error);
+    } finally {
+      dismissToast(loadingToastId);
     }
   };
 
@@ -443,18 +475,39 @@ const TimeTrackingPage: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Button 
-              onClick={handleGenerateSchedule} 
-              disabled={!selectedTurn || isGeneratingSchedule || isSaving}
-              className="w-full sm:w-auto"
-            >
-              {isGeneratingSchedule ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <CalendarCheck className="mr-2 h-4 w-4" />
-              )}
-              Gerar Escala de {format(currentDate, 'MMMM', { locale: ptBR })}
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="flex items-center gap-2 w-full sm:w-auto" disabled={isSaving || isGeneratingSchedule}>
+                    <Eraser className="h-4 w-4" /> Limpar Mês
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação irá remover TODOS os apontamentos para o mês de {format(currentDate, 'MMMM yyyy', { locale: ptBR })}. Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleClearMonth}>Limpar Mês</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <Button 
+                onClick={handleGenerateSchedule} 
+                disabled={!selectedTurn || isGeneratingSchedule || isSaving}
+                className="w-full sm:w-auto"
+              >
+                {isGeneratingSchedule ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CalendarCheck className="mr-2 h-4 w-4" />
+                )}
+                Gerar Escala
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
