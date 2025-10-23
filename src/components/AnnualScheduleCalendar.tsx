@@ -12,7 +12,7 @@ import {
   isToday, 
   isWeekend,
   endOfMonth,
-  getDay // Adicionado
+  getDay
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -82,26 +82,34 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
       if (schedule.status === 'Folga') {
         type = 'Folga';
       } else if (schedule.entry && schedule.exit) {
-        // Determina o tipo de escala rotativa ou usa o nome do turno fixo
-        if (selectedTurn.startsWith('Turno')) {
+        time = `${schedule.entry}-${schedule.exit}`;
+        
+        // Para turnos fixos, o nome do turno é o tipo de escala
+        if (selectedTurn.startsWith('Turno Dia')) {
           type = selectedTurn;
         } else {
-          // Lógica para turnos rotativos (Dia, Intermediario, Noite)
-          if (schedule.entry === '07:00' && schedule.exit === '15:00') {
-            type = 'Dia';
-          } else if (schedule.entry === '15:00' && schedule.exit === '23:00') {
-            type = 'Intermediario';
-          } else if (schedule.entry === '23:00' && schedule.exit === '07:00') {
-            type = 'Noite';
-          } else if (schedule.entry === '07:00' && schedule.exit === '19:00') {
-            type = 'Dia'; // Sáb/Sex do turno Dia
-          } else if (schedule.entry === '19:00' && schedule.exit === '07:00') {
-            type = 'Noite'; // Dom/Sáb do turno Noite/Intermediário
-          } else {
-            type = 'Outros'; // Fallback
+          // Para turnos rotativos (A, B, C), precisamos determinar qual escala (Dia, Intermediario, Noite) está ativa.
+          // A maneira mais segura é mapear os horários de volta para o nome da escala rotativa,
+          // pois o shiftService.ts usa a rotação para determinar qual escala (Dia/Intermediario/Noite) se aplica.
+          
+          const entryExitKey = `${schedule.entry}-${schedule.exit}`;
+          
+          switch (entryExitKey) {
+            case '07:00-15:00':
+            case '07:00-19:00':
+              type = 'Dia';
+              break;
+            case '15:00-23:00':
+              type = 'Intermediario';
+              break;
+            case '23:00-07:00':
+            case '19:00-07:00':
+              type = 'Noite';
+              break;
+            default:
+              type = 'Outros';
           }
         }
-        time = `${schedule.entry}-${schedule.exit}`;
       } else {
         type = 'Outros';
       }
