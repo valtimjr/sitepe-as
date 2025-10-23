@@ -5,13 +5,13 @@ import { Apontamento } from './partListService'; // Importando Apontamento para 
 // 1. Definição dos Horários de Trabalho por Escala (Dia da Semana: 0=Dom, 1=Seg, ..., 6=Sáb)
 const SHIFT_SCHEDULES = {
   Dia: {
-    0: { status: 'Folga' }, // Domingo folga
+    0: { entry: '07:00', exit: '19:00' }, // Domingo
     1: { entry: '07:00', exit: '15:00' }, // Segunda
     2: { entry: '07:00', exit: '15:00' }, // Terça
     3: { entry: '07:00', exit: '15:00' }, // Quarta
     4: { entry: '07:00', exit: '15:00' }, // Quinta
     5: { entry: '07:00', exit: '19:00' }, // Sexta
-    6: { entry: '07:00', exit: '19:00' }, // Sábado (Atualizado para 07:00 - 19:00)
+    6: { entry: '07:00', exit: '19:00' }, // Sábado
   },
   Intermediario: {
     0: { status: 'Folga' }, // Domingo folga
@@ -20,7 +20,7 @@ const SHIFT_SCHEDULES = {
     3: { entry: '15:00', exit: '23:00' }, // Quarta
     4: { entry: '15:00', exit: '23:00' }, // Quinta
     5: { status: 'Folga' }, // Sexta folga
-    6: { status: 'Folga' }, // Sábado folga
+    6: { entry: '19:00', exit: '07:00', overnight: true }, // Sábado
   },
   Noite: {
     0: { entry: '19:00', exit: '07:00', overnight: true }, // Domingo
