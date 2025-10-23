@@ -29,7 +29,7 @@ const SHIFT_SCHEDULES = {
     3: { entry: '23:00', exit: '07:00', overnight: true }, // Quarta
     4: { entry: '23:00', exit: '07:00', overnight: true }, // Quinta
     5: { entry: '19:00', exit: '07:00', overnight: true }, // Sexta
-    6: { status: 'Folga' }, // Sábado (Folga) - CORRIGIDO
+    6: { status: 'Folga' }, // Sábado (Folga)
   },
 };
 
