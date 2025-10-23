@@ -38,6 +38,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Link } from 'react-router-dom';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; // Adicionado
 
 // Mapeamento de Status para Ícone e Estilo
 const STATUS_MAP = {
