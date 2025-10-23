@@ -368,9 +368,7 @@ const TimeTrackingPage: React.FC = () => {
   };
 
   const handleExportPdf = () => {
-    const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
-    
-    // O título para o PDF mantém o formato mais detalhado para o cabeçalho do documento
+    // O título passado para o PDF agora deve ser formatado com quebras de linha
     const pdfTitle = `Apontamento de Horas - ${monthYearTitle}\n${employeeHeader}`;
 
     const currentMonthApontamentos = apontamentos
@@ -477,17 +475,7 @@ const TimeTrackingPage: React.FC = () => {
               {employeeHeader}
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={handleCopyText} variant="outline" size="icon" aria-label="Copiar Texto">
-              <Copy className="h-4 w-4" />
-            </Button>
-            <Button onClick={handleShareOnWhatsApp} variant="ghost" size="icon" className="h-10 w-10 p-0 rounded-full" aria-label="Compartilhar no WhatsApp">
-              <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-full w-full" />
-            </Button>
-            <Button onClick={handleExportPdf} variant="outline" size="icon" aria-label="Exportar PDF">
-              <Download className="h-4 w-4" />
-            </Button>
-          </div>
+          {/* Removido o div de ações daqui */}
         </div>
 
         <Card className="mb-4">
@@ -545,16 +533,31 @@ const TimeTrackingPage: React.FC = () => {
         </Card>
 
         <Card className="mb-8">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <Button variant="ghost" onClick={() => handleMonthChange('prev')} size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <CardTitle className="text-xl font-semibold capitalize">
-              {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
-            </CardTitle>
-            <Button variant="ghost" onClick={() => handleMonthChange('next')} size="icon">
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+          <CardHeader className="flex flex-col space-y-2">
+            <div className="flex items-center justify-between">
+              <Button variant="ghost" onClick={() => handleMonthChange('prev')} size="icon">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <CardTitle className="text-xl font-semibold capitalize">
+                {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
+              </CardTitle>
+              <Button variant="ghost" onClick={() => handleMonthChange('next')} size="icon">
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* NOVO LOCAL PARA OS BOTÕES DE AÇÃO */}
+            <div className="flex flex-wrap justify-center gap-2 pt-2">
+              <Button onClick={handleCopyText} variant="outline" size="sm" className="flex items-center gap-2">
+                <Copy className="h-4 w-4" /> Copiar Texto
+              </Button>
+              <Button onClick={handleShareOnWhatsApp} variant="ghost" size="sm" className="flex items-center gap-2">
+                <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-5 w-5" /> WhatsApp
+              </Button>
+              <Button onClick={handleExportPdf} variant="outline" size="sm" className="flex items-center gap-2">
+                <Download className="h-4 w-4" /> Exportar PDF
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
