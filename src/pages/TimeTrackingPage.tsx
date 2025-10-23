@@ -278,10 +278,17 @@ const TimeTrackingPage: React.FC = () => {
       if (a.status) {
         statusDisplay = `Status: ${a.status}`;
       } else {
-        const entry = a.entry_time || 'N/A';
-        const exit = a.exit_time || 'N/A';
+        // Se não há status, mas as horas estão vazias, usa string vazia em vez de 'N/A'
+        const entry = a.entry_time || '';
+        const exit = a.exit_time || '';
         const total = calculateTotalHours(a.entry_time, a.exit_time);
-        statusDisplay = `Entrada: ${entry}, Saída: ${exit}, Total: ${total}`;
+        
+        // Se houver tempo, exibe o total. Se não houver tempo, exibe apenas as horas (que podem ser vazias)
+        if (entry || exit) {
+          statusDisplay = `Entrada: ${entry}, Saída: ${exit}, Total: ${total}`;
+        } else {
+          statusDisplay = `Entrada: ${entry}, Saída: ${exit}`; // Se ambos vazios, será "Entrada: , Saída: "
+        }
       }
       
       text += `${day}: ${statusDisplay}\n`;

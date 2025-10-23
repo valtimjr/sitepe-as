@@ -218,18 +218,38 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     let entry: string;
     let exit: string;
     let statusOrTotal: string;
+    let cellStyles = {};
 
     if (a.status) {
-      entry = 'N/A';
-      exit = 'N/A';
-      statusOrTotal = a.status; // Exibe o status completo (incluindo descrição de Outros)
+      entry = ''; // Em branco se houver status
+      exit = ''; // Em branco se houver status
+      statusOrTotal = a.status; // Exibe o status completo
+      
+      // Centraliza o texto na coluna Status / Total
+      cellStyles = { 
+        2: { content: '', styles: { cellWidth: 'auto' } }, // Coluna Entrada (vazia)
+        3: { content: '', styles: { cellWidth: 'auto' } }, // Coluna Saída (vazia)
+        4: { content: statusOrTotal, styles: { halign: 'center', fontStyle: 'bold' } } // Coluna Status/Total (centralizada)
+      };
+
     } else {
-      entry = a.entry_time || 'N/A';
-      exit = a.exit_time || 'N/A';
+      entry = a.entry_time || ''; // Em branco se vazio
+      exit = a.exit_time || ''; // Em branco se vazio
       statusOrTotal = calculateTotalHours(a.entry_time, a.exit_time);
     }
 
-    tableRows.push([day, entry, exit, statusOrTotal]);
+    // Cria a linha da tabela. Se houver status, as colunas 2 e 3 (Entrada e Saída) serão vazias.
+    const row = [day, entry, exit, statusOrTotal];
+    
+    // Se houver status, precisamos de uma linha especial para centralizar o texto
+    if (a.status) {
+      const statusText = a.status;
+      
+      // Linha com 3 colunas: Dia | Status Centralizado | Total (que é o status)
+      tableRows.push([day, '', '', statusText]);
+    } else {
+      tableRows.push(row);
+    }
   });
 
   (doc as any).autoTable({
@@ -240,6 +260,18 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 240, 240] },
     margin: { top: 10 },
+    didParseCell: (data: any) => {
+      // Se a linha tem status (coluna 2 e 3 vazias), centraliza o texto na coluna 4
+      if (data.section === 'body' && data.row.raw[1] === '' && data.row.raw[2] === '' && data.column.index === 3) {
+        data.cell.styles.halign = 'center';
+        data.cell.colSpan = 2; // Faz o status ocupar o espaço de Entrada e Saída
+      }
+      // Se a linha tem status, garante que as colunas Entrada e Saída não sejam renderizadas
+      if (data.section === 'body' && data.row.raw[1] === '' && data.row.raw[2] === '' && (data.column.index === 1 || data.column.index === 2)) {
+        data.cell.text = [''];
+        data.cell.styles.cellWidth = 0.0001; // Minimiza a largura
+      }
+    }
   });
 
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);
