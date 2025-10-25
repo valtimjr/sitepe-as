@@ -170,11 +170,13 @@ const AppHeader: React.FC = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
-        <div className="flex items-center gap-2">
+        
+        {/* Contêiner Esquerdo: Logo + Menus */}
+        <div className="flex items-center gap-2 flex-grow">
           {/* Banner/Logo */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Link to="/" className="flex items-center gap-2 h-10">
+              <Link to="/" className="flex items-center gap-2 h-10 shrink-0">
                 <img src="/Banner.png" alt="AutoBoard Banner" className="h-full w-auto" />
                 <span className="sr-only">Página Inicial</span>
               </Link>
@@ -187,7 +189,7 @@ const AppHeader: React.FC = () => {
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1" aria-label="Abrir Menu de Navegação">
+                  <Button variant="ghost" className="flex items-center gap-1 shrink-0" aria-label="Abrir Menu de Navegação">
                     <Menu className="h-5 w-5" />
                     <span className="hidden sm:inline">Menu</span>
                   </Button>
@@ -235,13 +237,14 @@ const AppHeader: React.FC = () => {
           </DropdownMenu>
           
           {/* Itens de Menu Raiz Dinâmicos (Exibidos ao lado do botão Menu em telas grandes) */}
-          {/* Adicionando uma classe de depuração (border-2 border-red-500) para verificar o layout em LG */}
-          <nav className="hidden lg:flex items-center gap-1">
+          {/* Removendo a classe 'hidden' e usando 'lg:flex' para garantir que apareça em telas grandes */}
+          <nav className="flex items-center gap-1 overflow-x-auto lg:flex-grow lg:flex">
             {rootMenuItems.map(renderRootItem)}
           </nav>
         </div>
 
-        <div className="flex items-center gap-4">
+        {/* Contêiner Direito: Usuário/Login */}
+        <div className="flex items-center gap-4 shrink-0">
           {session ? (
             <>
               <div className="flex items-center gap-2">
