@@ -164,6 +164,9 @@ const AppHeader: React.FC = () => {
     ...(canAccessMenuManager ? [{ path: "/menu-manager", title: "Gerenciar Menus", icon: Menu }] : []),
   ];
 
+  // Verifica se há itens dinâmicos para exibir no cabeçalho
+  const hasRootMenuItems = rootMenuItems.length > 0;
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
@@ -189,9 +192,10 @@ const AppHeader: React.FC = () => {
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1" aria-label="Abrir Menu de Navegação">
+                  {/* Oculta o botão de menu principal em telas grandes se houver itens dinâmicos */}
+                  <Button variant="ghost" className="flex items-center gap-1 lg:hidden" aria-label="Abrir Menu de Navegação">
                     <Menu className="h-5 w-5" />
-                    <span className="hidden sm:inline lg:hidden">Menu</span> {/* Oculta em telas grandes onde os itens raiz estão visíveis */}
+                    <span className="hidden sm:inline">Menu</span>
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
@@ -213,7 +217,7 @@ const AppHeader: React.FC = () => {
               ))}
               
               {/* Itens Dinâmicos (Inclui raízes e submenus para telas pequenas) */}
-              {rootMenuItems.length > 0 && (
+              {hasRootMenuItems && (
                 <>
                   <DropdownMenuSeparator />
                   {renderDynamicMenu(rootMenuItems)}
