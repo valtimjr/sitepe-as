@@ -1,8 +1,8 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,11 +15,34 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
+import { getMenuStructure } from '@/services/customListService';
+import { MenuItem } from '@/types/supabase';
 
 const AppHeader: React.FC = () => {
   const { session, user, profile, isLoading, checkPageAccess } = useSession();
   const navigate = useNavigate();
+  const [dynamicMenu, setDynamicMenu] = useState<MenuItem[]>([]);
+
+  const loadDynamicMenu = useCallback(async () => {
+    if (!session) {
+      setDynamicMenu([]);
+      return;
+    }
+    try {
+      const structure = await getMenuStructure();
+      setDynamicMenu(structure);
+    } catch (error) {
+      console.error('Failed to load dynamic menu:', error);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    loadDynamicMenu();
+  }, [loadDynamicMenu]);
 
   const handleLogout = async () => {
     try {
@@ -42,12 +65,49 @@ const AppHeader: React.FC = () => {
     return (first + last).toUpperCase() || <UserIcon className="h-6 w-6" />;
   };
 
+  const renderDynamicMenu = (items: MenuItem[]) => {
+    return items.map(item => {
+      if (item.children && item.children.length > 0) {
+        return (
+          <DropdownMenuSub key={item.id}>
+            <DropdownMenuSubTrigger>
+              {item.title}
+              <ChevronRight className="ml-auto h-4 w-4" />
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {renderDynamicMenu(item.children)}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        );
+      }
+      
+      // Item final que aponta para uma lista
+      if (item.list_id) {
+        return (
+          <Link to={`/custom-list/${item.list_id}`} key={item.id}>
+            <DropdownMenuItem>
+              <List className="h-4 w-4 mr-2" /> {item.title}
+            </DropdownMenuItem>
+          </Link>
+        );
+      }
+
+      // Item que não é submenu e não tem link (deve ser evitado no gerenciador)
+      return (
+        <DropdownMenuItem key={item.id} disabled>
+          {item.title} (Sem Link)
+        </DropdownMenuItem>
+      );
+    });
+  };
+
   if (isLoading) {
     return null; // Ou um skeleton de cabeçalho se preferir um carregamento visível
   }
 
   const canAccessAdmin = checkPageAccess('/admin');
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
+  const canAccessMenuManager = checkPageAccess('/menu-manager');
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -78,6 +138,7 @@ const AppHeader: React.FC = () => {
               <TooltipContent>Menu de Navegação</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="start" className="w-64">
+              {/* Navegação Padrão */}
               <Link to="/">
                 <DropdownMenuItem>
                   <Search className="h-4 w-4 mr-2" /> Início
@@ -110,14 +171,33 @@ const AppHeader: React.FC = () => {
                   </DropdownMenuItem>
                 </Link>
               )}
-              {canAccessAdmin && (
+
+              {/* Menu Dinâmico de Listas Personalizadas */}
+              {dynamicMenu.length > 0 && (
                 <>
                   <DropdownMenuSeparator />
-                  <Link to="/admin">
-                    <DropdownMenuItem>
-                      <Database className="h-4 w-4 mr-2" /> Gerenciador de Banco de Dados
-                    </DropdownMenuItem>
-                  </Link>
+                  {renderDynamicMenu(dynamicMenu)}
+                </>
+              )}
+
+              {/* Administração */}
+              {(canAccessAdmin || canAccessMenuManager) && (
+                <>
+                  <DropdownMenuSeparator />
+                  {canAccessAdmin && (
+                    <Link to="/admin">
+                      <DropdownMenuItem>
+                        <Database className="h-4 w-4 mr-2" /> Gerenciador de Banco de Dados
+                      </DropdownMenuItem>
+                    </Link>
+                  )}
+                  {canAccessMenuManager && (
+                    <Link to="/menu-manager">
+                      <DropdownMenuItem>
+                        <Menu className="h-4 w-4 mr-2" /> Gerenciar Menus
+                      </DropdownMenuItem>
+                    </Link>
+                  )}
                 </>
               )}
             </DropdownMenuContent>

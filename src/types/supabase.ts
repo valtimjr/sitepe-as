@@ -26,3 +26,31 @@ export interface Apontamento {
   created_at?: Date;
   synced_at?: Date;
 }
+
+// NOVOS TIPOS PARA LISTAS PERSONALIZADAS E MENU
+export interface CustomList {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at?: Date;
+}
+
+export interface CustomListItem {
+  id: string;
+  list_id: string;
+  item_name: string;
+  part_code: string | null;
+  description: string | null;
+  quantity: number;
+  created_at?: Date;
+}
+
+export interface MenuItem {
+  id: string;
+  parent_id: string | null;
+  title: string;
+  order_index: number;
+  list_id: string | null; // Se for um item final que aponta para uma lista
+  created_at?: Date;
+  children?: MenuItem[]; // Para a estrutura hierárquica
+}
