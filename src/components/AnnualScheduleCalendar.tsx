@@ -155,7 +155,7 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
         </h3>
         <div className="grid grid-cols-7 gap-1 text-xs text-muted-foreground mb-1">
           {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
-            <div key={day} className={cn("text-center font-medium", i === 0 || i === 6 ? 'text-red-500 dark:text-red-400' : '')}>
+            <div key={i} className={cn("text-center font-medium", i === 0 || i === 6 ? 'text-red-500 dark:text-red-400' : '')}>
               {day}
             </div>
           ))}
