@@ -178,7 +178,13 @@ const AfManagementTable: React.FC = () => {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    
+    console.log('handleFileChange called.');
+    if (!file) {
+      console.log('No file selected.');
+      return;
+    }
+    console.log('File selected:', file.name);
 
     const reader = new FileReader();
     
@@ -216,14 +222,12 @@ const AfManagementTable: React.FC = () => {
 
     reader.onerror = () => {
       showError('Erro ao ler o arquivo.');
+      console.error('FileReader error:', reader.error);
     };
 
     reader.readAsText(file);
 
     // Limpa o input para permitir a importação do mesmo arquivo novamente
-    // Movemos o reset para o final do fluxo de importação para evitar problemas de foco/estado.
-    // No entanto, para garantir que o mesmo arquivo possa ser selecionado novamente,
-    // o reset deve ser feito aqui, antes que o estado seja atualizado.
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
