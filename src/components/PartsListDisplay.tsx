@@ -160,8 +160,14 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
           />
         </div>
         <div className="flex flex-wrap justify-end gap-2">
-            <Button onClick={handleCopyList} disabled={displayedItems.length === 0} className="flex items-center gap-2">
-              <Copy className="h-4 w-4" /> Copiar Lista
+            <Button 
+              onClick={handleCopyList} 
+              disabled={displayedItems.length === 0} 
+              size="icon"
+              className="sm:w-auto sm:px-4"
+            >
+              <Copy className="h-4 w-4" /> 
+              <span className="hidden sm:inline ml-2">Copiar Lista</span>
             </Button>
             <Button 
               onClick={handleShareOnWhatsApp} 
@@ -177,8 +183,14 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={displayedItems.length === 0} className="flex items-center gap-2">
-                  <Trash2 className="h-4 w-4" /> Limpar Lista
+                <Button 
+                  variant="destructive" 
+                  disabled={displayedItems.length === 0} 
+                  size="icon"
+                  className="sm:w-auto sm:px-4"
+                >
+                  <Trash2 className="h-4 w-4" /> 
+                  <span className="hidden sm:inline ml-2">Limpar Lista</span>
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
