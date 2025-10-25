@@ -88,12 +88,15 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         groupedForDisplay[key].createdAt = item.created_at;
       }
     }
-    groupedForDisplay[key].parts.push({
-      id: item.id,
-      quantidade: item.quantidade,
-      descricao: item.descricao,
-      codigo_peca: item.codigo_peca,
-    });
+    // Adiciona apenas itens que representam peças reais (com código ou descrição)
+    if (item.codigo_peca || item.descricao) {
+      groupedForDisplay[key].parts.push({
+        id: item.id,
+        quantidade: item.quantidade,
+        descricao: item.descricao,
+        codigo_peca: item.codigo_peca,
+      });
+    }
   });
 
   const sortedGroups = Object.values(groupedForDisplay).sort((a, b) => {
@@ -152,17 +155,20 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       if (group.parts.length > 0) {
         textToCopy += 'Peças:\n';
         group.parts.forEach(part => {
-          let partString = '';
-          const quantity = part.quantidade ?? 1; // Default to 1 if quantity is undefined
-          partString += `${quantity} - `;
+          // Verifica se o item tem pelo menos código ou descrição antes de formatar
+          if (part.codigo_peca || part.descricao) {
+            let partString = '';
+            const quantity = part.quantidade ?? 1; // Default to 1 if quantity is undefined
+            partString += `${quantity} - `;
 
-          if (part.descricao) {
-            partString += `${part.descricao} `;
+            if (part.descricao) {
+              partString += `${part.descricao} `;
+            }
+            if (part.codigo_peca) {
+              partString += `Cód: ${part.codigo_peca}`;
+            }
+            textToCopy += `${partString.trim()}\n`;
           }
-          if (part.codigo_peca) {
-            partString += `Cód: ${part.codigo_peca}`;
-          }
-          textToCopy += `${partString.trim()}\n`;
         });
       }
       textToCopy += '\n';
@@ -469,7 +475,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                       </TableRow>
 
                       {/* Linhas de Peças */}
-                      {group.parts.filter(p => p.codigo_peca || p.descricao).map((part, partIndex) => (
+                      {group.parts.map((part, partIndex) => (
                         <TableRow key={part.id} className={isEditingThisServiceOrder ? 'bg-accent/10' : ''}>
                           
                           <TableCell className="w-auto whitespace-normal break-words p-2">
