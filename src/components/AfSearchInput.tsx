@@ -50,8 +50,11 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
   };
 
   const handleSelectAndClose = (afItem: Af) => {
-    onSelectAf(afItem.af_number); // Retorna apenas o número do AF
-    onChange(afItem.af_number); // Atualiza o input para mostrar apenas o número do AF selecionado
+    // 1. Retorna APENAS o número do AF para o componente pai
+    onSelectAf(afItem.af_number); 
+    // 2. Atualiza o input para mostrar APENAS o número do AF selecionado
+    onChange(afItem.af_number); 
+    
     setIsDropdownOpen(false);
     if (inputRef.current) {
       inputRef.current.blur();
@@ -59,9 +62,11 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
   };
 
   const getDisplayValue = (afItem: Af) => {
+    // Se a descrição existir e não for vazia, exibe AF - Descrição
     if (afItem.descricao && afItem.descricao.trim().length > 0) {
       return `${afItem.af_number} - ${afItem.descricao}`;
     }
+    // Caso contrário, exibe apenas o AF
     return afItem.af_number;
   };
 
