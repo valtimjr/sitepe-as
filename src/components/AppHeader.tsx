@@ -164,7 +164,7 @@ const AppHeader: React.FC = () => {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         
-        {/* Contêiner Esquerdo: Logo + Menus Desktop */}
+        {/* Lado Esquerdo: Banner + Menus Desktop + Menu Hambúrguer */}
         <div className="flex items-center gap-2">
           {/* Banner/Logo */}
           <Tooltip>
@@ -183,12 +183,8 @@ const AppHeader: React.FC = () => {
               {rootMenuItems.map(renderRootItem)}
             </nav>
           )}
-        </div>
-
-        {/* Contêiner Direito: Menu Dropdown + Status do Usuário/Login */}
-        <div className="flex items-center gap-2 shrink-0">
           
-          {/* Dropdown Menu Principal (Sempre visível) */}
+          {/* Dropdown Menu Principal (Hambúrguer) - Movido para o lado esquerdo */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -201,7 +197,7 @@ const AppHeader: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>Menu de Navegação</TooltipContent>
             </Tooltip>
-            <DropdownMenuContent align="end" className="w-64"> {/* Alinhado à direita */}
+            <DropdownMenuContent align="start" className="w-64"> {/* Alinhado à esquerda */}
               {/* Navegação Padrão */}
               <Link to="/">
                 <DropdownMenuItem>
@@ -239,15 +235,17 @@ const AppHeader: React.FC = () => {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
 
-          {/* Status do Usuário / Botão de Login */}
+        {/* Lado Direito: Status do Usuário/Login (Menus Interativos) */}
+        <div className="flex items-center gap-2 shrink-0">
           {session ? (
             <div className="flex items-center gap-2">
               <span className="font-medium text-sm hidden sm:inline">
                 Olá, {profile?.first_name || 'Usuário'}
               </span>
               
-              {/* Avatar (agora apenas um link visual) */}
+              {/* Avatar (link para configurações) */}
               <Link to="/settings">
                 <Tooltip>
                   <TooltipTrigger asChild>
