@@ -173,6 +173,7 @@ const AfManagementTable: React.FC = () => {
   };
 
   const handleImportCsv = () => {
+    // Aciona o clique no input de arquivo oculto
     fileInputRef.current?.click();
   };
 
@@ -350,16 +351,9 @@ const AfManagementTable: React.FC = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleImportCsv}>
+              <DropdownMenuItem onSelect={handleImportCsv}>
                 <Upload className="h-4 w-4 mr-2" /> Importar CSV
               </DropdownMenuItem>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept=".csv"
-                className="hidden"
-              />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Download className="h-4 w-4 mr-2" /> Exportar
@@ -381,6 +375,15 @@ const AfManagementTable: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
+        {/* Input de arquivo oculto movido para fora do DropdownMenu para melhor acessibilidade */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".csv"
+          className="hidden"
+        />
+        
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
