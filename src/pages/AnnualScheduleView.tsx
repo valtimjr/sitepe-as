@@ -1,27 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, CalendarDays } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import AnnualScheduleCalendar from '@/components/AnnualScheduleCalendar';
-import { ALL_TURNS, ShiftTurn } from '@/services/shiftService';
+import { Card, CardContent } from '@/components/ui/card';
 
 const AnnualScheduleView: React.FC = () => {
-  const [selectedTurn, setSelectedTurn] = useState<ShiftTurn>(ALL_TURNS[0]);
-
   useEffect(() => {
-    document.title = "Escala Anual - AutoBoard";
-    // Carrega o turno salvo localmente na inicialização
-    const savedTurn = localStorage.getItem('selectedShiftTurn') as ShiftTurn;
-    if (savedTurn && ALL_TURNS.includes(savedTurn)) {
-      setSelectedTurn(savedTurn);
-    }
+    document.title = "Escala Anual - EletricaRPM";
   }, []);
-
-  const handleTurnChange = (turn: ShiftTurn) => {
-    setSelectedTurn(turn);
-    localStorage.setItem('selectedShiftTurn', turn);
-  };
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -33,17 +20,21 @@ const AnnualScheduleView: React.FC = () => {
         </Link>
       </div>
       
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
+      <h1 className="text-4xl font-extrabold mb-4 text-center text-primary dark:text-primary flex items-center gap-3">
         <CalendarDays className="h-8 w-8 text-primary" />
-        Escala Anual
+        Escala Anual (EletricaRPM)
       </h1>
 
-      <div className="w-full max-w-6xl">
-        <AnnualScheduleCalendar 
-          initialTurn={selectedTurn} 
-          onTurnChange={handleTurnChange} 
-        />
-      </div>
+      <Card className="w-full max-w-6xl h-[80vh] flex flex-col">
+        <CardContent className="flex-1 p-0">
+          <iframe
+            src="https://escala.eletricarpm.com.br"
+            title="Escala Anual Externa"
+            className="w-full h-full border-0 rounded-lg"
+            style={{ minHeight: '600px' }}
+          />
+        </CardContent>
+      </Card>
       <MadeWithDyad />
     </div>
   );

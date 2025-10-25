@@ -535,7 +535,7 @@ const TimeTrackingPage: React.FC = () => {
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleClearMonth}>Limpar Mês</AlertDialogAction>
+                    <AlertDialogAction onClick={handleClearMonth}>Limpar Agora</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
