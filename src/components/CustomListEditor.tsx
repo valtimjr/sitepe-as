@@ -243,19 +243,22 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
-        <div className="flex justify-between items-start">
+        {/* Linha 1: Botões de Ação Rápida (Voltar e Adicionar Item) */}
+        <div className="flex justify-between items-center">
           <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
-          <CardTitle className="text-2xl font-bold text-center flex-1 mx-2 truncate max-w-[60%]">
-            {list.title}
-          </CardTitle>
           <Button onClick={handleAdd} className="flex items-center gap-2 shrink-0">
             <PlusCircle className="h-4 w-4" /> Item
           </Button>
         </div>
         
-        {/* Botões de Ação - Movidos para baixo do título */}
+        {/* Linha 2: Título da Lista (Centralizado) */}
+        <CardTitle className="text-2xl font-bold text-center pt-2">
+          {list.title}
+        </CardTitle>
+        
+        {/* Linha 3: Botões de Exportação/Cópia */}
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Tooltip>
             <TooltipTrigger asChild>
