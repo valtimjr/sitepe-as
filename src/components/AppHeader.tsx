@@ -26,15 +26,29 @@ const AppHeader: React.FC = () => {
   const { session, user, profile, isLoading, checkPageAccess } = useSession();
   const navigate = useNavigate();
   const [dynamicMenu, setDynamicMenu] = useState<MenuItem[]>([]);
+  const [rootMenuItems, setRootMenuItems] = useState<MenuItem[]>([]);
+  const [dropdownMenuItems, setDropdownMenuItems] = useState<MenuItem[]>([]);
 
   const loadDynamicMenu = useCallback(async () => {
     if (!session) {
       setDynamicMenu([]);
+      setRootMenuItems([]);
+      setDropdownMenuItems([]);
       return;
     }
     try {
       const structure = await getMenuStructure();
       setDynamicMenu(structure);
+
+      // Separa os itens de nível raiz (parent_id === null)
+      const roots = structure.filter(item => !item.parent_id);
+      
+      // Os itens que não são de nível raiz (submenus)
+      const dropdownItems = structure.filter(item => item.parent_id);
+
+      setRootMenuItems(roots);
+      setDropdownMenuItems(dropdownItems);
+
     } catch (error) {
       console.error('Failed to load dynamic menu:', error);
     }
@@ -101,6 +115,43 @@ const AppHeader: React.FC = () => {
     });
   };
 
+  const renderRootItem = (item: MenuItem) => {
+    // Se for um link direto para uma lista
+    if (item.list_id) {
+      return (
+        <Link to={`/custom-list/${item.list_id}`} key={item.id}>
+          <Button variant="ghost" className="flex items-center gap-1">
+            {item.title}
+          </Button>
+        </Link>
+      );
+    }
+
+    // Se for um item que tem filhos (submenu)
+    if (item.children && item.children.length > 0) {
+      return (
+        <DropdownMenu key={item.id}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-1">
+                  {item.title}
+                  <ChevronRight className="h-4 w-4 -rotate-90" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              {renderDynamicMenu(item.children)}
+            </DropdownMenuContent>
+          </Tooltip>
+        </DropdownMenu>
+      );
+    }
+
+    // Item raiz sem link e sem filhos (deve ser evitado)
+    return null;
+  };
+
   if (isLoading) {
     return null; // Ou um skeleton de cabeçalho se preferir um carregamento visível
   }
@@ -108,6 +159,20 @@ const AppHeader: React.FC = () => {
   const canAccessAdmin = checkPageAccess('/admin');
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
   const canAccessMenuManager = checkPageAccess('/menu-manager');
+
+  // Filtra os itens padrão que não são de nível raiz para o dropdown principal
+  const standardDropdownItems = [
+    { path: "/search-parts", title: "Pesquisar Peças", icon: Search },
+    { path: "/parts-list", title: "Minha Lista de Peças", icon: List },
+    { path: "/service-orders", title: "Ordens de Serviço", icon: ClipboardList },
+    { path: "/schedule-view", title: "Escala Anual", icon: CalendarDays },
+  ];
+
+  const authDropdownItems = [
+    ...(canAccessTimeTracking ? [{ path: "/time-tracking", title: "Apontamento de Horas", icon: Clock }] : []),
+    ...(canAccessAdmin ? [{ path: "/admin", title: "Gerenciador de Banco de Dados", icon: Database }] : []),
+    ...(canAccessMenuManager ? [{ path: "/menu-manager", title: "Gerenciar Menus", icon: Menu }] : []),
+  ];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -124,14 +189,19 @@ const AppHeader: React.FC = () => {
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
 
-          {/* Dropdown Menu */}
+          {/* Itens de Menu Raiz Dinâmicos (Exibidos no cabeçalho) */}
+          <nav className="hidden lg:flex items-center gap-1">
+            {rootMenuItems.map(renderRootItem)}
+          </nav>
+
+          {/* Dropdown Menu Principal (Visível em todas as telas, contém itens padrão e submenus) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-1" aria-label="Abrir Menu de Navegação">
                     <Menu className="h-5 w-5" />
-                    <span className="hidden sm:inline">Menu</span>
+                    <span className="hidden sm:inline lg:hidden">Menu</span> {/* Oculta em telas grandes onde os itens raiz estão visíveis */}
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
@@ -144,60 +214,33 @@ const AppHeader: React.FC = () => {
                   <Search className="h-4 w-4 mr-2" /> Início
                 </DropdownMenuItem>
               </Link>
-              <Link to="/search-parts">
-                <DropdownMenuItem>
-                  <Search className="h-4 w-4 mr-2" /> Pesquisar Peças
-                </DropdownMenuItem>
-              </Link>
-              <Link to="/parts-list">
-                <DropdownMenuItem>
-                  <List className="h-4 w-4 mr-2" /> Minha Lista de Peças
-                </DropdownMenuItem>
-              </Link>
-              <Link to="/service-orders">
-                <DropdownMenuItem>
-                  <ClipboardList className="h-4 w-4 mr-2" /> Ordens de Serviço
-                </DropdownMenuItem>
-              </Link>
-              <Link to="/schedule-view">
-                <DropdownMenuItem>
-                  <CalendarDays className="h-4 w-4 mr-2" /> Escala Anual
-                </DropdownMenuItem>
-              </Link>
-              {canAccessTimeTracking && (
-                <Link to="/time-tracking">
+              {standardDropdownItems.map(item => (
+                <Link to={item.path} key={item.path}>
                   <DropdownMenuItem>
-                    <Clock className="h-4 w-4 mr-2" /> Apontamento de Horas
+                    <item.icon className="h-4 w-4 mr-2" /> {item.title}
                   </DropdownMenuItem>
                 </Link>
-              )}
-
-              {/* Menu Dinâmico de Listas Personalizadas */}
-              {dynamicMenu.length > 0 && (
+              ))}
+              
+              {/* Submenus Dinâmicos (Itens que não são de nível raiz) */}
+              {dropdownMenuItems.length > 0 && (
                 <>
                   <DropdownMenuSeparator />
-                  {renderDynamicMenu(dynamicMenu)}
+                  {renderDynamicMenu(dropdownMenuItems)}
                 </>
               )}
 
-              {/* Administração */}
-              {(canAccessAdmin || canAccessMenuManager) && (
+              {/* Administração e Time Tracking */}
+              {authDropdownItems.length > 0 && (
                 <>
                   <DropdownMenuSeparator />
-                  {canAccessAdmin && (
-                    <Link to="/admin">
+                  {authDropdownItems.map(item => (
+                    <Link to={item.path} key={item.path}>
                       <DropdownMenuItem>
-                        <Database className="h-4 w-4 mr-2" /> Gerenciador de Banco de Dados
+                        <item.icon className="h-4 w-4 mr-2" /> {item.title}
                       </DropdownMenuItem>
                     </Link>
-                  )}
-                  {canAccessMenuManager && (
-                    <Link to="/menu-manager">
-                      <DropdownMenuItem>
-                        <Menu className="h-4 w-4 mr-2" /> Gerenciar Menus
-                      </DropdownMenuItem>
-                    </Link>
-                  )}
+                  ))}
                 </>
               )}
             </DropdownMenuContent>
