@@ -63,8 +63,9 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
   const handleInputFocus = () => {
     if (readOnly) return;
     
-    // Ao focar, define o displayValue para o valor puro do AF (apenas o número)
-    // Isso permite que o usuário comece a digitar imediatamente para buscar.
+    // Ao focar, define o displayValue para o valor puro do AF (af_number)
+    // Isso permite que o usuário comece a digitar ou ver o número puro.
+    // O valor 'value' é o af_number que está no estado do componente pai.
     setDisplayValue(value); 
     onChange(value); // Garante que a busca comece com o AF number atual
 
