@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem } from '@/services/customListService';
@@ -24,6 +24,8 @@ import PartSearchInput from './PartSearchInput';
 import { getParts, searchParts as searchPartsService } from '@/services/partListService'; // Importação corrigida
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from '@/lib/utils';
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -241,44 +243,60 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
-        <div className="flex justify-between items-center">
-          <Button variant="outline" onClick={onClose} className="flex items-center gap-2">
+        <div className="flex justify-between items-start">
+          <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
-          <CardTitle className="text-2xl font-bold truncate max-w-[70%]">{list.title}</CardTitle>
-          <Button onClick={handleAdd} className="flex items-center gap-2">
-            <PlusCircle className="h-4 w-4" /> Adicionar Item
+          <CardTitle className="text-2xl font-bold text-center flex-1 mx-2 truncate max-w-[60%]">
+            {list.title}
+          </CardTitle>
+          <Button onClick={handleAdd} className="flex items-center gap-2 shrink-0">
+            <PlusCircle className="h-4 w-4" /> Item
           </Button>
         </div>
+        
+        {/* Botões de Ação - Movidos para baixo do título */}
         <div className="flex flex-wrap justify-end gap-2 pt-2">
-          {/* Copiar Lista (Ícone em mobile, texto em desktop) */}
-          <Button 
-            onClick={handleCopyList} 
-            disabled={items.length === 0} 
-            variant="secondary" 
-            size="icon"
-            className="sm:w-auto sm:px-4"
-          >
-            <Copy className="h-4 w-4" /> 
-            <span className="hidden sm:inline ml-2">Copiar Lista</span>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={handleCopyList} 
+                disabled={items.length === 0} 
+                variant="secondary" 
+                size="icon"
+                className="sm:w-auto sm:px-4"
+              >
+                <Copy className="h-4 w-4" /> 
+                <span className="hidden sm:inline ml-2">Copiar Lista</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copiar Lista</TooltipContent>
+          </Tooltip>
           
-          {/* Exportar CSV (Ícone em mobile, texto em desktop) */}
-          <Button 
-            onClick={handleExportCsv} 
-            disabled={items.length === 0} 
-            variant="outline" 
-            size="icon"
-            className="sm:w-auto sm:px-4"
-          >
-            <Download className="h-4 w-4" /> 
-            <span className="hidden sm:inline ml-2">Exportar CSV</span>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={handleExportCsv} 
+                disabled={items.length === 0} 
+                variant="outline" 
+                size="icon"
+                className="sm:w-auto sm:px-4"
+              >
+                <Download className="h-4 w-4" /> 
+                <span className="hidden sm:inline ml-2">Exportar CSV</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Exportar CSV</TooltipContent>
+          </Tooltip>
           
-          {/* Exportar PDF (Sempre com texto) */}
-          <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" /> Exportar PDF
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" /> Exportar PDF
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Exportar PDF</TooltipContent>
+          </Tooltip>
         </div>
       </CardHeader>
       <CardContent>
@@ -291,43 +309,56 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[60px]">Qtd</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Cód. Peça</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                  <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código</TableHead>
+                  <TableHead className="w-[40px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.quantity}</TableCell>
-                    <TableCell>{item.item_name}</TableCell>
-                    <TableCell>{item.part_code || 'N/A'}</TableCell>
-                    <TableCell>{item.description || 'N/A'}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(item)} className="mr-2">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Esta ação irá remover o item "{item.item_name}" da lista. Esta ação não pode ser desfeita.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                    <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
+                    <TableCell className="w-auto whitespace-normal break-words p-2">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-sm">{item.item_name}</span>
+                        {item.part_code && (
+                          <span className="text-xs text-muted-foreground">Cód: {item.part_code}</span>
+                        )}
+                        {item.description && (
+                          <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="w-[40px] p-2 text-right">
+                      <div className="flex justify-end items-center gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(item)} className="h-8 w-8">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Editar Item</TooltipContent>
+                        </Tooltip>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive h-8 w-8">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta ação irá remover o item "{item.item_name}" da lista. Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
