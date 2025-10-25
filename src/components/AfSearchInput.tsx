@@ -13,6 +13,7 @@ interface AfSearchInputProps {
 
 const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availableAfs, onSelectAf, readOnly }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false); // Novo estado de foco
   const [displayedAfs, setDisplayedAfs] = useState<Af[]>(availableAfs);
   const [displayValue, setDisplayValue] = useState(''); // Valor exibido no input
   const inputRef = useRef<HTMLInputElement>(null);
@@ -31,18 +32,18 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
   }, [availableAfs]);
 
   // Efeito 2: Sincroniza o displayValue quando o 'value' (af_number) muda no componente pai
+  // Só sincroniza se NÃO estiver focado.
   useEffect(() => {
-    // Só atualiza o displayValue se o dropdown não estiver aberto,
-    // para não sobrescrever o que o usuário está digitando/vendo.
-    if (!isDropdownOpen) {
+    if (!isFocused) {
       const selected = availableAfs.find(afItem => afItem.af_number === value);
       if (selected) {
         setDisplayValue(getDisplayValue(selected));
       } else {
+        // Se o valor do pai for um AF number não encontrado ou vazio, exibe o valor puro.
         setDisplayValue(value);
       }
     }
-  }, [value, availableAfs, isDropdownOpen]);
+  }, [value, availableAfs, isFocused]);
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,47 +67,41 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
   const handleInputFocus = () => {
     if (readOnly) return;
     
+    setIsFocused(true);
+    
     // Ao focar, define o displayValue para o valor puro do AF (af_number)
-    // O valor 'value' é o af_number que está no estado do componente pai.
+    // Isso permite que o usuário comece a digitar ou ver o número puro.
     setDisplayValue(value); 
     
-    // Não chamamos onChange(value) aqui para evitar re-renderizações desnecessárias no pai
-    // que poderiam causar o blur prematuro. A busca será feita pelo handleInputChange
-    // se o usuário começar a digitar, ou o dropdown mostrará todos os AFs disponíveis.
-
-    setIsDropdownOpen(true);
+    // Garante que o dropdown abra e mostre todos os AFs (ou os filtrados se já houver texto)
     setDisplayedAfs(availableAfs);
+    setIsDropdownOpen(true);
   };
 
   const handleInputBlur = () => {
-    // Aumenta o timeout para garantir que o clique no item seja registrado
+    // Pequeno atraso para permitir que o clique no item do dropdown seja registrado
     setTimeout(() => {
+      setIsFocused(false);
       setIsDropdownOpen(false);
       
-      // Lógica de Reversão/Sincronização no Blur:
-      const selected = availableAfs.find(afItem => afItem.af_number === value);
-      if (selected) {
-        // Se houver um AF válido no estado pai, exibe AF + Descrição
-        setDisplayValue(getDisplayValue(selected));
-      } else {
-        // Se o valor do pai for vazio ou inválido, limpa o display.
-        setDisplayValue('');
-        // Se o usuário limpou o campo, garantimos que o pai também seja notificado
-        if (value !== '') {
-             onChange(''); 
-        }
+      // A lógica de sincronização de displayValue será tratada pelo useEffect (Efeito 2)
+      // quando isFocused for definido como false.
+      
+      // Se o campo foi limpo manualmente, garantimos que o pai seja notificado
+      if (displayValue === '' && value !== '') {
+        onChange('');
       }
       
-    }, 200); // Aumentado para 200ms
+    }, 200);
   };
 
   const handleSelectAndClose = (afItem: Af) => {
     // 1. Notifica o pai com APENAS o número do AF
     onSelectAf(afItem.af_number); 
-    // 2. Atualiza o valor de exibição para AF + Descrição
+    // 2. Atualiza o valor de exibição para AF + Descrição (Isso será sobrescrito pelo useEffect após o blur)
     setDisplayValue(getDisplayValue(afItem));
     
-    setIsDropdownOpen(false);
+    // O blur será disparado logo em seguida, e o useEffect fará a sincronização final.
     if (inputRef.current) {
       inputRef.current.blur();
     }
