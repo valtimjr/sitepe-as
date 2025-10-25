@@ -1,4 +1,3 @@
-"use client";
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,15 +8,14 @@ import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save } from 'lucide-react';
-import { useSession } from '@/components/SessionContextProvider';
-import { useAfDescription } from '@/hooks/use-af-description';
+import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
 
 interface PartListItemFormProps {
   onItemAdded: () => void;
 }
 
 const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
-  const { checkPageAccess } = useSession();
+  const { checkPageAccess } = useSession(); // Obter checkPageAccess
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -28,9 +26,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
-
-  // Usar o novo hook para obter a descrição do AF
-  const afDescription = useAfDescription(af);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -222,7 +217,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
                 onChange={setAf}
                 availableAfs={allAvailableAfs}
                 onSelectAf={handleSelectAf}
-                afDescription={afDescription}
               />
             )}
           </div>

@@ -1,9 +1,8 @@
-"use client";
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Adicionado Card imports
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Part, addServiceOrderItem, getParts, getUniqueAfs, searchParts as searchPartsService, updatePart, deleteServiceOrderItem, ServiceOrderItem, updateServiceOrderItem } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
@@ -12,8 +11,7 @@ import { Save, Plus, FilePlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { useSession } from '@/components/SessionContextProvider';
-import { useAfDescription } from '@/hooks/use-af-description'; // Importar novo hook
+import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
 
 interface ServiceOrderDetails {
   af: string;
@@ -34,7 +32,7 @@ interface ServiceOrderFormProps {
 }
 
 const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder, listItems, setIsCreatingNewOrder }) => {
-  const { checkPageAccess } = useSession();
+  const { checkPageAccess } = useSession(); // Obter checkPageAccess
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -51,9 +49,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   const [editedTags, setEditedTags] = useState<string>('');
   const [isOsInvalid, setIsOsInvalid] = useState(false);
   const [currentBlankOsItemId, setCurrentBlankOsItemId] = useState<string | null>(null);
-
-  // Usar o novo hook para obter a descrição do AF
-  const afDescription = useAfDescription(af);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -368,7 +363,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 availableAfs={allAvailableAfs}
                 onSelectAf={handleSelectAf}
                 readOnly={isOsDetailsReadOnly}
-                afDescription={afDescription} {/* Passando a descrição */}
               />
             )}
           </div>
