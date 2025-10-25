@@ -172,8 +172,13 @@ const AfManagementTable: React.FC = () => {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      Papa.parse(file, {
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const csvText = e.target?.result as string;
+      
+      Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
         complete: async (results) => {
@@ -206,6 +211,17 @@ const AfManagementTable: React.FC = () => {
           console.error('CSV parsing error:', error);
         }
       });
+    };
+
+    reader.onerror = () => {
+      showError('Erro ao ler o arquivo.');
+    };
+
+    reader.readAsText(file);
+
+    // Limpa o input para permitir a importação do mesmo arquivo novamente
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
