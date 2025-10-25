@@ -77,7 +77,8 @@ const TimeTrackingPage: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [otherStatusText, setOtherStatusText] = useState('');
   const [dayForOtherStatus, setDayForOtherStatus] = useState<Date | null>(null);
-  const [selectedTurn, setSelectedTurn] = useState<ShiftTurn | ''>('');
+  // Alterado para ShiftTurn | undefined
+  const [selectedTurn, setSelectedTurn] = useState<ShiftTurn | undefined>(undefined);
   const [isGeneratingSchedule, setIsGeneratingSchedule] = useState(false);
 
   useEffect(() => {
@@ -92,7 +93,8 @@ const TimeTrackingPage: React.FC = () => {
     if (savedTurn && ALL_TURNS.includes(savedTurn)) {
       setSelectedTurn(savedTurn);
     } else {
-      setSelectedTurn(ALL_TURNS[0]); // Default para Turno A
+      // Define o primeiro turno como padrão se nenhum estiver salvo
+      setSelectedTurn(ALL_TURNS[0]);
     }
   }, []);
 
@@ -502,7 +504,11 @@ const TimeTrackingPage: React.FC = () => {
           <CardContent className="flex flex-col sm:flex-row gap-4 items-end">
             <div className="flex-1 w-full">
               <Label htmlFor="shift-turn">Selecione seu Turno</Label>
-              <Select value={selectedTurn} onValueChange={handleTurnChange} disabled={isGeneratingSchedule}>
+              <Select 
+                value={selectedTurn} 
+                onValueChange={handleTurnChange} 
+                disabled={isGeneratingSchedule}
+              >
                 <SelectTrigger id="shift-turn" className="w-full">
                   <SelectValue placeholder="Selecione o Turno" />
                 </SelectTrigger>

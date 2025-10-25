@@ -64,6 +64,7 @@ interface AnnualScheduleCalendarProps {
 }
 
 const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initialTurn, onTurnChange }) => {
+  // Garante que selectedTurn seja sempre um ShiftTurn válido
   const [selectedTurn, setSelectedTurn] = useState<ShiftTurn>(initialTurn);
   const [currentYear, setCurrentYear] = useState(getYear(new Date()));
   const [isExporting, setIsExporting] = useState(false);
@@ -71,9 +72,11 @@ const AnnualScheduleCalendar: React.FC<AnnualScheduleCalendarProps> = ({ initial
 
   useEffect(() => {
     // Garante que o turno inicial seja um dos turnos rotativos se o anterior era fixo
+    // E que o estado local reflita o prop inicial
     if (!ROTATING_TURNS_ONLY.includes(initialTurn)) {
-      setSelectedTurn(ROTATING_TURNS_ONLY[0]);
-      onTurnChange(ROTATING_TURNS_ONLY[0]);
+      const defaultTurn = ROTATING_TURNS_ONLY[0];
+      setSelectedTurn(defaultTurn);
+      onTurnChange(defaultTurn);
     } else {
       setSelectedTurn(initialTurn);
     }
