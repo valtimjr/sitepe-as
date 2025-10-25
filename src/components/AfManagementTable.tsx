@@ -38,6 +38,22 @@ import { v4 as uuidv4 } from 'uuid';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+// Função auxiliar para obter valor de uma linha, ignorando case e variações
+const getRowValue = (row: any, keys: string[]): string | undefined => {
+  const lowerCaseRow = Object.keys(row).reduce((acc, key) => {
+    acc[key.toLowerCase()] = row[key];
+    return acc;
+  }, {} as { [key: string]: any });
+
+  for (const key of keys) {
+    const value = lowerCaseRow[key.toLowerCase()];
+    if (value !== undefined && value !== null) {
+      return String(value).trim();
+    }
+  }
+  return undefined;
+};
+
 const AfManagementTable: React.FC = () => {
   const [afs, setAfs] = useState<Af[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -198,11 +214,18 @@ const AfManagementTable: React.FC = () => {
         complete: (results) => {
           const parsedData = results.data as any[];
           
-          let newAfs: Af[] = parsedData.map(row => ({
-            id: row.id || uuidv4(),
-            af_number: row.af_number || row.codigo || row.AF,
-            descricao: row.descricao || row.description || '',
-          })).filter(af => af.af_number);
+          let newAfs: Af[] = parsedData.map(row => {
+            const afNumber = getRowValue(row, ['af_number', 'codigo', 'AF']);
+            const descricao = getRowValue(row, ['descricao', 'description', 'desc']); // Adicionado 'desc' e 'description'
+            
+            if (!afNumber) return null;
+
+            return {
+              id: getRowValue(row, ['id']) || uuidv4(),
+              af_number: afNumber,
+              descricao: descricao || '',
+            };
+          }).filter((af): af is Af => af !== null);
 
           if (newAfs.length === 0) {
             showError('Nenhum dado válido encontrado no arquivo CSV.');
@@ -377,8 +400,7 @@ const AfManagementTable: React.FC = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExportJson}>
                     Exportar JSON
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
+                  </DropdownMenuSubContent>
               </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
