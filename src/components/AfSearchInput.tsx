@@ -14,7 +14,7 @@ interface AfSearchInputProps {
 const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availableAfs, onSelectAf, readOnly }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [displayedAfs, setDisplayedAfs] = useState<Af[]>(availableAfs);
-  const [displayValue, setDisplayValue] = useState(value); // Valor exibido no input
+  const [displayValue, setDisplayValue] = useState(''); // Valor exibido no input
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Função auxiliar para formatar AF + Descrição
@@ -25,33 +25,30 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
     return afItem.af_number;
   };
 
-  // 1. Atualiza displayedAfs quando availableAfs muda
+  // Efeito 1: Atualiza displayedAfs quando availableAfs muda
   useEffect(() => {
     setDisplayedAfs(availableAfs);
   }, [availableAfs]);
 
-  // 2. Sincroniza o displayValue quando o 'value' (af_number) muda no componente pai
-  // E encontra a descrição correspondente para exibição.
+  // Efeito 2: Sincroniza o displayValue com o 'value' do pai (AF number)
+  // Isso só deve acontecer na montagem ou quando o valor do pai muda externamente (ex: reset do formulário).
   useEffect(() => {
-    if (value) {
-      const selected = availableAfs.find(afItem => afItem.af_number === value);
-      if (selected) {
-        setDisplayValue(getDisplayValue(selected));
-      } else {
-        // Se o AF number não for encontrado na lista (ex: digitado manualmente ou AF antigo), exibe o número puro
-        setDisplayValue(value);
-      }
+    const selected = availableAfs.find(afItem => afItem.af_number === value);
+    if (selected) {
+      setDisplayValue(getDisplayValue(selected));
     } else {
-      setDisplayValue('');
+      // Se o valor do pai for um AF number não encontrado ou vazio, exibe o valor puro.
+      setDisplayValue(value);
     }
   }, [value, availableAfs]);
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    setDisplayValue(newValue); // Atualiza o que o usuário vê
+    setDisplayValue(newValue); // Atualiza o que o usuário vê (sem reset)
 
     // Notifica o pai com o valor digitado (para fins de busca, se necessário)
+    // O pai deve usar este valor para filtrar a lista de AFs.
     onChange(newValue); 
 
     // Filtra os AFs exibidos com base no novo valor do input (busca em número ou descrição)
@@ -76,18 +73,21 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
     setTimeout(() => {
       setIsDropdownOpen(false);
       
-      // Se o usuário desfocar e o valor digitado não for um AF válido,
-      // reverte para o último AF válido selecionado (que está em `value`)
-      // ou limpa se `value` for vazio.
-      if (value) {
-        const selected = availableAfs.find(afItem => afItem.af_number === value);
-        if (selected) {
-          setDisplayValue(getDisplayValue(selected));
-        } else {
-          setDisplayValue(value);
-        }
+      // Lógica de Reversão/Sincronização no Blur:
+      // Se o valor digitado (displayValue) não for um AF number válido,
+      // ou se for diferente do AF number que o pai está segurando (`value`),
+      // reverte para o valor formatado do AF number do pai.
+      const selected = availableAfs.find(afItem => afItem.af_number === value);
+      if (selected) {
+        setDisplayValue(getDisplayValue(selected));
       } else {
+        // Se o valor do pai for vazio ou inválido, limpa o display.
         setDisplayValue('');
+        // Se o usuário digitou algo que não selecionou, mas o pai ainda tem um valor,
+        // precisamos garantir que o pai seja notificado para limpar o valor se o input estiver vazio.
+        if (displayValue === '' && value !== '') {
+             onChange(''); // Limpa o valor do pai se o input foi esvaziado
+        }
       }
       
     }, 150);
