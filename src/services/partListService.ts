@@ -2,7 +2,6 @@ import { v4 as uuidv4 } from 'uuid';
 import Papa from 'papaparse';
 import {
   localDb,
-  getLocalUniqueAfs,
   bulkPutLocalParts,
   getLocalParts,
   searchLocalParts,
@@ -350,6 +349,7 @@ export const getAfsFromService = async (): Promise<Af[]> => {
   const { data, error } = await supabase
     .from('afs')
     .select('*')
+    .order('af_number', { ascending: true }) // Ordena por número de AF
     .limit(1000); // Limite de 1000 para exibição
 
   if (error) {
@@ -481,13 +481,6 @@ export const deleteServiceOrderItem = async (id: string): Promise<void> => {
 
 export const clearServiceOrderList = async (): Promise<void> => {
   await clearLocalServiceOrderItems();
-};
-
-export const getUniqueAfs = async (): Promise<string[]> => {
-  // Chama getAfsFromService para garantir que os AFs completos (com ID) sejam buscados e o cache local seja atualizado.
-  const allAfs = await getAfsFromService(); 
-  // Mapeia para retornar apenas os números dos AFs, como esperado pela interface.
-  return allAfs.map(af => af.af_number).sort();
 };
 
 // --- Funções para Apontamentos (Time Tracking) ---

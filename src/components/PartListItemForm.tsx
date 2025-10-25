@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addSimplePartItem, getParts, searchParts as searchPartsService, updatePart, getUniqueAfs } from '@/services/partListService';
+import { Part, addSimplePartItem, getParts, searchParts as searchPartsService, updatePart, getAfsFromService, Af } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
@@ -22,7 +22,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]);
+  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]); // Alterado para Af[]
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
@@ -35,7 +35,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       setIsLoadingParts(false);
 
       setIsLoadingAfs(true);
-      const afs = await getUniqueAfs();
+      const afs = await getAfsFromService(); // Usar getAfsFromService para obter objetos Af
       setAllAvailableAfs(afs);
       setIsLoadingAfs(false);
     };
@@ -73,8 +73,8 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     setSearchResults([]);
   };
 
-  const handleSelectAf = (selectedAf: string) => {
-    setAf(selectedAf);
+  const handleSelectAf = (selectedAfNumber: string) => {
+    setAf(selectedAfNumber);
   };
 
   const handleUpdateTags = async () => {

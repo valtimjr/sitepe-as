@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addServiceOrderItem, getParts, getUniqueAfs, searchParts as searchPartsService, updatePart, deleteServiceOrderItem, ServiceOrderItem, updateServiceOrderItem } from '@/services/partListService';
+import { Part, addServiceOrderItem, getParts, getAfsFromService, searchParts as searchPartsService, updatePart, deleteServiceOrderItem, ServiceOrderItem, updateServiceOrderItem, Af } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
@@ -43,7 +43,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<string[]>([]);
+  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]); // Alterado para Af[]
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
@@ -58,7 +58,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       setIsLoadingParts(false);
 
       setIsLoadingAfs(true);
-      const afs = await getUniqueAfs();
+      const afs = await getAfsFromService(); // Usar getAfsFromService para obter objetos Af
       setAllAvailableAfs(afs);
       setIsLoadingAfs(false);
     };
@@ -127,8 +127,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     setSearchResults([]);
   };
 
-  const handleSelectAf = (selectedAf: string) => {
-    setAf(selectedAf);
+  const handleSelectAf = (selectedAfNumber: string) => {
+    setAf(selectedAfNumber);
   };
 
   const handleUpdateTags = async () => {
@@ -283,7 +283,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         showSuccess('Item adicionado à lista!');
         resetPartFields();
         onItemAdded();
-        const updatedAfs = await getUniqueAfs();
+        const updatedAfs = await getAfsFromService(); // Atualiza a lista de AFs
         setAllAvailableAfs(updatedAfs);
         setIsCreatingNewOrder(false);
       } catch (error) {
@@ -310,7 +310,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         showSuccess('Ordem de Serviço criada sem peças. Adicione peças agora!');
         setCurrentBlankOsItemId(newBlankId);
         onItemAdded();
-        const updatedAfs = await getUniqueAfs();
+        const updatedAfs = await getAfsFromService(); // Atualiza a lista de AFs
         setAllAvailableAfs(updatedAfs);
         setIsCreatingNewOrder(false);
       } catch (error) {
