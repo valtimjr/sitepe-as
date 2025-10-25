@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MenuStructureEditorProps {
   onMenuUpdated: () => void;
@@ -334,14 +335,14 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
             <div className="space-y-2">
               <Label htmlFor="parent_id">Item Pai (Submenu de)</Label>
               <Select
-                value={formParentId || ''}
-                onValueChange={(value) => setFormParentId(value === '' ? null : value)}
+                value={formParentId || 'root'} // Usando 'root' para representar null
+                onValueChange={(value) => setFormParentId(value === 'root' ? null : value)}
               >
                 <SelectTrigger id="parent_id">
                   <SelectValue placeholder="Nível Raiz" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nível Raiz</SelectItem>
+                  <SelectItem value="root">Nível Raiz</SelectItem> {/* Usando 'root' */}
                   {availableParents.map(item => (
                     <SelectItem key={item.id} value={item.id} disabled={item.id === currentMenuItem?.id}>
                       {item.title}
@@ -354,15 +355,15 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
             <div className="space-y-2">
               <Label htmlFor="list_id">Link para Lista de Peças (Opcional)</Label>
               <Select
-                value={formListId || ''}
-                onValueChange={(value) => setFormListId(value === '' ? null : value)}
-                disabled={hasChildren(currentMenuItem)} // Não pode ser link se já tem filhos
+                value={formListId || 'none'} // Usando 'none' para representar null
+                onValueChange={(value) => setFormListId(value === 'none' ? null : value)}
+                disabled={hasChildren(currentMenuItem)}
               >
                 <SelectTrigger id="list_id">
                   <SelectValue placeholder="Nenhum (É um Submenu)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum (É um Submenu)</SelectItem>
+                  <SelectItem value="none">Nenhum (É um Submenu)</SelectItem> {/* Usando 'none' */}
                   {customLists.map(list => (
                     <SelectItem key={list.id} value={list.id}>
                       {list.title}
@@ -403,11 +404,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
 // Helper para verificar se um item tem filhos (usado para desabilitar link de lista)
 const hasChildren = (item: MenuItem | null) => {
   if (!item) return false;
-  const flatItems = getAllMenuItemsFlat(); // Isso é um problema, pois chama a função assíncrona.
-  // Para evitar chamadas assíncronas em renderização, vamos usar o estado local `flatMenuItems`
-  // Mas como `flatMenuItems` não está disponível aqui, vamos simplificar a lógica de desabilitação
-  // e confiar que o backend impede a associação de list_id se houver parent_id.
-  // No entanto, para a UI, vamos usar uma heurística simples: se o item atual tem filhos no estado, desabilita.
+  // Esta é uma verificação heurística baseada no estado atual da hierarquia
   return item.children && item.children.length > 0;
 };
 
