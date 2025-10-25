@@ -32,24 +32,27 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
 
   // Efeito 2: Sincroniza o displayValue quando o 'value' (af_number) muda no componente pai
   useEffect(() => {
-    const selected = availableAfs.find(afItem => afItem.af_number === value);
-    if (selected) {
-      setDisplayValue(getDisplayValue(selected));
-    } else {
-      // Se o valor do pai for um AF number não encontrado ou vazio, exibe o valor puro.
-      setDisplayValue(value);
+    // Só atualiza o displayValue se o dropdown não estiver aberto,
+    // para não sobrescrever o que o usuário está digitando/vendo.
+    if (!isDropdownOpen) {
+      const selected = availableAfs.find(afItem => afItem.af_number === value);
+      if (selected) {
+        setDisplayValue(getDisplayValue(selected));
+      } else {
+        setDisplayValue(value);
+      }
     }
-  }, [value, availableAfs]);
+  }, [value, availableAfs, isDropdownOpen]);
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    setDisplayValue(newValue); // Atualiza o que o usuário vê (sem reset)
+    setDisplayValue(newValue);
 
-    // Notifica o pai com o valor digitado (para fins de busca, se necessário)
+    // Notifica o pai com o valor digitado
     onChange(newValue); 
 
-    // Filtra os AFs exibidos com base no novo valor do input (busca em número ou descrição)
+    // Filtra os AFs exibidos
     setDisplayedAfs(
       availableAfs.filter((afItem) => {
         const lowerNewValue = newValue.toLowerCase();
@@ -57,23 +60,26 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
                (afItem.descricao && afItem.descricao.toLowerCase().includes(lowerNewValue));
       })
     );
-    setIsDropdownOpen(true); // Garante que o dropdown esteja aberto ao digitar
+    setIsDropdownOpen(true);
   };
 
   const handleInputFocus = () => {
     if (readOnly) return;
     
     // Ao focar, define o displayValue para o valor puro do AF (af_number)
-    // Isso permite que o usuário comece a digitar ou ver o número puro.
     // O valor 'value' é o af_number que está no estado do componente pai.
     setDisplayValue(value); 
-    onChange(value); // Garante que a busca comece com o AF number atual
+    
+    // Não chamamos onChange(value) aqui para evitar re-renderizações desnecessárias no pai
+    // que poderiam causar o blur prematuro. A busca será feita pelo handleInputChange
+    // se o usuário começar a digitar, ou o dropdown mostrará todos os AFs disponíveis.
 
     setIsDropdownOpen(true);
     setDisplayedAfs(availableAfs);
   };
 
   const handleInputBlur = () => {
+    // Aumenta o timeout para garantir que o clique no item seja registrado
     setTimeout(() => {
       setIsDropdownOpen(false);
       
@@ -85,12 +91,13 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
       } else {
         // Se o valor do pai for vazio ou inválido, limpa o display.
         setDisplayValue('');
-        if (displayValue !== '' && value === '') {
-             onChange(''); // Garante que o pai saiba que o campo está vazio
+        // Se o usuário limpou o campo, garantimos que o pai também seja notificado
+        if (value !== '') {
+             onChange(''); 
         }
       }
       
-    }, 150);
+    }, 200); // Aumentado para 200ms
   };
 
   const handleSelectAndClose = (afItem: Af) => {
@@ -130,7 +137,8 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
                 <li
                   key={afItem.id}
                   className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onMouseDown={(e) => e.preventDefault()}
+                  // Usamos onMouseDown para prevenir que o blur feche o dropdown antes do click
+                  onMouseDown={(e) => e.preventDefault()} 
                   onClick={() => handleSelectAndClose(afItem)}
                 >
                   {getDisplayValue(afItem)}
