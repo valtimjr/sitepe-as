@@ -10,7 +10,7 @@ import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
-import { useAfDescription } from '@/hooks/use-af-description'; // Importar novo hook
+import { useAfDescription } from '@/hooks/use-af-description';
 
 interface PartListItemFormProps {
   onItemAdded: () => void;
@@ -222,7 +222,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
                 onChange={setAf}
                 availableAfs={allAvailableAfs}
                 onSelectAf={handleSelectAf}
-                afDescription={afDescription} {/* Passando a descrição */}
+                afDescription={afDescription}
               />
             )}
           </div>
