@@ -216,22 +216,31 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
             <Table>
               <TableHeader>
                 <TableRow>
-                  {/* Removendo larguras fixas para permitir que o navegador otimize */}
-                  <TableHead>Código</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Quantidade</TableHead>
-                  <TableHead>AF</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  {/* Coluna principal combinada */}
+                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça (Cód. / Descrição)</TableHead>
+                  {/* Colunas compactas */}
+                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                  <TableHead className="w-[4rem] p-2">AF</TableHead>
+                  <TableHead className="w-[40px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {displayedItems.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium whitespace-nowrap">{item.codigo_peca || 'N/A'}</TableCell>
-                    <TableCell className="min-w-[150px]">{item.descricao || 'N/A'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{item.quantidade ?? 'N/A'}</TableCell>
-                    <TableCell className="font-medium whitespace-nowrap">{item.af || ''}</TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
+                    {/* Célula principal com Código e Descrição */}
+                    <TableCell className="w-auto whitespace-normal break-words p-2">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-sm">{item.codigo_peca || 'N/A'}</span>
+                        <span className="text-xs text-muted-foreground">{item.descricao || 'N/A'}</span>
+                      </div>
+                    </TableCell>
+                    
+                    {/* Colunas compactas */}
+                    <TableCell className="w-[4rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell>
+                    <TableCell className="w-[4rem] p-2 text-center text-xs">{item.af || 'N/A'}</TableCell>
+                    
+                    {/* Coluna Ações */}
+                    <TableCell className="w-[40px] p-2 text-right">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(item.id)}>
