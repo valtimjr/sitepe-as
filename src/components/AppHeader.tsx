@@ -97,44 +97,6 @@ const AppHeader: React.FC = () => {
     });
   };
 
-  // Função para renderizar itens de nível raiz no cabeçalho (desktop)
-  const renderRootItem = (item: MenuItem) => {
-    // Se for um link direto para uma lista
-    if (item.list_id) {
-      return (
-        <Link to={`/custom-list/${item.list_id}`} key={item.id}>
-          <Button variant="ghost" className="flex items-center gap-1">
-            {item.title}
-          </Button>
-        </Link>
-      );
-    }
-
-    // Se for um item que tem filhos (submenu)
-    if (item.children && item.children.length > 0) {
-      return (
-        <DropdownMenu key={item.id}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-1">
-                  {item.title}
-                  <ChevronRight className="h-4 w-4 -rotate-90" />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <DropdownMenuContent align="start" className="w-64">
-              {renderDynamicMenu(item.children)}
-            </DropdownMenuContent>
-          </Tooltip>
-        </DropdownMenu>
-      );
-    }
-
-    // Item raiz sem link e sem filhos (deve ser evitado)
-    return null;
-  };
-
   if (isLoading) {
     return null; // Ou um skeleton de cabeçalho se preferir um carregamento visível
   }
@@ -164,7 +126,7 @@ const AppHeader: React.FC = () => {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         
-        {/* Lado Esquerdo: Banner + Menus Desktop + Menu Hambúrguer */}
+        {/* Lado Esquerdo: Banner + Menu Hambúrguer */}
         <div className="flex items-center gap-2">
           {/* Banner/Logo */}
           <Tooltip>
@@ -176,15 +138,8 @@ const AppHeader: React.FC = () => {
             </TooltipTrigger>
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
-
-          {/* Itens de Menu Raiz Dinâmicos (Exibidos ao lado do Banner APENAS em desktop) */}
-          {hasRootMenuItems && (
-            <nav className="hidden md:flex items-center gap-1">
-              {rootMenuItems.map(renderRootItem)}
-            </nav>
-          )}
           
-          {/* Dropdown Menu Principal (Hambúrguer) - Movido para o lado esquerdo */}
+          {/* Dropdown Menu Principal (Hambúrguer) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
