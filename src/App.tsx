@@ -15,7 +15,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import UserSettingsPage from "./pages/UserSettingsPage";
 import TimeTrackingPage from "./pages/TimeTrackingPage";
-import AnnualScheduleView from "./pages/AnnualScheduleView";
+// import AnnualScheduleView from "./pages/AnnualScheduleView"; // Removido
 // import MenuManagerPage from "./pages/MenuManagerPage"; // Removido
 import CustomListPage from "./pages/CustomListPage";
 import MyCustomListsPage from "./pages/MyCustomListsPage";
@@ -50,7 +50,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/settings" element={<UserSettingsPage />} />
             <Route path="/time-tracking" element={<TimeTrackingPage />} />
-            <Route path="/schedule-view" element={<AnnualScheduleView />} />
+            {/* <Route path="/schedule-view" element={<AnnualScheduleView />} /> */}
             {/* <Route path="/menu-manager" element={<MenuManagerPage />} /> */}
             <Route path="/custom-list/:listId" element={<CustomListPage />} />
             <Route path="/my-custom-lists" element={<MyCustomListsPage />} />

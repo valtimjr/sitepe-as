@@ -96,7 +96,7 @@ const Index = () => {
           </CardContent>
         </Card>
         
-        {/* 5. Escala Anual */}
+        {/* 5. Escala Anual - AGORA ABRE EM NOVA ABA */}
         <Card className="text-center">
           <CardHeader>
             <CardTitle className="text-2xl flex items-center justify-center gap-2">
@@ -107,9 +107,9 @@ const Index = () => {
             <p className="mb-6 text-muted-foreground">
               Visualize a escala de turnos rotativos para o ano inteiro.
             </p>
-            <Link to="/schedule-view">
+            <a href="https://escala.eletricarpm.com.br" target="_blank" rel="noopener noreferrer">
               <Button className="w-full">Ver Escala</Button>
-            </Link>
+            </a>
           </CardContent>
         </Card>
 

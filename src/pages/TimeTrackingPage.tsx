@@ -481,7 +481,7 @@ const TimeTrackingPage: React.FC = () => {
               {employeeHeader}
             </p>
           </div>
-          <Link to="/schedule-view">
+          <a href="https://escala.eletricarpm.com.br" target="_blank" rel="noopener noreferrer">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
@@ -494,7 +494,7 @@ const TimeTrackingPage: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>Visualizar Escala Anual</TooltipContent>
             </Tooltip>
-          </Link>
+          </a>
         </div>
 
         <Card className="mb-4">
