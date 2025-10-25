@@ -123,12 +123,31 @@ const CustomListPage: React.FC = () => {
       <Card className="w-full max-w-4xl mx-auto mb-8">
         <CardHeader className="pb-2">
           <div className="flex flex-wrap justify-end gap-2">
-            <Button onClick={handleCopyList} disabled={items.length === 0} variant="secondary" className="flex items-center gap-2">
-              <Copy className="h-4 w-4" /> Copiar Lista
+            {/* Copiar Lista (Ícone em mobile, texto em desktop) */}
+            <Button 
+              onClick={handleCopyList} 
+              disabled={items.length === 0} 
+              variant="secondary" 
+              size="icon"
+              className="sm:w-auto sm:px-4"
+            >
+              <Copy className="h-4 w-4" /> 
+              <span className="hidden sm:inline ml-2">Copiar Lista</span>
             </Button>
-            <Button onClick={handleExportCsv} disabled={items.length === 0} variant="outline" className="flex items-center gap-2">
-              <Download className="h-4 w-4" /> Exportar CSV
+            
+            {/* Exportar CSV (Ícone em mobile, texto em desktop) */}
+            <Button 
+              onClick={handleExportCsv} 
+              disabled={items.length === 0} 
+              variant="outline" 
+              size="icon"
+              className="sm:w-auto sm:px-4"
+            >
+              <Download className="h-4 w-4" /> 
+              <span className="hidden sm:inline ml-2">Exportar CSV</span>
             </Button>
+            
+            {/* Exportar PDF (Sempre com texto) */}
             <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
               <FileText className="h-4 w-4" /> Exportar PDF
             </Button>
