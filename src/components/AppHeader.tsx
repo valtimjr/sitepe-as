@@ -25,7 +25,6 @@ import { MenuItem } from '@/types/supabase';
 const AppHeader: React.FC = () => {
   const { session, user, profile, isLoading, checkPageAccess } = useSession();
   const navigate = useNavigate();
-  // rootMenuItems agora armazena a estrutura hierárquica completa (apenas itens de nível raiz)
   const [rootMenuItems, setRootMenuItems] = useState<MenuItem[]>([]);
 
   const loadDynamicMenu = useCallback(async () => {
@@ -35,7 +34,6 @@ const AppHeader: React.FC = () => {
     }
     try {
       const structure = await getMenuStructure();
-      // A estrutura retornada já são os itens de nível raiz com seus filhos aninhados.
       setRootMenuItems(structure);
     } catch (error) {
       console.error('Failed to load dynamic menu:', error);
@@ -237,10 +235,12 @@ const AppHeader: React.FC = () => {
           </DropdownMenu>
           
           {/* Itens de Menu Raiz Dinâmicos (Exibidos ao lado do botão Menu em telas grandes) */}
-          {/* Removendo a classe 'hidden' e usando 'lg:flex' para garantir que apareça em telas grandes */}
-          <nav className="flex items-center gap-1 overflow-x-auto lg:flex-grow lg:flex">
-            {rootMenuItems.map(renderRootItem)}
-          </nav>
+          {/* Oculta em telas pequenas (sm:hidden) e exibe a partir de telas médias (md:flex) */}
+          {hasRootMenuItems && (
+            <nav className="hidden md:flex items-center gap-1 overflow-x-auto flex-grow">
+              {rootMenuItems.map(renderRootItem)}
+            </nav>
+          )}
         </div>
 
         {/* Contêiner Direito: Usuário/Login */}
