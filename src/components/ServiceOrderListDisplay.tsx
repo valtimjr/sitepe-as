@@ -45,6 +45,71 @@ interface ServiceOrderListDisplayProps {
 }
 
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder }) => {
+  const compareTimeStrings = (t1: string | undefined, t2: string | undefined): number => {
+    const time1 = t1 || '';
+    const time2 = t2 || '';
+    const d1 = time1.length > 0;
+    const d2 = time2.length > 0;
+
+    // Prioritize defined times (defined comes first)
+    if (d1 && !d2) return -1;
+    if (!d1 && d2) return 1;
+    
+    // If both defined or both undefined, sort chronologically (string comparison works for HH:MM)
+    if (time1 < time2) return -1;
+    if (time1 > time2) return 1;
+    return 0;
+  };
+
+  const groupedForDisplay: { [key: string]: {
+    af: string;
+    os?: number;
+    servico_executado?: string;
+    hora_inicio?: string;
+    hora_final?: string;
+    createdAt: Date;
+    parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
+  } } = {};
+
+  listItems.forEach(item => {
+    const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}`;
+    if (!groupedForDisplay[key]) {
+      groupedForDisplay[key] = {
+        af: item.af,
+        os: item.os,
+        servico_executado: item.servico_executado,
+        hora_inicio: item.hora_inicio,
+        hora_final: item.hora_final,
+        createdAt: item.created_at || new Date(),
+        parts: [],
+      };
+    } else {
+      if (item.created_at && groupedForDisplay[key].createdAt && item.created_at < groupedForDisplay[key].createdAt) {
+        groupedForDisplay[key].createdAt = item.created_at;
+      }
+    }
+    groupedForDisplay[key].parts.push({
+      id: item.id,
+      quantidade: item.quantidade,
+      descricao: item.descricao,
+      codigo_peca: item.codigo_peca,
+    });
+  });
+
+  const sortedGroups = Object.values(groupedForDisplay).sort((a, b) => {
+    // 1. Ordenar por hora_inicio
+    const startComparison = compareTimeStrings(a.hora_inicio, b.hora_inicio);
+    if (startComparison !== 0) return startComparison;
+
+    // 2. Ordenar por hora_final
+    const endComparison = compareTimeStrings(a.hora_final, b.hora_final);
+    if (endComparison !== 0) return endComparison;
+
+    // 3. Fallback para created_at (mais antigo primeiro)
+    if (!a.createdAt || !b.createdAt) return 0;
+    return a.createdAt.getTime() - b.createdAt.getTime();
+  });
+
   const handleExportPdf = () => {
     if (listItems.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
@@ -57,40 +122,10 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
   const formatServiceOrderTextForClipboard = () => {
     if (listItems.length === 0) return '';
 
-    const groupedByAfOs: { [key: string]: {
-      af: string;
-      os?: number;
-      servico_executado?: string;
-      hora_inicio?: string;
-      hora_final?: string;
-      parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
-    } } = {};
-
-    listItems.forEach(item => {
-      const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}`;
-      if (!groupedByAfOs[key]) {
-        groupedByAfOs[key] = {
-          af: item.af,
-          os: item.os,
-          servico_executado: item.servico_executado,
-          hora_inicio: item.hora_inicio,
-          hora_final: item.hora_final,
-          parts: [],
-        };
-      }
-      if (item.codigo_peca || item.descricao) {
-        groupedByAfOs[key].parts.push({
-          id: item.id,
-          quantidade: item.quantidade,
-          descricao: item.descricao,
-          codigo_peca: item.codigo_peca,
-        });
-      }
-    });
-
     let textToCopy = '';
-    for (const key in groupedByAfOs) {
-      const group = groupedByAfOs[key];
+    
+    // Usa os grupos já ordenados
+    sortedGroups.forEach(group => {
       
       // AF and OS line
       textToCopy += `AF: ${group.af}`;
@@ -131,7 +166,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         });
       }
       textToCopy += '\n';
-    }
+    });
 
     return textToCopy.trim();
   };
@@ -263,71 +298,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       console.error('Failed to delete service order:', error);
     }
   };
-
-  const groupedForDisplay: { [key: string]: {
-    af: string;
-    os?: number;
-    servico_executado?: string;
-    hora_inicio?: string;
-    hora_final?: string;
-    createdAt: Date;
-    parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
-  } } = {};
-
-  listItems.forEach(item => {
-    const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}`;
-    if (!groupedForDisplay[key]) {
-      groupedForDisplay[key] = {
-        af: item.af,
-        os: item.os,
-        servico_executado: item.servico_executado,
-        hora_inicio: item.hora_inicio,
-        hora_final: item.hora_final,
-        createdAt: item.created_at || new Date(),
-        parts: [],
-      };
-    } else {
-      if (item.created_at && groupedForDisplay[key].createdAt && item.created_at < groupedForDisplay[key].createdAt) {
-        groupedForDisplay[key].createdAt = item.created_at;
-      }
-    }
-    groupedForDisplay[key].parts.push({
-      id: item.id,
-      quantidade: item.quantidade,
-      descricao: item.descricao,
-      codigo_peca: item.codigo_peca,
-    });
-  });
-
-  const compareTimeStrings = (t1: string | undefined, t2: string | undefined): number => {
-    const time1 = t1 || '';
-    const time2 = t2 || '';
-    const d1 = time1.length > 0;
-    const d2 = time2.length > 0;
-
-    // Prioritize defined times (defined comes first)
-    if (d1 && !d2) return -1;
-    if (!d1 && d2) return 1;
-    
-    // If both defined or both undefined, sort chronologically (string comparison works for HH:MM)
-    if (time1 < time2) return -1;
-    if (time1 > time2) return 1;
-    return 0;
-  };
-
-  const sortedGroups = Object.values(groupedForDisplay).sort((a, b) => {
-    // 1. Ordenar por hora_inicio
-    const startComparison = compareTimeStrings(a.hora_inicio, b.hora_inicio);
-    if (startComparison !== 0) return startComparison;
-
-    // 2. Ordenar por hora_final
-    const endComparison = compareTimeStrings(a.hora_final, b.hora_final);
-    if (endComparison !== 0) return endComparison;
-
-    // 3. Fallback para created_at (mais antigo primeiro)
-    if (!a.createdAt || !b.createdAt) return 0;
-    return a.createdAt.getTime() - b.createdAt.getTime();
-  });
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
