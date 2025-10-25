@@ -167,9 +167,6 @@ const AppHeader: React.FC = () => {
   // Verifica se há itens dinâmicos para exibir no cabeçalho
   const hasRootMenuItems = rootMenuItems.length > 0;
 
-  // Se houver itens dinâmicos, o dropdown principal deve ser ocultado em LG
-  const dropdownButtonClass = hasRootMenuItems ? 'lg:hidden' : '';
-
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
@@ -185,18 +182,12 @@ const AppHeader: React.FC = () => {
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
 
-          {/* Itens de Menu Raiz Dinâmicos (Exibidos no cabeçalho em telas grandes) */}
-          {/* Se houver itens dinâmicos, eles aparecem aqui em LG */}
-          <nav className="hidden lg:flex items-center gap-1">
-            {rootMenuItems.map(renderRootItem)}
-          </nav>
-
-          {/* Dropdown Menu Principal (Visível em todas as telas, mas oculto em LG se houver itens dinâmicos) */}
+          {/* Dropdown Menu Principal (Sempre visível) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className={`flex items-center gap-1 ${dropdownButtonClass}`} aria-label="Abrir Menu de Navegação">
+                  <Button variant="ghost" className="flex items-center gap-1" aria-label="Abrir Menu de Navegação">
                     <Menu className="h-5 w-5" />
                     <span className="hidden sm:inline">Menu</span>
                   </Button>
@@ -242,6 +233,11 @@ const AppHeader: React.FC = () => {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+          
+          {/* Itens de Menu Raiz Dinâmicos (Exibidos ao lado do botão Menu em telas grandes) */}
+          <nav className="hidden lg:flex items-center gap-1">
+            {rootMenuItems.map(renderRootItem)}
+          </nav>
         </div>
 
         <div className="flex items-center gap-4">
