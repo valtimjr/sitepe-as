@@ -15,7 +15,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  DropdownMenuLabel, // Importar DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 
 const AppHeader: React.FC = () => {
@@ -70,16 +69,15 @@ const AppHeader: React.FC = () => {
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Abrir Menu de Navegação">
+                  <Button variant="ghost" className="flex items-center gap-1" aria-label="Abrir Menu de Navegação">
                     <Menu className="h-5 w-5" />
+                    <span className="hidden sm:inline">Menu</span>
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent>Menu de Navegação</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="start" className="w-64">
-              <DropdownMenuLabel>Navegação Principal</DropdownMenuLabel>
-              <DropdownMenuSeparator />
               <Link to="/">
                 <DropdownMenuItem>
                   <Search className="h-4 w-4 mr-2" /> Início
@@ -115,7 +113,6 @@ const AppHeader: React.FC = () => {
               {canAccessAdmin && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Administração</DropdownMenuLabel>
                   <Link to="/admin">
                     <DropdownMenuItem>
                       <Database className="h-4 w-4 mr-2" /> Gerenciador de Banco de Dados
