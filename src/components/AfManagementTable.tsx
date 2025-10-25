@@ -367,7 +367,7 @@ const AfManagementTable: React.FC = () => {
                     />
                   </TableHead>
                   <TableHead className="w-[120px]">Número do AF</TableHead>
-                  <TableHead>Descrição</TableHead> {/* Nova Coluna */}
+                  <TableHead>Descrição</TableHead>
                   <TableHead className="text-right w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -382,7 +382,7 @@ const AfManagementTable: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell className="font-medium">{af.af_number}</TableCell>
-                    <TableCell>{af.descricao || 'N/A'}</TableCell> {/* Exibe a descrição */}
+                    <TableCell>{af.descricao || 'N/A'}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => handleEditAf(af)} className="mr-2">
                         <Edit className="h-4 w-4" />
