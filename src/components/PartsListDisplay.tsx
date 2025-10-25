@@ -216,6 +216,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
             <Table>
               <TableHeader>
                 <TableRow>
+                  {/* Removendo larguras fixas para permitir que o navegador otimize */}
                   <TableHead>Código</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Quantidade</TableHead>
@@ -226,11 +227,11 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               <TableBody>
                 {displayedItems.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.codigo_peca || 'N/A'}</TableCell>
-                    <TableCell>{item.descricao || 'N/A'}</TableCell>
-                    <TableCell>{item.quantidade ?? 'N/A'}</TableCell>
-                    <TableCell className="font-medium">{item.af || ''}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="font-medium whitespace-nowrap">{item.codigo_peca || 'N/A'}</TableCell>
+                    <TableCell className="min-w-[150px]">{item.descricao || 'N/A'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.quantidade ?? 'N/A'}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">{item.af || ''}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(item.id)}>
