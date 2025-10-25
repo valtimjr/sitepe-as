@@ -28,17 +28,14 @@ const AppHeader: React.FC = () => {
   const [rootMenuItems, setRootMenuItems] = useState<MenuItem[]>([]);
 
   const loadDynamicMenu = useCallback(async () => {
-    if (!session) {
-      setRootMenuItems([]);
-      return;
-    }
+    // Removida a restrição de !session para permitir que visitantes vejam o menu
     try {
       const structure = await getMenuStructure();
       setRootMenuItems(structure);
     } catch (error) {
       console.error('Failed to load dynamic menu:', error);
     }
-  }, [session]);
+  }, []);
 
   useEffect(() => {
     loadDynamicMenu();
@@ -235,7 +232,6 @@ const AppHeader: React.FC = () => {
           </DropdownMenu>
           
           {/* Itens de Menu Raiz Dinâmicos (Exibidos ao lado do botão Menu em telas grandes) */}
-          {/* Usamos 'hidden' para ocultar por padrão e 'md:flex' para exibir a partir de telas médias */}
           {hasRootMenuItems && (
             <nav className="hidden md:flex items-center gap-1 overflow-x-auto flex-grow">
               {rootMenuItems.map(renderRootItem)}
