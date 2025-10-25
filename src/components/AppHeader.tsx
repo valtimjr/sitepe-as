@@ -169,7 +169,7 @@ const AppHeader: React.FC = () => {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         
-        {/* Contêiner Esquerdo: Logo + Menus */}
+        {/* Contêiner Esquerdo: Logo + Menus (Usando flex-grow para ocupar o espaço) */}
         <div className="flex items-center gap-2 flex-grow">
           {/* Banner/Logo */}
           <Tooltip>
@@ -235,7 +235,7 @@ const AppHeader: React.FC = () => {
           </DropdownMenu>
           
           {/* Itens de Menu Raiz Dinâmicos (Exibidos ao lado do botão Menu em telas grandes) */}
-          {/* Oculta em telas pequenas (sm:hidden) e exibe a partir de telas médias (md:flex) */}
+          {/* Usamos 'hidden' para ocultar por padrão e 'md:flex' para exibir a partir de telas médias */}
           {hasRootMenuItems && (
             <nav className="hidden md:flex items-center gap-1 overflow-x-auto flex-grow">
               {rootMenuItems.map(renderRootItem)}
@@ -243,7 +243,7 @@ const AppHeader: React.FC = () => {
           )}
         </div>
 
-        {/* Contêiner Direito: Usuário/Login */}
+        {/* Contêiner Direito: Usuário/Login (Usando shrink-0 para manter o tamanho) */}
         <div className="flex items-center gap-4 shrink-0">
           {session ? (
             <>
