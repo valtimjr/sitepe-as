@@ -43,7 +43,8 @@ const DatabaseManagerPage: React.FC = () => {
       </h1>
 
       <Tabs defaultValue="parts" className="w-full max-w-6xl">
-        <TabsList className={cn("grid w-full", gridColsClass)}>
+        {/* Adicionando mb-4 para garantir espaçamento abaixo do TabsList */}
+        <TabsList className={cn("grid w-full mb-4", gridColsClass)}>
           <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>
           <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>
           <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>
