@@ -145,7 +145,6 @@ const AppHeader: React.FC = () => {
 
   // Itens de navegação padrão (sempre no dropdown)
   const standardDropdownItems = [
-    { path: "/", title: "Início", icon: Search },
     { path: "/search-parts", title: "Pesquisar Peças", icon: Search },
     { path: "/parts-list", title: "Minha Lista de Peças", icon: List },
     { path: "/service-orders", title: "Ordens de Serviço", icon: ClipboardList },
@@ -191,7 +190,7 @@ const AppHeader: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>Menu de Navegação</TooltipContent>
             </Tooltip>
-            <DropdownMenuContent align="start" className="w-64"> {/* Alinhado à esquerda */}
+            <DropdownMenuContent align="start" className="w-52 sm:w-64"> {/* Ajuste de largura para mobile */}
               {/* Navegação Padrão */}
               {standardDropdownItems.map(item => (
                 <Link to={item.path} key={item.path}>
