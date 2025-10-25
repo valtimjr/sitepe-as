@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem } from '@/services/customListService';
@@ -24,13 +24,6 @@ import PartSearchInput from './PartSearchInput';
 import { getParts, searchParts as searchPartsService } from '@/services/partListService'; // Importação corrigida
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -258,25 +251,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
           </Button>
         </div>
         <div className="flex flex-wrap justify-end gap-2 pt-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" disabled={items.length === 0} className="flex items-center gap-2">
-                <MoreHorizontal className="h-4 w-4" /> Ações
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleCopyList} disabled={items.length === 0}>
-                <Copy className="h-4 w-4 mr-2" /> Copiar Lista
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleExportCsv} disabled={items.length === 0}>
-                <Download className="h-4 w-4 mr-2" /> Exportar CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportPdf} disabled={items.length === 0}>
-                <FileText className="h-4 w-4 mr-2" /> Exportar PDF
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button onClick={handleCopyList} disabled={items.length === 0} variant="secondary" className="flex items-center gap-2">
+            <Copy className="h-4 w-4" /> Copiar Lista
+          </Button>
+          <Button onClick={handleExportCsv} disabled={items.length === 0} variant="outline" className="flex items-center gap-2">
+            <Download className="h-4 w-4" /> Exportar CSV
+          </Button>
+          <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" /> Exportar PDF
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
