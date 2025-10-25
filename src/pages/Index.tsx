@@ -15,8 +15,8 @@ const Index = () => {
 
   const canAccessAdmin = checkPageAccess('/admin');
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
-  // Acesso ao catálogo de menus é sempre permitido
-  const canAccessCustomMenu = true; 
+  // Acesso ao catálogo de menus agora verifica a permissão da rota
+  const canAccessCustomMenu = checkPageAccess('/custom-menu-view'); 
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
