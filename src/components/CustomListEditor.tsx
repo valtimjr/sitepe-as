@@ -310,7 +310,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                  <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código</TableHead>
+                  <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
                   <TableHead className="w-[40px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -320,10 +320,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
                     <TableCell className="w-auto whitespace-normal break-words p-2">
                       <div className="flex flex-col">
-                        <span className="font-medium text-sm">{item.item_name}</span>
                         {item.part_code && (
-                          <span className="text-xs text-muted-foreground">Cód: {item.part_code}</span>
+                          <span className="font-medium text-sm text-primary">{item.part_code}</span>
                         )}
+                        <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
                         {item.description && (
                           <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
                         )}
