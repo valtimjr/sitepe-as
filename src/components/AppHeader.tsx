@@ -70,7 +70,6 @@ const AppHeader: React.FC = () => {
           <DropdownMenuSub key={item.id}>
             <DropdownMenuSubTrigger>
               {item.title}
-              {/* Removida a seta ChevronRight duplicada. O DropdownMenuSubTrigger já adiciona uma seta. */}
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent sideOffset={2} alignOffset={-5}>
               {renderDynamicMenu(item.children)}
@@ -164,21 +163,11 @@ const AppHeader: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      {/* Ajustado o container para usar flex e gap de forma mais segura no mobile */}
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         
-        {/* Contêiner Esquerdo: Logo + Menus */}
+        {/* Contêiner Esquerdo: Logo + Menu Dropdown + Menus Desktop */}
         <div className="flex items-center gap-2">
-          {/* Banner/Logo */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link to="/" className="flex items-center gap-2 h-10 shrink-0">
-                <img src="/Banner.png" alt="AutoBoard Banner" className="h-full w-auto" />
-                <span className="sr-only">Página Inicial</span>
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent>Página Inicial</TooltipContent>
-          </Tooltip>
-
           {/* Dropdown Menu Principal (Sempre visível) */}
           <DropdownMenu>
             <Tooltip>
@@ -207,7 +196,7 @@ const AppHeader: React.FC = () => {
                 </Link>
               ))}
               
-              {/* Itens Dinâmicos (Inclui raízes e submenus para telas pequenas) */}
+              {/* Itens Dinâmicos */}
               {hasRootMenuItems && (
                 <>
                   <DropdownMenuSeparator />
@@ -228,9 +217,41 @@ const AppHeader: React.FC = () => {
                   ))}
                 </>
               )}
+
+              {/* ITENS DE PERFIL DENTRO DO DROPDOWN */}
+              {session ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <Link to="/settings">
+                    <DropdownMenuItem>
+                      <Settings className="h-4 w-4 mr-2" /> Configurações
+                    </DropdownMenuItem>
+                  </Link>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="h-4 w-4 mr-2" /> Sair
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <Link to="/login">
+                  <DropdownMenuItem>
+                    <LogIn className="h-4 w-4 mr-2" /> Entrar
+                  </DropdownMenuItem>
+                </Link>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           
+          {/* Banner/Logo */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link to="/" className="flex items-center gap-2 h-10 shrink-0">
+                <img src="/Banner.png" alt="AutoBoard Banner" className="h-full w-auto" />
+                <span className="sr-only">Página Inicial</span>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>Página Inicial</TooltipContent>
+          </Tooltip>
+
           {/* Itens de Menu Raiz Dinâmicos (Exibidos ao lado do botão Menu APENAS em desktop) */}
           {hasRootMenuItems && (
             <nav className="hidden md:flex items-center gap-1">
@@ -239,47 +260,20 @@ const AppHeader: React.FC = () => {
           )}
         </div>
 
-        {/* Contêiner Direito: Usuário/Login */}
-        <div className="flex items-center gap-4 shrink-0">
+        {/* Contêiner Direito: Status do Usuário (Sempre no canto direito) */}
+        <div className="flex items-center gap-2 shrink-0">
           {session ? (
-            <>
-              <div className="flex items-center gap-2">
-                <Avatar className="h-8 w-8 rounded-full">
-                  <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar do Usuário" />
-                  <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
-                </Avatar>
-                <span className="font-medium text-sm hidden sm:inline">
-                  Olá, {profile?.first_name || 'Usuário'}
-                </span>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/settings">
-                    <Button variant="ghost" size="icon" aria-label="Configurações">
-                      <Settings className="h-5 w-5" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>Configurações</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Sair">
-                    <LogOut className="h-5 w-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Sair</TooltipContent>
-              </Tooltip>
-            </>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm hidden sm:inline">
+                Olá, {profile?.first_name || 'Usuário'}
+              </span>
+              <Avatar className="h-8 w-8 rounded-full">
+                <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar do Usuário" />
+                <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
+              </Avatar>
+            </div>
           ) : (
-            <>
-              <span className="font-medium text-sm hidden sm:inline">Olá, Visitante</span>
-              <Link to="/login">
-                <Button variant="ghost" className="flex items-center gap-2">
-                  <LogIn className="h-5 w-5" /> <span className="hidden sm:inline">Login</span>
-                </Button>
-              </Link>
-            </>
+            <span className="font-medium text-sm hidden sm:inline">Olá, Visitante</span>
           )}
         </div>
       </div>
