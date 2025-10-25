@@ -142,7 +142,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
 
     // Validação: Pelo menos o nome personalizado OU a descrição deve estar preenchido
     if (!trimmedItemName && !trimmedDescription) {
-      showError('O Nome Personalizado ou a Descrição da Peça deve ser preenchido.');
+      showError('O Nome ou a Descrição da Peça deve ser preenchido.');
       return;
     }
 
@@ -273,7 +273,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[60px]">Qtd</TableHead>
-                  <TableHead>Nome Personalizado</TableHead>
+                  <TableHead>Nome</TableHead>
                   <TableHead>Cód. Peça</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -325,7 +325,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="item-name">Nome Personalizado do Item (Opcional)</Label>
+              <Label htmlFor="item-name">Nome (Opcional)</Label>
               <Input
                 id="item-name"
                 value={formItemName}

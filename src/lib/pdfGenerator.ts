@@ -37,7 +37,7 @@ const calculateTotalHours = (entry?: string, exit?: string): string => {
     const [exitH, exitM] = exit.split(':').map(Number);
 
     let entryTime = setHours(setMinutes(new Date(), entryM), entryH);
-    let exitTime = setHours(setMinutes(new Date(), exitM), exitM);
+    let exitTime = setHours(setMinutes(new Date(), exitM), exitH);
 
     // Se a hora de saída for anterior à de entrada, assume que passou da meia-noite
     if (exitTime.getTime() < entryTime.getTime()) {
@@ -113,7 +113,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   currentY += 8;
 
   // Colunas para a lista personalizada
-  const tableColumn = ["Qtd", "Nome Personalizado", "Cód. Peça", "Descrição"];
+  const tableColumn = ["Qtd", "Nome", "Cód. Peça", "Descrição"];
   const tableRows: (string | number | null)[][] = [];
 
   listItems.forEach(item => {

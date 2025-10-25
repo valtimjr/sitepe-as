@@ -145,7 +145,7 @@ const CustomListPage: React.FC = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[60px]">Qtd</TableHead>
-                    <TableHead>Nome Personalizado</TableHead>
+                    <TableHead>Nome</TableHead>
                     <TableHead>Cód. Peça</TableHead>
                     <TableHead>Descrição</TableHead>
                   </TableRow>
