@@ -10,6 +10,7 @@ import InviteManager from '@/components/InviteManager';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
+import { cn } from '@/lib/utils'; // Importar cn para estilização
 
 const DatabaseManagerPage: React.FC = () => {
   const { isLoading, checkPageAccess } = useSession();
@@ -37,16 +38,19 @@ const DatabaseManagerPage: React.FC = () => {
       </h1>
 
       <Tabs defaultValue="parts" className="w-full max-w-6xl">
+        {/* Ajustado para grid-cols-4 para acomodar o link do menu */}
         <TabsList className="grid w-full grid-cols-3 lg:grid-cols-4">
           <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>
           <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>
           <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>
           {canAccessMenuManager && (
-            <Link to="/menu-manager" className="w-full">
-              <Button variant="ghost" className="w-full h-full py-2 px-4">
-                <Menu className="h-4 w-4 mr-2" /> Menus & Listas
-              </Button>
-            </Link>
+            <TabsTrigger value="menu-link" asChild>
+              <Link to="/menu-manager" className="w-full h-full">
+                <div className="flex items-center gap-2">
+                  <Menu className="h-4 w-4" /> Menus & Listas
+                </div>
+              </Link>
+            </TabsTrigger>
           )}
         </TabsList>
         <TabsContent value="parts">
@@ -57,6 +61,12 @@ const DatabaseManagerPage: React.FC = () => {
         </TabsContent>
         <TabsContent value="invites">
           <InviteManager />
+        </TabsContent>
+        {/* Adicionando um TabsContent vazio para o link, para evitar avisos do Radix UI */}
+        <TabsContent value="menu-link">
+          <div className="p-4 text-center text-muted-foreground">
+            Redirecionando para o Gerenciador de Menus...
+          </div>
         </TabsContent>
       </Tabs>
       <MadeWithDyad />
