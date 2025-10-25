@@ -72,7 +72,7 @@ const AppHeader: React.FC = () => {
               {item.title}
               <ChevronRight className="ml-auto h-4 w-4" />
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
+            <DropdownMenuSubContent sideOffset={2} alignOffset={-5}>
               {renderDynamicMenu(item.children)}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
