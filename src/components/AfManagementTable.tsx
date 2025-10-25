@@ -270,7 +270,7 @@ const AfManagementTable: React.FC = () => {
   };
 
   const isAllSelected = filteredAfs.length > 0 && selectedAfIds.size === filteredAfs.length;
-  const isIndeterminate = selectedAfs.size > 0 && selectedAfIds.size < filteredAfs.length;
+  const isIndeterminate = selectedAfIds.size > 0 && selectedAfIds.size < filteredAfs.length;
 
   return (
     <Card className="w-full">
