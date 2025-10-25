@@ -10,6 +10,8 @@ import { getCustomListItems, getCustomListById } from '@/services/customListServ
 import { CustomListItem } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from '@/lib/utils';
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -108,9 +110,9 @@ const CustomListPage: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <div className="w-full max-w-4xl flex justify-between items-center mb-4 mt-8">
-        <Link to="/">
+        <Link to="/custom-menu-view">
           <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar
+            <ArrowLeft className="h-4 w-4" /> Voltar ao Catálogo
           </Button>
         </Link>
       </div>
@@ -122,35 +124,53 @@ const CustomListPage: React.FC = () => {
 
       <Card className="w-full max-w-4xl mx-auto mb-8">
         <CardHeader className="pb-2">
-          <div className="flex flex-wrap justify-end gap-2">
-            {/* Copiar Lista (Ícone em mobile, texto em desktop) */}
-            <Button 
-              onClick={handleCopyList} 
-              disabled={items.length === 0} 
-              variant="secondary" 
-              size="icon"
-              className="sm:w-auto sm:px-4"
-            >
-              <Copy className="h-4 w-4" /> 
-              <span className="hidden sm:inline ml-2">Copiar Lista</span>
-            </Button>
+          <CardTitle className="text-xl font-bold text-center pt-2">
+            Itens da Lista
+          </CardTitle>
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
+            {/* Copiar Lista */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={handleCopyList} 
+                  disabled={items.length === 0} 
+                  variant="secondary" 
+                  size="icon"
+                  className="sm:w-auto sm:px-4"
+                >
+                  <Copy className="h-4 w-4" /> 
+                  <span className="hidden sm:inline ml-2">Copiar Lista</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copiar Lista</TooltipContent>
+            </Tooltip>
             
-            {/* Exportar CSV (Ícone em mobile, texto em desktop) */}
-            <Button 
-              onClick={handleExportCsv} 
-              disabled={items.length === 0} 
-              variant="outline" 
-              size="icon"
-              className="sm:w-auto sm:px-4"
-            >
-              <Download className="h-4 w-4" /> 
-              <span className="hidden sm:inline ml-2">Exportar CSV</span>
-            </Button>
+            {/* Exportar CSV */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={handleExportCsv} 
+                  disabled={items.length === 0} 
+                  variant="outline" 
+                  size="icon"
+                  className="sm:w-auto sm:px-4"
+                >
+                  <Download className="h-4 w-4" /> 
+                  <span className="hidden sm:inline ml-2">Exportar CSV</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Exportar CSV</TooltipContent>
+            </Tooltip>
             
-            {/* Exportar PDF (Sempre com texto) */}
-            <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" /> Exportar PDF
-            </Button>
+            {/* Exportar PDF */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" /> Exportar PDF
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Exportar PDF</TooltipContent>
+            </Tooltip>
           </div>
         </CardHeader>
         <CardContent>
@@ -163,19 +183,25 @@ const CustomListPage: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[60px]">Qtd</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Cód. Peça</TableHead>
-                    <TableHead>Descrição</TableHead>
+                    <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                    <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {items.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.quantity}</TableCell>
-                      <TableCell>{item.item_name}</TableCell>
-                      <TableCell>{item.part_code || 'N/A'}</TableCell>
-                      <TableCell>{item.description || 'N/A'}</TableCell>
+                      <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
+                      <TableCell className="w-auto whitespace-normal break-words p-2">
+                        <div className="flex flex-col">
+                          {item.part_code && (
+                            <span className="font-medium text-sm text-primary">{item.part_code}</span>
+                          )}
+                          <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
+                          {item.description && (
+                            <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
