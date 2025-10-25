@@ -154,7 +154,7 @@ const seedAfs = async (): Promise<void> => {
     try {
       const { error: upsertError } = await supabase
         .from('afs')
-        .upsert(parsedAfs, { onConflict: 'id' }); // Usando upsert para evitar duplicatas
+        .upsert(parsedAfs, { onConflict: 'af_number' }); // ALTERADO: Usando af_number como chave de conflito
 
       if (upsertError) {
         console.error('seedAfs: Failed to upsert AFs to Supabase:', upsertError);
@@ -625,9 +625,10 @@ export const importParts = async (parts: Part[]): Promise<void> => {
 };
 
 export const importAfs = async (afs: Af[]): Promise<void> => {
+  // CHAVE DE CONFLITO ALTERADA PARA 'af_number'
   const { error: supabaseError } = await supabase
     .from('afs')
-    .upsert(afs, { onConflict: 'id' });
+    .upsert(afs, { onConflict: 'af_number' });
 
   if (supabaseError) {
     console.error('Error importing AFs to Supabase:', supabaseError);

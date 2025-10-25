@@ -497,18 +497,20 @@ const AfManagementTable: React.FC = () => {
             <AlertDialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" /> Confirmar Importação de AFs
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              <p className="mb-4">
-                Você está prestes a importar {parsedAfsToImport.length} AFs. Isso irá atualizar os AFs existentes com o mesmo ID ou criar novos.
-              </p>
-              <h4 className="font-semibold text-foreground mb-2">Log de Processamento:</h4>
-              <ScrollArea className="h-40 w-full rounded-md border p-4 text-sm font-mono bg-muted/50">
-                {importLog.map((line, index) => (
-                  <p key={index} className="text-[0.8rem] text-muted-foreground whitespace-pre-wrap">
-                    {line}
-                  </p>
-                ))}
-              </ScrollArea>
+            <AlertDialogDescription asChild>
+              <div> {/* Usando div para corrigir o aninhamento de DOM */}
+                <p className="mb-4">
+                  Você está prestes a importar {parsedAfsToImport.length} AFs. Isso irá atualizar os AFs existentes com o mesmo AF ou criar novos.
+                </p>
+                <h4 className="font-semibold text-foreground mb-2">Log de Processamento:</h4>
+                <ScrollArea className="h-40 w-full rounded-md border p-4 text-sm font-mono bg-muted/50">
+                  {importLog.map((line, index) => (
+                    <p key={index} className="text-[0.8rem] text-muted-foreground whitespace-pre-wrap">
+                      {line}
+                    </p>
+                  ))}
+                </ScrollArea>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
