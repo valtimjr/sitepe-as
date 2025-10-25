@@ -181,7 +181,8 @@ const AfManagementTable: React.FC = () => {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (e) => {
+    
+    reader.onload = (e) => {
       const csvText = e.target?.result as string;
       
       Papa.parse(csvText, {
@@ -220,6 +221,9 @@ const AfManagementTable: React.FC = () => {
     reader.readAsText(file);
 
     // Limpa o input para permitir a importação do mesmo arquivo novamente
+    // Movemos o reset para o final do fluxo de importação para evitar problemas de foco/estado.
+    // No entanto, para garantir que o mesmo arquivo possa ser selecionado novamente,
+    // o reset deve ser feito aqui, antes que o estado seja atualizado.
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
