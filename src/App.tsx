@@ -18,6 +18,7 @@ import TimeTrackingPage from "./pages/TimeTrackingPage";
 import AnnualScheduleView from "./pages/AnnualScheduleView";
 import MenuManagerPage from "./pages/MenuManagerPage";
 import CustomListPage from "./pages/CustomListPage"; // Importar nova página
+import MyCustomListsPage from "./pages/MyCustomListsPage"; // Importar nova página
 import { SessionContextProvider } from "./components/SessionContextProvider";
 import AppHeader from "./components/AppHeader";
 import CookieConsentBanner from "./components/CookieConsentBanner";
@@ -50,7 +51,8 @@ const App = () => (
             <Route path="/time-tracking" element={<TimeTrackingPage />} />
             <Route path="/schedule-view" element={<AnnualScheduleView />} />
             <Route path="/menu-manager" element={<MenuManagerPage />} />
-            <Route path="/custom-list/:listId" element={<CustomListPage />} /> {/* Nova Rota */}
+            <Route path="/custom-list/:listId" element={<CustomListPage />} />
+            <Route path="/my-custom-lists" element={<MyCustomListsPage />} /> {/* Nova Rota */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

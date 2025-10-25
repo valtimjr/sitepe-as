@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database, Home, Clock, Search, List, ClipboardList, CalendarDays } from 'lucide-react';
+import { Database, Home, Clock, Search, List, ClipboardList, CalendarDays, FileText } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
 
 const Index = () => {
@@ -15,6 +15,8 @@ const Index = () => {
 
   const canAccessAdmin = checkPageAccess('/admin');
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
+  // Acesso a listas personalizadas é para todos os usuários logados
+  const canAccessCustomLists = !!session; 
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -72,7 +74,24 @@ const Index = () => {
           </CardContent>
         </Card>
         
-        {/* NOVO CARD: Escala Anual */}
+        {canAccessCustomLists && (
+          <Card className="text-center">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <FileText className="h-6 w-6" /> Listas Personalizadas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-6 text-muted-foreground">
+                Acesse e visualize listas de peças criadas por você ou compartilhadas.
+              </p>
+              <Link to="/my-custom-lists">
+                <Button className="w-full">Ver Minhas Listas</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="text-center">
           <CardHeader>
             <CardTitle className="text-2xl flex items-center justify-center gap-2">

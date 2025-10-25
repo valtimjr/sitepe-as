@@ -20,7 +20,7 @@ const SessionContext = createContext<SessionContextType | undefined>(undefined);
 // Rotas que devem ser sempre acessíveis a convidados, independentemente das regras do DB
 const PUBLIC_ROUTES = ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/search-parts', '/parts-list', '/service-orders', '/schedule-view', '/custom-list'];
 // Rotas que exigem autenticação, mas são acessíveis a todos os usuários logados (user, moderator, admin)
-const AUTH_REQUIRED_ROUTES = ['/time-tracking', '/settings'];
+const AUTH_REQUIRED_ROUTES = ['/time-tracking', '/settings', '/my-custom-lists'];
 
 export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
