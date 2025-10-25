@@ -14,7 +14,7 @@ import { useSession } from '@/components/SessionContextProvider';
 import { cn } from '@/lib/utils';
 
 const DatabaseManagerPage: React.FC = () => {
-  const { isLoading, checkPageAccess } = useSession();
+  const { isLoading, checkPageAccess, profile } = useSession();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,11 +30,13 @@ const DatabaseManagerPage: React.FC = () => {
   }
   
   const canAccessMenuManager = checkPageAccess('/menu-manager');
+  const isAdmin = profile?.role === 'admin';
   
   // Define as classes de coluna: 
   // Se 4 itens: 2 colunas em mobile, 4 em telas médias e maiores.
   // Se 3 itens: 3 colunas em todas as telas.
-  const gridColsClass = canAccessMenuManager ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-3';
+  const totalTabs = 3 + (canAccessMenuManager ? 1 : 0);
+  const gridColsClass = totalTabs === 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-3';
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -45,9 +47,9 @@ const DatabaseManagerPage: React.FC = () => {
 
       <Tabs defaultValue="parts" className="w-full max-w-6xl">
         <TabsList className={cn("grid w-full h-auto mb-4", gridColsClass)}>
-          <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>
-          <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>
-          <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>
+          <TabsTrigger value="parts" disabled={!isAdmin}>Gerenciar Peças</TabsTrigger>
+          <TabsTrigger value="afs" disabled={!isAdmin}>Gerenciar AFs</TabsTrigger>
+          <TabsTrigger value="invites" disabled={!isAdmin}>Gerenciar Convites</TabsTrigger>
           {canAccessMenuManager && (
             <TabsTrigger value="menu">
               <div className="flex items-center justify-center gap-2">
@@ -57,13 +59,13 @@ const DatabaseManagerPage: React.FC = () => {
           )}
         </TabsList>
         <TabsContent value="parts">
-          <PartManagementTable />
+          {isAdmin ? <PartManagementTable /> : <p className="text-center text-destructive py-8">Acesso restrito a administradores.</p>}
         </TabsContent>
         <TabsContent value="afs">
-          <AfManagementTable />
+          {isAdmin ? <AfManagementTable /> : <p className="text-center text-destructive py-8">Acesso restrito a administradores.</p>}
         </TabsContent>
         <TabsContent value="invites">
-          <InviteManager />
+          {isAdmin ? <InviteManager /> : <p className="text-center text-destructive py-8">Acesso restrito a administradores.</p>}
         </TabsContent>
         {canAccessMenuManager && (
           <TabsContent value="menu">
