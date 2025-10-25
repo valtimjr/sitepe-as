@@ -10,13 +10,12 @@ import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError } from '@/utils/toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { Separator } from '@/components/ui/separator';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 const AppHeader: React.FC = () => {
   const { session, user, profile, isLoading, checkPageAccess } = useSession();
@@ -54,51 +53,7 @@ const AppHeader: React.FC = () => {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-2">
-          {/* Menu Lateral */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="mr-2" aria-label="Abrir Menu">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-[250px] sm:w-[300px]">
-              <SheetHeader className="mb-6">
-                <SheetTitle className="text-2xl font-bold text-primary">Navegação</SheetTitle>
-              </SheetHeader>
-              <nav className="flex flex-col gap-4">
-                <Link to="/" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
-                  <Search className="h-5 w-5" /> Início
-                </Link>
-                <Link to="/search-parts" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
-                  <Search className="h-5 w-5" /> Pesquisar Peças
-                </Link>
-                <Link to="/parts-list" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
-                  <List className="h-5 w-5" /> Minha Lista de Peças
-                </Link>
-                <Link to="/service-orders" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
-                  <ClipboardList className="h-5 w-5" /> Ordens de Serviço
-                </Link>
-                <Link to="/schedule-view" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
-                  <CalendarDays className="h-5 w-5" /> Escala Anual
-                </Link>
-                {canAccessTimeTracking && (
-                  <Link to="/time-tracking" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
-                    <Clock className="h-5 w-5" /> Apontamento de Horas
-                  </Link>
-                )}
-                {canAccessAdmin && (
-                  <>
-                    <Separator className="my-2" />
-                    <Link to="/admin" className="flex items-center gap-3 text-lg font-medium hover:text-primary transition-colors">
-                      <Database className="h-5 w-5" /> Gerenciador de Banco de Dados
-                    </Link>
-                  </>
-                )}
-              </nav>
-            </SheetContent>
-          </Sheet>
-
-          {/* Banner no lugar do ícone Home */}
+          {/* Banner/Logo */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Link to="/" className="flex items-center gap-2 h-10">
@@ -108,6 +63,64 @@ const AppHeader: React.FC = () => {
             </TooltipTrigger>
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
+
+          {/* Dropdown Menu */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Abrir Menu de Navegação">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Menu de Navegação</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="start" className="w-64">
+              <Link to="/">
+                <DropdownMenuItem>
+                  <Search className="h-4 w-4 mr-2" /> Início
+                </DropdownMenuItem>
+              </Link>
+              <Link to="/search-parts">
+                <DropdownMenuItem>
+                  <Search className="h-4 w-4 mr-2" /> Pesquisar Peças
+                </DropdownMenuItem>
+              </Link>
+              <Link to="/parts-list">
+                <DropdownMenuItem>
+                  <List className="h-4 w-4 mr-2" /> Minha Lista de Peças
+                </DropdownMenuItem>
+              </Link>
+              <Link to="/service-orders">
+                <DropdownMenuItem>
+                  <ClipboardList className="h-4 w-4 mr-2" /> Ordens de Serviço
+                </DropdownMenuItem>
+              </Link>
+              <Link to="/schedule-view">
+                <DropdownMenuItem>
+                  <CalendarDays className="h-4 w-4 mr-2" /> Escala Anual
+                </DropdownMenuItem>
+              </Link>
+              {canAccessTimeTracking && (
+                <Link to="/time-tracking">
+                  <DropdownMenuItem>
+                    <Clock className="h-4 w-4 mr-2" /> Apontamento de Horas
+                  </DropdownMenuItem>
+                </Link>
+              )}
+              {canAccessAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <Link to="/admin">
+                    <DropdownMenuItem>
+                      <Database className="h-4 w-4 mr-2" /> Gerenciador de Banco de Dados
+                    </DropdownMenuItem>
+                  </Link>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="flex items-center gap-4">
