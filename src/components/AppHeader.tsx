@@ -28,7 +28,6 @@ const AppHeader: React.FC = () => {
   const [rootMenuItems, setRootMenuItems] = useState<MenuItem[]>([]);
 
   const loadDynamicMenu = useCallback(async () => {
-    // Removida a restrição de !session para permitir que visitantes vejam o menu
     try {
       const structure = await getMenuStructure();
       setRootMenuItems(structure);
@@ -163,11 +162,32 @@ const AppHeader: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      {/* Ajustado o container para usar flex e gap de forma mais segura no mobile */}
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         
-        {/* Contêiner Esquerdo: Logo + Menu Dropdown + Menus Desktop */}
+        {/* Contêiner Esquerdo: Logo + Menus Desktop */}
         <div className="flex items-center gap-2">
+          {/* Banner/Logo */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link to="/" className="flex items-center gap-2 h-10 shrink-0">
+                <img src="/Banner.png" alt="AutoBoard Banner" className="h-full w-auto" />
+                <span className="sr-only">Página Inicial</span>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>Página Inicial</TooltipContent>
+          </Tooltip>
+
+          {/* Itens de Menu Raiz Dinâmicos (Exibidos ao lado do Banner APENAS em desktop) */}
+          {hasRootMenuItems && (
+            <nav className="hidden md:flex items-center gap-1">
+              {rootMenuItems.map(renderRootItem)}
+            </nav>
+          )}
+        </div>
+
+        {/* Contêiner Direito: Menu Dropdown + Status do Usuário/Login */}
+        <div className="flex items-center gap-2 shrink-0">
+          
           {/* Dropdown Menu Principal (Sempre visível) */}
           <DropdownMenu>
             <Tooltip>
@@ -181,7 +201,7 @@ const AppHeader: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>Menu de Navegação</TooltipContent>
             </Tooltip>
-            <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuContent align="end" className="w-64"> {/* Alinhado à direita */}
               {/* Navegação Padrão */}
               <Link to="/">
                 <DropdownMenuItem>
@@ -218,8 +238,8 @@ const AppHeader: React.FC = () => {
                 </>
               )}
 
-              {/* ITENS DE PERFIL DENTRO DO DROPDOWN */}
-              {session ? (
+              {/* ITENS DE PERFIL DENTRO DO DROPDOWN (Apenas se logado) */}
+              {session && (
                 <>
                   <DropdownMenuSeparator />
                   <Link to="/settings">
@@ -231,49 +251,35 @@ const AppHeader: React.FC = () => {
                     <LogOut className="h-4 w-4 mr-2" /> Sair
                   </DropdownMenuItem>
                 </>
-              ) : (
-                <Link to="/login">
-                  <DropdownMenuItem>
-                    <LogIn className="h-4 w-4 mr-2" /> Entrar
-                  </DropdownMenuItem>
-                </Link>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-          
-          {/* Banner/Logo */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link to="/" className="flex items-center gap-2 h-10 shrink-0">
-                <img src="/Banner.png" alt="AutoBoard Banner" className="h-full w-auto" />
-                <span className="sr-only">Página Inicial</span>
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent>Página Inicial</TooltipContent>
-          </Tooltip>
 
-          {/* Itens de Menu Raiz Dinâmicos (Exibidos ao lado do botão Menu APENAS em desktop) */}
-          {hasRootMenuItems && (
-            <nav className="hidden md:flex items-center gap-1">
-              {rootMenuItems.map(renderRootItem)}
-            </nav>
-          )}
-        </div>
-
-        {/* Contêiner Direito: Status do Usuário (Sempre no canto direito) */}
-        <div className="flex items-center gap-2 shrink-0">
+          {/* Status do Usuário / Botão de Login */}
           {session ? (
             <div className="flex items-center gap-2">
               <span className="font-medium text-sm hidden sm:inline">
                 Olá, {profile?.first_name || 'Usuário'}
               </span>
-              <Avatar className="h-8 w-8 rounded-full">
-                <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar do Usuário" />
-                <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
-              </Avatar>
+              <Link to="/settings">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Avatar className="h-8 w-8 rounded-full cursor-pointer">
+                      <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar do Usuário" />
+                      <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
+                    </Avatar>
+                  </TooltipTrigger>
+                  <TooltipContent>Configurações</TooltipContent>
+                </Tooltip>
+              </Link>
             </div>
           ) : (
-            <span className="font-medium text-sm hidden sm:inline">Olá, Visitante</span>
+            <Link to="/login">
+              <Button variant="default" size="sm" className="flex items-center gap-1">
+                <LogIn className="h-4 w-4" />
+                <span className="hidden sm:inline">Entrar</span>
+              </Button>
+            </Link>
           )}
         </div>
       </div>
