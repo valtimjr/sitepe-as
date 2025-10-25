@@ -217,27 +217,28 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               <TableHeader>
                 <TableRow>
                   {/* Coluna principal combinada */}
-                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça (Cód. / Descrição)</TableHead>
+                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça (Cód. / Descrição / AF)</TableHead>
                   {/* Colunas compactas */}
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                  <TableHead className="w-[4rem] p-2">AF</TableHead>
                   <TableHead className="w-[40px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {displayedItems.map((item) => (
                   <TableRow key={item.id}>
-                    {/* Célula principal com Código e Descrição */}
+                    {/* Célula principal com Código, Descrição e AF */}
                     <TableCell className="w-auto whitespace-normal break-words p-2">
                       <div className="flex flex-col">
                         <span className="font-medium text-sm">{item.codigo_peca || 'N/A'}</span>
                         <span className="text-xs text-muted-foreground">{item.descricao || 'N/A'}</span>
+                        {item.af && (
+                          <span className="text-xs text-blue-600 dark:text-blue-400 mt-1">AF: {item.af}</span>
+                        )}
                       </div>
                     </TableCell>
                     
-                    {/* Colunas compactas */}
+                    {/* Coluna Quantidade */}
                     <TableCell className="w-[4rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell>
-                    <TableCell className="w-[4rem] p-2 text-center text-xs">{item.af || 'N/A'}</TableCell>
                     
                     {/* Coluna Ações */}
                     <TableCell className="w-[40px] p-2 text-right">
