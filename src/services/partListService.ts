@@ -130,8 +130,9 @@ const seedAfs = async (): Promise<void> => {
             complete: (results: any) => {
               parsedAfs = results.data.map((row: any) => ({
                 id: row.id || uuidv4(),
-                af_number: row.af_number,
-              }));
+                af_number: row.af_number || row.codigo || row.AF, // Suporte a 'codigo' ou 'AF'
+                descricao: row.descricao || row.description || '', // Suporte a 'descricao' ou 'description'
+              })).filter(af => af.af_number);
               source = 'CSV';
               resolve();
             },
@@ -411,7 +412,7 @@ export const updateAf = async (updatedAf: Af): Promise<void> => {
   // Atualiza no Supabase
   const { error: supabaseError } = await supabase
     .from('afs')
-    .update({ af_number: updatedAf.af_number })
+    .update({ af_number: updatedAf.af_number, descricao: updatedAf.descricao }) // Inclui descricao
     .eq('id', updatedAf.id);
 
   if (supabaseError) {

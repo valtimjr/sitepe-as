@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
+import { Textarea } from '@/components/ui/textarea';
 
 const AfManagementTable: React.FC = () => {
   const [afs, setAfs] = useState<Af[]>([]);
@@ -42,6 +43,7 @@ const AfManagementTable: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
+  const [formDescricao, setFormDescricao] = useState(''); // Novo estado
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set());
 
@@ -66,18 +68,21 @@ const AfManagementTable: React.FC = () => {
 
   const filteredAfs = afs.filter(af => {
     const lowerCaseQuery = searchQuery.toLowerCase();
-    return af.af_number.toLowerCase().includes(lowerCaseQuery);
+    return af.af_number.toLowerCase().includes(lowerCaseQuery) || 
+           (af.descricao && af.descricao.toLowerCase().includes(lowerCaseQuery));
   });
 
   const handleAddAf = () => {
     setCurrentAf(null);
     setFormAfNumber('');
+    setFormDescricao(''); // Limpa o novo campo
     setIsDialogOpen(true);
   };
 
   const handleEditAf = (af: Af) => {
     setCurrentAf(af);
     setFormAfNumber(af.af_number);
+    setFormDescricao(af.descricao || ''); // Define o novo campo
     setIsDialogOpen(true);
   };
 
@@ -101,16 +106,19 @@ const AfManagementTable: React.FC = () => {
     }
 
     try {
+      const payload: Omit<Af, 'id'> = {
+        af_number: formAfNumber.trim(),
+        descricao: formDescricao.trim() || undefined,
+      };
+
       if (currentAf) {
         await updateAf({
           ...currentAf,
-          af_number: formAfNumber.trim(),
+          ...payload,
         });
         showSuccess('AF atualizado com sucesso!');
       } else {
-        await addAf({
-          af_number: formAfNumber.trim(),
-        });
+        await addAf(payload);
         showSuccess('AF adicionado com sucesso!');
       }
       setIsDialogOpen(false);
@@ -170,9 +178,13 @@ const AfManagementTable: React.FC = () => {
         skipEmptyLines: true,
         complete: async (results) => {
           const parsedData = results.data as any[];
+          
           const newAfs: Af[] = parsedData.map(row => ({
             id: row.id || uuidv4(),
-            af_number: row.af_number,
+            // Suporta 'af_number', 'codigo', ou 'AF' para o número do AF
+            af_number: row.af_number || row.codigo || row.AF,
+            // Suporta 'descricao' ou 'description' para a descrição
+            descricao: row.descricao || row.description || '',
           })).filter(af => af.af_number);
 
           if (newAfs.length === 0) {
@@ -258,7 +270,7 @@ const AfManagementTable: React.FC = () => {
   };
 
   const isAllSelected = filteredAfs.length > 0 && selectedAfIds.size === filteredAfs.length;
-  const isIndeterminate = selectedAfIds.size > 0 && selectedAfIds.size < filteredAfs.length;
+  const isIndeterminate = selectedAfs.size > 0 && selectedAfIds.size < filteredAfs.length;
 
   return (
     <Card className="w-full">
@@ -328,7 +340,7 @@ const AfManagementTable: React.FC = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Buscar AF por número..."
+            placeholder="Buscar AF por número ou descrição..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -354,8 +366,9 @@ const AfManagementTable: React.FC = () => {
                       aria-label="Selecionar todos os AFs"
                     />
                   </TableHead>
-                  <TableHead>Número do AF</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="w-[120px]">Número do AF</TableHead>
+                  <TableHead>Descrição</TableHead> {/* Nova Coluna */}
+                  <TableHead className="text-right w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -369,6 +382,7 @@ const AfManagementTable: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell className="font-medium">{af.af_number}</TableCell>
+                    <TableCell>{af.descricao || 'N/A'}</TableCell> {/* Exibe a descrição */}
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => handleEditAf(af)} className="mr-2">
                         <Edit className="h-4 w-4" />
@@ -401,6 +415,18 @@ const AfManagementTable: React.FC = () => {
                 onChange={(e) => setFormAfNumber(e.target.value)}
                 className="col-span-3"
                 required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="descricao" className="text-right">
+                Descrição (Opcional)
+              </Label>
+              <Textarea
+                id="descricao"
+                value={formDescricao}
+                onChange={(e) => setFormDescricao(e.target.value)}
+                placeholder="Ex: Frota de Caminhões Pesados"
+                className="col-span-3"
               />
             </div>
             <DialogFooter>

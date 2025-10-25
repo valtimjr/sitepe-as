@@ -33,6 +33,7 @@ export interface ServiceOrderItem {
 export interface Af {
   id: string;
   af_number: string;
+  descricao?: string; // NOVO CAMPO
 }
 
 export interface Apontamento {
@@ -115,6 +116,13 @@ class LocalDexieDb extends Dexie {
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number',
       apontamentos: 'id, user_id, date, synced_at', // Novo esquema para apontamentos
+    });
+    this.version(5).stores({
+      simplePartsList: '++id, codigo_peca, descricao, quantidade, af, created_at',
+      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
+      parts: '++id, codigo, descricao, tags',
+      afs: '++id, af_number, descricao', // Atualizado para incluir 'descricao'
+      apontamentos: 'id, user_id, date, synced_at',
     });
   }
 }
