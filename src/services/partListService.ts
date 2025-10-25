@@ -30,6 +30,7 @@ import {
   deleteLocalApontamentosByDateRange,
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
+import { Network } from '@capacitor/network'; // Importar Network
 
 export interface Part extends LocalPart {}
 export interface SimplePartItem extends LocalSimplePartItem {}
@@ -485,6 +486,17 @@ export const clearServiceOrderList = async (): Promise<void> => {
 
 // --- Funções para Apontamentos (Time Tracking) ---
 
+// Helper function to check network status
+const isOnline = async () => {
+    try {
+        const status = await Network.getStatus();
+        return status.connected;
+    } catch (e) {
+        // Fallback for browser environment without Capacitor plugin
+        return navigator.onLine;
+    }
+};
+
 // Sincroniza dados do Supabase para o IndexedDB
 export const syncApontamentosFromSupabase = async (userId: string): Promise<Apontamento[]> => {
   const { data, error } = await supabase
@@ -501,7 +513,7 @@ export const syncApontamentosFromSupabase = async (userId: string): Promise<Apon
   const apontamentos = data.map(item => ({
     ...item,
     created_at: new Date(item.created_at),
-    synced_at: new Date(),
+    synced_at: new Date(), // Marca como sincronizado
   })) as Apontamento[];
 
   // Atualiza o cache local
@@ -511,7 +523,7 @@ export const syncApontamentosFromSupabase = async (userId: string): Promise<Apon
   return apontamentos;
 };
 
-// Sincroniza dados do IndexedDB para o Supabase (bidirecional)
+// Sincroniza um único item para o Supabase
 export const syncApontamentoToSupabase = async (apontamento: Apontamento): Promise<Apontamento> => {
   const { id, user_id, date, entry_time, exit_time, created_at, status } = apontamento;
   
@@ -521,7 +533,7 @@ export const syncApontamentoToSupabase = async (apontamento: Apontamento): Promi
     date,
     entry_time: entry_time || null,
     exit_time: exit_time || null,
-    status: status || null, // Inclui o novo campo status
+    status: status || null,
     created_at: created_at?.toISOString() || new Date().toISOString(),
   };
 
@@ -548,10 +560,43 @@ export const syncApontamentoToSupabase = async (apontamento: Apontamento): Promi
   return syncedApontamento;
 };
 
+// Obtém itens não sincronizados localmente
+export const getUnsyncedApontamentos = async (userId: string): Promise<Apontamento[]> => {
+  // Filtra itens que pertencem ao usuário e não têm synced_at
+  return localDb.apontamentos.where('user_id').equals(userId).and(a => !a.synced_at).toArray();
+};
+
+// Tenta sincronizar todos os itens pendentes
+export const syncPendingApontamentos = async (userId: string): Promise<number> => {
+    const unsyncedItems = await getUnsyncedApontamentos(userId);
+    if (unsyncedItems.length === 0) return 0;
+
+    let syncedCount = 0;
+    
+    for (const item of unsyncedItems) {
+        try {
+            // Tenta sincronizar o item
+            await syncApontamentoToSupabase(item);
+            syncedCount++;
+        } catch (e) {
+            console.error(`Failed to sync item ${item.id}:`, e);
+            // Se falhar, para a sincronização, assumindo que a conexão caiu novamente
+            break; 
+        }
+    }
+    return syncedCount;
+};
+
+
 export const getApontamentos = async (userId: string): Promise<Apontamento[]> => {
   // Tenta sincronizar do Supabase primeiro para obter os dados mais recentes
   try {
-    return await syncApontamentosFromSupabase(userId);
+    // Se estiver online, faz o sync completo (fetch + cache update)
+    if (await isOnline()) {
+        return await syncApontamentosFromSupabase(userId);
+    }
+    // Se estiver offline, retorna apenas o cache local
+    return getLocalApontamentos(userId);
   } catch (e) {
     console.warn("Failed to sync from Supabase, falling back to local data:", e);
     return getLocalApontamentos(userId);
@@ -559,48 +604,85 @@ export const getApontamentos = async (userId: string): Promise<Apontamento[]> =>
 };
 
 export const updateApontamento = async (apontamento: Apontamento): Promise<Apontamento> => {
-  // Atualiza localmente e sincroniza com o Supabase
-  await putLocalApontamento(apontamento);
-  return syncApontamentoToSupabase(apontamento);
+  const online = await isOnline();
+  
+  // 1. Prepara o item para salvar localmente
+  const localApontamento: Apontamento = {
+    ...apontamento,
+    synced_at: online ? new Date() : undefined, // Marca como não sincronizado se offline
+  };
+
+  // 2. Salva localmente (IndexedDB)
+  await putLocalApontamento(localApontamento);
+
+  if (online) {
+    // 3. Se online, tenta sincronizar imediatamente
+    try {
+      return await syncApontamentoToSupabase(localApontamento);
+    } catch (e) {
+      console.warn("Immediate Supabase sync failed, marking as unsynced locally.");
+      // Se a sincronização imediata falhar, marca como não sincronizado e retorna o erro
+      const unsyncedLocal = { ...localApontamento, synced_at: undefined };
+      await putLocalApontamento(unsyncedLocal);
+      throw e; 
+    }
+  }
+  
+  // Se offline, retorna o item salvo localmente (que está marcado como não sincronizado)
+  return localApontamento;
 };
 
 export const deleteApontamento = async (id: string): Promise<void> => {
-  // Deleta no Supabase
-  const { error: supabaseError } = await supabase
-    .from('apontamentos')
-    .delete()
-    .eq('id', id);
-
-  if (supabaseError) {
-    console.error('Error deleting apontamento from Supabase:', supabaseError);
-    throw new Error(`Erro ao excluir apontamento do Supabase: ${supabaseError.message}`);
-  }
-
-  // Deleta no IndexedDB
+  const online = await isOnline();
+  
+  // 1. Deleta no IndexedDB imediatamente
   await localDb.apontamentos.delete(id);
+
+  if (online) {
+    // 2. Se online, tenta deletar no Supabase
+    const { error: supabaseError } = await supabase
+      .from('apontamentos')
+      .delete()
+      .eq('id', id);
+
+    if (supabaseError) {
+      console.error('Error deleting apontamento from Supabase:', supabaseError);
+      // Em um sistema de fila completo, a exclusão seria adicionada a uma fila de 'pending_deletions'.
+      // Por enquanto, apenas lança o erro.
+      throw new Error(`Erro ao excluir apontamento do Supabase: ${supabaseError.message}`);
+    }
+  }
+  // Se offline, a exclusão local é suficiente por enquanto. A próxima sincronização completa
+  // (syncApontamentosFromSupabase) irá sobrescrever o local com o remoto, mas como o item
+  // foi excluído localmente, ele não será enviado. Isso é um risco de conflito, mas aceitável
+  // para uma implementação simplificada.
 };
 
 export const deleteApontamentosByMonth = async (userId: string, startDate: Date, endDate: Date): Promise<number> => {
   const startString = startDate.toISOString().split('T')[0];
   const endString = endDate.toISOString().split('T')[0];
+  const online = await isOnline();
   
-  // 1. Deleta no Supabase
-  const { error: supabaseError, count } = await supabase
-    .from('apontamentos')
-    .delete({ count: 'exact' })
-    .eq('user_id', userId)
-    .gte('date', startString)
-    .lte('date', endString);
-
-  if (supabaseError) {
-    console.error('Error deleting apontamentos by month from Supabase:', supabaseError);
-    throw new Error(`Erro ao excluir apontamentos do Supabase: ${supabaseError.message}`);
-  }
-
-  // 2. Deleta no IndexedDB
+  // 1. Deleta no IndexedDB
   const deletedLocalCount = await deleteLocalApontamentosByDateRange(userId, startString, endString);
 
-  return count || deletedLocalCount;
+  if (online) {
+    // 2. Deleta no Supabase
+    const { error: supabaseError, count } = await supabase
+      .from('apontamentos')
+      .delete({ count: 'exact' })
+      .eq('user_id', userId)
+      .gte('date', startString)
+      .lte('date', endString);
+
+    if (supabaseError) {
+      console.error('Error deleting apontamentos by month from Supabase:', supabaseError);
+      throw new Error(`Erro ao excluir apontamentos do Supabase: ${supabaseError.message}`);
+    }
+    return count || deletedLocalCount;
+  }
+
+  return deletedLocalCount;
 };
 
 // --- Funções de Importação e Exportação (mantidas) ---
