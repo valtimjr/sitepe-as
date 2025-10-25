@@ -198,7 +198,7 @@ const AfManagementTable: React.FC = () => {
         complete: (results) => {
           const parsedData = results.data as any[];
           
-          const newAfs: Af[] = parsedData.map(row => ({
+          let newAfs: Af[] = parsedData.map(row => ({
             id: row.id || uuidv4(),
             af_number: row.af_number || row.codigo || row.AF,
             descricao: row.descricao || row.description || '',
@@ -209,8 +209,21 @@ const AfManagementTable: React.FC = () => {
             return;
           }
           
-          setParsedAfsToImport(newAfs);
-          setImportLog([`Arquivo lido: ${file.name}`, `Total de linhas válidas encontradas: ${newAfs.length}`]);
+          // --- Lógica de Deduplicação ---
+          const afMap = new Map<string, Af>();
+          newAfs.forEach(af => {
+            // A última ocorrência de um AF_NUMBER no CSV prevalece
+            afMap.set(af.af_number, af);
+          });
+          const deduplicatedAfs = Array.from(afMap.values());
+          // --- Fim da Lógica de Deduplicação ---
+
+          setParsedAfsToImport(deduplicatedAfs);
+          setImportLog([
+            `Arquivo lido: ${file.name}`, 
+            `Total de linhas válidas encontradas: ${newAfs.length}`,
+            `AFs únicos prontos para importação: ${deduplicatedAfs.length}`
+          ]);
           setIsImportConfirmOpen(true);
 
         },
