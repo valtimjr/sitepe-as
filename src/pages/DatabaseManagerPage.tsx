@@ -29,6 +29,7 @@ const DatabaseManagerPage: React.FC = () => {
   }
   
   const canAccessMenuManager = checkPageAccess('/menu-manager');
+  const gridColsClass = canAccessMenuManager ? 'grid-cols-4' : 'grid-cols-3';
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -38,8 +39,8 @@ const DatabaseManagerPage: React.FC = () => {
       </h1>
 
       <Tabs defaultValue="parts" className="w-full max-w-6xl">
-        {/* Ajustado para grid-cols-4 para acomodar o link do menu */}
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-4">
+        {/* Ajustado para usar a classe dinâmica gridColsClass */}
+        <TabsList className={cn("grid w-full", gridColsClass)}>
           <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>
           <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>
           <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>
