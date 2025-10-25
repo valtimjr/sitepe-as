@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -242,35 +242,49 @@ const AppHeader: React.FC = () => {
 
           {/* Status do Usuário / Botão de Login */}
           {session ? (
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <div className="flex items-center gap-2 cursor-pointer">
-                      <span className="font-medium text-sm hidden sm:inline">
-                        Olá, {profile?.first_name || 'Usuário'}
-                      </span>
-                      <Avatar className="h-8 w-8 rounded-full">
-                        <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar do Usuário" />
-                        <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
-                      </Avatar>
-                    </div>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent>Configurações e Sair</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem asChild>
-                  <Link to="/settings">
-                    <Settings className="h-4 w-4 mr-2" /> Configurações
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="h-4 w-4 mr-2" /> Sair
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm hidden sm:inline">
+                Olá, {profile?.first_name || 'Usuário'}
+              </span>
+              
+              {/* Avatar (agora apenas um link visual) */}
+              <Link to="/settings">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Avatar className="h-8 w-8 rounded-full cursor-pointer">
+                      <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar do Usuário" />
+                      <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
+                    </Avatar>
+                  </TooltipTrigger>
+                  <TooltipContent>Configurações</TooltipContent>
+                </Tooltip>
+              </Link>
+
+              {/* Menu de Ações do Perfil (Três Pontos) */}
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Opções do Perfil</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">
+                      <Settings className="h-4 w-4 mr-2" /> Configurações
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                    <LogOut className="h-4 w-4 mr-2" /> Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           ) : (
             <Link to="/login">
               <Button variant="default" size="sm" className="flex items-center gap-1">
