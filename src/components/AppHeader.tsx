@@ -237,42 +237,40 @@ const AppHeader: React.FC = () => {
                   ))}
                 </>
               )}
-
-              {/* ITENS DE PERFIL DENTRO DO DROPDOWN (Apenas se logado) */}
-              {session && (
-                <>
-                  <DropdownMenuSeparator />
-                  <Link to="/settings">
-                    <DropdownMenuItem>
-                      <Settings className="h-4 w-4 mr-2" /> Configurações
-                    </DropdownMenuItem>
-                  </Link>
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="h-4 w-4 mr-2" /> Sair
-                  </DropdownMenuItem>
-                </>
-              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
           {/* Status do Usuário / Botão de Login */}
           {session ? (
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-sm hidden sm:inline">
-                Olá, {profile?.first_name || 'Usuário'}
-              </span>
-              <Link to="/settings">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Avatar className="h-8 w-8 rounded-full cursor-pointer">
-                      <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar do Usuário" />
-                      <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
-                    </Avatar>
-                  </TooltipTrigger>
-                  <TooltipContent>Configurações</TooltipContent>
-                </Tooltip>
-              </Link>
-            </div>
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex items-center gap-2 cursor-pointer">
+                      <span className="font-medium text-sm hidden sm:inline">
+                        Olá, {profile?.first_name || 'Usuário'}
+                      </span>
+                      <Avatar className="h-8 w-8 rounded-full">
+                        <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar do Usuário" />
+                        <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
+                      </Avatar>
+                    </div>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Configurações e Sair</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link to="/settings">
+                    <Settings className="h-4 w-4 mr-2" /> Configurações
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="h-4 w-4 mr-2" /> Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <Link to="/login">
               <Button variant="default" size="sm" className="flex items-center gap-1">
