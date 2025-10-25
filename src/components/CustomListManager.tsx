@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { PlusCircle, Edit, Trash2, Save, XCircle, List as ListIcon, FileText } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { CustomList } from '@/types/supabase';
@@ -22,6 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import CustomListEditor from './CustomListEditor'; // Será criado na próxima etapa
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const CustomListManager: React.FC = () => {
   const { user } = useSession();
@@ -118,15 +119,17 @@ const CustomListManager: React.FC = () => {
 
   return (
     <Card className="w-full">
-      <CardHeader className="flex flex-col space-y-2 pb-2">
+      <CardHeader>
         <CardTitle className="text-2xl font-bold">Minhas Listas Personalizadas</CardTitle>
-        <div className="flex flex-wrap gap-2 justify-end">
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <Button onClick={handleAddList} className="flex items-center gap-2">
             <PlusCircle className="h-4 w-4" /> Criar Nova Lista
           </Button>
         </div>
-      </CardHeader>
-      <CardContent>
+
+        <h3 className="text-xl font-semibold pt-4">Listas Existentes</h3>
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando listas...</p>
         ) : lists.length === 0 ? (
@@ -145,12 +148,22 @@ const CustomListManager: React.FC = () => {
                   <TableRow key={list.id}>
                     <TableCell className="font-medium">{list.title}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenEditor(list)} className="mr-2">
-                        <FileText className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleEditListTitle(list)} className="mr-2">
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenEditor(list)} className="mr-2">
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Editar Itens</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" onClick={() => handleEditListTitle(list)} className="mr-2">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Editar Título</TooltipContent>
+                      </Tooltip>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="text-destructive">
@@ -183,6 +196,9 @@ const CustomListManager: React.FC = () => {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{currentList ? 'Editar Título da Lista' : 'Criar Nova Lista'}</DialogTitle>
+            <DialogDescription>
+              {currentList ? 'Altere o nome da sua lista personalizada.' : 'Insira um nome para a nova lista de peças.'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="space-y-2">
