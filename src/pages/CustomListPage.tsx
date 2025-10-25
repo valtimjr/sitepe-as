@@ -6,28 +6,33 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowLeft, List as ListIcon, Copy, Download } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError } from '@/utils/toast';
-import { getCustomListItems } from '@/services/customListService';
+import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomListItem } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
   const [items, setItems] = useState<CustomListItem[]>([]);
-  const [listTitle, setListTitle] = useState('Lista Personalizada');
+  const [listTitle, setListTitle] = useState('Carregando Lista...');
   const [isLoading, setIsLoading] = useState(true);
 
   const loadList = useCallback(async () => {
     if (!listId) return;
     setIsLoading(true);
     try {
-      const fetchedItems = await getCustomListItems(listId);
-      if (fetchedItems.length > 0) {
-        // O título da lista deve ser buscado separadamente, mas como não temos a função getCustomListById,
-        // vamos tentar inferir ou usar um placeholder.
-        // Para simplificar, vamos assumir que o título é o mesmo para todos os itens (o que não é verdade).
-        // Vamos usar um título padrão e focar na exibição dos itens.
-        setListTitle(`Lista Personalizada (${listId.substring(0, 4)}...)`);
+      // 1. Buscar o título da lista
+      const listData = await getCustomListById(listId);
+      if (listData) {
+        setListTitle(listData.title);
+      } else {
+        setListTitle('Lista Não Encontrada');
+        showError('Lista não encontrada ou você não tem permissão para acessá-la.');
+        setIsLoading(false);
+        return;
       }
+
+      // 2. Buscar os itens da lista
+      const fetchedItems = await getCustomListItems(listId);
       setItems(fetchedItems);
     } catch (error) {
       showError('Erro ao carregar a lista personalizada.');

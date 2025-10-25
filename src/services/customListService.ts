@@ -19,6 +19,21 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
   return data as CustomList[];
 };
 
+export const getCustomListById = async (listId: string): Promise<CustomList | null> => {
+  const { data, error } = await supabase
+    .from('custom_lists')
+    .select('*')
+    .eq('id', listId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching custom list by ID:', error);
+    throw new Error(`Erro ao buscar lista personalizada por ID: ${error.message}`);
+  }
+
+  return data as CustomList | null;
+};
+
 export const getCustomListItems = async (listId: string): Promise<CustomListItem[]> => {
   const { data, error } = await supabase
     .from('custom_list_items')
