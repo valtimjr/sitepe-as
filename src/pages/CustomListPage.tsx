@@ -3,13 +3,20 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, MoreHorizontal } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomListItem } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -123,15 +130,25 @@ const CustomListPage: React.FC = () => {
       <Card className="w-full max-w-4xl mx-auto mb-8">
         <CardHeader className="pb-2">
           <div className="flex flex-wrap justify-end gap-2">
-            <Button onClick={handleCopyList} disabled={items.length === 0} variant="secondary" className="flex items-center gap-2">
-              <Copy className="h-4 w-4" /> Copiar Lista
-            </Button>
-            <Button onClick={handleExportCsv} disabled={items.length === 0} variant="outline" className="flex items-center gap-2">
-              <Download className="h-4 w-4" /> Exportar CSV
-            </Button>
-            <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" /> Exportar PDF
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={items.length === 0} className="flex items-center gap-2">
+                  <MoreHorizontal className="h-4 w-4" /> Ações
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleCopyList} disabled={items.length === 0}>
+                  <Copy className="h-4 w-4 mr-2" /> Copiar Lista
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleExportCsv} disabled={items.length === 0}>
+                  <Download className="h-4 w-4 mr-2" /> Exportar CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPdf} disabled={items.length === 0}>
+                  <FileText className="h-4 w-4 mr-2" /> Exportar PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardHeader>
         <CardContent>
