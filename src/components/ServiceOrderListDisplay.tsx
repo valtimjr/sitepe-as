@@ -337,8 +337,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         <CardTitle className="text-2xl font-bold">Lista de Ordens de Serviço</CardTitle>
       </CardHeader>
       <div className="flex flex-wrap justify-end gap-2 p-4 pt-0">
-          <Button onClick={handleCopyList} disabled={listItems.length === 0 || isLoading} className="flex items-center gap-2">
-            <Copy className="h-4 w-4" /> Copiar Lista
+          <Button 
+            onClick={handleCopyList} 
+            disabled={listItems.length === 0 || isLoading} 
+            size="icon"
+            className="sm:w-auto sm:px-4" // Adicionado classes para mobile/desktop
+          >
+            <Copy className="h-4 w-4" /> 
+            <span className="hidden sm:inline ml-2">Copiar Lista</span> {/* Oculta texto em mobile */}
           </Button>
           <Button 
             onClick={handleShareOnWhatsApp} 
@@ -354,8 +360,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={listItems.length === 0 || isLoading} className="flex items-center gap-2">
-                <Trash2 className="h-4 w-4" /> Limpar Lista
+              <Button 
+                variant="destructive" 
+                disabled={listItems.length === 0 || isLoading} 
+                size="icon"
+                className="sm:w-auto sm:px-4" // Adicionado classes para mobile/desktop
+              >
+                <Trash2 className="h-4 w-4" /> 
+                <span className="hidden sm:inline ml-2">Limpar Lista</span> {/* Oculta texto em mobile */}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
