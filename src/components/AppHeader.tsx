@@ -167,6 +167,9 @@ const AppHeader: React.FC = () => {
   // Verifica se há itens dinâmicos para exibir no cabeçalho
   const hasRootMenuItems = rootMenuItems.length > 0;
 
+  // Define a classe de visibilidade do botão do dropdown principal
+  const dropdownButtonClass = hasRootMenuItems ? 'lg:hidden' : '';
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
@@ -187,13 +190,12 @@ const AppHeader: React.FC = () => {
             {rootMenuItems.map(renderRootItem)}
           </nav>
 
-          {/* Dropdown Menu Principal (Visível em todas as telas) */}
+          {/* Dropdown Menu Principal (Visível em todas as telas, mas oculto em LG se houver itens dinâmicos) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  {/* Oculta o botão de menu principal em telas grandes se houver itens dinâmicos */}
-                  <Button variant="ghost" className="flex items-center gap-1 lg:hidden" aria-label="Abrir Menu de Navegação">
+                  <Button variant="ghost" className={`flex items-center gap-1 ${dropdownButtonClass}`} aria-label="Abrir Menu de Navegação">
                     <Menu className="h-5 w-5" />
                     <span className="hidden sm:inline">Menu</span>
                   </Button>
