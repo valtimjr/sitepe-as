@@ -129,6 +129,23 @@ class LocalDexieDb extends Dexie {
 
 export const localDb = new LocalDexieDb();
 
+// Tenta abrir o banco de dados e solicitar persistência
+localDb.open().catch(err => {
+  console.error("Failed to open local database:", err);
+});
+
+// Tenta solicitar armazenamento persistente (melhora a confiabilidade em WebViews)
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().then(persistent => {
+    if (persistent) {
+      console.log("Local storage persistence granted.");
+    } else {
+      console.warn("Local storage persistence denied.");
+    }
+  });
+}
+
+
 // --- Parts Management (IndexedDB) ---
 
 export const addLocalPart = async (part: Omit<Part, 'id'>): Promise<string> => {
