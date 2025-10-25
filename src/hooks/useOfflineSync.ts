@@ -5,11 +5,13 @@ import { BackgroundTask } from '@capawesome/capacitor-background-task';
 import { useSession } from '@/components/SessionContextProvider';
 import { syncPendingApontamentos } from '@/services/partListService';
 import { showSuccess, showError } from '@/utils/toast';
+import { Capacitor } from '@capacitor/core'; // Importar Capacitor
 
 const SYNC_INTERVAL_MS = 60000; // Tenta sincronizar a cada 60 segundos se estiver online
 
 export function useOfflineSync() {
   const { user, isLoading: isSessionLoading } = useSession();
+  const isNative = Capacitor.isNative; // Verifica se é ambiente nativo
 
   const syncOperations = useCallback(async () => {
     if (!user) return 0;
@@ -35,9 +37,9 @@ export function useOfflineSync() {
     }
   }, [user]);
 
-  // 1. Sincronização em Background (App State Change)
+  // 1. Sincronização em Background (App State Change) - APENAS EM NATIVO
   useEffect(() => {
-    if (isSessionLoading || !user) return;
+    if (isSessionLoading || !user || !isNative) return;
 
     const handleAppStateChange = async ({ isActive }: { isActive: boolean }) => {
       if (isActive) {
@@ -58,7 +60,7 @@ export function useOfflineSync() {
     return () => {
       App.removeListener('appStateChange', handleAppStateChange);
     };
-  }, [user, isSessionLoading, syncOperations]);
+  }, [user, isSessionLoading, syncOperations, isNative]);
 
   // 2. Sincronização ao Mudar o Status da Rede
   useEffect(() => {
