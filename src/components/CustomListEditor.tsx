@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
-import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, searchParts as searchPartsService } from '@/services/customListService';
+import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem } from '@/services/customListService';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import PartSearchInput from './PartSearchInput';
-import { getParts } from '@/services/partListService';
+import { getParts, searchParts as searchPartsService } from '@/services/partListService'; // Importação corrigida
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 
 interface CustomListEditorProps {
