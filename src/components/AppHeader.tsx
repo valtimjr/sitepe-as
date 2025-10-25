@@ -70,7 +70,7 @@ const AppHeader: React.FC = () => {
           <DropdownMenuSub key={item.id}>
             <DropdownMenuSubTrigger>
               {item.title}
-              <ChevronRight className="ml-auto h-4 w-4" />
+              {/* Removida a seta ChevronRight duplicada. O DropdownMenuSubTrigger já adiciona uma seta. */}
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent sideOffset={2} alignOffset={-5}>
               {renderDynamicMenu(item.children)}
