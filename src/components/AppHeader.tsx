@@ -25,30 +25,18 @@ import { MenuItem } from '@/types/supabase';
 const AppHeader: React.FC = () => {
   const { session, user, profile, isLoading, checkPageAccess } = useSession();
   const navigate = useNavigate();
-  const [dynamicMenu, setDynamicMenu] = useState<MenuItem[]>([]);
+  // rootMenuItems agora armazena a estrutura hierárquica completa (apenas itens de nível raiz)
   const [rootMenuItems, setRootMenuItems] = useState<MenuItem[]>([]);
-  const [dropdownMenuItems, setDropdownMenuItems] = useState<MenuItem[]>([]);
 
   const loadDynamicMenu = useCallback(async () => {
     if (!session) {
-      setDynamicMenu([]);
       setRootMenuItems([]);
-      setDropdownMenuItems([]);
       return;
     }
     try {
       const structure = await getMenuStructure();
-      setDynamicMenu(structure);
-
-      // Separa os itens de nível raiz (parent_id === null)
-      const roots = structure.filter(item => !item.parent_id);
-      
-      // Os itens que não são de nível raiz (submenus)
-      const dropdownItems = structure.filter(item => item.parent_id);
-
-      setRootMenuItems(roots);
-      setDropdownMenuItems(dropdownItems);
-
+      // A estrutura retornada já são os itens de nível raiz com seus filhos aninhados.
+      setRootMenuItems(structure);
     } catch (error) {
       console.error('Failed to load dynamic menu:', error);
     }
@@ -79,6 +67,7 @@ const AppHeader: React.FC = () => {
     return (first + last).toUpperCase() || <UserIcon className="h-6 w-6" />;
   };
 
+  // Função recursiva para renderizar submenus
   const renderDynamicMenu = (items: MenuItem[]) => {
     return items.map(item => {
       if (item.children && item.children.length > 0) {
@@ -115,6 +104,7 @@ const AppHeader: React.FC = () => {
     });
   };
 
+  // Função para renderizar itens de nível raiz no cabeçalho (desktop)
   const renderRootItem = (item: MenuItem) => {
     // Se for um link direto para uma lista
     if (item.list_id) {
@@ -160,7 +150,7 @@ const AppHeader: React.FC = () => {
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
   const canAccessMenuManager = checkPageAccess('/menu-manager');
 
-  // Filtra os itens padrão que não são de nível raiz para o dropdown principal
+  // Itens de navegação padrão (sempre no dropdown)
   const standardDropdownItems = [
     { path: "/search-parts", title: "Pesquisar Peças", icon: Search },
     { path: "/parts-list", title: "Minha Lista de Peças", icon: List },
@@ -189,12 +179,12 @@ const AppHeader: React.FC = () => {
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
 
-          {/* Itens de Menu Raiz Dinâmicos (Exibidos no cabeçalho) */}
+          {/* Itens de Menu Raiz Dinâmicos (Exibidos no cabeçalho em telas grandes) */}
           <nav className="hidden lg:flex items-center gap-1">
             {rootMenuItems.map(renderRootItem)}
           </nav>
 
-          {/* Dropdown Menu Principal (Visível em todas as telas, contém itens padrão e submenus) */}
+          {/* Dropdown Menu Principal (Visível em todas as telas) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -222,11 +212,11 @@ const AppHeader: React.FC = () => {
                 </Link>
               ))}
               
-              {/* Submenus Dinâmicos (Itens que não são de nível raiz) */}
-              {dropdownMenuItems.length > 0 && (
+              {/* Itens Dinâmicos (Inclui raízes e submenus para telas pequenas) */}
+              {rootMenuItems.length > 0 && (
                 <>
                   <DropdownMenuSeparator />
-                  {renderDynamicMenu(dropdownMenuItems)}
+                  {renderDynamicMenu(rootMenuItems)}
                 </>
               )}
 
