@@ -32,11 +32,26 @@ const DatabaseManagerPage: React.FC = () => {
   const canAccessMenuManager = checkPageAccess('/menu-manager');
   const isAdmin = profile?.role === 'admin';
   
-  // Define as classes de coluna: 
-  // Se 4 itens: 2 colunas em mobile, 4 em telas médias e maiores.
-  // Se 3 itens: 3 colunas em todas as telas.
-  const totalTabs = 3 + (canAccessMenuManager ? 1 : 0);
-  const gridColsClass = totalTabs === 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-3';
+  // Define quais abas serão visíveis
+  const visibleTabs = [
+    ...(isAdmin ? ['parts', 'afs', 'invites'] : []),
+    ...(canAccessMenuManager ? ['menu'] : []),
+  ];
+
+  // Se não houver abas visíveis, o usuário não deveria estar aqui (mas o SessionContextProvider já lida com o redirecionamento)
+  if (visibleTabs.length === 0) {
+    return null;
+  }
+
+  // Define as classes de coluna dinamicamente
+  const totalVisibleTabs = visibleTabs.length;
+  const gridColsClass = totalVisibleTabs === 4 ? 'grid-cols-2 md:grid-cols-4' : 
+                        totalVisibleTabs === 3 ? 'grid-cols-3' : 
+                        totalVisibleTabs === 2 ? 'grid-cols-2' : 
+                        'grid-cols-1';
+
+  // Define o valor padrão da aba para a primeira aba visível
+  const defaultTab = visibleTabs[0];
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -45,11 +60,11 @@ const DatabaseManagerPage: React.FC = () => {
         Gerenciador de Banco de Dados
       </h1>
 
-      <Tabs defaultValue="parts" className="w-full max-w-6xl">
+      <Tabs defaultValue={defaultTab} className="w-full max-w-6xl">
         <TabsList className={cn("grid w-full h-auto mb-4", gridColsClass)}>
-          <TabsTrigger value="parts" disabled={!isAdmin}>Gerenciar Peças</TabsTrigger>
-          <TabsTrigger value="afs" disabled={!isAdmin}>Gerenciar AFs</TabsTrigger>
-          <TabsTrigger value="invites" disabled={!isAdmin}>Gerenciar Convites</TabsTrigger>
+          {isAdmin && <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>}
           {canAccessMenuManager && (
             <TabsTrigger value="menu">
               <div className="flex items-center justify-center gap-2">
@@ -58,18 +73,23 @@ const DatabaseManagerPage: React.FC = () => {
             </TabsTrigger>
           )}
         </TabsList>
-        <TabsContent value="parts">
-          {isAdmin ? <PartManagementTable /> : <p className="text-center text-destructive py-8">Acesso restrito a administradores.</p>}
-        </TabsContent>
-        <TabsContent value="afs">
-          {isAdmin ? <AfManagementTable /> : <p className="text-center text-destructive py-8">Acesso restrito a administradores.</p>}
-        </TabsContent>
-        <TabsContent value="invites">
-          {isAdmin ? <InviteManager /> : <p className="text-center text-destructive py-8">Acesso restrito a administradores.</p>}
-        </TabsContent>
+        
+        {isAdmin && (
+          <>
+            <TabsContent value="parts">
+              <PartManagementTable />
+            </TabsContent>
+            <TabsContent value="afs">
+              <AfManagementTable />
+            </TabsContent>
+            <TabsContent value="invites">
+              <InviteManager />
+            </TabsContent>
+          </>
+        )}
+
         {canAccessMenuManager && (
           <TabsContent value="menu">
-            {/* Renderiza o MenuManagerPage diretamente aqui */}
             <MenuManagerPage isEmbedded={true} />
           </TabsContent>
         )}
