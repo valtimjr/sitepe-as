@@ -194,8 +194,8 @@ const AppHeader: React.FC = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-1" aria-label="Abrir Menu de Navegação">
                     <Menu className="h-5 w-5" />
-                    {/* Oculta o texto "Menu" em telas grandes, mas mantém o ícone */}
-                    <span className="hidden sm:inline lg:hidden">Menu</span>
+                    {/* Removida a classe lg:hidden para que o texto 'Menu' seja sempre visível em sm e acima */}
+                    <span className="hidden sm:inline">Menu</span>
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
