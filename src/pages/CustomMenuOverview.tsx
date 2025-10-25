@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Menu, List as ListIcon, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Menu, List as ListIcon, ChevronRight, Loader2 } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { getMenuStructure } from '@/services/customListService';
 import { MenuItem } from '@/types/supabase';
