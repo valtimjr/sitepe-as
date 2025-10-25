@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Adicionado Card imports
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download, MoreHorizontal, FileText } from 'lucide-react';
@@ -400,7 +400,8 @@ const AfManagementTable: React.FC = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExportJson}>
                     Exportar JSON
-                  </DropdownMenuSubContent>
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
               </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
