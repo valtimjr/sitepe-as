@@ -299,34 +299,32 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     });
   });
 
+  const compareTimeStrings = (t1: string | undefined, t2: string | undefined): number => {
+    const time1 = t1 || '';
+    const time2 = t2 || '';
+    const d1 = time1.length > 0;
+    const d2 = time2.length > 0;
+
+    // Prioritize defined times (defined comes first)
+    if (d1 && !d2) return -1;
+    if (!d1 && d2) return 1;
+    
+    // If both defined or both undefined, sort chronologically (string comparison works for HH:MM)
+    if (time1 < time2) return -1;
+    if (time1 > time2) return 1;
+    return 0;
+  };
+
   const sortedGroups = Object.values(groupedForDisplay).sort((a, b) => {
-    // 1. Ordenar por hora_inicio (se presente)
-    const timeA = a.hora_inicio || '';
-    const timeB = b.hora_inicio || '';
+    // 1. Ordenar por hora_inicio
+    const startComparison = compareTimeStrings(a.hora_inicio, b.hora_inicio);
+    if (startComparison !== 0) return startComparison;
 
-    if (timeA && timeB) {
-      if (timeA < timeB) return -1;
-      if (timeA > timeB) return 1;
-    } else if (timeA && !timeB) {
-      return -1; // A com hora_inicio vem antes de B sem
-    } else if (!timeA && timeB) {
-      return 1; // B com hora_inicio vem antes de A sem
-    }
+    // 2. Ordenar por hora_final
+    const endComparison = compareTimeStrings(a.hora_final, b.hora_final);
+    if (endComparison !== 0) return endComparison;
 
-    // 2. Ordenar por hora_final (se presente)
-    const timeEndA = a.hora_final || '';
-    const timeEndB = b.hora_final || '';
-
-    if (timeEndA && timeEndB) {
-      if (timeEndA < timeEndB) return -1;
-      if (timeEndA > timeEndB) return 1;
-    } else if (timeEndA && !timeEndB) {
-      return -1; // A com hora_final vem antes de B sem
-    } else if (!timeEndA && timeEndB) {
-      return 1; // B com hora_final vem antes de A sem
-    }
-
-    // 3. Fallback para created_at
+    // 3. Fallback para created_at (mais antigo primeiro)
     if (!a.createdAt || !b.createdAt) return 0;
     return a.createdAt.getTime() - b.createdAt.getTime();
   });
