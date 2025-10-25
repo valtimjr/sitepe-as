@@ -3,12 +3,13 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomListItem } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
+import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -95,6 +96,15 @@ const CustomListPage: React.FC = () => {
     showSuccess('Lista exportada para CSV com sucesso!');
   };
 
+  const handleExportPdf = () => {
+    if (items.length === 0) {
+      showError('A lista está vazia. Adicione itens antes de exportar.');
+      return;
+    }
+    generateCustomListPdf(items, listTitle);
+    showSuccess('PDF gerado com sucesso!');
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <div className="w-full max-w-4xl flex justify-between items-center mb-4 mt-8">
@@ -118,6 +128,9 @@ const CustomListPage: React.FC = () => {
             </Button>
             <Button onClick={handleExportCsv} disabled={items.length === 0} variant="outline" className="flex items-center gap-2">
               <Download className="h-4 w-4" /> Exportar CSV
+            </Button>
+            <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" /> Exportar PDF
             </Button>
           </div>
         </CardHeader>

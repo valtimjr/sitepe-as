@@ -3,6 +3,7 @@ import { applyPlugin } from 'jspdf-autotable';
 import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
 import { format, parseISO, setHours, setMinutes, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { CustomListItem } from '@/types/supabase';
 
 // Aplica o plugin explicitamente ao jsPDF
 applyPlugin(jsPDF);
@@ -36,7 +37,7 @@ const calculateTotalHours = (entry?: string, exit?: string): string => {
     const [exitH, exitM] = exit.split(':').map(Number);
 
     let entryTime = setHours(setMinutes(new Date(), entryM), entryH);
-    let exitTime = setHours(setMinutes(new Date(), exitM), exitH);
+    let exitTime = setHours(setMinutes(new Date(), exitM), exitM);
 
     // Se a hora de saída for anterior à de entrada, assume que passou da meia-noite
     if (exitTime.getTime() < entryTime.getTime()) {
@@ -81,6 +82,46 @@ export const generatePartsListPdf = (listItems: SimplePartItem[], title: string 
       item.descricao || 'N/A',
       item.quantidade ?? 'N/A',
       item.af || '', // AF movido para o final
+    ];
+    tableRows.push(itemData);
+  });
+
+  (doc as any).autoTable({
+    head: [tableColumn],
+    body: tableRows,
+    startY: currentY,
+    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+    headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [240, 240, 240] },
+    margin: { top: 10 },
+  });
+
+  doc.save(`${title.replace(/\s/g, '_')}.pdf`);
+};
+
+export const generateCustomListPdf = (listItems: CustomListItem[], title: string): void => {
+  const doc = new jsPDF();
+  let currentY = 22;
+
+  doc.setFontSize(18);
+  doc.text('Lista Personalizada de Peças', 14, currentY);
+  currentY += 8;
+
+  // Adiciona o título da lista
+  doc.setFontSize(12);
+  doc.text(title, 14, currentY);
+  currentY += 8;
+
+  // Colunas para a lista personalizada
+  const tableColumn = ["Qtd", "Nome Personalizado", "Cód. Peça", "Descrição"];
+  const tableRows: (string | number | null)[][] = [];
+
+  listItems.forEach(item => {
+    const itemData = [
+      item.quantity,
+      item.item_name,
+      item.part_code || 'N/A',
+      item.description || 'N/A',
     ];
     tableRows.push(itemData);
   });

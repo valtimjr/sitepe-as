@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem } from '@/services/customListService';
@@ -23,6 +23,7 @@ import {
 import PartSearchInput from './PartSearchInput';
 import { getParts, searchParts as searchPartsService } from '@/services/partListService'; // Importação corrigida
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
+import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -228,6 +229,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     showSuccess('Lista exportada para CSV com sucesso!');
   };
 
+  const handleExportPdf = () => {
+    if (items.length === 0) {
+      showError('A lista está vazia. Adicione itens antes de exportar.');
+      return;
+    }
+    generateCustomListPdf(items, list.title);
+    showSuccess('PDF gerado com sucesso!');
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
@@ -246,6 +256,9 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
           </Button>
           <Button onClick={handleExportCsv} disabled={items.length === 0} variant="outline" className="flex items-center gap-2">
             <Download className="h-4 w-4" /> Exportar CSV
+          </Button>
+          <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" /> Exportar PDF
           </Button>
         </div>
       </CardHeader>
