@@ -4,17 +4,23 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Menu, List as ListIcon } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import MenuStructureEditor from '@/components/MenuStructureEditor';
-import CustomListManager from '@/components/CustomListManager'; // Será criado na próxima etapa
+import CustomListManager from '@/components/CustomListManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { showSuccess } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
 
-const MenuManagerPage: React.FC = () => {
+interface MenuManagerPageProps {
+  isEmbedded?: boolean;
+}
+
+const MenuManagerPage: React.FC<MenuManagerPageProps> = ({ isEmbedded = false }) => {
   const { checkPageAccess } = useSession();
 
   useEffect(() => {
-    document.title = "Gerenciador de Menus e Listas - AutoBoard";
-  }, []);
+    if (!isEmbedded) {
+      document.title = "Gerenciador de Menus e Listas - AutoBoard";
+    }
+  }, [isEmbedded]);
 
   const handleMenuUpdate = useCallback(() => {
     // Força a atualização do AppHeader
@@ -26,19 +32,23 @@ const MenuManagerPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <div className="w-full max-w-6xl flex justify-between items-center mb-4 mt-8">
-        <Link to="/admin">
-          <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar para Admin
-          </Button>
-        </Link>
-      </div>
+    <div className={isEmbedded ? "w-full" : "min-h-screen flex flex-col items-center p-4 bg-background text-foreground"}>
+      {!isEmbedded && (
+        <div className="w-full max-w-6xl flex justify-between items-center mb-4 mt-8">
+          <Link to="/admin">
+            <Button variant="outline" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" /> Voltar para Admin
+            </Button>
+          </Link>
+        </div>
+      )}
       
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <Menu className="h-8 w-8 text-primary" />
-        Gerenciador de Menus e Listas
-      </h1>
+      {!isEmbedded && (
+        <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
+          <Menu className="h-8 w-8 text-primary" />
+          Gerenciador de Menus e Listas
+        </h1>
+      )}
 
       <Tabs defaultValue="structure" className="w-full max-w-6xl">
         <TabsList className="grid w-full grid-cols-2">
@@ -53,11 +63,10 @@ const MenuManagerPage: React.FC = () => {
           <MenuStructureEditor onMenuUpdated={handleMenuUpdate} />
         </TabsContent>
         <TabsContent value="lists">
-          {/* O componente CustomListManager será implementado na próxima etapa */}
           <CustomListManager />
         </TabsContent>
       </Tabs>
-      <MadeWithDyad />
+      {!isEmbedded && <MadeWithDyad />}
     </div>
   );
 };

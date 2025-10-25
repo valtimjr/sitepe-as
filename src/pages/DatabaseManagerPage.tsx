@@ -7,10 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PartManagementTable from '@/components/PartManagementTable';
 import AfManagementTable from '@/components/AfManagementTable';
 import InviteManager from '@/components/InviteManager';
+import MenuManagerPage from '@/pages/MenuManagerPage'; // Importar a página como componente
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
-import { cn } from '@/lib/utils'; // Importar cn para estilização
+import { cn } from '@/lib/utils';
 
 const DatabaseManagerPage: React.FC = () => {
   const { isLoading, checkPageAccess } = useSession();
@@ -43,18 +44,15 @@ const DatabaseManagerPage: React.FC = () => {
       </h1>
 
       <Tabs defaultValue="parts" className="w-full max-w-6xl">
-        {/* Revertido para o estilo padrão, mas adicionando h-auto e mb-4 para forçar a altura e o espaçamento */}
         <TabsList className={cn("grid w-full h-auto mb-4", gridColsClass)}>
           <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>
           <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>
           <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>
           {canAccessMenuManager && (
-            <TabsTrigger value="menu-link" asChild>
-              <Link to="/menu-manager" className="w-full h-full">
-                <div className="flex items-center justify-center gap-2">
-                  <Menu className="h-4 w-4" /> Menus & Listas
-                </div>
-              </Link>
+            <TabsTrigger value="menu">
+              <div className="flex items-center justify-center gap-2">
+                <Menu className="h-4 w-4" /> Menus & Listas
+              </div>
             </TabsTrigger>
           )}
         </TabsList>
@@ -67,12 +65,12 @@ const DatabaseManagerPage: React.FC = () => {
         <TabsContent value="invites">
           <InviteManager />
         </TabsContent>
-        {/* Adicionando um TabsContent vazio para o link, para evitar avisos do Radix UI */}
-        <TabsContent value="menu-link">
-          <div className="p-4 text-center text-muted-foreground">
-            Redirecionando para o Gerenciador de Menus...
-          </div>
-        </TabsContent>
+        {canAccessMenuManager && (
+          <TabsContent value="menu">
+            {/* Renderiza o MenuManagerPage diretamente aqui */}
+            <MenuManagerPage isEmbedded={true} />
+          </TabsContent>
+        )}
       </Tabs>
       <MadeWithDyad />
     </div>
