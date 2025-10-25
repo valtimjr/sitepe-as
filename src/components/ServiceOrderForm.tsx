@@ -11,7 +11,8 @@ import { Save, Plus, FilePlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
+import { useSession } from '@/components/SessionContextProvider';
+import { useAfDescription } from '@/hooks/use-af-description'; // Importar novo hook
 
 interface ServiceOrderDetails {
   af: string;
@@ -32,7 +33,7 @@ interface ServiceOrderFormProps {
 }
 
 const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder, listItems, setIsCreatingNewOrder }) => {
-  const { checkPageAccess } = useSession(); // Obter checkPageAccess
+  const { checkPageAccess } = useSession();
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -49,6 +50,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   const [editedTags, setEditedTags] = useState<string>('');
   const [isOsInvalid, setIsOsInvalid] = useState(false);
   const [currentBlankOsItemId, setCurrentBlankOsItemId] = useState<string | null>(null);
+
+  // Usar o novo hook para obter a descrição do AF
+  const afDescription = useAfDescription(af);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -363,6 +367,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 availableAfs={allAvailableAfs}
                 onSelectAf={handleSelectAf}
                 readOnly={isOsDetailsReadOnly}
+                afDescription={afDescription} {/* Passando a descrição */}
               />
             )}
           </div>
