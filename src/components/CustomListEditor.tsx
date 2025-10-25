@@ -129,16 +129,30 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formItemName.trim() || formQuantity <= 0) {
-      showError('O nome do item e a quantidade são obrigatórios.');
+    
+    const trimmedItemName = formItemName.trim();
+    const trimmedDescription = formDescription.trim();
+    const trimmedPartCode = formPartCode.trim();
+
+    if (formQuantity <= 0) {
+      showError('A quantidade deve ser maior que zero.');
       return;
     }
 
+    // Validação: Pelo menos o nome personalizado OU a descrição deve estar preenchido
+    if (!trimmedItemName && !trimmedDescription) {
+      showError('O Nome Personalizado ou a Descrição da Peça deve ser preenchido.');
+      return;
+    }
+
+    // Determina o nome final do item: usa o nome personalizado, ou a descrição como fallback
+    const finalItemName = trimmedItemName || trimmedDescription;
+
     const payload: Omit<CustomListItem, 'id' | 'created_at'> = {
       list_id: list.id,
-      item_name: formItemName.trim(),
-      part_code: formPartCode.trim() || null,
-      description: formDescription.trim() || null,
+      item_name: finalItemName,
+      part_code: trimmedPartCode || null,
+      description: trimmedDescription || null,
       quantity: formQuantity,
     };
 
@@ -298,13 +312,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="item-name">Nome Personalizado do Item</Label>
+              <Label htmlFor="item-name">Nome Personalizado do Item (Opcional)</Label>
               <Input
                 id="item-name"
                 value={formItemName}
                 onChange={(e) => setFormItemName(e.target.value)}
                 placeholder="Ex: Kit de Reparo do Motor"
-                required
               />
             </div>
             
