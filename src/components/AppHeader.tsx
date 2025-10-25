@@ -109,14 +109,6 @@ const AppHeader: React.FC = () => {
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
   const canAccessMenuManager = checkPageAccess('/menu-manager');
 
-  // Definição dos itens de navegação principais
-  const mainNavItems = [
-    { to: "/search-parts", label: "Pesquisar", icon: Search, tooltip: "Pesquisar Peças" },
-    { to: "/parts-list", label: "Minha Lista", icon: List, tooltip: "Minha Lista de Peças" },
-    { to: "/service-orders", label: "Ordens de Serviço", icon: ClipboardList, tooltip: "Ordens de Serviço" },
-    { to: "/schedule-view", label: "Escala", icon: CalendarDays, tooltip: "Escala Anual" },
-  ];
-
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
@@ -132,52 +124,46 @@ const AppHeader: React.FC = () => {
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
 
-          {/* Navegação Principal (Visível em telas maiores) */}
-          <nav className="hidden md:flex items-center space-x-1">
-            {mainNavItems.map(item => (
-              <Tooltip key={item.to}>
-                <TooltipTrigger asChild>
-                  <Link to={item.to}>
-                    <Button variant="ghost" className="flex items-center gap-1">
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>{item.tooltip}</TooltipContent>
-              </Tooltip>
-            ))}
-          </nav>
-
-          {/* Dropdown Menu (Contém itens menos frequentes e submenus) */}
+          {/* Dropdown Menu */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 md:hidden" aria-label="Abrir Menu de Navegação">
+                  <Button variant="ghost" className="flex items-center gap-1" aria-label="Abrir Menu de Navegação">
                     <Menu className="h-5 w-5" />
-                    <span className="inline sm:hidden">Menu</span>
+                    <span className="hidden sm:inline">Menu</span>
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent>Menu de Navegação</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="start" className="w-64">
-              {/* Navegação Padrão (Repetida para telas pequenas) */}
+              {/* Navegação Padrão */}
               <Link to="/">
                 <DropdownMenuItem>
                   <Search className="h-4 w-4 mr-2" /> Início
                 </DropdownMenuItem>
               </Link>
-              {/* Inclui os itens principais no dropdown para telas pequenas */}
-              {mainNavItems.map(item => (
-                <Link to={item.to} key={item.to}>
-                  <DropdownMenuItem>
-                    <item.icon className="h-4 w-4 mr-2" /> {item.tooltip}
-                  </DropdownMenuItem>
-                </Link>
-              ))}
-              
+              <Link to="/search-parts">
+                <DropdownMenuItem>
+                  <Search className="h-4 w-4 mr-2" /> Pesquisar Peças
+                </DropdownMenuItem>
+              </Link>
+              <Link to="/parts-list">
+                <DropdownMenuItem>
+                  <List className="h-4 w-4 mr-2" /> Minha Lista de Peças
+                </DropdownMenuItem>
+              </Link>
+              <Link to="/service-orders">
+                <DropdownMenuItem>
+                  <ClipboardList className="h-4 w-4 mr-2" /> Ordens de Serviço
+                </DropdownMenuItem>
+              </Link>
+              <Link to="/schedule-view">
+                <DropdownMenuItem>
+                  <CalendarDays className="h-4 w-4 mr-2" /> Escala Anual
+                </DropdownMenuItem>
+              </Link>
               {canAccessTimeTracking && (
                 <Link to="/time-tracking">
                   <DropdownMenuItem>
@@ -251,7 +237,7 @@ const AppHeader: React.FC = () => {
             </>
           ) : (
             <>
-              <span className="font-medium text-sm hidden sm:inline">Olá, Visitante</span>
+              <span className="font-medium text-sm">Olá, Visitante</span>
               <Link to="/login">
                 <Button variant="ghost" className="flex items-center gap-2">
                   <LogIn className="h-5 w-5" /> Login
