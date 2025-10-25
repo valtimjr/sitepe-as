@@ -43,13 +43,13 @@ const DatabaseManagerPage: React.FC = () => {
       </h1>
 
       <Tabs defaultValue="parts" className="w-full max-w-6xl">
-        {/* Removido mb-4 do TabsList, confiando no espaçamento interno dos TabsTrigger */}
-        <TabsList className={cn("grid w-full h-auto p-0 bg-transparent border-none", gridColsClass)}>
-          <TabsTrigger value="parts" className="bg-muted border m-1">Gerenciar Peças</TabsTrigger>
-          <TabsTrigger value="afs" className="bg-muted border m-1">Gerenciar AFs</TabsTrigger>
-          <TabsTrigger value="invites" className="bg-muted border m-1">Gerenciar Convites</TabsTrigger>
+        {/* Revertido para o estilo padrão, mas adicionando h-auto e mb-4 para forçar a altura e o espaçamento */}
+        <TabsList className={cn("grid w-full h-auto mb-4", gridColsClass)}>
+          <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>
+          <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>
+          <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>
           {canAccessMenuManager && (
-            <TabsTrigger value="menu-link" asChild className="bg-muted border m-1">
+            <TabsTrigger value="menu-link" asChild>
               <Link to="/menu-manager" className="w-full h-full">
                 <div className="flex items-center justify-center gap-2">
                   <Menu className="h-4 w-4" /> Menus & Listas
