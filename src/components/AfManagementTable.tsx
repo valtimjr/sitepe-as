@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download, MoreHorizontal, FileText } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson, getAllAfsForExport } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -36,6 +36,7 @@ import {
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const AfManagementTable: React.FC = () => {
   const [afs, setAfs] = useState<Af[]>([]);
@@ -43,9 +44,14 @@ const AfManagementTable: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
-  const [formDescricao, setFormDescricao] = useState(''); // Novo estado
+  const [formDescricao, setFormDescricao] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set());
+  
+  // Novos estados para importação
+  const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
+  const [parsedAfsToImport, setParsedAfsToImport] = useState<Af[]>([]);
+  const [importLog, setImportLog] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -75,14 +81,14 @@ const AfManagementTable: React.FC = () => {
   const handleAddAf = () => {
     setCurrentAf(null);
     setFormAfNumber('');
-    setFormDescricao(''); // Limpa o novo campo
+    setFormDescricao('');
     setIsDialogOpen(true);
   };
 
   const handleEditAf = (af: Af) => {
     setCurrentAf(af);
     setFormAfNumber(af.af_number);
-    setFormDescricao(af.descricao || ''); // Define o novo campo
+    setFormDescricao(af.descricao || '');
     setIsDialogOpen(true);
   };
 
@@ -181,14 +187,12 @@ const AfManagementTable: React.FC = () => {
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
-        complete: async (results) => {
+        complete: (results) => {
           const parsedData = results.data as any[];
           
           const newAfs: Af[] = parsedData.map(row => ({
             id: row.id || uuidv4(),
-            // Suporta 'af_number', 'codigo', ou 'AF' para o número do AF
             af_number: row.af_number || row.codigo || row.AF,
-            // Suporta 'descricao' ou 'description' para a descrição
             descricao: row.descricao || row.description || '',
           })).filter(af => af.af_number);
 
@@ -196,15 +200,11 @@ const AfManagementTable: React.FC = () => {
             showError('Nenhum dado válido encontrado no arquivo CSV.');
             return;
           }
+          
+          setParsedAfsToImport(newAfs);
+          setImportLog([`Arquivo lido: ${file.name}`, `Total de linhas válidas encontradas: ${newAfs.length}`]);
+          setIsImportConfirmOpen(true);
 
-          try {
-            await importAfs(newAfs);
-            showSuccess(`${newAfs.length} AFs importados/atualizados com sucesso!`);
-            loadAfs();
-          } catch (error) {
-            showError('Erro ao importar AFs do CSV.');
-            console.error('Failed to import AFs from CSV:', error);
-          }
         },
         error: (error: any) => {
           showError('Erro ao analisar o arquivo CSV.');
@@ -222,6 +222,27 @@ const AfManagementTable: React.FC = () => {
     // Limpa o input para permitir a importação do mesmo arquivo novamente
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const confirmImport = async () => {
+    const newAfs = parsedAfsToImport;
+    const loadingToastId = showLoading('Importando e sincronizando AFs...');
+    setImportLog(prev => [...prev, 'Iniciando importação para o banco de dados...']);
+
+    try {
+      await importAfs(newAfs);
+      setImportLog(prev => [...prev, `Sucesso: ${newAfs.length} AFs importados/atualizados.`]);
+      showSuccess(`${newAfs.length} AFs importados/atualizados com sucesso!`);
+      loadAfs();
+    } catch (error) {
+      setImportLog(prev => [...prev, 'ERRO: Falha na importação para o Supabase.']);
+      showError('Erro ao importar AFs do CSV. Verifique o log.');
+      console.error('Failed to import AFs from CSV:', error);
+    } finally {
+      dismissToast(loadingToastId);
+      setIsImportConfirmOpen(false);
+      setParsedAfsToImport([]);
     }
   };
 
@@ -415,6 +436,7 @@ const AfManagementTable: React.FC = () => {
         )}
       </CardContent>
 
+      {/* Dialog de Edição/Adição */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -456,6 +478,41 @@ const AfManagementTable: React.FC = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de Confirmação de Importação */}
+      <AlertDialog open={isImportConfirmOpen} onOpenChange={setIsImportConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" /> Confirmar Importação de AFs
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <p className="mb-4">
+                Você está prestes a importar {parsedAfsToImport.length} AFs. Isso irá atualizar os AFs existentes com o mesmo ID ou criar novos.
+              </p>
+              <h4 className="font-semibold text-foreground mb-2">Log de Processamento:</h4>
+              <ScrollArea className="h-40 w-full rounded-md border p-4 text-sm font-mono bg-muted/50">
+                {importLog.map((line, index) => (
+                  <p key={index} className="text-[0.8rem] text-muted-foreground whitespace-pre-wrap">
+                    {line}
+                  </p>
+                ))}
+              </ScrollArea>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setParsedAfsToImport([]);
+              setImportLog([]);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmImport}>
+              Confirmar Importação
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
