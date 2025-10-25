@@ -18,7 +18,7 @@ interface SessionContextType {
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
 // Rotas que devem ser sempre acessíveis a convidados, independentemente das regras do DB
-const PUBLIC_ROUTES = ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/search-parts', '/parts-list', '/service-orders', '/schedule-view'];
+const PUBLIC_ROUTES = ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/search-parts', '/parts-list', '/service-orders', '/schedule-view', '/custom-list'];
 // Rotas que exigem autenticação, mas são acessíveis a todos os usuários logados (user, moderator, admin)
 const AUTH_REQUIRED_ROUTES = ['/time-tracking', '/settings'];
 
@@ -124,7 +124,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   // Função para verificar o acesso à página
   const checkPageAccess = useCallback((path: string): boolean => {
-    const normalizedPath = path.split('/')[1] === 'signup' ? '/signup' : path;
+    const normalizedPath = path.split('/')[1] === 'signup' ? '/signup' : path.split('/')[1] === 'custom-list' ? '/custom-list' : path;
     const isAuthRequiredRoute = AUTH_REQUIRED_ROUTES.includes(normalizedPath);
 
     // 1. Se a sessão estiver carregando, permite apenas rotas públicas
@@ -173,10 +173,11 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     if (!isLoadingSessionAndProfile) {
       const currentPath = location.pathname;
-      const isLoginPage = currentPath === '/login';
-      const isSignupPage = currentPath.startsWith('/signup');
-      const isResetPasswordPage = currentPath === '/reset-password';
-      const isForgotPasswordPage = currentPath === '/forgot-password';
+      const normalizedPath = currentPath.split('/')[1] === 'signup' ? '/signup' : currentPath.split('/')[1] === 'custom-list' ? '/custom-list' : currentPath;
+      const isLoginPage = normalizedPath === '/login';
+      const isSignupPage = normalizedPath === '/signup';
+      const isResetPasswordPage = normalizedPath === '/reset-password';
+      const isForgotPasswordPage = normalizedPath === '/forgot-password';
       const isAuthPage = isLoginPage || isSignupPage || isResetPasswordPage || isForgotPasswordPage;
 
       // Se o usuário está logado, redireciona de páginas de autenticação

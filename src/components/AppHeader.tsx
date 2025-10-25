@@ -235,6 +235,7 @@ const AppHeader: React.FC = () => {
           </DropdownMenu>
           
           {/* Itens de Menu Raiz Dinâmicos (Exibidos ao lado do botão Menu em telas grandes) */}
+          {/* Adicionando uma classe de depuração (border-2 border-red-500) para verificar o layout em LG */}
           <nav className="hidden lg:flex items-center gap-1">
             {rootMenuItems.map(renderRootItem)}
           </nav>
