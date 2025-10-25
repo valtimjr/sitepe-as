@@ -166,8 +166,8 @@ const AppHeader: React.FC = () => {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         
-        {/* Contêiner Esquerdo: Logo + Menus (Usando flex-grow para ocupar o espaço) */}
-        <div className="flex items-center gap-2 flex-grow">
+        {/* Contêiner Esquerdo: Logo + Menus */}
+        <div className="flex items-center gap-2">
           {/* Banner/Logo */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -231,15 +231,15 @@ const AppHeader: React.FC = () => {
             </DropdownMenuContent>
           </DropdownMenu>
           
-          {/* Itens de Menu Raiz Dinâmicos (Exibidos ao lado do botão Menu em telas grandes) */}
+          {/* Itens de Menu Raiz Dinâmicos (Exibidos ao lado do botão Menu APENAS em desktop) */}
           {hasRootMenuItems && (
-            <nav className="hidden md:flex items-center gap-1 overflow-x-auto flex-grow">
+            <nav className="hidden md:flex items-center gap-1">
               {rootMenuItems.map(renderRootItem)}
             </nav>
           )}
         </div>
 
-        {/* Contêiner Direito: Usuário/Login (Usando shrink-0 para manter o tamanho) */}
+        {/* Contêiner Direito: Usuário/Login */}
         <div className="flex items-center gap-4 shrink-0">
           {session ? (
             <>
@@ -273,10 +273,10 @@ const AppHeader: React.FC = () => {
             </>
           ) : (
             <>
-              <span className="font-medium text-sm">Olá, Visitante</span>
+              <span className="font-medium text-sm hidden sm:inline">Olá, Visitante</span>
               <Link to="/login">
                 <Button variant="ghost" className="flex items-center gap-2">
-                  <LogIn className="h-5 w-5" /> Login
+                  <LogIn className="h-5 w-5" /> <span className="hidden sm:inline">Login</span>
                 </Button>
               </Link>
             </>
