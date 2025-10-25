@@ -30,8 +30,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
     setDisplayedAfs(availableAfs);
   }, [availableAfs]);
 
-  // Efeito 2: Sincroniza o displayValue com o 'value' do pai (AF number)
-  // Isso só deve acontecer na montagem ou quando o valor do pai muda externamente (ex: reset do formulário).
+  // Efeito 2: Sincroniza o displayValue quando o 'value' (af_number) muda no componente pai
   useEffect(() => {
     const selected = availableAfs.find(afItem => afItem.af_number === value);
     if (selected) {
@@ -48,7 +47,6 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
     setDisplayValue(newValue); // Atualiza o que o usuário vê (sem reset)
 
     // Notifica o pai com o valor digitado (para fins de busca, se necessário)
-    // O pai deve usar este valor para filtrar a lista de AFs.
     onChange(newValue); 
 
     // Filtra os AFs exibidos com base no novo valor do input (busca em número ou descrição)
@@ -64,8 +62,13 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
 
   const handleInputFocus = () => {
     if (readOnly) return;
+    
+    // Ao focar, define o displayValue para o valor puro do AF (apenas o número)
+    // Isso permite que o usuário comece a digitar imediatamente para buscar.
+    setDisplayValue(value); 
+    onChange(value); // Garante que a busca comece com o AF number atual
+
     setIsDropdownOpen(true);
-    // Ao focar, mostra todos os AFs disponíveis
     setDisplayedAfs(availableAfs);
   };
 
@@ -74,19 +77,15 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
       setIsDropdownOpen(false);
       
       // Lógica de Reversão/Sincronização no Blur:
-      // Se o valor digitado (displayValue) não for um AF number válido,
-      // ou se for diferente do AF number que o pai está segurando (`value`),
-      // reverte para o valor formatado do AF number do pai.
       const selected = availableAfs.find(afItem => afItem.af_number === value);
       if (selected) {
+        // Se houver um AF válido no estado pai, exibe AF + Descrição
         setDisplayValue(getDisplayValue(selected));
       } else {
         // Se o valor do pai for vazio ou inválido, limpa o display.
         setDisplayValue('');
-        // Se o usuário digitou algo que não selecionou, mas o pai ainda tem um valor,
-        // precisamos garantir que o pai seja notificado para limpar o valor se o input estiver vazio.
-        if (displayValue === '' && value !== '') {
-             onChange(''); // Limpa o valor do pai se o input foi esvaziado
+        if (displayValue !== '' && value === '') {
+             onChange(''); // Garante que o pai saiba que o campo está vazio
         }
       }
       
