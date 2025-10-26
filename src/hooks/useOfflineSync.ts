@@ -27,11 +27,11 @@ export function useOfflineSync() {
     try {
       const status = await Network.getStatus();
       if (!status.connected) {
-        console.log('OfflineSync: Sem conexão. Pulando sincronização.');
+        // console.log('OfflineSync: Sem conexão. Pulando sincronização.'); // Removido log
         return 0;
       }
 
-      console.log('OfflineSync: Tentando sincronizar operações pendentes...');
+      // console.log('OfflineSync: Tentando sincronizar operações pendentes...'); // Removido log
       const syncedCount = await syncPendingApontamentos(user.id);
       
       if (syncedCount > 0) {
@@ -56,7 +56,7 @@ export function useOfflineSync() {
       } else {
         // Se for para o background, inicia a tarefa em background
         const taskId = await BackgroundTask.beforeExit(async () => {
-          console.log('OfflineSync: Executando tarefa em background...');
+          // console.log('OfflineSync: Executando tarefa em background...'); // Removido log
           await syncOperations();
           BackgroundTask.finish({ taskId });
         });
@@ -76,7 +76,7 @@ export function useOfflineSync() {
 
     const handleNetworkChange = async (status: { connected: boolean }) => {
       if (status.connected) {
-        console.log('OfflineSync: Conexão restaurada. Iniciando sincronização.');
+        // console.log('OfflineSync: Conexão restaurada. Iniciando sincronização.'); // Removido log
         await syncOperations();
       }
     };

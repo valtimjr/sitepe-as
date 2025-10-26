@@ -88,7 +88,9 @@ const seedPartsFromJson = async (): Promise<void> => {
   try {
     const response = await fetch('/data/parts.json'); // Caminho atualizado
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // throw new Error(`HTTP error! status: ${response.status}`); // Removido throw
+      console.warn(`seedPartsFromJson: Failed to fetch parts.json. Status: ${response.status}`);
+      return;
     }
     const parsedParts: Part[] = await response.json();
 
@@ -170,7 +172,8 @@ const seedAfs = async (): Promise<void> => {
           });
         });
       } else {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // throw new Error(`HTTP error! status: ${response.status}`); // Removido throw
+        console.warn(`seedAfs: Failed to fetch afs.csv. Status: ${response.status}`);
       }
     } catch (csvError) {
       console.error("seedAfs: Failed to fetch or parse afs.csv:", csvError);
