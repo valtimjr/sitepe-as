@@ -309,12 +309,22 @@ export const getLocalApontamentos = async (userId: string): Promise<Apontamento[
 };
 
 export const putLocalApontamento = async (apontamento: Apontamento): Promise<void> => {
-  // Usa put para inserir ou atualizar (baseado na chave primária 'id')
-  await localDb.apontamentos.put(apontamento);
+  try {
+    // Usa put para inserir ou atualizar (baseado na chave primária 'id')
+    await localDb.apontamentos.put(apontamento);
+  } catch (error) {
+    console.error("IndexedDB Error: Failed to put Apontamento:", error, apontamento);
+    throw error; // Re-lança o erro para ser capturado pelo serviço
+  }
 };
 
 export const bulkPutLocalApontamentos = async (apontamentos: Apontamento[]): Promise<void> => {
-  await localDb.apontamentos.bulkPut(apontamentos);
+  try {
+    await localDb.apontamentos.bulkPut(apontamentos);
+  } catch (error) {
+    console.error("IndexedDB Error: Failed to bulkPut Apontamentos:", error, apontamentos);
+    throw error;
+  }
 };
 
 export const clearLocalApontamentos = async (userId: string): Promise<void> => {
