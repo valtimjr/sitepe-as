@@ -1,6 +1,8 @@
+import AppVersionDisplay from "./AppVersionDisplay";
+
 export const MadeWithDyad = () => {
   return (
-    <div className="p-4 text-center">
+    <div className="p-4 text-center flex flex-col items-center">
       <a
         href="https://www.dyad.sh/"
         target="_blank"
@@ -9,6 +11,7 @@ export const MadeWithDyad = () => {
       >
         Feito com Dyad por Valter Jr.
       </a>
+      <AppVersionDisplay />
     </div>
   );
 };
