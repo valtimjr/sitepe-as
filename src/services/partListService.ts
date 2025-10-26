@@ -40,7 +40,7 @@ export interface Apontamento extends LocalApontamento {} // Exportar nova interf
 
 const fetchAllPaginated = async <T>(tableName: string, orderByColumn: string): Promise<T[]> => {
   let allData: T[] = [];
-  const pageSize = 10000; // Aumentado o tamanho da página para 10000
+  const pageSize = 1000; // Máximo permitido pelo Supabase
   let offset = 0;
   let hasMore = true;
 
@@ -59,6 +59,10 @@ const fetchAllPaginated = async <T>(tableName: string, orderByColumn: string): P
     if (data && data.length > 0) {
       allData = allData.concat(data as T[]);
       offset += pageSize;
+      // Se o número de resultados for menor que o tamanho da página, é a última página.
+      if (data.length < pageSize) {
+        hasMore = false;
+      }
     } else {
       hasMore = false;
     }
