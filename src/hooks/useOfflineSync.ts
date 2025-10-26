@@ -3,23 +3,15 @@ import { Network } from '@capacitor/network';
 import { useSession } from '@/components/SessionContextProvider';
 import { syncPendingApontamentos } from '@/services/partListService';
 import { showSuccess, showError } from '@/utils/toast';
-import { Capacitor } from '@capacitor/core'; // Importar Capacitor
-
-// Importações condicionais para evitar erros no navegador
-let App: any;
-let BackgroundTask: any;
-
-if (Capacitor.isNativePlatform()) {
-  // Importa apenas se estiver em ambiente nativo
-  import('@capacitor/app').then(mod => App = mod.App);
-  import('@capawesome/capacitor-background-task').then(mod => BackgroundTask = mod.BackgroundTask);
-}
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
+import { BackgroundTask } from '@capawesome/capacitor-background-task';
 
 const SYNC_INTERVAL_MS = 60000; // Tenta sincronizar a cada 60 segundos se estiver online
 
 export function useOfflineSync() {
   const { user, isLoading: isSessionLoading } = useSession();
-  const isNative = Capacitor.isNativePlatform(); // Verifica se é ambiente nativo
+  const isNative = Capacitor.isNativePlatform();
 
   const syncOperations = useCallback(async () => {
     if (!user) return 0;
@@ -27,11 +19,9 @@ export function useOfflineSync() {
     try {
       const status = await Network.getStatus();
       if (!status.connected) {
-        // console.log('OfflineSync: Sem conexão. Pulando sincronização.'); // Removido log
         return 0;
       }
 
-      // console.log('OfflineSync: Tentando sincronizar operações pendentes...'); // Removido log
       const syncedCount = await syncPendingApontamentos(user.id);
       
       if (syncedCount > 0) {
@@ -47,26 +37,25 @@ export function useOfflineSync() {
 
   // 1. Sincronização em Background (App State Change) - APENAS EM NATIVO
   useEffect(() => {
-    if (isSessionLoading || !user || !isNative || !App || !BackgroundTask) return;
+    if (isSessionLoading || !user || !isNative) return;
 
     const handleAppStateChange = async ({ isActive }: { isActive: boolean }) => {
       if (isActive) {
-        // Se voltar para o foreground, tenta sincronizar imediatamente
         await syncOperations();
       } else {
-        // Se for para o background, inicia a tarefa em background
+        // Inicia a tarefa em background
         const taskId = await BackgroundTask.beforeExit(async () => {
-          // console.log('OfflineSync: Executando tarefa em background...'); // Removido log
           await syncOperations();
           BackgroundTask.finish({ taskId });
         });
       }
     };
 
-    App.addListener('appStateChange', handleAppStateChange);
+    // Adiciona listener de forma segura
+    const { remove } = App.addListener('appStateChange', handleAppStateChange);
 
     return () => {
-      App.removeListener('appStateChange', handleAppStateChange);
+      remove();
     };
   }, [user, isSessionLoading, syncOperations, isNative]);
 
@@ -76,18 +65,17 @@ export function useOfflineSync() {
 
     const handleNetworkChange = async (status: { connected: boolean }) => {
       if (status.connected) {
-        // console.log('OfflineSync: Conexão restaurada. Iniciando sincronização.'); // Removido log
         await syncOperations();
       }
     };
 
-    Network.addListener('networkStatusChange', handleNetworkChange);
+    const { remove } = Network.addListener('networkStatusChange', handleNetworkChange);
 
     // Tenta sincronizar na montagem se já estiver online
     syncOperations();
 
     return () => {
-      Network.removeListener('networkStatusChange', handleNetworkChange);
+      remove();
     };
   }, [user, isSessionLoading, syncOperations]);
 
