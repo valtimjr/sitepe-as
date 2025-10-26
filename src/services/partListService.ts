@@ -38,6 +38,34 @@ export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends LocalAf {}
 export interface Apontamento extends LocalApontamento {} // Exportar nova interface
 
+const fetchAllPaginated = async <T>(tableName: string, orderByColumn: string): Promise<T[]> => {
+  let allData: T[] = [];
+  const pageSize = 1000;
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .order(orderByColumn, { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) {
+      console.error(`Error fetching paginated data from ${tableName}:`, error);
+      throw new Error(`Erro ao buscar todos os dados de ${tableName}: ${error.message}`);
+    }
+
+    if (data && data.length > 0) {
+      allData = allData.concat(data as T[]);
+      offset += pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+  return allData;
+};
+
 const seedPartsFromJson = async (): Promise<void> => {
   // Primeiro, verifica se há peças no Supabase
   const { count: supabasePartsCount, error: countError } = await supabase
@@ -173,48 +201,24 @@ const seedAfs = async (): Promise<void> => {
 export const getParts = async (): Promise<Part[]> => {
   await seedPartsFromJson(); // Garante que o Supabase esteja populado
 
-  const { data, error } = await supabase
-    .from('parts')
-    .select('*')
-    .limit(1000); // Limite de 1000 para exibição
+  try {
+    // Usa a função paginada para buscar TODAS as peças
+    const data = await fetchAllPaginated<Part>('parts', 'codigo');
 
-  if (error) {
-    console.error('Error fetching parts from Supabase:', error);
+    // Atualiza o cache local com os dados do Supabase
+    await localDb.parts.clear();
+    await bulkPutLocalParts(data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching all parts from Supabase:', error);
     // Fallback para IndexedDB se Supabase falhar
     return getLocalParts();
   }
-
-  // Atualiza o cache local com os dados do Supabase
-  await localDb.parts.clear();
-  await bulkPutLocalParts(data as Part[]);
-  return data as Part[];
 };
 
 export const getAllPartsForExport = async (): Promise<Part[]> => {
-  let allData: Part[] = [];
-  const pageSize = 1000; // Define o tamanho da página
-  let offset = 0;
-  let hasMore = true;
-
-  while (hasMore) {
-    const { data, error } = await supabase
-      .from('parts')
-      .select('*')
-      .range(offset, offset + pageSize - 1); // Busca um intervalo de registros
-
-    if (error) {
-      console.error('Error fetching all parts for export from Supabase (paginated):', error);
-      throw new Error(`Erro ao buscar todas as peças para exportação: ${error.message}`);
-    }
-
-    if (data && data.length > 0) {
-      allData = allData.concat(data as Part[]);
-      offset += pageSize;
-    } else {
-      hasMore = false; // Não há mais dados para buscar
-    }
-  }
-  return allData;
+  // Reutiliza a função paginada
+  return fetchAllPaginated<Part>('parts', 'codigo');
 };
 
 export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
@@ -242,7 +246,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
   let queryBuilder = supabase
     .from('parts')
     .select('*')
-    .limit(1000); // Limite de 1000 para exibição
+    .limit(5000); // Aumentado o limite para 5000 para buscas
 
   if (lowerCaseQuery) {
     // Divide a query em palavras, filtra strings vazias e junta com '%' para buscar em sequência
@@ -347,49 +351,24 @@ export const deletePart = async (id: string): Promise<void> => {
 export const getAfsFromService = async (): Promise<Af[]> => {
   await seedAfs(); // Garante que o Supabase esteja populado
 
-  const { data, error } = await supabase
-    .from('afs')
-    .select('*')
-    .order('af_number', { ascending: true }) // Ordena por número de AF
-    .limit(1000); // Limite de 1000 para exibição
+  try {
+    // Usa a função paginada para buscar TODOS os AFs
+    const data = await fetchAllPaginated<Af>('afs', 'af_number');
 
-  if (error) {
-    console.error('Error fetching AFs from Supabase:', error);
+    // Atualiza o cache local com os dados do Supabase
+    await localDb.afs.clear();
+    await bulkPutLocalAfs(data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching all AFs from Supabase:', error);
     // Fallback para IndexedDB se Supabase falhar
     return getLocalAfs();
   }
-
-  // Atualiza o cache local com os dados do Supabase
-  await localDb.afs.clear();
-  await bulkPutLocalAfs(data as Af[]);
-  return data as Af[];
 };
 
 export const getAllAfsForExport = async (): Promise<Af[]> => {
-  let allData: Af[] = [];
-  const pageSize = 1000; // Define o tamanho da página
-  let offset = 0;
-  let hasMore = true;
-
-  while (hasMore) {
-    const { data, error } = await supabase
-      .from('afs')
-      .select('*')
-      .range(offset, offset + pageSize - 1); // Busca um intervalo de registros
-
-    if (error) {
-      console.error('Error fetching all AFs for export from Supabase (paginated):', error);
-      throw new Error(`Erro ao buscar todos os AFs para exportação: ${error.message}`);
-    }
-
-    if (data && data.length > 0) {
-      allData = allData.concat(data as Af[]);
-      offset += pageSize;
-    } else {
-      hasMore = false; // Não há mais dados para buscar
-    }
-  }
-  return allData;
+  // Reutiliza a função paginada
+  return fetchAllPaginated<Af>('afs', 'af_number');
 };
 
 export const addAf = async (af: Omit<Af, 'id'>): Promise<string> => {
@@ -484,7 +463,12 @@ export const clearServiceOrderList = async (): Promise<void> => {
   await clearLocalServiceOrderItems();
 };
 
-// --- Funções para Apontamentos (Time Tracking) ---
+export const getLocalUniqueAfs = async (): Promise<string[]> => {
+  const afs = await localDb.afs.toArray();
+  return afs.map(af => af.af_number).sort();
+};
+
+// --- Apontamentos Management (Time Tracking) ---
 
 // Helper function to check network status
 const isOnline = async () => {
