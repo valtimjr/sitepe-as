@@ -40,7 +40,7 @@ export interface Apontamento extends LocalApontamento {} // Exportar nova interf
 
 const fetchAllPaginated = async <T>(tableName: string, orderByColumn: string): Promise<T[]> => {
   let allData: T[] = [];
-  const pageSize = 1000;
+  const pageSize = 10000; // Aumentado o tamanho da página para 10000
   let offset = 0;
   let hasMore = true;
 
@@ -249,7 +249,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
   let queryBuilder = supabase
     .from('parts')
     .select('*')
-    .limit(10000); // Aumentado o limite para 10000 para buscas
+    .limit(10000); // Limite alto para buscas
 
   if (lowerCaseQuery) {
     // Divide a query em palavras, filtra strings vazias e junta com '%' para buscar em sequência
