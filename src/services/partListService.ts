@@ -249,7 +249,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
   let queryBuilder = supabase
     .from('parts')
     .select('*')
-    .limit(5000); // Aumentado o limite para 5000 para buscas
+    .limit(10000); // Aumentado o limite para 10000 para buscas
 
   if (lowerCaseQuery) {
     // Divide a query em palavras, filtra strings vazias e junta com '%' para buscar em sequência
