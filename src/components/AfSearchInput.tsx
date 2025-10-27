@@ -13,10 +13,38 @@ interface AfSearchInputProps {
 
 const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availableAfs, onSelectAf, readOnly }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isFocused, setIsFocused] = useState(false); // Novo estado de foco
+  const [isFocused, setIsFocused] = useState(false);
   const [displayedAfs, setDisplayedAfs] = useState<Af[]>(availableAfs);
-  const [displayValue, setDisplayValue] = useState(''); // Valor exibido no input
+  const [displayValue, setDisplayValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Efeito para filtrar a lista de AFs com debounce
+  useEffect(() => {
+    if (!isFocused || displayValue === value) {
+      // Não filtra se não estiver focado ou se o valor de exibição for o AF selecionado
+      setDisplayedAfs(availableAfs);
+      return;
+    }
+
+    const filterAfs = () => {
+      const lowerNewValue = displayValue.toLowerCase();
+      if (lowerNewValue.length === 0) {
+        setDisplayedAfs(availableAfs);
+        return;
+      }
+
+      setDisplayedAfs(
+        availableAfs.filter((afItem) => {
+          return afItem.af_number.toLowerCase().includes(lowerNewValue) ||
+                 (afItem.descricao && afItem.descricao.toLowerCase().includes(lowerNewValue));
+        })
+      );
+    };
+
+    const handler = setTimeout(filterAfs, 150); // Debounce de 150ms
+    return () => clearTimeout(handler);
+  }, [displayValue, availableAfs, isFocused, value]);
+
 
   // Função auxiliar para formatar AF + Descrição
   const getDisplayValue = (afItem: Af) => {
@@ -25,11 +53,6 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
     }
     return afItem.af_number;
   };
-
-  // Efeito 1: Atualiza displayedAfs quando availableAfs muda
-  useEffect(() => {
-    setDisplayedAfs(availableAfs);
-  }, [availableAfs]);
 
   // Efeito 2: Sincroniza o displayValue quando o 'value' (af_number) muda no componente pai
   // Só sincroniza se NÃO estiver focado.
@@ -50,17 +73,10 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
     const newValue = e.target.value;
     setDisplayValue(newValue);
 
-    // Notifica o pai com o valor digitado
+    // Notifica o pai com o valor digitado (para que o pai possa armazenar o AF number puro)
     onChange(newValue); 
 
-    // Filtra os AFs exibidos
-    setDisplayedAfs(
-      availableAfs.filter((afItem) => {
-        const lowerNewValue = newValue.toLowerCase();
-        return afItem.af_number.toLowerCase().includes(lowerNewValue) ||
-               (afItem.descricao && afItem.descricao.toLowerCase().includes(lowerNewValue));
-      })
-    );
+    // Abre o dropdown imediatamente
     setIsDropdownOpen(true);
   };
 
@@ -70,7 +86,6 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
     setIsFocused(true);
     
     // Ao focar, define o displayValue para o valor puro do AF (af_number)
-    // Isso permite que o usuário comece a digitar ou ver o número puro.
     setDisplayValue(value); 
     
     // Garante que o dropdown abra e mostre todos os AFs (ou os filtrados se já houver texto)
@@ -83,9 +98,6 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
     setTimeout(() => {
       setIsFocused(false);
       setIsDropdownOpen(false);
-      
-      // A lógica de sincronização de displayValue será tratada pelo useEffect (Efeito 2)
-      // quando isFocused for definido como false.
       
       // Se o campo foi limpo manualmente, garantimos que o pai seja notificado
       if (displayValue === '' && value !== '') {
