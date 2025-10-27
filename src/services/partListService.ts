@@ -12,7 +12,7 @@ import {
   SimplePartItem as LocalSimplePartItem,
   ServiceOrderItem as LocalServiceOrderItem,
   Af as LocalAf,
-  Apontamento as LocalApontamento, // Importar nova interface
+  Apontamento as LocalApontamento,
   addLocalSimplePartItem,
   getLocalSimplePartsListItems,
   updateLocalSimplePartItem,
@@ -23,20 +23,31 @@ import {
   updateLocalServiceOrderItem,
   deleteLocalServiceOrderItem,
   clearLocalServiceOrderItems,
-  getLocalApontamentos, // Importar novas funções
+  getLocalApontamentos,
   putLocalApontamento,
   bulkPutLocalApontamentos,
   clearLocalApontamentos,
   deleteLocalApontamentosByDateRange,
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
-import { Network } from '@capacitor/network'; // Importar Network
+import { Network } from '@capacitor/network';
 
 export interface Part extends LocalPart {}
 export interface SimplePartItem extends LocalSimplePartItem {}
 export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends LocalAf {}
-export interface Apontamento extends LocalApontamento {} // Exportar nova interface
+export interface Apontamento extends LocalApontamento {}
+
+// Helper function to check network status
+const isOnline = async () => {
+    try {
+        const status = await Network.getStatus();
+        return status.connected;
+    } catch (e) {
+        // Fallback for browser environment without Capacitor plugin
+        return navigator.onLine;
+    }
+};
 
 const fetchAllPaginated = async <T>(tableName: string, orderByColumn: string): Promise<T[]> => {
   let allData: T[] = [];
@@ -85,9 +96,15 @@ const seedAfs = async (): Promise<void> => {
 };
 
 export const getParts = async (): Promise<Part[]> => {
-  // Não chama seedPartsFromJson() aqui.
+  const online = await isOnline();
+  
+  if (!online) {
+    console.log('Offline: Serving parts from local cache.');
+    return getLocalParts();
+  }
+
   try {
-    // Usa a função paginada para buscar TODAS as peças
+    // Se online, usa a função paginada para buscar TODAS as peças
     const data = await fetchAllPaginated<Part>('parts', 'codigo');
 
     // Atualiza o cache local com os dados do Supabase
@@ -95,7 +112,7 @@ export const getParts = async (): Promise<Part[]> => {
     await bulkPutLocalParts(data);
     return data;
   } catch (error) {
-    console.error('Error fetching all parts from Supabase:', error);
+    console.error('Error fetching all parts from Supabase, falling back to local cache:', error);
     // Fallback para IndexedDB se Supabase falhar
     return getLocalParts();
   }
@@ -124,13 +141,18 @@ export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  // Não chama seedPartsFromJson() aqui.
-
+  const online = await isOnline();
   const lowerCaseQuery = query.toLowerCase().trim();
 
+  if (!online) {
+    console.log('Offline: Searching parts in local cache.');
+    return searchLocalParts(query);
+  }
+
+  // Se online, tenta buscar no Supabase
   let queryBuilder = supabase
     .from('parts')
-    .select('*'); // Removido o limite desnecessário
+    .select('*');
 
   if (lowerCaseQuery) {
     // Divide a query em palavras, filtra strings vazias e junta com '%' para buscar em sequência
@@ -142,61 +164,65 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     );
   }
 
-  const { data, error } = await queryBuilder;
+  try {
+    const { data, error } = await queryBuilder;
 
-  if (error) {
-    console.error('Error searching parts in Supabase:', error);
-    // Fallback para IndexedDB se Supabase falhar
-    return searchLocalParts(query); // Passa a query original para a busca local
-  }
-
-  let results = data as Part[];
-
-  // Helper para determinar a qualidade da correspondência em um campo
-  const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
-    if (!fieldValue) return 0;
-    const lowerFieldValue = fieldValue.toLowerCase();
-
-    if (isMultiWord) {
-      return regex.test(lowerFieldValue) ? 1 : 0; // Apenas verifica se a sequência existe
-    } else { // Query de palavra única
-      if (lowerFieldValue === query) return 3; // Correspondência exata
-      if (lowerFieldValue.startsWith(query)) return 2; // Começa com
-      if (lowerFieldValue.includes(query)) return 1; // Inclui
+    if (error) {
+      console.error('Error searching parts in Supabase, falling back to local cache:', error);
+      return searchLocalParts(query);
     }
-    return 0;
-  };
 
-  if (lowerCaseQuery) { // Apenas ordena se houver uma query
-    const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
-    const isMultiWordQuery = queryWords.length > 1;
-    // Cria regex para pontuação no lado do cliente, similar ao localDbService
-    const escapedWords = queryWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
+    let results = data as Part[];
 
-    results.sort((a, b) => {
-      const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    // Helper function to determine the quality of the match (copied from localDbService for consistency)
+    const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
+      if (!fieldValue) return 0;
+      const lowerFieldValue = fieldValue.toLowerCase();
 
-      const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-
-      // Prioriza tags
-      if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
-
-      // Depois código
-      if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
-
-      // Por último descrição
-      if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
-
+      if (isMultiWord) {
+        return regex.test(lowerFieldValue) ? 1 : 0; // Apenas verifica se a sequência existe
+      } else { // Query de palavra única
+        if (lowerFieldValue === query) return 3; // Correspondência exata
+        if (lowerFieldValue.startsWith(query)) return 2; // Começa com
+        if (lowerFieldValue.includes(query)) return 1; // Inclui
+      }
       return 0;
-    });
-  }
+    };
 
-  return results;
+    if (lowerCaseQuery) { // Apenas ordena se houver uma query
+      const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
+      const isMultiWordQuery = queryWords.length > 1;
+      // Cria regex para pontuação no lado do cliente, similar ao localDbService
+      const escapedWords = queryWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
+
+      results.sort((a, b) => {
+        const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+        const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
+        const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+
+        const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+        const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
+        const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+
+        // Prioriza tags
+        if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
+
+        // Depois código
+        if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
+
+        // Por último descrição
+        if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
+
+        return 0;
+      });
+    }
+
+    return results;
+  } catch (error) {
+    console.error('Unexpected error during Supabase search, falling back to local cache:', error);
+    return searchLocalParts(query);
+  }
 };
 
 export const updatePart = async (updatedPart: Part): Promise<void> => {
@@ -233,10 +259,15 @@ export const deletePart = async (id: string): Promise<void> => {
 
 // --- Funções para AFs ---
 export const getAfsFromService = async (): Promise<Af[]> => {
-  // Não chama seedAfs() aqui.
+  const online = await isOnline();
+
+  if (!online) {
+    console.log('Offline: Serving AFs from local cache.');
+    return getLocalAfs();
+  }
 
   try {
-    // Usa a função paginada para buscar TODOS os AFs
+    // Se online, usa a função paginada para buscar TODOS os AFs
     const data = await fetchAllPaginated<Af>('afs', 'af_number');
 
     // Atualiza o cache local com os dados do Supabase
@@ -244,7 +275,7 @@ export const getAfsFromService = async (): Promise<Af[]> => {
     await bulkPutLocalAfs(data);
     return data;
   } catch (error) {
-    console.error('Error fetching all AFs from Supabase:', error);
+    console.error('Error fetching all AFs from Supabase, falling back to local cache:', error);
     // Fallback para IndexedDB se Supabase falhar
     return getLocalAfs();
   }
@@ -354,17 +385,6 @@ export const getLocalUniqueAfs = async (): Promise<string[]> => {
 };
 
 // --- Apontamentos Management (Time Tracking) ---
-
-// Helper function to check network status
-const isOnline = async () => {
-    try {
-        const status = await Network.getStatus();
-        return status.connected;
-    } catch (e) {
-        // Fallback for browser environment without Capacitor plugin
-        return navigator.onLine;
-    }
-};
 
 // Sincroniza dados do Supabase para o IndexedDB
 export const syncApontamentosFromSupabase = async (userId: string): Promise<Apontamento[]> => {
