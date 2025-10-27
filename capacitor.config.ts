@@ -20,8 +20,8 @@ const config: CapacitorConfig = {
     icon: {
       source: 'public/Logo.png',
       // Opcional: Adicionar cores de fundo se o ícone for transparente
-      backgroundColor: '#FFFFFF', 
-      iconColor: '#000000',
+      //backgroundColor: '#FFFFFF', 
+      //iconColor: '#000000',
     },
     splash: {
       source: 'public/Banner.png', // Mantendo o Banner para splash screen
