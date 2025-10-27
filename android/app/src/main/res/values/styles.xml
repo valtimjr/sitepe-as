@@ -16,7 +16,8 @@
     </style>
 
 
-    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+    <!-- Alterado o parent para evitar conflitos com o ícone adaptativo -->
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:background">@drawable/splash</item>
     </style>
 </resources>
