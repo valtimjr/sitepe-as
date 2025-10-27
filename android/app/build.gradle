@@ -41,10 +41,14 @@ dependencies {
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
 
-    // Adiciona exclusões para resolver conflitos de Kotlin
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8") {
-        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib'
+    // Removed problematic Kotlin exclusion block.
+}
+
+// Add resolution strategy to exclude conflicting Kotlin modules globally for this project
+configurations.all {
+    resolutionStrategy {
         exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
     }
 }
 
