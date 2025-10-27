@@ -17,7 +17,6 @@ const config: CapacitorConfig = {
   },
   // Configuração para geração de assets (ícones e splash screens)
   assets: {
-    // Usando Logo.png como imagem de origem para ícones e splash screens
     icon: {
       source: 'public/Logo.png',
       // Opcional: Adicionar cores de fundo se o ícone for transparente
