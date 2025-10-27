@@ -169,6 +169,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
 
     if (error) {
       console.error('Error searching parts in Supabase, falling back to local cache:', error);
+      // Se houver erro no Supabase, cai para o cache local
       return searchLocalParts(query);
     }
 
@@ -221,6 +222,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     return results;
   } catch (error) {
     console.error('Unexpected error during Supabase search, falling back to local cache:', error);
+    // Garante que o fallback para o cache local seja executado em caso de erro inesperado
     return searchLocalParts(query);
   }
 };
