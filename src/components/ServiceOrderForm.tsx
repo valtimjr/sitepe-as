@@ -56,13 +56,25 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       const parts = await getParts();
       setAllAvailableParts(parts);
       setIsLoadingParts(false);
-
-      setIsLoadingAfs(true);
-      const afs = await getAfsFromService(); // Usar getAfsFromService para obter objetos Af
-      setAllAvailableAfs(afs);
-      setIsLoadingAfs(false);
     };
     loadInitialData();
+  }, []);
+
+  // NOVO useEffect para carregar AFs de forma otimizada
+  useEffect(() => {
+    const loadAfs = async () => {
+      setIsLoadingAfs(true);
+      try {
+        const afs = await getAfsFromService();
+        setAllAvailableAfs(afs);
+      } catch (error) {
+        console.error('Failed to load AFs:', error);
+        showError('Erro ao carregar a lista de AFs.');
+      } finally {
+        setIsLoadingAfs(false);
+      }
+    };
+    loadAfs();
   }, []);
 
   useEffect(() => {
@@ -283,8 +295,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         showSuccess('Item adicionado à lista!');
         resetPartFields();
         onItemAdded();
-        const updatedAfs = await getAfsFromService(); // Atualiza a lista de AFs
-        setAllAvailableAfs(updatedAfs);
+        // Não precisa recarregar AFs aqui, pois a sincronização em background já está rodando
         setIsCreatingNewOrder(false);
       } catch (error) {
         showError('Erro ao adicionar item à lista.');
@@ -310,8 +321,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         showSuccess('Ordem de Serviço criada sem peças. Adicione peças agora!');
         setCurrentBlankOsItemId(newBlankId);
         onItemAdded();
-        const updatedAfs = await getAfsFromService(); // Atualiza a lista de AFs
-        setAllAvailableAfs(updatedAfs);
+        // Não precisa recarregar AFs aqui, pois a sincronização em background já está rodando
         setIsCreatingNewOrder(false);
       } catch (error) {
         showError('Erro ao criar ordem de serviço.');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,13 +33,25 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       const parts = await getParts();
       setAllAvailableParts(parts);
       setIsLoadingParts(false);
-
-      setIsLoadingAfs(true);
-      const afs = await getAfsFromService(); // Usar getAfsFromService para obter objetos Af
-      setAllAvailableAfs(afs);
-      setIsLoadingAfs(false);
     };
     loadInitialData();
+  }, []);
+  
+  // NOVO useEffect para carregar AFs de forma otimizada
+  useEffect(() => {
+    const loadAfs = async () => {
+      setIsLoadingAfs(true);
+      try {
+        const afs = await getAfsFromService();
+        setAllAvailableAfs(afs);
+      } catch (error) {
+        console.error('Failed to load AFs:', error);
+        showError('Erro ao carregar a lista de AFs.');
+      } finally {
+        setIsLoadingAfs(false);
+      }
+    };
+    loadAfs();
   }, []);
 
   useEffect(() => {

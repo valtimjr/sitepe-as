@@ -260,26 +260,52 @@ export const deletePart = async (id: string): Promise<void> => {
 };
 
 // --- Funções para AFs ---
+
+/**
+ * Retorna os AFs do cache local imediatamente e inicia a sincronização
+ * com o Supabase em segundo plano se estiver online.
+ * @returns Uma promessa que resolve imediatamente com os dados do cache.
+ */
 export const getAfsFromService = async (): Promise<Af[]> => {
   const online = await isOnline();
-
+  
+  // 1. Retorna o cache local imediatamente
+  const localAfs = await getLocalAfs();
+  
   if (!online) {
     console.log('Offline: Serving AFs from local cache.');
-    return getLocalAfs();
+    return localAfs;
   }
 
-  try {
-    // Se online, usa a função paginada para buscar TODOS os AFs
-    const data = await fetchAllPaginated<Af>('afs', 'af_number');
-
-    // Atualiza o cache local com os dados do Supabase
-    await localDb.afs.clear();
-    await bulkPutLocalAfs(data);
-    return data;
-  } catch (error) {
-    console.error('Error fetching all AFs from Supabase, falling back to local cache:', error);
-    // Fallback para IndexedDB se Supabase falhar
-    return getLocalAfs();
+  // 2. Se online, inicia a sincronização em segundo plano
+  if (localAfs.length === 0 || localAfs.length < 1000) { // Se o cache estiver vazio ou pequeno, espera a sincronização
+    try {
+      const data = await fetchAllPaginated<Af>('afs', 'af_number');
+      
+      // Atualiza o cache local com os dados do Supabase
+      await localDb.afs.clear();
+      await bulkPutLocalAfs(data);
+      return data; // Retorna os dados sincronizados
+    } catch (error) {
+      console.error('Error fetching all AFs from Supabase, returning local cache:', error);
+      return localAfs; // Retorna o que tinha no cache em caso de falha na sincronização
+    }
+  } else {
+    // Se o cache for grande, retorna o cache imediatamente e sincroniza em background
+    console.log('Online: Serving AFs from local cache and starting background sync.');
+    
+    // Não espera por esta promessa
+    fetchAllPaginated<Af>('afs', 'af_number')
+      .then(async (data) => {
+        await localDb.afs.clear();
+        await bulkPutLocalAfs(data);
+        console.log('Background sync of AFs complete.');
+      })
+      .catch(error => {
+        console.error('Background sync of AFs failed:', error);
+      });
+      
+    return localAfs;
   }
 };
 
