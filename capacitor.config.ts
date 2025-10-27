@@ -10,6 +10,10 @@ const config: CapacitorConfig = {
     allowFileAccess: true,
     // Permite acesso universal a URLs de arquivos (pode ser necessário para IndexedDB em alguns WebViews)
     allowUniversalAccessFromFileURLs: true,
+    // Adiciona aceleração de hardware explícita para melhor renderização
+    webView: {
+      androidHardwareAcceleration: true,
+    },
   }
 };
 
