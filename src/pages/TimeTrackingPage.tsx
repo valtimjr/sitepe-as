@@ -592,10 +592,11 @@ const TimeTrackingPage: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[100px]">Dia</TableHead>
-                    <TableHead className="w-auto min-w-[200px]">Entrada / Status</TableHead>
-                    <TableHead className="w-[100px]">Total</TableHead>
-                    <TableHead className="w-[120px] text-right">Ações</TableHead>
+                    {/* Reduzindo a largura das colunas fixas */}
+                    <TableHead className="w-[80px]">Dia</TableHead> 
+                    <TableHead className="w-auto min-w-[160px]">Horas / Status</TableHead> {/* Reduzido min-width */}
+                    <TableHead className="w-[80px]">Total</TableHead> 
+                    <TableHead className="w-[80px] text-right">Ações</TableHead> 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -638,7 +639,7 @@ const TimeTrackingPage: React.FC = () => {
                               )}
                             </div>
                           ) : (
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-1"> {/* Reduzido space-x */}
                               <div className="flex-1">
                                 <Label htmlFor={`entry-${dateString}`} className="sr-only">Entrada</Label>
                                 <Input
@@ -647,6 +648,7 @@ const TimeTrackingPage: React.FC = () => {
                                   value={apontamento?.entry_time || ''}
                                   onChange={(e) => handleTimeChange(day, 'entry_time', e.target.value)}
                                   disabled={isSaving}
+                                  className="p-1 h-8 text-sm" // Tornando o input mais compacto
                                 />
                               </div>
                               <div className="flex-1">
@@ -657,6 +659,7 @@ const TimeTrackingPage: React.FC = () => {
                                   value={apontamento?.exit_time || ''}
                                   onChange={(e) => handleTimeChange(day, 'exit_time', e.target.value)}
                                   disabled={isSaving}
+                                  className="p-1 h-8 text-sm" // Tornando o input mais compacto
                                 />
                               </div>
                             </div>
