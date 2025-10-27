@@ -14,6 +14,23 @@ const config: CapacitorConfig = {
     webView: {
       androidHardwareAcceleration: true,
     },
+  },
+  // Configuração para geração de assets (ícones e splash screens)
+  assets: {
+    // Usando Logo.png como imagem de origem para ícones e splash screens
+    icon: {
+      source: 'public/Logo.png',
+      // Opcional: Adicionar cores de fundo se o ícone for transparente
+      backgroundColor: '#FFFFFF', 
+      iconColor: '#000000',
+    },
+    splash: {
+      source: 'public/Banner.png', // Mantendo o Banner para splash screen
+      backgroundColor: '#FFFFFF',
+      splashscreen: 'public/Banner.png',
+      splashscreenDark: 'public/Banner.png',
+      iconColor: '#000000',
+    },
   }
 };
 
