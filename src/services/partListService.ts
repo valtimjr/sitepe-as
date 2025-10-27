@@ -70,144 +70,22 @@ const fetchAllPaginated = async <T>(tableName: string, orderByColumn: string): P
   return allData;
 };
 
+// REMOVIDA A LÓGICA DE SEEDING AUTOMÁTICO PARA EVITAR ERROS DE PERMISSÃO ANÔNIMA
 const seedPartsFromJson = async (): Promise<void> => {
-  // Primeiro, verifica se há peças no Supabase
-  const { count: supabasePartsCount, error: countError } = await supabase
-    .from('parts')
-    .select('*', { count: 'exact' });
-
-  if (countError) {
-    console.error('Error checking Supabase parts count:', countError);
-    // Fallback para IndexedDB para verificar se já há dados localmente
-    const localPartsCount = await localDb.parts.count();
-    if (localPartsCount > 0) {
-      return;
-    }
-  }
-
-  if (supabasePartsCount && supabasePartsCount > 0) {
-    return;
-  }
-
-  try {
-    const response = await fetch('/data/parts.json'); // Caminho atualizado
-    if (!response.ok) {
-      // throw new Error(`HTTP error! status: ${response.status}`); // Removido throw
-      console.warn(`seedPartsFromJson: Failed to fetch parts.json. Status: ${response.status}`);
-      return;
-    }
-    const parsedParts: Part[] = await response.json();
-
-    // Adiciona ao Supabase
-    const { error: insertError } = await supabase
-      .from('parts')
-      .insert(parsedParts);
-
-    if (insertError) {
-      console.error('Failed to seed parts to Supabase:', insertError);
-      throw insertError;
-    }
-
-    // Também adiciona ao IndexedDB para cache local
-    await bulkPutLocalParts(parsedParts);
-
-  } catch (error) {
-    console.error("Failed to fetch or parse parts.json or seed Supabase/IndexedDB:", error);
-  }
+  // A leitura de dados iniciais deve ser feita pelo administrador via importação.
+  // Se a tabela estiver vazia, o app simplesmente não terá dados até que o admin os insira.
+  return;
 };
 
+// REMOVIDA A LÓGICA DE SEEDING AUTOMÁTICO PARA EVITAR ERROS DE PERMISSÃO ANÔNIMA
 const seedAfs = async (): Promise<void> => {
-  // 1. Primeiro, verifica se há AFs no Supabase
-  const { count: supabaseAfsCount, error: countError } = await supabase
-    .from('afs')
-    .select('*', { count: 'exact' });
-
-  if (countError) {
-    console.error('seedAfs: Error checking Supabase AFs count:', countError);
-    // Se houver erro ao contar, tenta carregar do IndexedDB como fallback
-    const localAfsCount = await localDb.afs.count();
-    if (localAfsCount > 0) {
-      return;
-    }
-  }
-
-  if (supabaseAfsCount && supabaseAfsCount > 0) {
-    return;
-  }
-
-  let parsedAfs: Af[] = [];
-  let source = '';
-
-  // 2. Tenta carregar do public/data/afs.json
-  try {
-    const response = await fetch('/data/afs.json'); // Caminho atualizado
-    if (!response.ok) {
-      console.warn('seedAfs: Failed to fetch afs.json, trying CSV. Status:', response.status);
-    } else {
-      parsedAfs = await response.json();
-      source = 'JSON';
-    }
-  } catch (jsonError) {
-    console.warn('seedAfs: Error fetching afs.json, trying CSV:', jsonError);
-  }
-
-  // 3. Se JSON falhou ou estava vazio, tenta carregar do public/afs.csv
-  if (parsedAfs.length === 0) {
-    try {
-      const response = await fetch('/afs.csv');
-      if (response.ok) {
-        const csvText = await response.text();
-        await new Promise<void>((resolve, reject) => {
-          Papa.parse(csvText, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (results: any) => {
-              parsedAfs = results.data.map((row: any) => ({
-                id: row.id || uuidv4(),
-                af_number: row.af_number || row.codigo || row.AF, // Suporte a 'codigo' ou 'AF'
-                descricao: row.descricao || row.description || '', // Suporte a 'descricao' ou 'description'
-              })).filter(af => af.af_number);
-              source = 'CSV';
-              resolve();
-            },
-            error: (error: Error) => {
-              reject(error);
-            }
-          });
-        });
-      } else {
-        // throw new Error(`HTTP error! status: ${response.status}`); // Removido throw
-        console.warn(`seedAfs: Failed to fetch afs.csv. Status: ${response.status}`);
-      }
-    } catch (csvError) {
-      console.error("seedAfs: Failed to fetch or parse afs.csv:", csvError);
-    }
-  }
-
-  // 4. Se dados foram encontrados, adiciona ao Supabase e IndexedDB
-  if (parsedAfs.length > 0) {
-    try {
-      const { error: upsertError } = await supabase
-        .from('afs')
-        .upsert(parsedAfs, { onConflict: 'af_number' }); // ALTERADO: Usando af_number como chave de conflito
-
-      if (upsertError) {
-        console.error('seedAfs: Failed to upsert AFs to Supabase:', upsertError);
-        throw upsertError;
-      }
-
-      await bulkPutLocalAfs(parsedAfs);
-    } catch (dbError) {
-      console.error("seedAfs: Failed to seed Supabase/IndexedDB with AFs:", dbError);
-    }
-  } else {
-    console.warn('seedAfs: No AFs found in JSON or CSV to seed.');
-  }
+  // A leitura de dados iniciais deve ser feita pelo administrador via importação.
+  // Se a tabela estiver vazia, o app simplesmente não terá dados até que o admin os insira.
+  return;
 };
 
 export const getParts = async (): Promise<Part[]> => {
-  await seedPartsFromJson(); // Garante que o Supabase esteja populado
-
+  // Não chama seedPartsFromJson() aqui.
   try {
     // Usa a função paginada para buscar TODAS as peças
     const data = await fetchAllPaginated<Part>('parts', 'codigo');
@@ -246,7 +124,7 @@ export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  await seedPartsFromJson(); // Garante que o Supabase esteja populado
+  // Não chama seedPartsFromJson() aqui.
 
   const lowerCaseQuery = query.toLowerCase().trim();
 
@@ -355,7 +233,7 @@ export const deletePart = async (id: string): Promise<void> => {
 
 // --- Funções para AFs ---
 export const getAfsFromService = async (): Promise<Af[]> => {
-  await seedAfs(); // Garante que o Supabase esteja populado
+  // Não chama seedAfs() aqui.
 
   try {
     // Usa a função paginada para buscar TODOS os AFs
@@ -447,7 +325,8 @@ export const clearSimplePartsList = async (): Promise<void> => {
   await clearLocalSimplePartsList();
 };
 
-// --- Funções para ServiceOrderItem (Lista de Ordens de Serviço) ---
+// --- Service Order Items Management (IndexedDB) ---
+
 export const getServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
   return getLocalServiceOrderItems();
 };
