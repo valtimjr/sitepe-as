@@ -4,7 +4,7 @@ import {
   localDb,
   bulkPutLocalParts,
   getLocalParts, // Exportado explicitamente
-  searchLocalParts,
+  searchLocalParts, // Mantido para uso em modo offline, mas não em searchParts
   updateLocalPart,
   Part as LocalPart,
 } from '@/services/localDbService';
@@ -83,78 +83,41 @@ export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
   return data[0].id;
 };
 
+/**
+ * Searches for parts in Supabase by 'codigo' only.
+ * Falls back to local search if offline or Supabase query fails.
+ */
 export const searchParts = async (query: string): Promise<Part[]> => {
   const online = await isOnline();
   const lowerCaseQuery = query.toLowerCase().trim();
 
   if (!online) {
     console.log('Offline: Searching parts in local cache.');
-    return searchLocalParts(query);
+    // Mantém a busca local mais abrangente para o modo offline
+    return searchLocalParts(query); 
   }
 
-  let queryBuilder = supabase
-    .from('parts')
-    .select('*');
-
-  if (lowerCaseQuery) {
-    const searchPattern = lowerCaseQuery.split(/\s+/).filter(Boolean).join('%');
-    queryBuilder = queryBuilder.or(
-      `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%`
-    );
+  if (!lowerCaseQuery) {
+    // Se a query estiver vazia, retorna todas as peças do Supabase (ou cache local se falhar)
+    return getParts(); 
   }
 
   try {
-    const { data, error } = await queryBuilder;
+    const { data, error } = await supabase
+      .from('parts')
+      .select('*')
+      .ilike('codigo', `%${lowerCaseQuery}%`) // Busca apenas por código
+      .order('codigo', { ascending: true }); // Ordena por código
 
     if (error) {
       console.error('Error searching parts in Supabase, falling back to local cache:', error);
-      return searchLocalParts(query);
+      return searchLocalParts(query); // Fallback para busca local em caso de erro
     }
 
-    let results = data as Part[];
-
-    // Helper function to determine the quality of the match (copied from localDbService for consistency)
-    const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
-      if (!fieldValue) return 0;
-      const lowerFieldValue = fieldValue.toLowerCase();
-
-      if (isMultiWord) {
-        return regex.test(lowerFieldValue) ? 1 : 0;
-      } else {
-        if (lowerFieldValue === query) return 3;
-        if (lowerFieldValue.startsWith(query)) return 2;
-        if (lowerFieldValue.includes(query)) return 1;
-      }
-      return 0;
-    };
-
-    if (lowerCaseQuery) {
-      const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
-      const isMultiWordQuery = queryWords.length > 1;
-      const escapedWords = queryWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-      const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
-
-      results.sort((a, b) => {
-        const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-        const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-        const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-
-        const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-        const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-        const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-
-        if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
-        if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
-        if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
-
-        return 0;
-      });
-    }
-
-    return results;
+    return data as Part[];
   } catch (error) {
     console.error('Unexpected error during Supabase search, falling back to local cache:', error);
-    return searchLocalParts(query);
+    return searchLocalParts(query); // Fallback para busca local em caso de erro inesperado
   }
 };
 

@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Part, getParts } from '@/services';
+import { Part, getParts, searchParts } from '@/services'; // Import searchParts from services
 import { useQuery } from '@tanstack/react-query';
 
 interface PartSearchInputProps {
@@ -17,9 +17,11 @@ interface PartSearchInputProps {
 const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selectedPart }) => {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState(''); // Internal search query for CommandInput
+  const [displayedSearchResults, setDisplayedSearchResults] = useState<Part[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const commandInputRef = useRef<HTMLInputElement>(null); // Ref for CommandInput
 
-  // Fetch all parts using react-query
+  // Fetch all parts for initial display when search is empty
   const { data: allParts = [], isLoading: isLoadingAllParts } = useQuery<Part[]>({
     queryKey: ['parts'],
     queryFn: getParts,
@@ -37,10 +39,33 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selecte
     }
   }, [selectedPart]);
 
+  // Debounced search effect for Supabase
+  useEffect(() => {
+    const handler = setTimeout(async () => {
+      if (searchQuery.length > 0) {
+        setIsSearching(true);
+        try {
+          const results = await searchParts(searchQuery); // Call Supabase search
+          setDisplayedSearchResults(results);
+        } catch (error) {
+          console.error("Error during part search:", error);
+          setDisplayedSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setDisplayedSearchResults(allParts); // Show all parts when search is empty
+      }
+    }, 300); // 300ms debounce
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchQuery, allParts]); // Depend on allParts to re-display if the full list changes
+
   // Focus the CommandInput when the popover opens
   useEffect(() => {
     if (open) {
-      // Use a timeout to ensure the CommandInput is rendered before trying to focus
       setTimeout(() => {
         commandInputRef.current?.focus();
       }, 50); 
@@ -80,27 +105,25 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selecte
         <Command>
           <CommandInput
             ref={commandInputRef} // Attach ref here
-            placeholder="Buscar peça..."
+            placeholder="Buscar peça pelo código..."
             value={searchQuery}
             onValueChange={setSearchQuery}
           />
           <CommandList>
-            {isLoadingAllParts ? (
+            {isLoadingAllParts || isSearching ? (
               <CommandEmpty className="flex items-center justify-center py-4">
-                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando peças...
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> {isLoadingAllParts ? 'Carregando todas as peças...' : 'Buscando resultados...'}
               </CommandEmpty>
-            ) : allParts.length === 0 ? (
+            ) : displayedSearchResults.length === 0 && searchQuery.length > 0 ? (
+              <CommandEmpty>Nenhuma peça encontrada para "{searchQuery}".</CommandEmpty>
+            ) : displayedSearchResults.length === 0 && searchQuery.length === 0 ? (
               <CommandEmpty>Nenhuma peça disponível no sistema.</CommandEmpty>
             ) : (
               <CommandGroup>
-                {allParts.filter(part => // Filter locally based on searchQuery
-                  part.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  part.descricao.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  (part.tags && part.tags.toLowerCase().includes(searchQuery.toLowerCase()))
-                ).map((part) => (
+                {displayedSearchResults.map((part) => (
                   <CommandItem
                     key={part.id}
-                    value={`${part.codigo} ${part.descricao} ${part.tags}`} // Value for CommandItem search
+                    value={`${part.codigo} ${part.descricao}`} // Value for CommandItem search (simplified for display)
                     onSelect={() => handleSelect(part)}
                   >
                     <Check
@@ -112,14 +135,6 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selecte
                     {getPartDisplay(part)}
                   </CommandItem>
                 ))}
-                {/* Show empty message if no filtered results */}
-                {allParts.filter(part => 
-                  part.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  part.descricao.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  (part.tags && part.tags.toLowerCase().includes(searchQuery.toLowerCase()))
-                ).length === 0 && searchQuery.length > 0 && (
-                  <CommandEmpty>Nenhuma peça encontrada para "{searchQuery}".</CommandEmpty>
-                )}
               </CommandGroup>
             )}
           </CommandList>
