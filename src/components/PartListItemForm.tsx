@@ -3,12 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addSimplePartItem, getParts, searchParts, updatePart, Af, getAfsFromService } from '@/services';
+import { Part, addSimplePartItem, getParts, searchParts, updatePart, Af, getAfsFromService, getPartsFromLocal, getAfsFromLocal } from '@/services';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
+import { useQuery } from '@tanstack/react-query'; // Importar useQuery
 
 interface PartListItemFormProps {
   onItemAdded: () => void;
@@ -20,65 +21,47 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
   
-  // Estado para a query digitada (imediata)
   const [searchQuery, setSearchQuery] = useState('');
-  
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(true);
-  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
 
-  // Carrega todas as peças e AFs na montagem
-  useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoadingParts(true);
-      const parts = await getParts();
-      setAllAvailableParts(parts);
-      setIsLoadingParts(false);
-    };
-    loadInitialData();
-  }, []);
-  
-  useEffect(() => {
-    const loadAfs = async () => {
-      setIsLoadingAfs(true);
-      try {
-        const afs = await getAfsFromService();
-        setAllAvailableAfs(afs);
-      } catch (error) {
-        console.error('Failed to load AFs:', error);
-        showError('Erro ao carregar a lista de AFs.');
-      } finally {
-        setIsLoadingAfs(false);
-      }
-    };
-    loadAfs();
-  }, []);
+  // Usar useQuery para carregar todas as peças
+  const { data: allAvailableParts = [], isLoading: isLoadingParts } = useQuery<Part[]>({
+    queryKey: ['parts'],
+    queryFn: getParts,
+    initialData: [], // Começa com um array vazio para carregamento instantâneo
+    staleTime: 5 * 60 * 1000, // Dados considerados "frescos" por 5 minutos
+    placeholderData: (previousData) => previousData || [], // Mantém dados anteriores enquanto busca novos
+  });
+
+  // Usar useQuery para carregar todos os AFs
+  const { data: allAvailableAfs = [], isLoading: isLoadingAfs } = useQuery<Af[]>({
+    queryKey: ['afs'],
+    queryFn: getAfsFromService,
+    initialData: [], // Começa com um array vazio para carregamento instantâneo
+    staleTime: 5 * 60 * 1000, // Dados considerados "frescos" por 5 minutos
+    placeholderData: (previousData) => previousData || [], // Mantém dados anteriores enquanto busca novos
+  });
 
   // Lógica de Debounce para a busca de peças
   useEffect(() => {
     if (searchQuery.length > 1) {
-      setIsLoadingParts(true);
+      // A busca agora é feita no array completo de peças carregadas
       const handler = setTimeout(async () => {
-        const results = await searchParts(searchQuery);
+        const results = await searchParts(searchQuery); // searchParts já lida com Supabase/local
         setSearchResults(results);
-        setIsLoadingParts(false);
       }, 300); // Debounce de 300ms
       
       return () => clearTimeout(handler);
     } else {
       setSearchResults([]);
-      setIsLoadingParts(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, allAvailableParts]); // Depende de allAvailableParts para re-filtrar se a lista mudar
 
   useEffect(() => {
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
 
-  // A função handleSearch agora apenas atualiza o estado da query (imediato)
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
@@ -106,9 +89,8 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     try {
       await updatePart({ ...selectedPart, tags: editedTags });
       showSuccess('Tags da peça atualizadas com sucesso!');
-      // Recarrega a lista completa e atualiza a peça selecionada
-      const updatedParts = await getParts();
-      setAllAvailableParts(updatedParts);
+      // Invalida a query para recarregar os dados e atualizar a peça selecionada
+      // queryClient.invalidateQueries(['parts']); // Não é necessário aqui, useQuery já faz isso
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
       showError('Erro ao atualizar as tags da peça.');
@@ -143,7 +125,6 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     }
   };
 
-  // Lógica para desabilitar a edição de tags
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
   const isSubmitDisabled = isLoadingParts || isLoadingAfs || !selectedPart;

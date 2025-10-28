@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Part, getParts, addPart, updatePart, deletePart, searchParts, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services';
+import { Part, getParts, addPart, updatePart, deletePart, searchParts, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts, getPartsFromLocal } from '@/services';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -37,64 +37,47 @@ import {
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // Importar useQuery e useQueryClient
 
 const PartManagementTable: React.FC = () => {
-  const { checkPageAccess } = useSession(); // Obter checkPageAccess
-  const [parts, setParts] = useState<Part[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { checkPageAccess } = useSession();
+  const queryClient = useQueryClient(); // Inicializar queryClient
+  
+  const [parts, setParts] = useState<Part[]>([]); // Estado para as peças filtradas/exibidas
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentPart, setCurrentPart] = useState<Part | null>(null);
   const [formCodigo, setFormCodigo] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set()); // Linha corrigida
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const loadInitialParts = async () => {
-      setIsLoading(true);
-      try {
-        const fetchedParts = await getParts();
-        setParts(fetchedParts);
-      } catch (error) {
-        showError('Erro ao carregar peças.');
-        console.error('Failed to load parts:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Usar useQuery para carregar todas as peças
+  const { data: allPartsData = [], isLoading: isLoadingAllParts, refetch } = useQuery<Part[]>({
+    queryKey: ['parts'],
+    queryFn: getParts,
+    initialData: [], // Começa com um array vazio para carregamento instantâneo
+    staleTime: 5 * 60 * 1000, // Dados considerados "frescos" por 5 minutos
+    placeholderData: (previousData) => previousData || [], // Mantém dados anteriores enquanto busca novos
+  });
 
-    if (!searchQuery) {
-      loadInitialParts();
+  // Efeito para filtrar as peças exibidas com base na searchQuery
+  useEffect(() => {
+    if (searchQuery) {
+      const lowerCaseQuery = searchQuery.toLowerCase().trim();
+      const filtered = allPartsData.filter(part => {
+        return part.codigo.toLowerCase().includes(lowerCaseQuery) ||
+               part.descricao.toLowerCase().includes(lowerCaseQuery) ||
+               (part.tags && part.tags.toLowerCase().includes(lowerCaseQuery));
+      });
+      setParts(filtered);
+    } else {
+      setParts(allPartsData); // Se a busca estiver vazia, exibe todas as peças
     }
-  }, [searchQuery]);
-
-  useEffect(() => {
-    const fetchSearchResults = async () => {
-      setIsLoading(true);
-      try {
-        const results = await searchParts(searchQuery);
-        setParts(results);
-        setSelectedPartIds(new Set());
-      } catch (error) {
-        showError('Erro ao buscar peças.');
-        console.error('Failed to search parts:', error);
-        setParts([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    const handler = setTimeout(() => {
-      fetchSearchResults();
-    }, 300);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [searchQuery]);
+    setSelectedPartIds(new Set()); // Limpa a seleção ao mudar a busca/lista
+  }, [searchQuery, allPartsData]);
 
   const handleAddPart = () => {
     setCurrentPart(null);
@@ -117,7 +100,7 @@ const PartManagementTable: React.FC = () => {
     try {
       await deletePart(id);
       showSuccess('Peça excluída com sucesso!');
-      loadPartsAfterAction();
+      queryClient.invalidateQueries({ queryKey: ['parts'] }); // Invalida a query para recarregar
     } catch (error) {
       showError('Erro ao excluir peça.');
       console.error('Failed to delete part:', error);
@@ -154,22 +137,11 @@ const PartManagementTable: React.FC = () => {
         showSuccess('Peça adicionada com sucesso!');
       }
       setIsDialogOpen(false);
-      loadPartsAfterAction();
+      queryClient.invalidateQueries({ queryKey: ['parts'] }); // Invalida a query para recarregar
     } catch (error) {
       showError('Erro ao salvar peça.');
       console.error('Failed to save part:', error);
     }
-  };
-
-  const loadPartsAfterAction = async () => {
-    if (searchQuery) {
-      const results = await searchParts(searchQuery);
-      setParts(results);
-    } else {
-      const fetchedParts = await getParts();
-      setParts(fetchedParts);
-    }
-    setSelectedPartIds(new Set());
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -201,7 +173,8 @@ const PartManagementTable: React.FC = () => {
     try {
       await Promise.all(Array.from(selectedPartIds).map(id => deletePart(id)));
       showSuccess(`${selectedPartIds.size ?? 0} peças excluídas com sucesso!`);
-      loadPartsAfterAction();
+      queryClient.invalidateQueries({ queryKey: ['parts'] }); // Invalida a query para recarregar
+      setSelectedPartIds(new Set());
     } catch (error) {
       showError('Erro ao excluir peças selecionadas.');
       console.error('Failed to bulk delete parts:', error);
@@ -217,7 +190,8 @@ const PartManagementTable: React.FC = () => {
       const partsToUpdate = parts.filter(part => selectedPartIds.has(part.id));
       await Promise.all(partsToUpdate.map(part => updatePart({ ...part, tags: '' })));
       showSuccess(`Tags de ${selectedPartIds.size ?? 0} peças limpas com sucesso!`);
-      loadPartsAfterAction();
+      queryClient.invalidateQueries({ queryKey: ['parts'] }); // Invalida a query para recarregar
+      setSelectedPartIds(new Set());
     } catch (error) {
       showError('Erro ao limpar tags das peças selecionadas.');
       console.error('Failed to bulk clear tags:', error);
@@ -251,7 +225,7 @@ const PartManagementTable: React.FC = () => {
           try {
             await importParts(newParts);
             showSuccess(`${newParts.length} peças importadas/atualizadas com sucesso!`);
-            loadPartsAfterAction();
+            queryClient.invalidateQueries({ queryKey: ['parts'] }); // Invalida a query para recarregar
           } catch (error) {
             showError('Erro ao importar peças do CSV.');
             console.error('Failed to import parts from CSV:', error);
@@ -332,7 +306,7 @@ const PartManagementTable: React.FC = () => {
       const deletedCount = await cleanupEmptyParts();
       if (deletedCount > 0) {
         showSuccess(`${deletedCount} peças vazias foram removidas com sucesso!`);
-        loadPartsAfterAction();
+        queryClient.invalidateQueries({ queryKey: ['parts'] }); // Invalida a query para recarregar
       } else {
         showSuccess('Nenhuma peça vazia encontrada para remover.');
       }
@@ -344,7 +318,6 @@ const PartManagementTable: React.FC = () => {
     }
   };
 
-  // Lógica para desabilitar a edição de tags
   const canEditTags = checkPageAccess('/manage-tags');
 
   const isAllSelected = parts.length > 0 && selectedPartIds.size === parts.length;
@@ -451,8 +424,10 @@ const PartManagementTable: React.FC = () => {
                 <Button variant="outline" className="flex items-center gap-2" disabled={!canEditTags}>
                   <Tag className="h-4 w-4" /> Limpar Tags Selecionadas ({selectedPartIds.size})
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
+              </TooltipTrigger>
+              <TooltipContent>Limpar Tags</TooltipContent>
+            </Tooltip>
+            <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
                   <AlertDialogDescription>
@@ -468,7 +443,7 @@ const PartManagementTable: React.FC = () => {
           </div>
         )}
 
-        {isLoading ? (
+        {isLoadingAllParts ? (
           <p className="text-center text-muted-foreground py-8">Carregando peças...</p>
         ) : parts.length === 0 && searchQuery.length > 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhuma peça encontrada para "{searchQuery}".</p>

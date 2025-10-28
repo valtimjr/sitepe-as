@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   localDb,
   bulkPutLocalParts,
-  getLocalParts,
+  getLocalParts, // Exportado explicitamente
   searchLocalParts,
   updateLocalPart,
   Part as LocalPart,
@@ -14,29 +14,32 @@ import { fetchAllPaginated } from './utils/supabase-fetch';
 export interface Part extends LocalPart {}
 
 /**
- * Returns parts from local cache immediately and starts background sync if online.
+ * Fetches parts from local IndexedDB.
+ */
+export const getPartsFromLocal = async (): Promise<Part[]> => {
+  return getLocalParts();
+};
+
+/**
+ * Fetches parts from Supabase and updates the local IndexedDB cache.
  */
 export const getParts = async (): Promise<Part[]> => {
   const online = await isOnline();
-  let localParts = await getLocalParts(); // Obter dados locais primeiro
 
   if (!online) {
-    console.log('Offline: Servindo peças do cache local.');
-    return localParts;
+    console.log('Offline: Não é possível buscar peças do Supabase.');
+    return []; // Retorna vazio se offline e não pode buscar do Supabase
   }
 
-  // Se online, sempre tentar buscar do Supabase
   try {
     const remoteParts = await fetchAllPaginated<Part>('parts', 'codigo');
-    // Se bem-sucedido, limpar o cache local e atualizar com os dados remotos
-    await localDb.parts.clear();
-    await bulkPutLocalParts(remoteParts);
+    await localDb.parts.clear(); // Limpa o cache antigo
+    await bulkPutLocalParts(remoteParts); // Atualiza o cache com os dados mais recentes
     console.log('Online: Peças buscadas do Supabase e cache local atualizado.');
     return remoteParts;
   } catch (error) {
-    console.error('Online: Falha ao buscar peças do Supabase. Retornando para o cache local.', error);
-    // Se a busca no Supabase falhar, retornar os dados locais (que podem estar vazios)
-    return localParts;
+    console.error('Online: Falha ao buscar peças do Supabase. O cache local pode estar desatualizado.', error);
+    throw new Error(`Erro ao buscar peças do Supabase: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 

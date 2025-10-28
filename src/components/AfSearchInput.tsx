@@ -9,9 +9,10 @@ interface AfSearchInputProps {
   availableAfs: Af[]; // Lista completa de AFs
   onSelectAf: (af: string) => void; // Chamado com o af_number do item selecionado
   readOnly?: boolean;
+  isLoading?: boolean; // Adicionado prop isLoading
 }
 
-const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availableAfs, onSelectAf, readOnly }) => {
+const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availableAfs, onSelectAf, readOnly, isLoading = false }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [displayedAfs, setDisplayedAfs] = useState<Af[]>(availableAfs);
@@ -127,7 +128,9 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
         />
         {isDropdownOpen && !readOnly && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto">
-            {displayedAfs.length === 0 && displayValue.length > 0 ? (
+            {isLoading ? ( // Usa o isLoading passado via props
+              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Carregando AFs...</li>
+            ) : displayedAfs.length === 0 && displayValue.length > 0 ? (
               <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhum AF encontrado.</li>
             ) : displayedAfs.length > 0 ? (
               displayedAfs.map((afItem) => (

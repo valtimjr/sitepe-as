@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download, MoreHorizontal, FileText } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson, getAllAfsForExport } from '@/services';
+import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson, getAllAfsForExport, getAfsFromLocal } from '@/services';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -37,6 +37,7 @@ import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // Importar useQuery e useQueryClient
 
 // Função auxiliar para obter valor de uma linha, ignorando case e variações
 const getRowValue = (row: any, keys: string[]): string | undefined => {
@@ -55,8 +56,9 @@ const getRowValue = (row: any, keys: string[]): string | undefined => {
 };
 
 const AfManagementTable: React.FC = () => {
-  const [afs, setAfs] = useState<Af[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient(); // Inicializar queryClient
+  
+  const [afs, setAfs] = useState<Af[]>([]); // Estado para os AFs filtrados/exibidos
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
@@ -64,35 +66,35 @@ const AfManagementTable: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set());
   
-  // Novos estados para importação
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [parsedAfsToImport, setParsedAfsToImport] = useState<Af[]>([]);
   const [importLog, setImportLog] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    loadAfs();
-  }, []);
-
-  const loadAfs = async () => {
-    setIsLoading(true);
-    try {
-      const fetchedAfs = await getAfsFromService();
-      setAfs(fetchedAfs);
-    } catch (error) {
-      showError('Erro ao carregar AFs.');
-      console.error('Failed to load AFs:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const filteredAfs = afs.filter(af => {
-    const lowerCaseQuery = searchQuery.toLowerCase();
-    return af.af_number.toLowerCase().includes(lowerCaseQuery) || 
-           (af.descricao && af.descricao.toLowerCase().includes(lowerCaseQuery));
+  // Usar useQuery para carregar todos os AFs
+  const { data: allAfsData = [], isLoading: isLoadingAllAfs, refetch } = useQuery<Af[]>({
+    queryKey: ['afs'],
+    queryFn: getAfsFromService,
+    initialData: [], // Começa com um array vazio para carregamento instantâneo
+    staleTime: 5 * 60 * 1000, // Dados considerados "frescos" por 5 minutos
+    placeholderData: (previousData) => previousData || [], // Mantém dados anteriores enquanto busca novos
   });
+
+  // Efeito para filtrar os AFs exibidos com base na searchQuery
+  useEffect(() => {
+    if (searchQuery) {
+      const lowerCaseQuery = searchQuery.toLowerCase().trim();
+      const filtered = allAfsData.filter(af => {
+        return af.af_number.toLowerCase().includes(lowerCaseQuery) || 
+               (af.descricao && af.descricao.toLowerCase().includes(lowerCaseQuery));
+      });
+      setAfs(filtered);
+    } else {
+      setAfs(allAfsData); // Se a busca estiver vazia, exibe todos os AFs
+    }
+    setSelectedAfIds(new Set()); // Limpa a seleção ao mudar a busca/lista
+  }, [searchQuery, allAfsData]);
 
   const handleAddAf = () => {
     setCurrentAf(null);
@@ -113,7 +115,7 @@ const AfManagementTable: React.FC = () => {
     try {
       await deleteAf(id);
       showSuccess('AF excluído com sucesso!');
-      loadAfs();
+      queryClient.invalidateQueries({ queryKey: ['afs'] }); // Invalida a query para recarregar
     } catch (error) {
       showError('Erro ao excluir AF.');
       console.error('Failed to delete AF:', error);
@@ -144,7 +146,7 @@ const AfManagementTable: React.FC = () => {
         showSuccess('AF adicionado com sucesso!');
       }
       setIsDialogOpen(false);
-      loadAfs();
+      queryClient.invalidateQueries({ queryKey: ['afs'] }); // Invalida a query para recarregar
     } catch (error) {
       showError('Erro ao salvar AF.');
       console.error('Failed to save AF:', error);
@@ -180,8 +182,8 @@ const AfManagementTable: React.FC = () => {
     try {
       await Promise.all(Array.from(selectedAfIds).map(id => deleteAf(id)));
       showSuccess(`${selectedAfIds?.size ?? 0} AFs excluídos com sucesso!`);
+      queryClient.invalidateQueries({ queryKey: ['afs'] }); // Invalida a query para recarregar
       setSelectedAfIds(new Set());
-      loadAfs();
     } catch (error) {
       showError('Erro ao excluir AFs selecionados.');
       console.error('Failed to bulk delete AFs:', error);
@@ -280,7 +282,7 @@ const AfManagementTable: React.FC = () => {
       await importAfs(newAfs);
       setImportLog(prev => [...prev, `Sucesso: ${newAfs.length} AFs importados/atualizados.`]);
       showSuccess(`${newAfs.length} AFs importados/atualizados com sucesso!`);
-      loadAfs();
+      queryClient.invalidateQueries({ queryKey: ['afs'] }); // Invalida a query para recarregar
     } catch (error) {
       setImportLog(prev => [...prev, 'ERRO: Falha na importação para o Supabase.']);
       showError('Erro ao importar AFs do CSV. Verifique o log.');
@@ -439,7 +441,7 @@ const AfManagementTable: React.FC = () => {
           />
         </div>
 
-        {isLoading ? (
+        {isLoadingAllAfs ? (
           <p className="text-center text-muted-foreground py-8">Carregando AFs...</p>
         ) : filteredAfs.length === 0 && searchQuery.length > 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhum AF encontrado para "{searchQuery}".</p>

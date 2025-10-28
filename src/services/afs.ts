@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   localDb,
   bulkPutLocalAfs,
-  getLocalAfs,
+  getLocalAfs, // Exportado explicitamente
   Af as LocalAf,
 } from '@/services/localDbService';
 import { isOnline } from './utils/network';
@@ -12,29 +12,32 @@ import { fetchAllPaginated } from './utils/supabase-fetch';
 export interface Af extends LocalAf {}
 
 /**
- * Returns AFs from local cache immediately and starts background sync if online.
+ * Fetches AFs from local IndexedDB.
+ */
+export const getAfsFromLocal = async (): Promise<Af[]> => {
+  return getLocalAfs();
+};
+
+/**
+ * Fetches AFs from Supabase and updates the local IndexedDB cache.
  */
 export const getAfsFromService = async (): Promise<Af[]> => {
   const online = await isOnline();
-  let localAfs = await getLocalAfs(); // Obter dados locais primeiro
   
   if (!online) {
-    console.log('Offline: Servindo AFs do cache local.');
-    return localAfs;
+    console.log('Offline: Não é possível buscar AFs do Supabase.');
+    return []; // Retorna vazio se offline e não pode buscar do Supabase
   }
 
-  // Se online, sempre tentar buscar do Supabase
   try {
     const remoteAfs = await fetchAllPaginated<Af>('afs', 'af_number');
-    // Se bem-sucedido, limpar o cache local e atualizar com os dados remotos
-    await localDb.afs.clear();
-    await bulkPutLocalAfs(remoteAfs);
+    await localDb.afs.clear(); // Limpa o cache antigo
+    await bulkPutLocalAfs(remoteAfs); // Atualiza o cache com os dados mais recentes
     console.log('Online: AFs buscados do Supabase e cache local atualizado.');
     return remoteAfs;
   } catch (error) {
-    console.error('Online: Falha ao buscar AFs do Supabase. Retornando para o cache local.', error);
-    // Se a busca no Supabase falhar, retornar os dados locais (que podem estar vazios)
-    return localAfs;
+    console.error('Online: Falha ao buscar AFs do Supabase. O cache local pode estar desatualizado.', error);
+    throw new Error(`Erro ao buscar AFs do Supabase: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 

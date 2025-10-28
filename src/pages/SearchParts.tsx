@@ -3,46 +3,42 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Part, searchParts, getParts } from '@/services';
+import { Part, searchParts, getParts, getPartsFromLocal } from '@/services';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Search, Loader2 } from 'lucide-react';
 import { showError } from '@/utils/toast';
+import { useQuery } from '@tanstack/react-query'; // Importar useQuery
 
 const SearchParts = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [displayedParts, setDisplayedParts] = useState<Part[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    document.title = "Pesquisar Peças - AutoBoard";
-  }, []);
+  // Usar useQuery para carregar todas as peças
+  const { data: allPartsData = [], isLoading: isLoadingAllParts } = useQuery<Part[]>({
+    queryKey: ['parts'],
+    queryFn: getParts,
+    initialData: [], // Começa com um array vazio para carregamento instantâneo
+    staleTime: 5 * 60 * 1000, // Dados considerados "frescos" por 5 minutos
+    placeholderData: (previousData) => previousData || [], // Mantém dados anteriores enquanto busca novos
+  });
 
   useEffect(() => {
     const performSearch = async () => {
-      setIsLoading(true);
-      try {
-        let results: Part[];
-        if (searchQuery.length > 0) {
-          // Busca com query (debounce aplicado)
-          results = await searchParts(searchQuery);
-        } else {
-          // Se a query estiver vazia, carrega todas as peças (priorizando cache)
-          results = await getParts();
-        }
-        setDisplayedParts(results);
-      } catch (error) {
-        showError('Erro ao carregar ou buscar peças.');
-        console.error('Failed to load/search parts:', error);
-        setDisplayedParts([]);
-      } finally {
-        setIsLoading(false);
+      let results: Part[];
+      if (searchQuery.length > 0) {
+        // Se houver query, busca no Supabase (e cache local como fallback)
+        results = await searchParts(searchQuery);
+      } else {
+        // Se a query estiver vazia, exibe todas as peças já carregadas pelo useQuery
+        results = allPartsData;
       }
+      setDisplayedParts(results);
     };
     
     // Aplica debounce apenas se houver uma query, caso contrário, executa imediatamente
-    // para carregar a lista completa (se a query for limpa).
+    // para exibir a lista completa (se a query for limpa ou na carga inicial).
     const delay = searchQuery.length > 0 ? 300 : 0; 
     
     const handler = setTimeout(() => {
@@ -50,7 +46,7 @@ const SearchParts = () => {
     }, delay); 
     
     return () => clearTimeout(handler);
-  }, [searchQuery]);
+  }, [searchQuery, allPartsData]); // Depende de allPartsData para re-filtrar se a lista mudar
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -77,7 +73,7 @@ const SearchParts = () => {
               />
             </div>
 
-            {isLoading ? (
+            {isLoadingAllParts && searchQuery.length === 0 ? (
               <p className="text-center text-muted-foreground py-4 flex items-center justify-center">
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 Carregando peças...

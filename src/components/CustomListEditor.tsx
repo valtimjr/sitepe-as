@@ -21,10 +21,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import PartSearchInput from './PartSearchInput';
-import { getParts, searchParts as searchPartsService, exportDataAsCsv, exportDataAsJson } from '@/services'; // Importação corrigida
+import { getParts, searchParts as searchPartsService, exportDataAsCsv, exportDataAsJson, getPartsFromLocal } from '@/services'; // Importação corrigida
 import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query'; // Importar useQuery
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -46,8 +47,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
   // Search states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(true);
+
+  // Usar useQuery para carregar todas as peças
+  const { data: allAvailableParts = [], isLoading: isLoadingParts } = useQuery<Part[]>({
+    queryKey: ['parts'],
+    queryFn: getParts,
+    initialData: [], // Começa com um array vazio para carregamento instantâneo
+    staleTime: 5 * 60 * 1000, // Dados considerados "frescos" por 5 minutos
+    placeholderData: (previousData) => previousData || [], // Mantém dados anteriores enquanto busca novos
+  });
 
   const loadItems = useCallback(async () => {
     setIsLoading(true);
@@ -62,30 +70,16 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     }
   }, [list.id]);
 
-  const loadParts = useCallback(async () => {
-    setIsLoadingParts(true);
-    try {
-      const parts = await getParts();
-      setAllAvailableParts(parts);
-    } catch (error) {
-      console.error('Failed to load all parts:', error);
-    } finally {
-      setIsLoadingParts(false);
-    }
-  }, []);
-
   useEffect(() => {
     loadItems();
-    loadParts();
-  }, [loadItems, loadParts]);
+  }, [loadItems]);
 
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQuery.length > 1) {
-        setIsLoadingParts(true);
-        const results = await searchPartsService(searchQuery);
+        // A busca agora é feita no array completo de peças carregadas
+        const results = await searchPartsService(searchQuery); // searchPartsService já lida com Supabase/local
         setSearchResults(results);
-        setIsLoadingParts(false);
       } else {
         setSearchResults([]);
       }
@@ -94,7 +88,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQuery]);
+  }, [searchQuery, allAvailableParts]); // Depende de allAvailableParts para re-filtrar se a lista mudar
 
   const resetForm = () => {
     setCurrentEditItem(null);
