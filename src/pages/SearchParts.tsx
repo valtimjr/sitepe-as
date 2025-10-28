@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Part, searchParts as searchPartsService, getParts } from '@/services/partListService';
+import { Part, searchParts, getParts } from '@/services';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ const SearchParts = () => {
         let results: Part[];
         if (searchQuery.length > 0) {
           // Busca com query (debounce aplicado)
-          results = await searchPartsService(searchQuery);
+          results = await searchParts(searchQuery);
         } else {
           // Se a query estiver vazia, carrega todas as peças (priorizando cache)
           results = await getParts();

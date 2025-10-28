@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import ServiceOrderForm from '@/components/ServiceOrderForm';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
-import { getServiceOrderItems, ServiceOrderItem } from '@/services/partListService'; // Usar getServiceOrderItems e ServiceOrderItem
+import { getServiceOrderItems, ServiceOrderItem } from '@/services'; // Usar getServiceOrderItems e ServiceOrderItem
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, FilePlus, ClipboardList } from 'lucide-react';
@@ -86,7 +86,7 @@ const ServiceOrderList = () => {
         }
       } else {
         setEditingServiceOrder(null);
-      }
+    }
     } else {
       setEditingServiceOrder(null);
     }

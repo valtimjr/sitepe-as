@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem } from '@/services/partListService';
+import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem, exportDataAsCsv } from '@/services';
 import { generatePartsListPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
 import { Trash2, Download, Copy } from 'lucide-react';

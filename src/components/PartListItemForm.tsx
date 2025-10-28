@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addSimplePartItem, getParts, searchParts as searchPartsService, updatePart, getAfsFromService, Af } from '@/services/partListService';
+import { Part, addSimplePartItem, getParts, searchParts, updatePart, Af, getAfsFromService } from '@/services';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
@@ -62,7 +62,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     if (searchQuery.length > 1) {
       setIsLoadingParts(true);
       const handler = setTimeout(async () => {
-        const results = await searchPartsService(searchQuery);
+        const results = await searchParts(searchQuery);
         setSearchResults(results);
         setIsLoadingParts(false);
       }, 300); // Debounce de 300ms

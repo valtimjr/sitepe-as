@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Af } from '@/services/partListService'; // Importar o tipo Af
+import { Af } from '@/services'; // Importar o tipo Af
 
 interface AfSearchInputProps {
   value: string; // O número do AF (af_number)

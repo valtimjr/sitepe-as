@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services/partListService';
+import { Part, getParts, addPart, updatePart, deletePart, searchParts, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -75,7 +75,7 @@ const PartManagementTable: React.FC = () => {
     const fetchSearchResults = async () => {
       setIsLoading(true);
       try {
-        const results = await searchPartsService(searchQuery);
+        const results = await searchParts(searchQuery);
         setParts(results);
         setSelectedPartIds(new Set());
       } catch (error) {
@@ -163,7 +163,7 @@ const PartManagementTable: React.FC = () => {
 
   const loadPartsAfterAction = async () => {
     if (searchQuery) {
-      const results = await searchPartsService(searchQuery);
+      const results = await searchParts(searchQuery);
       setParts(results);
     } else {
       const fetchedParts = await getParts();

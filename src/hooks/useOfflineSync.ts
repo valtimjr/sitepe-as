@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { Network } from '@capacitor/network';
 import { useSession } from '@/components/SessionContextProvider';
-import { syncPendingApontamentos } from '@/services/partListService';
+import { syncPendingApontamentos } from '@/services';
 import { showSuccess, showError } from '@/utils/toast';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';

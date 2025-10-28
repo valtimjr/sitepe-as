@@ -3,7 +3,7 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Loader2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth } from '@/services/partListService';
+import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth } from '@/services';
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { generateMonthlyApontamentos, ShiftTurn } from '@/services/shiftService';
