@@ -62,7 +62,7 @@ class LocalDexieDb extends Dexie {
       afs: '++id, af_number',
     });
     this.version(2).stores({
-      simplePartsList: '++id, codigo_peca, descricao, created_at',
+      simplePartsList: 'id, codigo_peca, descricao, created_at', // CORRIGIDO: 'id' em vez de '++id'
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number',
@@ -103,7 +103,7 @@ class LocalDexieDb extends Dexie {
       await tx.table('serviceOrderItems').bulkAdd(serviceItems);
     });
     this.version(3).stores({
-      simplePartsList: '++id, codigo_peca, descricao, quantidade, af, created_at',
+      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at', // CORRIGIDO: 'id' em vez de '++id'
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number',
@@ -111,14 +111,14 @@ class LocalDexieDb extends Dexie {
       // Migração de dados da versão 2 para a versão 3 (mantida)
     });
     this.version(4).stores({
-      simplePartsList: '++id, codigo_peca, descricao, quantidade, af, created_at',
+      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at', // CORRIGIDO: 'id' em vez de '++id'
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number',
       apontamentos: 'id, user_id, date, synced_at', // Novo esquema para apontamentos
     });
     this.version(5).stores({
-      simplePartsList: '++id, codigo_peca, descricao, quantidade, af, created_at',
+      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at', // CORRIGIDO: 'id' em vez de '++id'
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number, descricao', // Atualizado para incluir 'descricao'
