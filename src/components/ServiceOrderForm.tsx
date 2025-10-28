@@ -11,7 +11,7 @@ import { Save, Plus, FilePlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
+import { useSession } from '@/components/SessionContextProvider';
 
 interface ServiceOrderDetails {
   af: string;
@@ -32,7 +32,7 @@ interface ServiceOrderFormProps {
 }
 
 const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder, listItems, setIsCreatingNewOrder }) => {
-  const { checkPageAccess } = useSession(); // Obter checkPageAccess
+  const { checkPageAccess } = useSession();
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -40,16 +40,20 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   const [horaInicio, setHoraInicio] = useState<string>('');
   const [horaFinal, setHoraFinal] = useState<string>('');
   const [servicoExecutado, setServicoExecutado] = useState<string>('');
+  
+  // Estado para a query digitada (imediata)
   const [searchQuery, setSearchQuery] = useState('');
+  
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]); // Alterado para Af[]
+  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
   const [isOsInvalid, setIsOsInvalid] = useState(false);
   const [currentBlankOsItemId, setCurrentBlankOsItemId] = useState<string | null>(null);
 
+  // Carrega todas as peças e AFs na montagem
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoadingParts(true);
@@ -60,7 +64,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     loadInitialData();
   }, []);
 
-  // NOVO useEffect para carregar AFs de forma otimizada
   useEffect(() => {
     const loadAfs = async () => {
       setIsLoadingAfs(true);
@@ -76,6 +79,23 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     };
     loadAfs();
   }, []);
+
+  // Lógica de Debounce para a busca de peças
+  useEffect(() => {
+    if (searchQuery.length > 1) {
+      setIsLoadingParts(true);
+      const handler = setTimeout(async () => {
+        const results = await searchPartsService(searchQuery);
+        setSearchResults(results);
+        setIsLoadingParts(false);
+      }, 300); // Debounce de 300ms
+      
+      return () => clearTimeout(handler);
+    } else {
+      setSearchResults([]);
+      setIsLoadingParts(false);
+    }
+  }, [searchQuery]);
 
   useEffect(() => {
     if (editingServiceOrder) {
@@ -109,26 +129,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   }, [editingServiceOrder, listItems]);
 
   useEffect(() => {
-    const fetchSearchResults = async () => {
-      if (searchQuery.length > 1) {
-        setIsLoadingParts(true);
-        const results = await searchPartsService(searchQuery);
-        setSearchResults(results);
-        setIsLoadingParts(false);
-      } else {
-        setSearchResults([]);
-      }
-    };
-    const handler = setTimeout(() => {
-      fetchSearchResults();
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
-
-  useEffect(() => {
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
 
+  // A função handleSearch agora apenas atualiza o estado da query (imediato)
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
@@ -295,7 +299,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         showSuccess('Item adicionado à lista!');
         resetPartFields();
         onItemAdded();
-        // Não precisa recarregar AFs aqui, pois a sincronização em background já está rodando
         setIsCreatingNewOrder(false);
       } catch (error) {
         showError('Erro ao adicionar item à lista.');
@@ -321,7 +324,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         showSuccess('Ordem de Serviço criada sem peças. Adicione peças agora!');
         setCurrentBlankOsItemId(newBlankId);
         onItemAdded();
-        // Não precisa recarregar AFs aqui, pois a sincronização em background já está rodando
         setIsCreatingNewOrder(false);
       } catch (error) {
         showError('Erro ao criar ordem de serviço.');
