@@ -240,19 +240,29 @@ export const getLocalSimplePartsListItems = async (): Promise<SimplePartItem[]> 
 
 export const addLocalSimplePartItem = async (item: Omit<SimplePartItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
   const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
+  console.log('localDbService: Adding new simple part item to IndexedDB:', newItem);
   await localDb.simplePartsList.add(newItem);
   return newItem.id;
 };
 
 export const updateLocalSimplePartItem = async (updatedItem: SimplePartItem): Promise<void> => {
+  console.log('localDbService: Updating simple part item in IndexedDB:', updatedItem);
   await localDb.simplePartsList.update(updatedItem.id, updatedItem);
 };
 
 export const deleteLocalSimplePartItem = async (id: string): Promise<void> => {
-  await localDb.simplePartsList.delete(id);
+  console.log('localDbService: Attempting to delete simple part item with ID:', id);
+  try {
+    await localDb.simplePartsList.delete(id);
+    console.log('localDbService: Successfully deleted item with ID:', id);
+  } catch (error) {
+    console.error('localDbService: Error deleting item with ID:', id, error);
+    throw error; // Re-lança o erro para que o chamador possa tratá-lo
+  }
 };
 
 export const clearLocalSimplePartsList = async (): Promise<void> => {
+  console.log('localDbService: Clearing all simple part list items from IndexedDB.');
   await localDb.simplePartsList.clear();
 };
 
