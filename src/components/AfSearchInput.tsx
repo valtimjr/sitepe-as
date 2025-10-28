@@ -13,10 +13,11 @@ interface AfSearchInputProps {
 
 const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availableAfs, onSelectAf, readOnly }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isFocused, setIsFocused] = useState(false); // Novo estado de foco
+  const [isFocused, setIsFocused] = useState(false);
   const [displayedAfs, setDisplayedAfs] = useState<Af[]>(availableAfs);
-  const [displayValue, setDisplayValue] = useState(''); // Valor exibido no input
+  const [displayValue, setDisplayValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null); // Ref para o container para detectar cliques fora
 
   // Função auxiliar para formatar AF + Descrição
   const getDisplayValue = (afItem: Af) => {
@@ -81,18 +82,17 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
   const handleInputBlur = () => {
     // Pequeno atraso para permitir que o clique no item do dropdown seja registrado
     setTimeout(() => {
-      setIsFocused(false);
-      setIsDropdownOpen(false);
-      
-      // A lógica de sincronização de displayValue será tratada pelo useEffect (Efeito 2)
-      // quando isFocused for definido como false.
-      
-      // Se o campo foi limpo manualmente, garantimos que o pai seja notificado
-      if (displayValue === '' && value !== '') {
-        onChange('');
+      // Verifica se o foco ainda está dentro do componente (input ou dropdown)
+      if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
+        setIsFocused(false);
+        setIsDropdownOpen(false);
+        
+        // Se o campo foi limpo manualmente, garantimos que o pai seja notificado
+        if (displayValue === '' && value !== '') {
+          onChange('');
+        }
       }
-      
-    }, 200);
+    }, 100); // Reduzido o tempo para 100ms para uma resposta mais rápida
   };
 
   const handleSelectAndClose = (afItem: Af) => {
@@ -108,7 +108,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
   };
 
   return (
-    <div className="relative flex w-full items-center space-x-2">
+    <div className="relative flex w-full items-center space-x-2" ref={containerRef}>
       <div className="relative flex-grow">
         <Label htmlFor="af-input" className="sr-only">Número de Frota (AF)</Label>
         <Input
