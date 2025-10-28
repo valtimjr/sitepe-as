@@ -15,7 +15,7 @@ interface PartSearchInputProps {
 const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts, isLoading }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null); // Ref para o container para detectar cliques fora
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Effect para fechar o dropdown quando clicar fora do componente
   useEffect(() => {
@@ -36,15 +36,14 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
   };
 
   const handleInputBlur = () => {
-    // Se o elemento que recebeu o foco (document.activeElement) não for o input,
-    // e não for um elemento dentro do container, o handleClickOutside já cuidará disso.
-    // Se o blur for disparado, mas o foco ainda estiver dentro do container (ex: em um item da lista),
-    // o onMouseDown do item previne o blur.
-    // Se o blur for disparado e o foco sair, o handleClickOutside fecha.
-    // Não precisamos de setTimeout aqui.
-    if (!containerRef.current?.contains(document.activeElement)) {
-      setIsDropdownOpen(false);
-    }
+    // Adiciona um pequeno atraso para permitir que o evento de clique (onMouseDown)
+    // em um item da lista seja processado. O onMouseDown do item previne o blur.
+    // Se o foco realmente saiu do componente, o dropdown será fechado.
+    setTimeout(() => {
+      if (!containerRef.current?.contains(document.activeElement)) {
+        setIsDropdownOpen(false);
+      }
+    }, 100); // 100ms de atraso
   };
 
   const handleSelectAndClose = (part: Part) => {
