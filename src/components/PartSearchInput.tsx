@@ -15,6 +15,7 @@ interface PartSearchInputProps {
 const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts, isLoading }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false); // Novo estado para controlar o foco
   const containerRef = useRef<HTMLDivElement>(null); // Ref para o container para detectar cliques fora
 
   // Effect para fechar o dropdown quando clicar fora do componente
@@ -22,6 +23,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
+        setIsFocused(false); // Garante que o estado de foco seja resetado
       }
     };
 
@@ -32,29 +34,19 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
   }, []);
 
   const handleInputFocus = () => {
+    setIsFocused(true);
     setIsDropdownOpen(true);
   };
 
   const handleInputBlur = () => {
     // Pequeno atraso para permitir que os eventos de clique nos itens da lista sejam registrados
-    // O handleClickOutside já deve lidar com cliques fora, mas este é um fallback para o próprio input
     setTimeout(() => {
       // Verifica se o foco ainda está dentro do componente (ex: se o usuário clicou em um item da lista)
       if (!containerRef.current?.contains(document.activeElement)) {
+        setIsFocused(false);
         setIsDropdownOpen(false);
       }
     }, 100);
-  };
-
-  const handleInputMouseDown = (e: React.MouseEvent) => {
-    if (isDropdownOpen) {
-      // Se o dropdown estiver aberto e o usuário clicar no input, previne a mudança de foco e o fecha
-      e.preventDefault(); // Previne que o input ganhe foco, o que impediria o onFocus de disparar
-      setIsDropdownOpen(false);
-    } else {
-      // Se o dropdown estiver fechado, permite o comportamento padrão (o onFocus irá abri-lo)
-      // Não é necessário fazer nada aqui, o onFocus cuidará da abertura
-    }
   };
 
   const handleSelectAndClose = (part: Part) => {
@@ -84,7 +76,6 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           onChange={(e) => onSearch(e.target.value)}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
-          onMouseDown={handleInputMouseDown} // Usa onMouseDown para a lógica de toggle
           className="w-full"
           ref={inputRef}
         />
