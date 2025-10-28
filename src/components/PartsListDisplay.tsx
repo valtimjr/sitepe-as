@@ -455,9 +455,9 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[40px] p-2"></TableHead> {/* Coluna para o handle de drag */}
-                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça (Cód. / Descrição / AF)</TableHead>
-                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                  <TableHead className="w-[80px] p-2 text-right">Ações</TableHead> {/* Largura ajustada para 2 botões */}
+                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça / Descrição</TableHead> {/* Título da coluna ajustado */}
+                  <TableHead className="w-[8rem] p-2">AF / Qtd</TableHead> {/* Nova coluna para AF e Qtd */}
+                  <TableHead className="w-[80px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -479,6 +479,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                     
                     {editingItemId === item.id ? (
                       <>
+                        {/* Coluna Peça / Descrição (Modo Edição) */}
                         <TableCell className="w-auto whitespace-normal break-words p-2 space-y-1">
                           <div className="flex flex-col gap-1">
                             <Label htmlFor={`edit-part-code-${item.id}`} className="sr-only">Código da Peça</Label>
@@ -499,6 +500,11 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                               placeholder="Descrição da peça"
                               className="text-xs"
                             />
+                          </div>
+                        </TableCell>
+                        {/* Coluna AF / Qtd (Modo Edição) */}
+                        <TableCell className="w-[8rem] p-2 space-y-1">
+                          <div className="flex flex-col gap-1">
                             <Label htmlFor={`edit-af-${item.id}`} className="sr-only">AF</Label>
                             <AfSearchInput
                               value={formAf}
@@ -506,19 +512,18 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                               availableAfs={allAvailableAfs}
                               onSelectAf={handleAfSelectForEdit}
                             />
+                            <Label htmlFor={`edit-quantity-${item.id}`} className="sr-only">Quantidade</Label>
+                            <Input
+                              id={`edit-quantity-${item.id}`}
+                              type="number"
+                              value={formQuantity}
+                              onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
+                              min="1"
+                              className="w-full text-center"
+                            />
                           </div>
                         </TableCell>
-                        <TableCell className="w-[4rem] p-2 text-center">
-                          <Label htmlFor={`edit-quantity-${item.id}`} className="sr-only">Quantidade</Label>
-                          <Input
-                            id={`edit-quantity-${item.id}`}
-                            type="number"
-                            value={formQuantity}
-                            onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
-                            min="1"
-                            className="w-full text-center"
-                          />
-                        </TableCell>
+                        {/* Coluna Ações (Modo Edição) */}
                         <TableCell className="w-[80px] p-2 text-right">
                           <div className="flex justify-end items-center gap-1">
                             <Tooltip>
@@ -542,18 +547,23 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                       </>
                     ) : (
                       <>
+                        {/* Coluna Peça / Descrição (Modo Visualização) */}
                         <TableCell className="w-auto whitespace-normal break-words p-2">
                           <div className="flex flex-col">
                             <span className="font-medium text-sm">{item.codigo_peca || 'N/A'}</span>
                             <span className="text-xs text-muted-foreground">{item.descricao || 'N/A'}</span>
-                            {item.af && (
-                              <span className="text-xs text-blue-600 dark:text-blue-400 mt-1">AF: {item.af}</span>
-                            )}
                           </div>
                         </TableCell>
-                        
-                        <TableCell className="w-[4rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell>
-                        
+                        {/* Coluna AF / Qtd (Modo Visualização) */}
+                        <TableCell className="w-[8rem] p-2 text-center">
+                          <div className="flex flex-col items-center justify-center">
+                            {item.af && (
+                              <span className="text-xs text-blue-600 dark:text-blue-400">AF: {item.af}</span>
+                            )}
+                            <span className="font-medium">{item.quantidade ?? 'N/A'}</span>
+                          </div>
+                        </TableCell>
+                        {/* Coluna Ações (Modo Visualização) */}
                         <TableCell className="w-[80px] p-2 text-right">
                           <div className="flex justify-end items-center gap-1">
                             <Tooltip>
@@ -598,6 +608,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                 {isAddingInline && (
                   <TableRow className="bg-accent/10">
                     <TableCell className="w-[40px] p-2"></TableCell>
+                    {/* Coluna Peça / Descrição (Modo Adicionar Inline) */}
                     <TableCell className="w-auto whitespace-normal break-words p-2 space-y-1">
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="inline-part-code" className="sr-only">Código da Peça</Label>
@@ -618,6 +629,11 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                           placeholder="Descrição da peça"
                           className="text-xs"
                         />
+                      </div>
+                    </TableCell>
+                    {/* Coluna AF / Qtd (Modo Adicionar Inline) */}
+                    <TableCell className="w-[8rem] p-2 space-y-1">
+                      <div className="flex flex-col gap-1">
                         <Label htmlFor="inline-af" className="sr-only">AF</Label>
                         <AfSearchInput
                           value={inlineFormAf}
@@ -625,19 +641,18 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                           availableAfs={allAvailableAfs}
                           onSelectAf={handleAfSelectForInlineAdd}
                         />
+                        <Label htmlFor="inline-quantity" className="sr-only">Quantidade</Label>
+                        <Input
+                          id="inline-quantity"
+                          type="number"
+                          value={inlineFormQuantity}
+                          onChange={(e) => setInlineFormQuantity(parseInt(e.target.value) || 1)}
+                          min="1"
+                          className="w-full text-center"
+                        />
                       </div>
                     </TableCell>
-                    <TableCell className="w-[4rem] p-2 text-center">
-                      <Label htmlFor="inline-quantity" className="sr-only">Quantidade</Label>
-                      <Input
-                        id="inline-quantity"
-                        type="number"
-                        value={inlineFormQuantity}
-                        onChange={(e) => setInlineFormQuantity(parseInt(e.target.value) || 1)}
-                        min="1"
-                        className="w-full text-center"
-                      />
-                    </TableCell>
+                    {/* Coluna Ações (Modo Adicionar Inline) */}
                     <TableCell className="w-[80px] p-2 text-right">
                       <div className="flex justify-end items-center gap-1">
                         <Tooltip>
