@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem } from '@/services/partListService';
+import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem, updateSimplePartItem, getParts, getAfsFromService, Part, Af } from '@/services/partListService';
 import { generatePartsListPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, GripVertical } from 'lucide-react';
+import { Trash2, Download, Copy, GripVertical, MoreHorizontal, Edit, Save, XCircle, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,12 +20,19 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import PartSearchInput from './PartSearchInput'; // Reusing existing component
+import AfSearchInput from './AfSearchInput'; // Reusing existing component
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
   onListChanged: () => void;
-  onListReordered: (reorderedItems: SimplePartItem[]) => void; // Nova prop
+  onListReordered: (reorderedItems: SimplePartItem[]) => void;
   listTitle: string;
   onTitleChange: (title: string) => void;
 }
@@ -33,23 +40,72 @@ interface PartsListDisplayProps {
 const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged, onListReordered, listTitle, onTitleChange }) => {
   const [orderedItems, setOrderedItems] = useState<SimplePartItem[]>(listItems);
   const [draggedItem, setDraggedItem] = useState<SimplePartItem | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+
+  // Form states for the currently edited item
+  const [formQuantity, setFormQuantity] = useState<number>(1);
+  const [formAf, setFormAf] = useState('');
+  const [formPartCode, setFormPartCode] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [selectedPartForEdit, setSelectedPartForEdit] = useState<Part | null>(null); // For inline part search
+  const [searchQueryForEdit, setSearchQueryForEdit] = useState(''); // For inline part search
+
+  // Global parts and AFs for search inputs
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
+  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
+  const [isLoadingParts, setIsLoadingParts] = useState(true);
+  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
+  const [searchResultsForEdit, setSearchResultsForEdit] = useState<Part[]>([]); // For inline part search
 
   // Sincroniza o estado interno com a prop listItems quando ela muda
   useEffect(() => {
     setOrderedItems(listItems);
   }, [listItems]);
 
+  // Load all parts and AFs for search inputs
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setIsLoadingParts(true);
+      const parts = await getParts();
+      setAllAvailableParts(parts);
+      setIsLoadingParts(false);
+
+      setIsLoadingAfs(true);
+      const afs = await getAfsFromService();
+      setAllAvailableAfs(afs);
+      setIsLoadingAfs(false);
+    };
+    loadInitialData();
+  }, []);
+
+  // Effect for inline part search
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (searchQueryForEdit.length > 1) {
+        // setIsLoadingParts(true); // This might interfere with global loading state
+        const results = await getParts(searchQueryForEdit); // Assuming getParts can take a search query
+        setSearchResultsForEdit(results);
+        // setIsLoadingParts(false);
+      } else {
+        setSearchResultsForEdit([]);
+      }
+    };
+    const handler = setTimeout(() => {
+      fetchSearchResults();
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQueryForEdit]);
+
+
   const handleExportPdf = () => {
     if (orderedItems.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    // Passa o título personalizado e a lista na ordem atual
     generatePartsListPdf(orderedItems, listTitle);
     showSuccess('PDF gerado com sucesso!');
   };
 
-  // Função para formatar o texto da lista na ordem atual
   const formatListText = () => {
     if (orderedItems.length === 0) return '';
 
@@ -61,7 +117,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       const descricao = item.descricao || '';
       const af = item.af ? ` (AF: ${item.af})` : '';
       
-      // Formato: [QUANTIDADE] - [CÓDIGO] [DESCRIÇÃO] (AF: [AF])
       formattedText += `${quantidade} - ${codigo} ${descricao}${af}`.trim() + '\n';
     });
 
@@ -125,23 +180,23 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: SimplePartItem) => {
     setDraggedItem(item);
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', item.id); // Necessário para Firefox
-    e.currentTarget.classList.add('opacity-50'); // Feedback visual
+    e.dataTransfer.setData('text/plain', item.id);
+    e.currentTarget.classList.add('opacity-50');
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.preventDefault(); // Permite o drop
+    e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    e.currentTarget.classList.add('border-t-2', 'border-primary'); // Feedback visual para o alvo
+    e.currentTarget.classList.add('border-t-2', 'border-primary');
   };
 
   const handleDragLeave = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.currentTarget.classList.remove('border-t-2', 'border-primary'); // Remove feedback
+    e.currentTarget.classList.remove('border-t-2', 'border-primary');
   };
 
   const handleDrop = (e: React.DragEvent<HTMLTableRowElement>, targetItem: SimplePartItem) => {
     e.preventDefault();
-    e.currentTarget.classList.remove('border-t-2', 'border-primary'); // Remove feedback
+    e.currentTarget.classList.remove('border-t-2', 'border-primary');
 
     if (draggedItem && draggedItem.id !== targetItem.id) {
       const newOrderedItems = [...orderedItems];
@@ -149,23 +204,87 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       const targetIndex = newOrderedItems.findIndex(item => item.id === targetItem.id);
 
       if (draggedIndex !== -1 && targetIndex !== -1) {
-        // Remove o item arrastado
         const [removed] = newOrderedItems.splice(draggedIndex, 1);
-        // Insere o item arrastado na nova posição
         newOrderedItems.splice(targetIndex, 0, removed);
         
         setOrderedItems(newOrderedItems);
-        onListReordered(newOrderedItems); // Notifica o componente pai
+        onListReordered(newOrderedItems);
       }
     }
     setDraggedItem(null);
   };
 
   const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.currentTarget.classList.remove('opacity-50'); // Remove feedback do item arrastado
+    e.currentTarget.classList.remove('opacity-50');
     setDraggedItem(null);
   };
   // --- End Drag and Drop Handlers ---
+
+  // --- Inline Edit Handlers ---
+  const handleEditClick = (item: SimplePartItem) => {
+    setEditingItemId(item.id);
+    setFormQuantity(item.quantidade ?? 1);
+    setFormAf(item.af || '');
+    setFormPartCode(item.codigo_peca || '');
+    setFormDescription(item.descricao || '');
+    setSelectedPartForEdit(null); // Reset selected part for search
+    setSearchQueryForEdit(''); // Clear search query
+  };
+
+  const handleSaveEdit = async (originalItem: SimplePartItem) => {
+    if (!formPartCode.trim() && !formDescription.trim()) {
+      showError('O Código da Peça ou a Descrição são obrigatórios.');
+      return;
+    }
+    if (formQuantity <= 0) {
+      showError('A quantidade deve ser maior que zero.');
+      return;
+    }
+
+    const updatedItem: SimplePartItem = {
+      ...originalItem,
+      quantidade: formQuantity,
+      af: formAf.trim() || undefined,
+      codigo_peca: formPartCode.trim(),
+      descricao: formDescription.trim(),
+    };
+
+    try {
+      await updateSimplePartItem(updatedItem);
+      showSuccess('Item atualizado com sucesso!');
+      setEditingItemId(null);
+      onListChanged(); // Reload list to reflect changes
+    } catch (error) {
+      showError('Erro ao salvar edição do item.');
+      console.error('Failed to save edited item:', error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null);
+    // Reset form states (optional, as they will be re-initialized on next edit)
+  };
+
+  const handleSelectPartForEdit = (part: Part | null) => {
+    setSelectedPartForEdit(part);
+    if (part) {
+      setFormPartCode(part.codigo);
+      setFormDescription(part.descricao);
+    } else {
+      // If part is null, clear description but keep part code as typed
+      setFormDescription('');
+    }
+  };
+
+  const handlePartCodeChangeForEdit = (value: string) => {
+    setFormPartCode(value);
+    setSearchQueryForEdit(value); // Trigger search
+    setSelectedPartForEdit(null); // Clear selected part if user types
+  };
+
+  const handleAfSelectForEdit = (afNumber: string) => {
+    setFormAf(afNumber);
+  };
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -251,40 +370,134 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                 {orderedItems.map((item) => (
                   <TableRow 
                     key={item.id}
-                    draggable="true"
+                    draggable={editingItemId !== item.id} // Only draggable if not in edit mode
                     onDragStart={(e) => handleDragStart(e, item)}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, item)}
                     onDragLeave={handleDragLeave}
                     onDragEnd={handleDragEnd}
-                    data-id={item.id} // Adiciona data-id para identificar o alvo do drop
-                    className="relative" // Necessário para o feedback visual do dragover
+                    data-id={item.id}
+                    className="relative"
                   >
                     <TableCell className="w-[40px] p-2 cursor-grab">
                       <GripVertical className="h-4 w-4 text-muted-foreground" />
                     </TableCell>
-                    <TableCell className="w-auto whitespace-normal break-words p-2">
-                      <div className="flex flex-col">
-                        <span className="font-medium text-sm">{item.codigo_peca || 'N/A'}</span>
-                        <span className="text-xs text-muted-foreground">{item.descricao || 'N/A'}</span>
-                        {item.af && (
-                          <span className="text-xs text-blue-600 dark:text-blue-400 mt-1">AF: {item.af}</span>
-                        )}
-                      </div>
-                    </TableCell>
                     
-                    <TableCell className="w-[4rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell>
-                    
-                    <TableCell className="w-[40px] p-2 text-right">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(item.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Remover item</TooltipContent>
-                      </Tooltip>
-                    </TableCell>
+                    {editingItemId === item.id ? (
+                      <>
+                        <TableCell className="w-auto whitespace-normal break-words p-2 space-y-1">
+                          <div className="flex flex-col gap-1">
+                            <Label htmlFor={`edit-part-code-${item.id}`} className="sr-only">Código da Peça</Label>
+                            <PartSearchInput
+                              onSearch={setSearchQueryForEdit}
+                              searchResults={searchResultsForEdit}
+                              onSelectPart={handleSelectPartForEdit}
+                              searchQuery={searchQueryForEdit}
+                              allParts={allAvailableParts}
+                              isLoading={isLoadingParts}
+                            />
+                            <Label htmlFor={`edit-description-${item.id}`} className="sr-only">Descrição</Label>
+                            <Input
+                              id={`edit-description-${item.id}`}
+                              type="text"
+                              value={formDescription}
+                              onChange={(e) => setFormDescription(e.target.value)}
+                              placeholder="Descrição da peça"
+                              className="text-xs"
+                            />
+                            <Label htmlFor={`edit-af-${item.id}`} className="sr-only">AF</Label>
+                            <AfSearchInput
+                              value={formAf}
+                              onChange={setFormAf}
+                              availableAfs={allAvailableAfs}
+                              onSelectAf={handleAfSelectForEdit}
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="w-[4rem] p-2 text-center">
+                          <Label htmlFor={`edit-quantity-${item.id}`} className="sr-only">Quantidade</Label>
+                          <Input
+                            id={`edit-quantity-${item.id}`}
+                            type="number"
+                            value={formQuantity}
+                            onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
+                            min="1"
+                            className="w-full text-center"
+                          />
+                        </TableCell>
+                        <TableCell className="w-[40px] p-2 text-right">
+                          <div className="flex justify-end items-center gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => handleSaveEdit(item)}>
+                                  <Save className="h-4 w-4 text-green-600" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Salvar</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={handleCancelEdit}>
+                                  <XCircle className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Cancelar</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell className="w-auto whitespace-normal break-words p-2">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm">{item.codigo_peca || 'N/A'}</span>
+                            <span className="text-xs text-muted-foreground">{item.descricao || 'N/A'}</span>
+                            {item.af && (
+                              <span className="text-xs text-blue-600 dark:text-blue-400 mt-1">AF: {item.af}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell className="w-[4rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell>
+                        
+                        <TableCell className="w-[40px] p-2 text-right">
+                          <DropdownMenu>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                              </TooltipTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEditClick(item)}>
+                                  <Edit className="h-4 w-4 mr-2" /> Editar
+                                </DropdownMenuItem>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                      <Trash2 className="h-4 w-4 mr-2" /> Remover
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Esta ação irá remover o item "{item.codigo_peca || item.descricao}" da lista. Esta ação não pode ser desfeita.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteItem(item.id)}>Remover</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                      </>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
