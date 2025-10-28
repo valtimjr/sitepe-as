@@ -581,13 +581,16 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                             </Tooltip>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <TooltipTrigger asChild> {/* TooltipTrigger é o filho direto do AlertDialogTrigger */}
-                                  <Button variant="ghost" size="icon" className="text-destructive">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
+                                {/* O Tooltip agora envolve o Button diretamente, e o AlertDialogTrigger envolve o Tooltip */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-destructive">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Remover Item</TooltipContent>
+                                </Tooltip>
                               </AlertDialogTrigger>
-                              <TooltipContent>Remover Item</TooltipContent> {/* TooltipContent é irmão do TooltipTrigger */}
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
