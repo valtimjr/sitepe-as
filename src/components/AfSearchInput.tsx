@@ -17,11 +17,31 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
   const [displayedAfs, setDisplayedAfs] = useState<Af[]>(availableAfs);
   const [displayValue, setDisplayValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Efeito para filtrar a lista de AFs com debounce
+  // Função auxiliar para formatar AF + Descrição
+  const getDisplayValue = (afItem: Af) => {
+    if (afItem.descricao && afItem.descricao.trim().length > 0) {
+      return `${afItem.af_number} - ${afItem.descricao}`;
+    }
+    return afItem.af_number;
+  };
+
+  // Efeito 1: Sincroniza o displayValue quando o 'value' (af_number) muda no componente pai
   useEffect(() => {
-    if (!isFocused || displayValue === value) {
-      // Não filtra se não estiver focado ou se o valor de exibição for o AF selecionado
+    if (!isFocused) {
+      const selected = availableAfs.find(afItem => afItem.af_number === value);
+      if (selected) {
+        setDisplayValue(getDisplayValue(selected));
+      } else {
+        setDisplayValue(value);
+      }
+    }
+  }, [value, availableAfs, isFocused]);
+
+  // Efeito 2: Filtra a lista de AFs com debounce (mantido para busca)
+  useEffect(() => {
+    if (!isFocused) {
       setDisplayedAfs(availableAfs);
       return;
     }
@@ -43,40 +63,13 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
 
     const handler = setTimeout(filterAfs, 150); // Debounce de 150ms
     return () => clearTimeout(handler);
-  }, [displayValue, availableAfs, isFocused, value]);
-
-
-  // Função auxiliar para formatar AF + Descrição
-  const getDisplayValue = (afItem: Af) => {
-    if (afItem.descricao && afItem.descricao.trim().length > 0) {
-      return `${afItem.af_number} - ${afItem.descricao}`;
-    }
-    return afItem.af_number;
-  };
-
-  // Efeito 2: Sincroniza o displayValue quando o 'value' (af_number) muda no componente pai
-  // Só sincroniza se NÃO estiver focado.
-  useEffect(() => {
-    if (!isFocused) {
-      const selected = availableAfs.find(afItem => afItem.af_number === value);
-      if (selected) {
-        setDisplayValue(getDisplayValue(selected));
-      } else {
-        // Se o valor do pai for um AF number não encontrado ou vazio, exibe o valor puro.
-        setDisplayValue(value);
-      }
-    }
-  }, [value, availableAfs, isFocused]);
+  }, [displayValue, availableAfs, isFocused]);
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setDisplayValue(newValue);
-
-    // Notifica o pai com o valor digitado (para que o pai possa armazenar o AF number puro)
     onChange(newValue); 
-
-    // Abre o dropdown imediatamente
     setIsDropdownOpen(true);
   };
 
@@ -86,9 +79,8 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
     setIsFocused(true);
     
     // Ao focar, define o displayValue para o valor puro do AF (af_number)
+    // e garante que a lista seja exibida (o useEffect 2 cuidará da filtragem)
     setDisplayValue(value); 
-    
-    // Garante que o dropdown abra e mostre todos os AFs (ou os filtrados se já houver texto)
     setDisplayedAfs(availableAfs);
     setIsDropdownOpen(true);
   };
@@ -104,13 +96,11 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
         onChange('');
       }
       
-    }, 200);
+    }, 100); // Reduzido para 100ms
   };
 
   const handleSelectAndClose = (afItem: Af) => {
-    // 1. Notifica o pai com APENAS o número do AF
     onSelectAf(afItem.af_number); 
-    // 2. Atualiza o valor de exibição para AF + Descrição (Isso será sobrescrito pelo useEffect após o blur)
     setDisplayValue(getDisplayValue(afItem));
     
     // O blur será disparado logo em seguida, e o useEffect fará a sincronização final.
@@ -120,14 +110,14 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, availabl
   };
 
   return (
-    <div className="relative flex w-full items-center space-x-2">
+    <div className="relative flex w-full items-center space-x-2" ref={containerRef}>
       <div className="relative flex-grow">
         <Label htmlFor="af-input" className="sr-only">Número de Frota (AF)</Label>
         <Input
           id="af-input"
           type="text"
           placeholder="Buscar AF por número ou descrição..."
-          value={displayValue} // Usa o valor de exibição
+          value={displayValue}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}

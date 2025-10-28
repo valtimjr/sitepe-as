@@ -37,13 +37,12 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
 
   const handleInputBlur = () => {
     // Adiciona um pequeno atraso para permitir que o evento de clique (onMouseDown)
-    // em um item da lista seja processado. O onMouseDown do item previne o blur.
-    // Se o foco realmente saiu do componente, o dropdown será fechado.
+    // em um item da lista seja processado.
     setTimeout(() => {
       if (!containerRef.current?.contains(document.activeElement)) {
         setIsDropdownOpen(false);
       }
-    }, 100); // 100ms de atraso
+    }, 100);
   };
 
   const handleSelectAndClose = (part: Part) => {
@@ -58,8 +57,8 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
   // Determina qual lista exibir: searchResults se houver query, allParts se focado e vazio
   const displayList = searchQuery.length > 0 ? searchResults : allParts;
 
-  // A lista de sugestões deve aparecer se o dropdown estiver explicitamente aberto E houver itens para mostrar
-  const shouldShowDropdown = isDropdownOpen && (searchQuery.length > 0 || displayList.length > 0);
+  // A lista de sugestões deve aparecer se o dropdown estiver aberto.
+  const shouldShowDropdown = isDropdownOpen;
 
   return (
     <div className="relative flex w-full items-center space-x-2" ref={containerRef}>
@@ -78,14 +77,13 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
         />
         {shouldShowDropdown && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto">
-            {isLoading && searchQuery.length > 0 ? ( // Mostra carregando apenas se houver query
+            {isLoading && searchQuery.length > 0 ? (
               <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Buscando peças...</li>
             ) : displayList.length > 0 ? (
               displayList.map((part) => (
                 <li
                   key={part.id}
                   className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  // Mantemos onMouseDown para prevenir que o blur feche o dropdown antes do onClick
                   onMouseDown={(e) => e.preventDefault()} 
                   onClick={() => handleSelectAndClose(part)}
                 >
