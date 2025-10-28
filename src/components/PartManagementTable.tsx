@@ -1,6 +1,4 @@
 /** @jsxImportSource react */
-"use client";
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,7 +48,7 @@ const PartManagementTable: React.FC = () => {
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set());
+  const [selectedPartIds, setSelectedPartIds] = new Set());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -424,10 +422,8 @@ const PartManagementTable: React.FC = () => {
                 <Button variant="outline" className="flex items-center gap-2" disabled={!canEditTags}>
                   <Tag className="h-4 w-4" /> Limpar Tags Selecionadas ({selectedPartIds.size})
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>Limpar Tags</TooltipContent>
-            </Tooltip>
-            <AlertDialogContent>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
                   <AlertDialogDescription>
