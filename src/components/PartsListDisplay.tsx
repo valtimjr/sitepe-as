@@ -53,7 +53,16 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   const [formDescription, setFormDescription] = useState('');
   const [selectedPartForEdit, setSelectedPartForEdit] = useState<Part | null>(null);
   const [searchQueryForEdit, setSearchQueryForEdit] = useState('');
-  const [searchResultsForEdit, setSearchResultsForEdit] = useState<Part[]>([]); // Corrigido: Adicionado setSearchResultsForEdit
+  const [searchResultsForEdit, setSearchResultsForEdit] = useState<Part[]>([]);
+
+  // Form states for inline add item
+  const [inlineFormQuantity, setInlineFormQuantity] = useState<number>(1);
+  const [inlineFormAf, setInlineFormAf] = useState('');
+  const [inlineFormPartCode, setInlineFormPartCode] = useState('');
+  const [inlineFormDescription, setInlineFormDescription] = useState('');
+  const [inlineSelectedPart, setInlineSelectedPart] = useState<Part | null>(null);
+  const [inlineSearchQuery, setInlineSearchQuery] = useState('');
+  const [inlineSearchResults, setInlineSearchResults] = useState<Part[]>([]); // Corrigido: Adicionado setSearchResultsForEdit
 
   // Global parts and AFs for search inputs
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
