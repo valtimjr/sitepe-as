@@ -3,17 +3,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Part, searchParts, getParts, getPartsFromLocal } from '@/services';
+import { Part, searchParts, getParts } from '@/services';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Search, Loader2 } from 'lucide-react';
 import { showError } from '@/utils/toast';
-import { useQuery } from '@tanstack/react-query'; // Importar useQuery
+import { useQuery } from '@tanstack/react-query';
 
 const SearchParts = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [displayedParts, setDisplayedParts] = useState<Part[]>([]);
+  const [isSearching, setIsSearching] = useState(false); // Novo estado para o carregamento da busca
 
   // Usar useQuery para carregar todas as peças
   const { data: allPartsData = [], isLoading: isLoadingAllParts } = useQuery<Part[]>({
@@ -26,19 +27,23 @@ const SearchParts = () => {
 
   useEffect(() => {
     const performSearch = async () => {
-      let results: Part[];
       if (searchQuery.length > 0) {
-        // Se houver query, busca no Supabase (e cache local como fallback)
-        results = await searchParts(searchQuery);
+        setIsSearching(true); // Inicia o carregamento para a busca
+        try {
+          const results = await searchParts(searchQuery);
+          setDisplayedParts(results);
+        } catch (error) {
+          showError('Erro ao buscar peças.');
+          console.error('Failed to search parts:', error);
+          setDisplayedParts([]);
+        } finally {
+          setIsSearching(false); // Finaliza o carregamento para a busca
+        }
       } else {
-        // Se a query estiver vazia, exibe todas as peças já carregadas pelo useQuery
-        results = allPartsData;
+        setDisplayedParts(allPartsData); // Quando a busca está vazia, mostra todas as peças
       }
-      setDisplayedParts(results);
     };
     
-    // Aplica debounce apenas se houver uma query, caso contrário, executa imediatamente
-    // para exibir a lista completa (se a query for limpa ou na carga inicial).
     const delay = searchQuery.length > 0 ? 300 : 0; 
     
     const handler = setTimeout(() => {
@@ -47,6 +52,55 @@ const SearchParts = () => {
     
     return () => clearTimeout(handler);
   }, [searchQuery, allPartsData]); // Depende de allPartsData para re-filtrar se a lista mudar
+
+  // Lógica de renderização condicional para o conteúdo da tabela/mensagens
+  let content;
+  if (isLoadingAllParts && searchQuery.length === 0) {
+    content = (
+      <p className="text-center text-muted-foreground py-4 flex items-center justify-center">
+        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        Carregando peças...
+      </p>
+    );
+  } else if (isSearching) {
+    content = (
+      <p className="text-center text-muted-foreground py-4 flex items-center justify-center">
+        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        Buscando resultados...
+      </p>
+    );
+  } else if (displayedParts.length === 0 && searchQuery.length > 0) {
+    content = (
+      <p className="text-center text-muted-foreground py-4">Nenhuma peça encontrada para "{searchQuery}".</p>
+    );
+  } else if (displayedParts.length === 0 && searchQuery.length === 0) {
+    content = (
+      <p className="text-center text-muted-foreground py-4">Nenhuma peça disponível no sistema.</p>
+    );
+  } else {
+    content = (
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Código</TableHead>
+              <TableHead>Descrição</TableHead>
+              <TableHead>Tags</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {displayedParts.map((part) => (
+              <TableRow key={part.id}>
+                <TableCell className="font-medium">{part.codigo}</TableCell>
+                <TableCell>{part.descricao}</TableCell>
+                <TableCell>{part.tags || 'N/A'}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -72,38 +126,7 @@ const SearchParts = () => {
                 className="w-full"
               />
             </div>
-
-            {isLoadingAllParts && searchQuery.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4 flex items-center justify-center">
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Carregando peças...
-              </p>
-            ) : displayedParts.length === 0 && searchQuery.length > 0 ? (
-              <p className="text-center text-muted-foreground py-4">Nenhuma peça encontrada para "{searchQuery}".</p>
-            ) : displayedParts.length === 0 && searchQuery.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">Nenhuma peça disponível.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Código</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Tags</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {displayedParts.map((part) => (
-                      <TableRow key={part.id}>
-                        <TableCell className="font-medium">{part.codigo}</TableCell>
-                        <TableCell>{part.descricao}</TableCell>
-                        <TableCell>{part.tags || 'N/A'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+            {content} {/* Renderiza o conteúdo baseado na lógica acima */}
           </div>
         </CardContent>
       </Card>
