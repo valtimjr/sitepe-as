@@ -77,7 +77,9 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
         />
         {shouldShowDropdown && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto">
-            {isLoading && searchQuery.length > 0 ? (
+            {isLoading && searchQuery.length === 0 ? ( // Condição para carregamento inicial de todas as peças
+              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Carregando peças...</li>
+            ) : isLoading && searchQuery.length > 0 ? ( // Condição para carregamento de busca ativa
               <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Buscando peças...</li>
             ) : displayList.length > 0 ? (
               displayList.map((part) => (
@@ -90,7 +92,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
                   {part.codigo} - {part.descricao}
                 </li>
               ))
-            ) : (
+            ) : ( // Nenhuma peça encontrada após carregamento/busca
               <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhuma peça encontrada.</li>
             )}
           </ul>
