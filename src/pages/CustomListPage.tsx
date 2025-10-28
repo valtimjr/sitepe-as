@@ -8,7 +8,7 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomListItem } from '@/types/supabase';
-import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
+import { exportDataAsCsv, exportDataAsJson } from '@/services'; // Importação corrigida
 import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
