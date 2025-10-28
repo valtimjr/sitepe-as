@@ -1,103 +1,133 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Part } from '@/services'; // No longer need getPartsFromLocal here
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Part, getParts, searchParts as searchPartsService } from '@/services';
+import { useQuery } from '@tanstack/react-query';
 
 interface PartSearchInputProps {
-  onSearch: (query: string) => void;
-  searchResults: Part[];
   onSelectPart: (part: Part) => void;
-  searchQuery: string;
-  allParts: Part[]; // This is the online/cached list from parent (from useQuery(getParts))
-  isLoading: boolean; // This is the loading state for searchResults (from parent's searchParts call)
-  isLoadingAllParts: boolean; // New prop for loading state of allParts (from parent's getParts call)
+  selectedPart?: Part | null; // Optional prop to show the currently selected part
 }
 
-const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts, isLoading, isLoadingAllParts }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selectedPart }) => {
+  const [open, setOpen] = useState(false);
+  const [displayValue, setDisplayValue] = useState(selectedPart?.codigo || ''); // Value shown in the trigger button
+  const [searchQuery, setSearchQuery] = useState(''); // Internal search query for CommandInput
+  const [filteredParts, setFilteredParts] = useState<Part[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
+  // Fetch all parts using react-query
+  const { data: allParts = [], isLoading: isLoadingAllParts } = useQuery<Part[]>({
+    queryKey: ['parts'],
+    queryFn: getParts,
+    initialData: [],
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (previousData) => previousData || [],
+  });
+
+  // Debounce search logic for CommandInput
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
+    const handler = setTimeout(async () => {
+      if (searchQuery.length > 0) {
+        setIsSearching(true);
+        try {
+          const results = await searchPartsService(searchQuery);
+          setFilteredParts(results);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setFilteredParts(allParts); // Show all parts when search is empty
       }
-    };
+    }, 300); // 300ms debounce
 
-    document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      clearTimeout(handler);
     };
-  }, []);
+  }, [searchQuery, allParts]);
 
-  const handleInputFocus = () => {
-    setIsDropdownOpen(true);
-  };
-
-  const handleInputBlur = () => {
-    setTimeout(() => {
-      if (!containerRef.current?.contains(document.activeElement)) {
-        setIsDropdownOpen(false);
-      }
-    }, 100);
-  };
-
-  const handleSelectAndClose = (part: Part) => {
-    onSelectPart(part);
-    onSearch(''); // Clear search query after selection
-    setIsDropdownOpen(false);
-    if (inputRef.current) {
-      inputRef.current.blur();
+  // Update internal displayValue when selectedPart prop changes
+  useEffect(() => {
+    if (selectedPart) {
+      setDisplayValue(selectedPart.codigo);
+      setSearchQuery(selectedPart.codigo); // Keep search input in sync with selected part
+    } else {
+      setDisplayValue('');
+      setSearchQuery('');
     }
+  }, [selectedPart]);
+
+  const handleSelect = (part: Part) => {
+    setDisplayValue(part.codigo);
+    setSearchQuery(part.codigo); // Keep search input in sync
+    onSelectPart(part);
+    setOpen(false);
   };
 
-  // Determines which list to display
-  const displayList = searchQuery.length > 0 ? searchResults : allParts;
-
-  // Determine the loading state for the dropdown
-  const currentLoadingState = searchQuery.length > 0 ? isLoading : isLoadingAllParts;
-  const loadingMessage = searchQuery.length > 0 ? 'Carregando resultados...' : 'Carregando peças...';
-
-  const shouldShowDropdown = isDropdownOpen;
+  const getPartDisplay = (part: Part) => {
+    return `${part.codigo} - ${part.descricao}`;
+  };
 
   return (
-    <div className="relative flex w-full items-center space-x-2" ref={containerRef}>
-      <div className="relative flex-grow">
-        <Label htmlFor="part-search" className="sr-only">Buscar Peça</Label>
-        <Input
-          id="part-search"
-          type="text"
-          placeholder="Buscar peça por código ou descrição..."
-          value={searchQuery}
-          onChange={(e) => onSearch(e.target.value)}
-          onFocus={handleInputFocus}
-          onBlur={handleInputBlur}
-          className="w-full"
-          ref={inputRef}
-        />
-        {shouldShowDropdown && (
-          <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto">
-            {currentLoadingState ? (
-              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">{loadingMessage}</li>
-            ) : displayList.length > 0 ? (
-              displayList.map((part) => (
-                <li
-                  key={part.id}
-                  className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onMouseDown={(e) => e.preventDefault()} 
-                  onClick={() => handleSelectAndClose(part)}
-                >
-                  {part.codigo} - {part.descricao}
-                </li>
-              ))
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+          disabled={isLoadingAllParts}
+        >
+          {displayValue
+            ? getPartDisplay(allParts.find((part) => part.codigo === displayValue) || { id: '', codigo: displayValue, descricao: 'Peça não encontrada' })
+            : "Selecionar peça..."}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+        <Command>
+          <CommandInput
+            placeholder="Buscar peça..."
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+          />
+          <CommandList>
+            {isLoadingAllParts || isSearching ? (
+              <CommandEmpty className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> {isLoadingAllParts ? 'Carregando peças...' : 'Buscando resultados...'}
+              </CommandEmpty>
+            ) : filteredParts.length === 0 && searchQuery.length > 0 ? (
+              <CommandEmpty>Nenhuma peça encontrada para "{searchQuery}".</CommandEmpty>
+            ) : filteredParts.length === 0 && searchQuery.length === 0 ? (
+              <CommandEmpty>Nenhuma peça disponível no sistema.</CommandEmpty>
             ) : (
-              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhuma peça encontrada.</li>
+              <CommandGroup>
+                {filteredParts.map((part) => (
+                  <CommandItem
+                    key={part.id}
+                    value={`${part.codigo} ${part.descricao} ${part.tags}`}
+                    onSelect={() => handleSelect(part)}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selectedPart?.id === part.id ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {getPartDisplay(part)}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
             )}
-          </ul>
-        )}
-      </div>
-    </div>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };
 

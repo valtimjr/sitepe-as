@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addServiceOrderItem, getParts, getAfsFromService, searchParts, updatePart, deleteServiceOrderItem, ServiceOrderItem, updateServiceOrderItem, Af, getPartsFromLocal, getAfsFromLocal } from '@/services';
-import PartSearchInput from './PartSearchInput';
+import { Part, addServiceOrderItem, updatePart, deleteServiceOrderItem, ServiceOrderItem, updateServiceOrderItem, Af, getAfsFromService } from '@/services';
+import PartSearchInput from './PartSearchInput'; // Import the new component
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save, Plus, FilePlus } from 'lucide-react';
@@ -42,43 +42,18 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   const [horaFinal, setHoraFinal] = useState<string>('');
   const [servicoExecutado, setServicoExecutado] = useState<string>('');
   
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [editedTags, setEditedTags] = useState<string>('');
   const [isOsInvalid, setIsOsInvalid] = useState(false);
   const [currentBlankOsItemId, setCurrentBlankOsItemId] = useState<string | null>(null);
 
-  // Usar useQuery para carregar todas as peças
-  const { data: allAvailableParts = [], isLoading: isLoadingParts } = useQuery<Part[]>({
-    queryKey: ['parts'],
-    queryFn: getParts,
-    initialData: [], // Começa com um array vazio para carregamento instantâneo
-    staleTime: 5 * 60 * 1000, // Dados considerados "frescos" por 5 minutos
-    placeholderData: (previousData) => previousData || [], // Mantém dados anteriores enquanto busca novos
-  });
-
-  // Usar useQuery para carregar todos os AFs
+  // Use useQuery for AFs, as PartSearchInput now handles parts internally
   const { data: allAvailableAfs = [], isLoading: isLoadingAfs } = useQuery<Af[]>({
     queryKey: ['afs'],
     queryFn: getAfsFromService,
-    initialData: [], // Começa com um array vazio para carregamento instantâneo
-    staleTime: 5 * 60 * 1000, // Dados considerados "frescos" por 5 minutos
-    placeholderData: (previousData) => previousData || [], // Mantém dados anteriores enquanto busca novos
+    initialData: [],
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (previousData) => previousData || [],
   });
-
-  // Lógica de Debounce para a busca de peças
-  useEffect(() => {
-    if (searchQuery.length > 1) {
-      const handler = setTimeout(async () => {
-        const results = await searchParts(searchQuery);
-        setSearchResults(results);
-      }, 300); // Debounce de 300ms
-      
-      return () => clearTimeout(handler);
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchQuery, allAvailableParts]);
 
   useEffect(() => {
     if (editingServiceOrder) {
@@ -115,14 +90,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
-
   const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
-    setSearchQuery('');
-    setSearchResults([]);
   };
 
   const handleSelectAf = (selectedAfNumber: string) => {
@@ -157,8 +126,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     setHoraInicio('');
     setHoraFinal('');
     setServicoExecutado('');
-    setSearchQuery('');
-    setSearchResults([]);
     setEditedTags('');
     setIsOsInvalid(false);
   };
@@ -166,8 +133,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   const resetPartFields = () => {
     setSelectedPart(null);
     setQuantidade(1);
-    setSearchQuery('');
-    setSearchResults([]);
     setEditedTags('');
   };
 
@@ -314,7 +279,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
 
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !af || isOsInvalid || (editingServiceOrder?.mode === 'add_part' && !selectedPart);
+  const isSubmitDisabled = isLoadingAfs || !af || isOsInvalid || (editingServiceOrder?.mode === 'add_part' && !selectedPart);
 
   const isOsDetailsReadOnly = editingServiceOrder?.mode === 'add_part';
   const isPartDetailsVisible = !editingServiceOrder || editingServiceOrder.mode === 'add_part';
@@ -417,12 +382,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               <div>
                 <Label htmlFor="search-part">Buscar Peça</Label>
                 <PartSearchInput
-                  onSearch={handleSearch}
-                  searchResults={searchResults}
                   onSelectPart={handleSelectPart}
-                  searchQuery={searchQuery}
-                  allParts={allAvailableParts}
-                  isLoading={isLoadingParts}
+                  selectedPart={selectedPart}
                 />
               </div>
               <div>

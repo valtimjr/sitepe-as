@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addSimplePartItem, getParts, searchParts, updatePart, Af, getAfsFromService, getPartsFromLocal, getAfsFromLocal } from '@/services';
-import PartSearchInput from './PartSearchInput';
+import { Part, addSimplePartItem, updatePart, Af, getAfsFromService } from '@/services';
+import PartSearchInput from './PartSearchInput'; // Import the new component
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save } from 'lucide-react';
@@ -21,20 +21,9 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
   
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [editedTags, setEditedTags] = useState<string>('');
 
-  // Usar useQuery para carregar todas as peças
-  const { data: allAvailableParts = [], isLoading: isLoadingParts } = useQuery<Part[]>({
-    queryKey: ['parts'],
-    queryFn: getParts,
-    initialData: [], // Começa com um array vazio para carregamento instantâneo
-    staleTime: 5 * 60 * 1000, // Dados considerados "frescos" por 5 minutos
-    placeholderData: (previousData) => previousData || [], // Mantém dados anteriores enquanto busca novos
-  });
-
-  // Usar useQuery para carregar todos os AFs
+  // Use useQuery for AFs, as PartSearchInput now handles parts internally
   const { data: allAvailableAfs = [], isLoading: isLoadingAfs } = useQuery<Af[]>({
     queryKey: ['afs'],
     queryFn: getAfsFromService,
@@ -43,33 +32,12 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     placeholderData: (previousData) => previousData || [], // Mantém dados anteriores enquanto busca novos
   });
 
-  // Lógica de Debounce para a busca de peças
-  useEffect(() => {
-    if (searchQuery.length > 1) {
-      // A busca agora é feita no array completo de peças carregadas
-      const handler = setTimeout(async () => {
-        const results = await searchParts(searchQuery); // searchParts já lida com Supabase/local
-        setSearchResults(results);
-      }, 300); // Debounce de 300ms
-      
-      return () => clearTimeout(handler);
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchQuery, allAvailableParts]); // Depende de allAvailableParts para re-filtrar se a lista mudar
-
   useEffect(() => {
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
-
   const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
-    setSearchQuery('');
-    setSearchResults([]);
   };
 
   const handleSelectAf = (selectedAfNumber: string) => {
@@ -127,7 +95,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
 
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !selectedPart;
+  const isSubmitDisabled = isLoadingAfs || !selectedPart; // isLoadingParts removed
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -139,13 +107,8 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
           <div>
             <Label htmlFor="search-part">Buscar Peça</Label>
             <PartSearchInput
-              onSearch={handleSearch}
-              searchResults={searchResults}
               onSelectPart={handleSelectPart}
-              searchQuery={searchQuery}
-              allParts={allAvailableParts}
-              isLoading={false} // isLoading para searchResults é gerenciado internamente pelo debounce
-              isLoadingAllParts={isLoadingParts} // Passa o isLoading do useQuery para allParts
+              selectedPart={selectedPart}
             />
           </div>
           <div>

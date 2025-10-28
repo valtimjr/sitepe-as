@@ -20,8 +20,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import PartSearchInput from './PartSearchInput';
-import { getParts, searchParts as searchPartsService, exportDataAsCsv, exportDataAsJson, getPartsFromLocal } from '@/services'; // Importação corrigida
+import PartSearchInput from './PartSearchInput'; // Importar o novo componente
+import { getParts, exportDataAsCsv, exportDataAsJson } from '@/services'; // Importação corrigida
 import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
@@ -44,17 +44,16 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
   const [formDescription, setFormDescription] = useState('');
   const [formQuantity, setFormQuantity] = useState(1);
   
-  // Search states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Part[]>([]);
+  // Search states (no longer needed directly in this component, handled by PartSearchInput)
+  const [selectedPartForForm, setSelectedPartForForm] = useState<Part | null>(null); // To hold the selected part from PartSearchInput
 
-  // Usar useQuery para carregar todas as peças
+  // Fetch all parts using react-query (PartSearchInput will also do this, but keeping here for clarity if needed elsewhere)
   const { data: allAvailableParts = [], isLoading: isLoadingParts } = useQuery<Part[]>({
     queryKey: ['parts'],
     queryFn: getParts,
-    initialData: [], // Começa com um array vazio para carregamento instantâneo
-    staleTime: 5 * 60 * 1000, // Dados considerados "frescos" por 5 minutos
-    placeholderData: (previousData) => previousData || [], // Mantém dados anteriores enquanto busca novos
+    initialData: [],
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (previousData) => previousData || [],
   });
 
   const loadItems = useCallback(async () => {
@@ -74,30 +73,13 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     loadItems();
   }, [loadItems]);
 
-  useEffect(() => {
-    const fetchSearchResults = async () => {
-      if (searchQuery.length > 1) {
-        // A busca agora é feita no array completo de peças carregadas
-        const results = await searchPartsService(searchQuery); // searchPartsService já lida com Supabase/local
-        setSearchResults(results);
-      } else {
-        setSearchResults([]);
-      }
-    };
-    const handler = setTimeout(() => {
-      fetchSearchResults();
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [searchQuery, allAvailableParts]); // Depende de allAvailableParts para re-filtrar se a lista mudar
-
   const resetForm = () => {
     setCurrentEditItem(null);
     setFormItemName('');
     setFormPartCode('');
     setFormDescription('');
     setFormQuantity(1);
-    setSearchQuery('');
-    setSearchResults([]);
+    setSelectedPartForForm(null); // Clear selected part
   };
 
   const handleAdd = () => {
@@ -111,16 +93,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     setFormPartCode(item.part_code || '');
     setFormDescription(item.description || '');
     setFormQuantity(item.quantity);
-    setSearchQuery('');
-    setSearchResults([]);
+    setSelectedPartForForm(null); // Clear selected part, it will be set if user re-selects
     setIsDialogOpen(true);
   };
 
   const handleSelectPart = (part: Part) => {
+    setSelectedPartForForm(part);
     setFormPartCode(part.codigo);
     setFormDescription(part.descricao);
-    setSearchQuery('');
-    setSearchResults([]);
+    setFormItemName(part.descricao); // Optionally pre-fill item name with part description
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -386,13 +367,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
             <div className="space-y-2">
               <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
               <PartSearchInput
-                onSearch={setSearchQuery}
-                searchResults={searchResults}
                 onSelectPart={handleSelectPart}
-                searchQuery={searchQuery}
-                allParts={allAvailableParts}
-                isLoading={false} // isLoading para searchResults é gerenciado internamente pelo debounce
-                isLoadingAllParts={isLoadingParts} // Passa o isLoading do useQuery para allParts
+                selectedPart={selectedPartForForm}
               />
             </div>
 
