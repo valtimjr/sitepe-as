@@ -1,36 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Part, getPartsFromLocal } from '@/services'; // Import getPartsFromLocal
+import { Part } from '@/services'; // No longer need getPartsFromLocal here
 
 interface PartSearchInputProps {
   onSearch: (query: string) => void;
   searchResults: Part[];
   onSelectPart: (part: Part) => void;
   searchQuery: string;
-  allParts: Part[]; // This is the online/cached list from parent
-  isLoading: boolean; // Agora este isLoading vem do useQuery
+  allParts: Part[]; // This is the online/cached list from parent (from useQuery(getParts))
+  isLoading: boolean; // This is the loading state for searchResults (from parent's searchParts call)
+  isLoadingAllParts: boolean; // New prop for loading state of allParts (from parent's getParts call)
 }
 
-const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts, isLoading }) => {
+const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts, isLoading, isLoadingAllParts }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [localParts, setLocalParts] = useState<Part[]>([]); // New state for local parts
-  const [isLoadingLocal, setIsLoadingLocal] = useState(false); // New loading state for local parts
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Effect to load local parts when input is focused and query is empty
-  const loadLocalParts = useCallback(async () => {
-    setIsLoadingLocal(true);
-    try {
-      const parts = await getPartsFromLocal();
-      setLocalParts(parts);
-    } catch (error) {
-      console.error("Failed to load local parts:", error);
-    } finally {
-      setIsLoadingLocal(false);
-    }
-  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -47,9 +33,6 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
 
   const handleInputFocus = () => {
     setIsDropdownOpen(true);
-    if (searchQuery.length === 0) {
-      loadLocalParts(); // Load local parts only when focused and query is empty
-    }
   };
 
   const handleInputBlur = () => {
@@ -62,7 +45,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
 
   const handleSelectAndClose = (part: Part) => {
     onSelectPart(part);
-    onSearch('');
+    onSearch(''); // Clear search query after selection
     setIsDropdownOpen(false);
     if (inputRef.current) {
       inputRef.current.blur();
@@ -70,9 +53,11 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
   };
 
   // Determines which list to display
-  // If there's a search query, use searchResults.
-  // If no search query, use localParts (which will be populated on focus).
-  const displayList = searchQuery.length > 0 ? searchResults : localParts;
+  const displayList = searchQuery.length > 0 ? searchResults : allParts;
+
+  // Determine the loading state for the dropdown
+  const currentLoadingState = searchQuery.length > 0 ? isLoading : isLoadingAllParts;
+  const loadingMessage = searchQuery.length > 0 ? 'Carregando resultados...' : 'Carregando peças...';
 
   const shouldShowDropdown = isDropdownOpen;
 
@@ -93,8 +78,8 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
         />
         {shouldShowDropdown && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto">
-            {isLoading || isLoadingLocal ? ( // Use both loading states
-              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Carregando peças...</li>
+            {currentLoadingState ? (
+              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">{loadingMessage}</li>
             ) : displayList.length > 0 ? (
               displayList.map((part) => (
                 <li

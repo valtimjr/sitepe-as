@@ -144,7 +144,8 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               onSelectPart={handleSelectPart}
               searchQuery={searchQuery}
               allParts={allAvailableParts}
-              isLoading={isLoadingParts}
+              isLoading={false} // isLoading para searchResults é gerenciado internamente pelo debounce
+              isLoadingAllParts={isLoadingParts} // Passa o isLoading do useQuery para allParts
             />
           </div>
           <div>
