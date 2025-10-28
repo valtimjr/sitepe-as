@@ -199,13 +199,14 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   };
 
   const handleDeleteItem = async (id: string) => {
+    console.log('PartsListDisplay: handleDeleteItem called with ID:', id); // NOVO LOG
     try {
       await deleteSimplePartItem(id);
       onListChanged();
       showSuccess('Item removido da lista.');
     } catch (error) {
       showError('Erro ao remover item da lista.');
-      console.error('Failed to delete item:', error);
+      console.error('PartsListDisplay: Failed to delete item:', error); // NOVO LOG
     }
   };
 
