@@ -21,8 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import PartSearchInput from './PartSearchInput';
-import { getParts, searchParts as searchPartsService } from '@/services/partListService'; // Importação corrigida
-import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
+import { getParts, searchParts as searchPartsService, exportDataAsCsv, exportDataAsJson } from '@/services'; // Importação corrigida
 import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
