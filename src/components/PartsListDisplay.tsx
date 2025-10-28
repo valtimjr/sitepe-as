@@ -53,19 +53,17 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   // Form states for the currently edited item (used only for desktop inline editing)
   const [formQuantity, setFormQuantity] = useState<number>(1);
   const [formAf, setFormAf] = useState('');
-  const [formPartCode, setFormPartCode] = useState('');
-  const [formDescription, setFormDescription] = useState('');
-  const [selectedPartForEdit, setSelectedPartForEdit] = useState<Part | null>(null);
-  const [searchQueryForEdit, setSearchQueryForEdit] = useState('');
+  const [formPartCode, setFormPartCode] = useState(''); // Código da peça selecionada/confirmada
+  const [formDescription, setFormDescription] = useState(''); // Descrição da peça selecionada/confirmada
+  const [searchQueryForEdit, setSearchQueryForEdit] = useState(''); // Query para o PartSearchInput
   const [searchResultsForEdit, setSearchResultsForEdit] = useState<Part[]>([]);
 
   // Form states for inline add item
   const [inlineFormQuantity, setInlineFormQuantity] = useState<number>(1);
   const [inlineFormAf, setInlineFormAf] = useState('');
-  const [inlineFormPartCode, setInlineFormPartCode] = useState('');
-  const [inlineFormDescription, setInlineFormDescription] = useState('');
-  const [inlineSelectedPart, setInlineSelectedPart] = useState<Part | null>(null);
-  const [inlineSearchQuery, setInlineSearchQuery] = useState('');
+  const [inlineFormPartCode, setInlineFormPartCode] = useState(''); // Código da peça selecionada/confirmada
+  const [inlineFormDescription, setInlineFormDescription] = useState(''); // Descrição da peça selecionada/confirmada
+  const [inlineSearchQuery, setInlineSearchQuery] = useState(''); // Query para o PartSearchInput
   const [inlineSearchResults, setInlineSearchResults] = useState<Part[]>([]);
 
   // Global parts and AFs for search inputs
@@ -97,7 +95,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
   // Effect for inline part search (edit mode)
   useEffect(() => {
-    // A edição inline é desabilitada em mobile, mas a busca ainda pode ser útil para preencher o formulário externo
     const fetchSearchResults = async () => {
       if (searchQueryForEdit.length > 1) {
         const results = await getParts(searchQueryForEdit);
@@ -114,7 +111,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
   // Effect for inline part search (add mode)
   useEffect(() => {
-    // A adição inline é desabilitada em mobile, mas a busca ainda pode ser útil para preencher o formulário externo
     const fetchInlineSearchResults = async () => {
       if (inlineSearchQuery.length > 1) {
         const results = await getParts(inlineSearchQuery);
@@ -264,11 +260,9 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     setEditingItemId(item.id);
     setFormQuantity(item.quantidade ?? 1);
     setFormAf(item.af || '');
-    setFormPartCode(item.codigo_peca || '');
-    setFormDescription(item.descricao || '');
-    setSelectedPartForEdit(null);
-    setSearchQueryForEdit('');
-    setIsAddingInline(false); // Fecha o inline add se estiver aberto
+    setFormPartCode(item.codigo_peca || ''); // Define o código da peça confirmada
+    setFormDescription(item.descricao || ''); // Define a descrição da peça confirmada
+    setSearchQueryForEdit(''); // Limpa a query de busca para começar uma nova busca
   };
 
   const handleSaveEdit = async (originalItem: SimplePartItem) => {
@@ -305,19 +299,20 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   };
 
   const handleSelectPartForEdit = (part: Part | null) => {
-    setSelectedPartForEdit(part);
     if (part) {
       setFormPartCode(part.codigo);
       setFormDescription(part.descricao);
+      setSearchQueryForEdit(''); // Limpa o campo de busca após a seleção
     } else {
+      setFormPartCode('');
       setFormDescription('');
+      setSearchQueryForEdit('');
     }
   };
 
-  const handlePartCodeChangeForEdit = (value: string) => {
-    setFormPartCode(value);
-    setSearchQueryForEdit(value);
-    setSelectedPartForEdit(null);
+  const handlePartSearchChangeForEdit = (value: string) => {
+    setSearchQueryForEdit(value); // Atualiza apenas a query de busca
+    // Não limpa formPartCode/formDescription aqui, eles só mudam na seleção
   };
 
   const handleAfSelectForEdit = (afNumber: string) => {
@@ -334,8 +329,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       setInlineFormAf('');
       setInlineFormPartCode('');
       setInlineFormDescription('');
-      setInlineSelectedPart(null);
-      setInlineSearchQuery('');
+      setInlineSearchQuery(''); // Limpa a query de busca
       setEditingItemId(null); // Fecha o inline edit se estiver aberto
     }
   };
@@ -373,19 +367,19 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   };
 
   const handleSelectPartForInlineAdd = (part: Part | null) => {
-    setInlineSelectedPart(part);
     if (part) {
       setInlineFormPartCode(part.codigo);
       setInlineFormDescription(part.descricao);
+      setInlineSearchQuery(''); // Limpa o campo de busca após a seleção
     } else {
+      setInlineFormPartCode('');
       setInlineFormDescription('');
+      setInlineSearchQuery('');
     }
   };
 
-  const handlePartCodeChangeForInlineAdd = (value: string) => {
-    setInlineFormPartCode(value);
-    setInlineSearchQuery(value);
-    setInlineSelectedPart(null);
+  const handlePartSearchChangeForInlineAdd = (value: string) => {
+    setInlineSearchQuery(value); // Atualiza apenas a query de busca
   };
 
   const handleAfSelectForInlineAdd = (afNumber: string) => {
@@ -496,23 +490,32 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                       <>
                         <TableCell className="w-auto whitespace-normal break-words p-2 space-y-1">
                           <div className="flex flex-col gap-1">
-                            <Label htmlFor={`edit-part-code-${item.id}`} className="sr-only">Código da Peça</Label>
+                            <Label htmlFor={`edit-search-part-${item.id}`} className="sr-only">Buscar Peça</Label>
                             <PartSearchInput
-                              onSearch={handlePartCodeChangeForEdit}
+                              onSearch={handlePartSearchChangeForEdit} // Atualiza apenas a query de busca
                               searchResults={searchResultsForEdit}
-                              onSelectPart={handleSelectPartForEdit}
-                              searchQuery={searchQueryForEdit}
+                              onSelectPart={handleSelectPartForEdit} // Atualiza os campos de código/descrição e limpa a busca
+                              searchQuery={searchQueryForEdit} // Exibe a query de busca
                               allParts={allAvailableParts}
                               isLoading={isLoadingParts}
+                            />
+                            <Label htmlFor={`edit-part-code-${item.id}`} className="sr-only">Código da Peça</Label>
+                            <Input
+                              id={`edit-part-code-${item.id}`}
+                              type="text"
+                              value={formPartCode} // Exibe o código da peça selecionada
+                              readOnly // Somente leitura
+                              placeholder="Código da peça"
+                              className="text-xs bg-muted"
                             />
                             <Label htmlFor={`edit-description-${item.id}`} className="sr-only">Descrição</Label>
                             <Input
                               id={`edit-description-${item.id}`}
                               type="text"
-                              value={formDescription}
-                              onChange={(e) => setFormDescription(e.target.value)}
+                              value={formDescription} // Exibe a descrição da peça selecionada
+                              readOnly // Somente leitura
                               placeholder="Descrição da peça"
-                              className="text-xs"
+                              className="text-xs bg-muted"
                             />
                             <Label htmlFor={`edit-af-${item.id}`} className="sr-only">AF</Label>
                             <AfSearchInput
@@ -615,23 +618,32 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                     <TableCell className="w-[40px] p-2"></TableCell>
                     <TableCell className="w-auto whitespace-normal break-words p-2 space-y-1">
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor="inline-part-code" className="sr-only">Código da Peça</Label>
+                        <Label htmlFor="inline-search-part" className="sr-only">Buscar Peça</Label>
                         <PartSearchInput
-                          onSearch={handlePartCodeChangeForInlineAdd}
+                          onSearch={handlePartSearchChangeForInlineAdd}
                           searchResults={inlineSearchResults}
                           onSelectPart={handleSelectPartForInlineAdd}
                           searchQuery={inlineSearchQuery}
                           allParts={allAvailableParts}
                           isLoading={isLoadingParts}
                         />
+                        <Label htmlFor="inline-part-code" className="sr-only">Código da Peça</Label>
+                        <Input
+                          id="inline-part-code"
+                          type="text"
+                          value={inlineFormPartCode}
+                          readOnly
+                          placeholder="Código da peça"
+                          className="text-xs bg-muted"
+                        />
                         <Label htmlFor="inline-description" className="sr-only">Descrição</Label>
                         <Input
                           id="inline-description"
                           type="text"
                           value={inlineFormDescription}
-                          onChange={(e) => setInlineFormDescription(e.target.value)}
+                          readOnly
                           placeholder="Descrição da peça"
-                          className="text-xs"
+                          className="text-xs bg-muted"
                         />
                         <Label htmlFor="inline-af" className="sr-only">AF</Label>
                         <AfSearchInput
