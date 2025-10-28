@@ -26,30 +26,40 @@ export const getPartsFromLocal = async (): Promise<Part[]> => {
  * and updates it from Supabase when online.
  */
 export const getParts = async (): Promise<Part[]> => {
+  console.log('getParts: Iniciando carregamento de peças...');
   const online = await isOnline();
   let localData: Part[] = [];
 
   try {
     localData = await getLocalParts(); // Sempre tenta obter dados locais primeiro
+    console.log(`getParts: Dados locais encontrados: ${localData.length} itens.`);
   } catch (localError) {
-    console.error('Error loading parts from local cache:', localError);
+    console.error('getParts: Erro ao carregar peças do cache local:', localError);
   }
 
   if (online) {
+    console.log('getParts: Online. Tentando buscar peças do Supabase...');
     try {
       const remoteParts = await fetchAllPaginated<Part>('parts', 'codigo');
-      // Somente atualiza o cache local se a busca remota foi bem-sucedida
-      await localDb.parts.clear();
-      await bulkPutLocalParts(remoteParts);
-      console.log('Online: Peças buscadas do Supabase e cache local atualizado.');
+      console.log(`getParts: Supabase retornou ${remoteParts.length} peças.`);
+      
+      if (remoteParts.length > 0) {
+        console.log('getParts: Limpando cache local e atualizando com dados do Supabase...');
+        await localDb.parts.clear();
+        await bulkPutLocalParts(remoteParts);
+        console.log('getParts: Cache local de peças atualizado com sucesso.');
+      } else {
+        console.log('getParts: Supabase não retornou peças. Mantendo cache local como está (ou vazio).');
+        // Se o Supabase não tem dados, e o local tinha, queremos manter o local.
+        // Se o Supabase não tem dados, e o local estava vazio, ele continua vazio.
+      }
       return remoteParts;
     } catch (remoteError) {
-      console.error('Online: Falha ao buscar peças do Supabase. Retornando dados do cache local.', remoteError);
-      // Se a busca remota falhar, retorna o que foi obtido do cache local
-      return localData;
+      console.error('getParts: Falha ao buscar peças do Supabase. Retornando dados do cache local.', remoteError);
+      return localData; // Se a busca remota falhar, retorna o que foi obtido do cache local
     }
   } else {
-    console.log('Offline: Retornando peças do cache local.');
+    console.log('getParts: Offline. Retornando peças do cache local.');
     return localData; // Se offline, apenas retorna os dados locais
   }
 };

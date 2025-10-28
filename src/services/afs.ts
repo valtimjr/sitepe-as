@@ -22,21 +22,38 @@ export const getAfsFromLocal = async (): Promise<Af[]> => {
  * Fetches AFs from Supabase and updates the local IndexedDB cache.
  */
 export const getAfsFromService = async (): Promise<Af[]> => {
+  console.log('getAfsFromService: Iniciando carregamento de AFs...');
   const online = await isOnline();
-  
-  if (!online) {
-    console.log('Offline: Não é possível buscar AFs do Supabase.');
-    return []; // Retorna vazio se offline e não pode buscar do Supabase
-  }
+  let localData: Af[] = [];
 
   try {
+    localData = await getLocalAfs();
+    console.log(`getAfsFromService: Dados locais encontrados: ${localData.length} itens.`);
+  } catch (localError) {
+    console.error('getAfsFromService: Erro ao carregar AFs do cache local:', localError);
+  }
+  
+  if (!online) {
+    console.log('getAfsFromService: Offline. Retornando AFs do cache local.');
+    return localData;
+  }
+
+  console.log('getAfsFromService: Online. Tentando buscar AFs do Supabase...');
+  try {
     const remoteAfs = await fetchAllPaginated<Af>('afs', 'af_number');
-    await localDb.afs.clear(); // Limpa o cache antigo
-    await bulkPutLocalAfs(remoteAfs); // Atualiza o cache com os dados mais recentes
-    console.log('Online: AFs buscados do Supabase e cache local atualizado.');
+    console.log(`getAfsFromService: Supabase retornou ${remoteAfs.length} AFs.`);
+    
+    if (remoteAfs.length > 0) {
+      console.log('getAfsFromService: Limpando cache local e atualizando com dados do Supabase...');
+      await localDb.afs.clear(); // Limpa o cache antigo
+      await bulkPutLocalAfs(remoteAfs); // Atualiza o cache com os dados mais recentes
+      console.log('getAfsFromService: Cache local de AFs atualizado com sucesso.');
+    } else {
+      console.log('getAfsFromService: Supabase não retornou AFs. Mantendo cache local como está (ou vazio).');
+    }
     return remoteAfs;
   } catch (error) {
-    console.error('Online: Falha ao buscar AFs do Supabase. O cache local pode estar desatualizado.', error);
+    console.error('getAfsFromService: Falha ao buscar AFs do Supabase. O cache local pode estar desatualizado.', error);
     throw new Error(`Erro ao buscar AFs do Supabase: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
