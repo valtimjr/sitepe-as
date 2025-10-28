@@ -142,9 +142,10 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       const quantidade = item.quantidade ?? 1;
       const codigo = item.codigo_peca || '';
       const descricao = item.descricao || '';
-      const af = item.af ? ` (AF: ${item.af})` : '';
+      const af = item.af ? `AF: ${item.af}` : '';
       
-      formattedText += `${quantidade} - ${codigo} ${descricao}${af}`.trim() + '\n';
+      // Novo formato: Código da Peça \n Descrição \n AF: [AF] Quantidade
+      formattedText += `${codigo}\n${descricao}\n${af} ${quantidade}\n\n`;
     });
 
     return formattedText.trim();
@@ -197,7 +198,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       await deleteSimplePartItem(id);
       onListChanged();
       showSuccess('Item removido da lista.');
-    } catch (error) {
+    } catch (error) => {
       showError('Erro ao remover item da lista.');
       console.error('Failed to delete item:', error);
     }
@@ -455,8 +456,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[40px] p-2"></TableHead> {/* Coluna para o handle de drag */}
-                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça / Descrição</TableHead> {/* Título da coluna ajustado */}
-                  <TableHead className="w-[8rem] p-2">AF / Qtd</TableHead> {/* Nova coluna para AF e Qtd */}
+                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça / Descrição</TableHead>
+                  <TableHead className="w-[8rem] p-2">AF / Qtd</TableHead>
                   <TableHead className="w-[80px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
