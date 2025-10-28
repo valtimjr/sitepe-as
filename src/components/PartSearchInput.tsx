@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Part, getParts } from '@/services'; // Removed searchPartsService import as we'll filter locally
+import { Part, getParts } from '@/services';
 import { useQuery } from '@tanstack/react-query';
 
 interface PartSearchInputProps {
@@ -17,7 +17,6 @@ interface PartSearchInputProps {
 const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selectedPart }) => {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState(''); // Internal search query for CommandInput
-  const [filteredParts, setFilteredParts] = useState<Part[]>([]);
   const commandInputRef = useRef<HTMLInputElement>(null); // Ref for CommandInput
 
   // Fetch all parts using react-query
@@ -29,7 +28,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selecte
     placeholderData: (previousData) => previousData || [],
   });
 
-  // Effect to synchronize searchQuery with selectedPart and filter locally
+  // Effect to synchronize searchQuery with selectedPart prop
   useEffect(() => {
     if (selectedPart) {
       setSearchQuery(selectedPart.codigo);
@@ -37,21 +36,6 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selecte
       setSearchQuery('');
     }
   }, [selectedPart]);
-
-  // Effect to filter parts based on searchQuery from allParts
-  useEffect(() => {
-    if (searchQuery.length > 0) {
-      const lowerCaseQuery = searchQuery.toLowerCase();
-      const results = allParts.filter(part =>
-        part.codigo.toLowerCase().includes(lowerCaseQuery) ||
-        part.descricao.toLowerCase().includes(lowerCaseQuery) ||
-        (part.tags && part.tags.toLowerCase().includes(lowerCaseQuery))
-      );
-      setFilteredParts(results);
-    } else {
-      setFilteredParts(allParts); // Show all parts when search is empty
-    }
-  }, [searchQuery, allParts]);
 
   // Focus the CommandInput when the popover opens
   useEffect(() => {
@@ -76,9 +60,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selecte
   // Determine the text to display on the PopoverTrigger button
   const triggerButtonText = selectedPart 
     ? getPartDisplay(selectedPart)
-    : (searchQuery.length > 0 && filteredParts.length === 1 && filteredParts[0].codigo === searchQuery)
-      ? getPartDisplay(filteredParts[0]) // If only one result matches exactly, display it
-      : "Selecionar peça...";
+    : "Selecionar peça...";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -107,13 +89,15 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selecte
               <CommandEmpty className="flex items-center justify-center py-4">
                 <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando peças...
               </CommandEmpty>
-            ) : filteredParts.length === 0 && searchQuery.length > 0 ? (
-              <CommandEmpty>Nenhuma peça encontrada para "{searchQuery}".</CommandEmpty>
-            ) : filteredParts.length === 0 && searchQuery.length === 0 ? (
+            ) : allParts.length === 0 ? (
               <CommandEmpty>Nenhuma peça disponível no sistema.</CommandEmpty>
             ) : (
               <CommandGroup>
-                {filteredParts.map((part) => (
+                {allParts.filter(part => // Filter locally based on searchQuery
+                  part.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  part.descricao.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  (part.tags && part.tags.toLowerCase().includes(searchQuery.toLowerCase()))
+                ).map((part) => (
                   <CommandItem
                     key={part.id}
                     value={`${part.codigo} ${part.descricao} ${part.tags}`} // Value for CommandItem search
@@ -128,6 +112,14 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selecte
                     {getPartDisplay(part)}
                   </CommandItem>
                 ))}
+                {/* Show empty message if no filtered results */}
+                {allParts.filter(part => 
+                  part.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  part.descricao.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  (part.tags && part.tags.toLowerCase().includes(searchQuery.toLowerCase()))
+                ).length === 0 && searchQuery.length > 0 && (
+                  <CommandEmpty>Nenhuma peça encontrada para "{searchQuery}".</CommandEmpty>
+                )}
               </CommandGroup>
             )}
           </CommandList>
