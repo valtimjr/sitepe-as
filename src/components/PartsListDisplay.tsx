@@ -142,10 +142,9 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       const quantidade = item.quantidade ?? 1;
       const codigo = item.codigo_peca || '';
       const descricao = item.descricao || '';
-      const af = item.af ? `AF: ${item.af}` : '';
+      const af = item.af ? ` (AF: ${item.af})` : '';
       
-      // Novo formato: Código da Peça \n Descrição \n AF: [AF] Quantidade
-      formattedText += `${codigo}\n${descricao}\n${af} ${quantidade}\n\n`;
+      formattedText += `${quantidade} - ${codigo} ${descricao}${af}`.trim() + '\n';
     });
 
     return formattedText.trim();
@@ -198,7 +197,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       await deleteSimplePartItem(id);
       onListChanged();
       showSuccess('Item removido da lista.');
-    } catch (error) => {
+    } catch (error: any) { // Corrigido o erro de sintaxe aqui
       showError('Erro ao remover item da lista.');
       console.error('Failed to delete item:', error);
     }
