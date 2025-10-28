@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal } from 'lucide-react'; // Add Loader2
 import { showSuccess, showError } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem } from '@/services/customListService';
@@ -21,11 +21,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import PartSearchInput from './PartSearchInput'; // Importar o novo componente
-import { getParts, exportDataAsCsv, exportDataAsJson } from '@/services'; // Importação corrigida
-import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
+import { getParts, exportDataAsCsv, exportDataAsJson, searchParts } from '@/services'; // Import searchParts
+import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
-import { useQuery } from '@tanstack/react-query'; // Importar useQuery
+import { useQuery } from '@tanstack/react-query';
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -40,15 +40,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
   
   // Form states
   const [formItemName, setFormItemName] = useState('');
-  const [formPartCode, setFormPartCode] = useState('');
+  const [formPartCode, setFormPartCode] = useState(''); // New state for the raw part code input
   const [formDescription, setFormDescription] = useState('');
   const [formQuantity, setFormQuantity] = useState(1);
   
-  // Search states (no longer needed directly in this component, handled by PartSearchInput)
   const [selectedPartForForm, setSelectedPartForForm] = useState<Part | null>(null); // To hold the selected part from PartSearchInput
+  const [isPartSearching, setIsPartSearching] = useState(false); // State for part search loading
 
-  // Fetch all parts using react-query (PartSearchInput will also do this, but keeping here for clarity if needed elsewhere)
-  const { data: allAvailableParts = [], isLoading: isLoadingParts } = useQuery<Part[]>({
+  // Fetch all parts using react-query (not directly used for dropdown, but for initial data if needed)
+  const { data: allAvailableParts = [], isLoading: isLoadingAllParts } = useQuery<Part[]>({
     queryKey: ['parts'],
     queryFn: getParts,
     initialData: [],
@@ -72,6 +72,39 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
   useEffect(() => {
     loadItems();
   }, [loadItems]);
+
+  // Debounce effect for part code search
+  useEffect(() => {
+    const handler = setTimeout(async () => {
+      if (formPartCode.trim().length > 0) {
+        setIsPartSearching(true);
+        try {
+          const results = await searchParts(formPartCode.trim());
+          if (results.length === 1 && results[0].codigo.toLowerCase() === formPartCode.trim().toLowerCase()) {
+            setSelectedPartForForm(results[0]);
+            // Optionally pre-fill description if part is found
+            setFormDescription(results[0].descricao);
+            if (!formItemName.trim()) { // Only pre-fill item name if it's empty
+              setFormItemName(results[0].descricao);
+            }
+          } else {
+            setSelectedPartForForm(null); // Clear if no exact match or multiple matches
+          }
+        } catch (error) {
+          console.error("Error during part search:", error);
+          setSelectedPartForForm(null);
+        } finally {
+          setIsPartSearching(false);
+        }
+      } else {
+        setSelectedPartForForm(null);
+      }
+    }, 300); // 300ms debounce
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [formPartCode]); // Depend on formPartCode
 
   const resetForm = () => {
     setCurrentEditItem(null);
@@ -97,12 +130,13 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     setIsDialogOpen(true);
   };
 
-  const handleSelectPart = (part: Part) => {
-    setSelectedPartForForm(part);
-    setFormPartCode(part.codigo);
-    setFormDescription(part.descricao);
-    setFormItemName(part.descricao); // Optionally pre-fill item name with part description
-  };
+  // This function is no longer needed as PartSearchInput doesn't have onSelectPart
+  // const handleSelectPart = (part: Part) => {
+  //   setSelectedPartForForm(part);
+  //   setFormPartCode(part.codigo);
+  //   setFormDescription(part.descricao);
+  //   setFormItemName(part.descricao); // Optionally pre-fill item name with part description
+  // };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -365,23 +399,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
-              <PartSearchInput
-                onSelectPart={handleSelectPart}
-                selectedPart={selectedPartForForm}
-              />
+              <Label htmlFor="part-code-input">Código da Peça (Opcional)</Label>
+              <div className="relative">
+                <PartSearchInput
+                  onSelectPart={setSelectedPartForForm}
+                  selectedPart={selectedPartForForm}
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="part-code">Código da Peça (Opcional)</Label>
-              <Input
-                id="part-code"
-                value={formPartCode}
-                onChange={(e) => setFormPartCode(e.target.value)}
-                placeholder="Código da peça"
-              />
-            </div>
-            
             <div className="space-y-2">
               <Label htmlFor="description">Descrição (Opcional)</Label>
               <Input
@@ -389,6 +415,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
                 placeholder="Descrição da peça"
+                readOnly={!!selectedPartForForm} // Make read-only if a part is found by code
+                className={cn(!!selectedPartForForm && 'bg-muted')}
               />
             </div>
 
