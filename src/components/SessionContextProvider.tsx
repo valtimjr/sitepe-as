@@ -79,7 +79,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       if (initialCall) {
         const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) {
-          // console.error('SessionContextProvider: Error getting initial session:', sessionError); // Removido log
+          console.error('SessionContextProvider: Error getting initial session:', sessionError);
         }
         sessionToUse = initialSession;
       }

@@ -80,7 +80,7 @@ const UserSettingsPage: React.FC = () => {
   };
 
   const handlePasswordChanged = () => {
-    // console.log('UserSettingsPage: Password changed callback triggered.'); // Removido log
+    console.log('UserSettingsPage: Password changed callback triggered.');
   };
 
   // The main loading state for the page

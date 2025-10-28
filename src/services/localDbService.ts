@@ -129,23 +129,6 @@ class LocalDexieDb extends Dexie {
 
 export const localDb = new LocalDexieDb();
 
-// Tenta abrir o banco de dados e solicitar persistência
-localDb.open().catch(err => {
-  console.error("Failed to open local database:", err);
-});
-
-// Tenta solicitar armazenamento persistente (melhora a confiabilidade em WebViews)
-if (navigator.storage && navigator.storage.persist) {
-  navigator.storage.persist().then(persistent => {
-    if (persistent) {
-      console.log("Local storage persistence granted.");
-    } else {
-      console.warn("Local storage persistence denied.");
-    }
-  });
-}
-
-
 // --- Parts Management (IndexedDB) ---
 
 export const addLocalPart = async (part: Omit<Part, 'id'>): Promise<string> => {
@@ -309,22 +292,12 @@ export const getLocalApontamentos = async (userId: string): Promise<Apontamento[
 };
 
 export const putLocalApontamento = async (apontamento: Apontamento): Promise<void> => {
-  try {
-    // Usa put para inserir ou atualizar (baseado na chave primária 'id')
-    await localDb.apontamentos.put(apontamento);
-  } catch (error) {
-    console.error("IndexedDB Error: Failed to put Apontamento:", error, apontamento);
-    throw error; // Re-lança o erro para ser capturado pelo serviço
-  }
+  // Usa put para inserir ou atualizar (baseado na chave primária 'id')
+  await localDb.apontamentos.put(apontamento);
 };
 
 export const bulkPutLocalApontamentos = async (apontamentos: Apontamento[]): Promise<void> => {
-  try {
-    await localDb.apontamentos.bulkPut(apontamentos);
-  } catch (error) {
-    console.error("IndexedDB Error: Failed to bulkPut Apontamentos:", error, apontamentos);
-    throw error;
-  }
+  await localDb.apontamentos.bulkPut(apontamentos);
 };
 
 export const clearLocalApontamentos = async (userId: string): Promise<void> => {

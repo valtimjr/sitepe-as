@@ -22,7 +22,7 @@ const Index = () => {
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <h1 className="text-5xl font-extrabold mb-12 mt-8 text-center text-primary dark:text-primary flex items-center gap-4">
         <Home className="h-10 w-10 text-primary" />
-        AutoBoard
+        Bem-vindo ao AutoBoard
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl">

@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem } from '@/services';
+import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem } from '@/services/partListService';
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
 import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock } from 'lucide-react';
@@ -400,7 +400,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                             <div className="flex flex-col space-y-1 flex-grow">
                               <div className="flex items-center space-x-2">
                                 <span className="text-lg font-bold text-primary">AF: {group.af}</span>
-                                {group.os && <span className="text-lg font-bold text-primary"> (OS: {group.os})</span>}
+                                {group.os && <span className="text-lg font-bold text-primary">(OS: {group.os})</span>}
                               </div>
                               {timeDisplay && (
                                 <span className="text-sm text-muted-foreground flex items-center gap-1">

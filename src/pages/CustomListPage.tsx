@@ -8,8 +8,8 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomListItem } from '@/types/supabase';
-import { exportDataAsCsv, exportDataAsJson } from '@/services'; // Importação corrigida
-import { generateCustomListPdf } from '@/lib/pdfGenerator';
+import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
+import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 
@@ -184,22 +184,21 @@ const CustomListPage: React.FC = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                    <TableHead className="w-auto p-2">Item / Código / Descrição</TableHead>
+                    <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {items.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                      <TableCell className="w-auto p-2">
+                      <TableCell className="w-auto whitespace-normal break-words p-2">
                         <div className="flex flex-col">
                           {item.part_code && (
                             <span className="font-medium text-sm text-primary">{item.part_code}</span>
                           )}
-                          {/* Removido truncate e max-w-full para forçar a quebra de linha */}
-                          <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
+                          <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
                           {item.description && (
-                            <span className="text-xs text-muted-foreground italic whitespace-normal break-words">{item.description}</span>
+                            <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
                           )}
                         </div>
                       </TableCell>

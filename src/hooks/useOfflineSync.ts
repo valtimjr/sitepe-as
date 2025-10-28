@@ -1,18 +1,17 @@
 import { useEffect, useCallback } from 'react';
-import { Network } from '@capacitor/network';
-import { useSession } from '@/components/SessionContextProvider';
-import { syncPendingApontamentos } from '@/services';
-import { showSuccess, showError } from '@/utils/toast';
-import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
+import { Network } from '@capacitor/network';
 import { BackgroundTask } from '@capawesome/capacitor-background-task';
-import type { PluginListenerHandle } from '@capacitor/core'; // Import PluginListenerHandle
+import { useSession } from '@/components/SessionContextProvider';
+import { syncPendingApontamentos } from '@/services/partListService';
+import { showSuccess, showError } from '@/utils/toast';
+import { Capacitor } from '@capacitor/core'; // Importar Capacitor
 
 const SYNC_INTERVAL_MS = 60000; // Tenta sincronizar a cada 60 segundos se estiver online
 
 export function useOfflineSync() {
   const { user, isLoading: isSessionLoading } = useSession();
-  const isNative = Capacitor.isNativePlatform();
+  const isNative = Capacitor.isNative; // Verifica se é ambiente nativo
 
   const syncOperations = useCallback(async () => {
     if (!user) return 0;
@@ -20,9 +19,11 @@ export function useOfflineSync() {
     try {
       const status = await Network.getStatus();
       if (!status.connected) {
+        console.log('OfflineSync: Sem conexão. Pulando sincronização.');
         return 0;
       }
 
+      console.log('OfflineSync: Tentando sincronizar operações pendentes...');
       const syncedCount = await syncPendingApontamentos(user.id);
       
       if (syncedCount > 0) {
@@ -38,57 +39,47 @@ export function useOfflineSync() {
 
   // 1. Sincronização em Background (App State Change) - APENAS EM NATIVO
   useEffect(() => {
-    let appStateChangeListener: PluginListenerHandle | undefined; // Declare with type and initialize as undefined
-
-    if (isSessionLoading || !user || !isNative) {
-      return; // Return early if conditions not met
-    }
+    if (isSessionLoading || !user || !isNative) return;
 
     const handleAppStateChange = async ({ isActive }: { isActive: boolean }) => {
       if (isActive) {
+        // Se voltar para o foreground, tenta sincronizar imediatamente
         await syncOperations();
       } else {
-        // Inicia a tarefa em background
+        // Se for para o background, inicia a tarefa em background
         const taskId = await BackgroundTask.beforeExit(async () => {
+          console.log('OfflineSync: Executando tarefa em background...');
           await syncOperations();
           BackgroundTask.finish({ taskId });
         });
       }
     };
 
-    // Adiciona listener de forma segura
-    appStateChangeListener = App.addListener('appStateChange', handleAppStateChange);
+    App.addListener('appStateChange', handleAppStateChange);
 
     return () => {
-      if (appStateChangeListener) { // Only call remove if the listener was actually added
-        appStateChangeListener.remove();
-      }
+      App.removeListener('appStateChange', handleAppStateChange);
     };
   }, [user, isSessionLoading, syncOperations, isNative]);
 
   // 2. Sincronização ao Mudar o Status da Rede
   useEffect(() => {
-    let networkChangeListener: PluginListenerHandle | undefined; // Declare with type and initialize as undefined
-
-    if (isSessionLoading || !user) {
-      return; // Return early if conditions not met
-    }
+    if (isSessionLoading || !user) return;
 
     const handleNetworkChange = async (status: { connected: boolean }) => {
       if (status.connected) {
+        console.log('OfflineSync: Conexão restaurada. Iniciando sincronização.');
         await syncOperations();
       }
     };
 
-    networkChangeListener = Network.addListener('networkStatusChange', handleNetworkChange);
+    Network.addListener('networkStatusChange', handleNetworkChange);
 
     // Tenta sincronizar na montagem se já estiver online
     syncOperations();
 
     return () => {
-      if (networkChangeListener) { // Only call remove if the listener was actually added
-        networkChangeListener.remove();
-      }
+      Network.removeListener('networkStatusChange', handleNetworkChange);
     };
   }, [user, isSessionLoading, syncOperations]);
 

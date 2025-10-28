@@ -1,22 +1,72 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth } from '@/services';
+import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth } from '@/services/partListService';
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { generateMonthlyApontamentos, ShiftTurn } from '@/services/shiftService';
-import { v4 as uuidv4 } from 'uuid';
-import { ALL_TURNS } from '@/services/shiftService';
-
-// Importando os novos componentes modulares
-import TimeTrackingHeader from '@/components/time-tracking/TimeTrackingHeader';
-import ScheduleGeneratorForm from '@/components/time-tracking/ScheduleGeneratorForm';
-import TimeTrackingTable from '@/components/time-tracking/TimeTrackingTable';
-import OtherStatusDialog from '@/components/time-tracking/OtherStatusDialog';
 import { generateTimeTrackingPdf } from '@/lib/pdfGenerator';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+import { ALL_TURNS, generateMonthlyApontamentos, ShiftTurn } from '@/services/shiftService'; // Importar serviço de turno
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { localDb } from '@/services/localDbService';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Link } from 'react-router-dom';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; // Adicionado
 
+// Mapeamento de Status para Ícone e Estilo
+const STATUS_MAP = {
+  Folga: {
+    icon: CheckCircle,
+    color: 'text-green-600 dark:text-green-400',
+    bgColor: 'bg-green-50 dark:bg-green-900/20',
+    displayName: 'Folga',
+  },
+  Falta: {
+    icon: XCircle,
+    color: 'text-red-600 dark:text-red-400',
+    bgColor: 'bg-red-50 dark:bg-red-900/20',
+    displayName: 'Falta',
+  },
+  Suspensao: {
+    icon: Ban,
+    color: 'text-yellow-600 dark:text-yellow-400',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+    displayName: 'Suspensão',
+  },
+  Outros: {
+    icon: Info,
+    color: 'text-blue-600 dark:text-blue-400',
+    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    displayName: 'Outros',
+  },
+};
 
 const TimeTrackingPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading } = useSession();
@@ -27,6 +77,7 @@ const TimeTrackingPage: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [otherStatusText, setOtherStatusText] = useState('');
   const [dayForOtherStatus, setDayForOtherStatus] = useState<Date | null>(null);
+  // Alterado para ShiftTurn | undefined
   const [selectedTurn, setSelectedTurn] = useState<ShiftTurn | undefined>(undefined);
   const [isGeneratingSchedule, setIsGeneratingSchedule] = useState(false);
 
@@ -90,34 +141,6 @@ const TimeTrackingPage: React.FC = () => {
     } catch (error) {
       showError('Erro ao excluir apontamento.');
       console.error('Failed to delete apontamento:', error);
-    }
-  }, []);
-
-  const calculateTotalHours = useCallback((entry?: string, exit?: string): string => {
-    if (!entry || !exit) return '';
-    
-    try {
-      const [entryH, entryM] = entry.split(':').map(Number);
-      const [exitH, exitM] = exit.split(':').map(Number);
-
-      let entryTime = setHours(setMinutes(new Date(), entryM), entryH);
-      let exitTime = setHours(setMinutes(new Date(), exitM), exitH);
-
-      // Se a hora de saída for anterior à de entrada, assume que passou da meia-noite
-      if (exitTime.getTime() < entryTime.getTime()) {
-        exitTime = addDays(exitTime, 1);
-      }
-
-      const diffMs = exitTime.getTime() - entryTime.getTime();
-      if (diffMs < 0) return 'Inválido';
-
-      const totalMinutes = Math.floor(diffMs / (1000 * 60));
-      const hours = Math.floor(totalMinutes / 60);
-      const minutes = totalMinutes % 60;
-
-      return `${hours}h ${minutes}m`;
-    } catch {
-      return 'Inválido';
     }
   }, []);
 
@@ -239,6 +262,34 @@ const TimeTrackingPage: React.FC = () => {
     setCurrentDate(newDate);
   };
 
+  const calculateTotalHours = (entry?: string, exit?: string): string => {
+    if (!entry || !exit) return '';
+    
+    try {
+      const [entryH, entryM] = entry.split(':').map(Number);
+      const [exitH, exitM] = exit.split(':').map(Number);
+
+      let entryTime = setHours(setMinutes(new Date(), entryM), entryH);
+      let exitTime = setHours(setMinutes(new Date(), exitM), exitH);
+
+      // Se a hora de saída for anterior à de entrada, assume que passou da meia-noite
+      if (exitTime.getTime() < entryTime.getTime()) {
+        exitTime = addDays(exitTime, 1);
+      }
+
+      const diffMs = exitTime.getTime() - entryTime.getTime();
+      if (diffMs < 0) return 'Inválido';
+
+      const totalMinutes = Math.floor(diffMs / (1000 * 60));
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+
+      return `${hours}h ${minutes}m`;
+    } catch {
+      return 'Inválido';
+    }
+  };
+
   const employeeHeader = useMemo(() => {
     const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim();
     return profile?.badge && fullName
@@ -250,7 +301,13 @@ const TimeTrackingPage: React.FC = () => {
     return format(currentDate, 'MMMM yyyy', { locale: ptBR });
   }, [currentDate]);
 
-  const formatListText = useCallback(() => {
+  const formatListText = () => {
+    // Novo formato desejado:
+    // Linha 1: Outubro
+    // Linha 2: 15042 - Valter Rogerio Paulino Mortagua Junior
+    // Linha 3: 01/10 23:00 - 07:00
+    // Linha 4: 04/10 Folga
+    
     const monthName = format(currentDate, 'MMMM', { locale: ptBR });
     
     let text = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)}\n`;
@@ -269,10 +326,12 @@ const TimeTrackingPage: React.FC = () => {
       let line = `${day} `;
 
       if (a.status) {
+        // Se tem status, usa o nome do status (ex: Folga, Falta, Suspensao, Outros: Férias)
         line += a.status.split(':')[0];
       } else {
-        const entry = a.entry_time ? a.entry_time.substring(0, 5) : '';
-        const exit = a.exit_time ? a.exit_time.substring(0, 5) : '';
+        // Se não tem status, usa o formato de horas condensado
+        const entry = a.entry_time ? a.entry_time.substring(0, 5) : ''; // Remove segundos
+        const exit = a.exit_time ? a.exit_time.substring(0, 5) : ''; // Remove segundos
         
         if (entry && exit) {
           line += `${entry} - ${exit}`;
@@ -281,6 +340,7 @@ const TimeTrackingPage: React.FC = () => {
         } else if (exit) {
           line += ` - ${exit}`;
         } else {
+          // Se não há status e nem horas, pula a linha (embora o filtro de apontamentos deva evitar isso)
           return;
         }
       }
@@ -289,7 +349,7 @@ const TimeTrackingPage: React.FC = () => {
     });
 
     return text.trim();
-  }, [currentDate, employeeHeader, apontamentos, currentMonthStart, currentMonthEnd]);
+  };
 
   const handleCopyText = async () => {
     const textToCopy = formatListText();
@@ -312,6 +372,9 @@ const TimeTrackingPage: React.FC = () => {
   };
 
   const handleExportPdf = () => {
+    const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
+    
+    // O título para o PDF mantém o formato mais detalhado para o cabeçalho do documento
     const pdfTitle = `Apontamento de Horas - ${monthYearTitle}\n${employeeHeader}`;
 
     const currentMonthApontamentos = apontamentos
@@ -408,47 +471,291 @@ const TimeTrackingPage: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <div className="w-full max-w-4xl">
-        
-        <TimeTrackingHeader employeeHeader={employeeHeader} />
+        <div className="flex justify-between items-center mb-4 mt-8">
+          <div className="flex flex-col items-start">
+            <h1 className="text-4xl font-extrabold text-primary dark:text-primary flex items-center gap-3">
+              <Clock className="h-8 w-8 text-primary" />
+              Apontamento de Horas
+            </h1>
+            <p className="text-lg font-semibold text-foreground/70 mt-1">
+              {employeeHeader}
+            </p>
+          </div>
+          <a href="https://escala.eletricarpm.com.br" target="_blank" rel="noopener noreferrer">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  className="h-16 w-16 !p-0 [&>svg]:!h-16 [&>svg]:!w-16" 
+                  aria-label="Visualizar Escala Anual"
+                >
+                  <CalendarDays className="h-16 w-16 text-primary" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Visualizar Escala Anual</TooltipContent>
+            </Tooltip>
+          </a>
+        </div>
 
-        <ScheduleGeneratorForm
-          currentDate={currentDate}
-          selectedTurn={selectedTurn}
-          isGeneratingSchedule={isGeneratingSchedule}
-          isSaving={isSaving}
-          handleTurnChange={handleTurnChange}
-          handleGenerateSchedule={handleGenerateSchedule}
-          handleClearMonth={handleClearMonth}
-        />
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle className="text-xl">Gerar Escala Automática</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1 w-full">
+              <Label htmlFor="shift-turn">Selecione seu Turno</Label>
+              <Select 
+                value={selectedTurn} 
+                onValueChange={handleTurnChange} 
+                disabled={isGeneratingSchedule}
+              >
+                <SelectTrigger id="shift-turn" className="w-full">
+                  <SelectValue placeholder="Selecione o Turno" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALL_TURNS.map(turn => (
+                    <SelectItem key={turn} value={turn}>{turn}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="flex items-center gap-2 w-full sm:w-auto" disabled={isSaving || isGeneratingSchedule}>
+                    <Eraser className="h-4 w-4" /> Limpar Mês
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação irá remover TODOS os apontamentos para o mês de {format(currentDate, 'MMMM yyyy', { locale: ptBR })}. Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleClearMonth}>Limpar Agora</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <Button 
+                onClick={handleGenerateSchedule} 
+                disabled={!selectedTurn || isGeneratingSchedule || isSaving}
+                className="w-full sm:w-auto"
+              >
+                {isGeneratingSchedule ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CalendarCheck className="mr-2 h-4 w-4" />
+                )}
+                Gerar Escala
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-        <TimeTrackingTable
-          currentDate={currentDate}
-          daysInMonth={daysInMonth}
-          apontamentos={apontamentos}
-          monthYearTitle={monthYearTitle}
-          isSaving={isSaving}
-          handleMonthChange={handleMonthChange}
-          handleCopyText={handleCopyText}
-          handleShareOnWhatsApp={handleShareOnWhatsApp}
-          handleExportPdf={handleExportPdf}
-          handleTimeChange={handleTimeChange}
-          handleClearStatus={handleClearStatus}
-          handleStatusChange={handleStatusChange}
-          handleOpenOtherStatusDialog={handleOpenOtherStatusDialog}
-          handleDeleteApontamento={handleDeleteApontamento}
-          calculateTotalHours={calculateTotalHours}
-        />
+        <Card className="mb-8">
+          <CardHeader className="flex flex-col space-y-2">
+            <div className="flex items-center justify-between">
+              <Button variant="ghost" onClick={() => handleMonthChange('prev')} size="icon">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <CardTitle className="text-xl font-semibold capitalize">
+                {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
+              </CardTitle>
+              <Button variant="ghost" onClick={() => handleMonthChange('next')} size="icon">
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* NOVO LOCAL PARA OS BOTÕES DE AÇÃO - FORMATO ALINHADO À DIREITA */}
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
+              <Button onClick={handleCopyText} className="flex items-center gap-2">
+                <Copy className="h-4 w-4" /> Copiar Texto
+              </Button>
+              <Button 
+                onClick={handleShareOnWhatsApp} 
+                variant="ghost" 
+                className="h-10 w-10 p-0 rounded-full" 
+                aria-label="Compartilhar no WhatsApp" 
+              >
+                <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-full w-full" />
+              </Button>
+              <Button onClick={handleExportPdf} className="flex items-center gap-2">
+                <Download className="h-4 w-4" /> Exportar PDF
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px]">Dia</TableHead>
+                    <TableHead className="w-auto min-w-[200px]">Entrada / Status</TableHead>
+                    <TableHead className="w-[100px]">Total</TableHead>
+                    <TableHead className="w-[120px] text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {daysInMonth.map((day) => {
+                    const apontamento = getApontamentoForDay(day);
+                    const dateString = format(day, 'yyyy-MM-dd');
+                    const dayName = format(day, 'EEE', { locale: ptBR });
+                    const isWeekend = getDay(day) === 0 || getDay(day) === 6;
+                    const hasStatus = !!apontamento?.status;
+                    
+                    const statusKey = hasStatus ? (apontamento.status.includes('Outros') ? 'Outros' : apontamento.status) : null;
+                    const statusInfo = statusKey ? STATUS_MAP[statusKey as keyof typeof STATUS_MAP] : null;
+                    const StatusIcon = statusInfo?.icon;
+                    const statusDisplayName = statusInfo?.displayName || 'Status';
+                    const statusDescription = apontamento?.status?.includes(':') ? apontamento.status.split(': ')[1] : '';
+
+                    return (
+                      <TableRow key={dateString} className={isWeekend ? 'bg-muted/50' : ''}>
+                        <TableCell className="font-medium">
+                          {format(day, 'dd/MM')} ({dayName})
+                        </TableCell>
+                        
+                        {/* Coluna de Entrada / Status */}
+                        <TableCell className="space-y-2">
+                          {hasStatus ? (
+                            <div className={cn(
+                              "flex flex-col items-center justify-center p-2 rounded-md",
+                              statusInfo?.bgColor
+                            )}>
+                              <div className="flex items-center gap-2">
+                                {StatusIcon && <StatusIcon className={cn("h-5 w-5", statusInfo?.color)} />}
+                                <span className={cn("font-semibold", statusInfo?.color)}>
+                                  {statusDisplayName}
+                                </span>
+                              </div>
+                              {statusDescription && (
+                                <span className="text-xs text-muted-foreground mt-1 text-center">
+                                  {statusDescription}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <div className="flex-1">
+                                <Label htmlFor={`entry-${dateString}`} className="sr-only">Entrada</Label>
+                                <Input
+                                  id={`entry-${dateString}`}
+                                  type="time"
+                                  value={apontamento?.entry_time || ''}
+                                  onChange={(e) => handleTimeChange(day, 'entry_time', e.target.value)}
+                                  disabled={isSaving}
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <Label htmlFor={`exit-${dateString}`} className="sr-only">Saída</Label>
+                                <Input
+                                  id={`exit-${dateString}`}
+                                  type="time"
+                                  value={apontamento?.exit_time || ''}
+                                  onChange={(e) => handleTimeChange(day, 'exit_time', e.target.value)}
+                                  disabled={isSaving}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </TableCell>
+
+                        {/* Coluna Total */}
+                        <TableCell className="font-semibold text-sm">
+                          {hasStatus ? statusDisplayName : calculateTotalHours(apontamento?.entry_time, apontamento?.exit_time)}
+                        </TableCell>
+
+                        {/* Coluna Ações */}
+                        <TableCell className="text-right">
+                          <div className="flex justify-end items-center gap-1">
+                            {hasStatus ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleClearStatus(day)}
+                                disabled={isSaving}
+                                aria-label="Reverter para Horas"
+                              >
+                                <Clock3 className="h-4 w-4 text-primary" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleStatusChange(day, 'Folga')}
+                                disabled={isSaving}
+                                className="text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50"
+                              >
+                                Folga
+                              </Button>
+                            )}
+                            
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" disabled={isSaving}>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleStatusChange(day, 'Falta')} disabled={hasStatus}>
+                                  Falta
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleStatusChange(day, 'Suspensao')} disabled={hasStatus}>
+                                  Suspensão
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenOtherStatusDialog(day)} disabled={hasStatus}>
+                                  Outros...
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {apontamento && (
+                                  <DropdownMenuItem onClick={() => handleDeleteApontamento(apontamento.id)} className="text-destructive">
+                                    <Trash2 className="h-4 w-4 mr-2" /> Excluir Registro
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
       <MadeWithDyad />
 
-      <OtherStatusDialog
-        isOpen={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        otherStatusText={otherStatusText}
-        setOtherStatusText={setOtherStatusText}
-        handleSaveOtherStatus={handleSaveOtherStatus}
-        isSaving={isSaving}
-      />
+      {/* Dialog para Outros Status */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Marcar Outro Status</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Label htmlFor="other-status">Descrição (Ex: Férias, Atestado)</Label>
+            <Textarea
+              id="other-status"
+              value={otherStatusText}
+              onChange={(e) => setOtherStatusText(e.target.value)}
+              placeholder="Descreva o motivo da marcação"
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <X className="h-4 w-4 mr-2" /> Cancelar
+            </Button>
+            <Button type="button" onClick={handleSaveOtherStatus} disabled={isSaving}>
+              <Save className="h-4 w-4 mr-2" /> Salvar Status
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

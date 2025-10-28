@@ -10,15 +10,12 @@ const NotFound = () => {
     document.title = "Página Não Encontrada - AutoBoard";
   }, []);
 
-  // Removido o console.error para evitar logs desnecessários no console do navegador.
-  /*
   useEffect(() => {
     console.error(
       "404 Error: User attempted to access non-existent route:",
       location.pathname,
     );
   }, [location.pathname]);
-  */
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4">

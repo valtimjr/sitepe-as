@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
-import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services'; // Importar as novas interfaces
+import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
 import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CustomListItem } from '@/types/supabase';
@@ -194,8 +194,8 @@ export const generateServiceOrderPdf = (listItems: ServiceOrderItem[], title: st
     if (!d1 && d2) return 1;
     
     // If both defined or both undefined, sort chronologically (string comparison works for HH:MM)
-    if (time1 < t2) return -1;
-    if (time1 > t2) return 1;
+    if (time1 < time2) return -1;
+    if (time1 > time2) return 1;
     return 0;
   };
 

@@ -32,7 +32,7 @@ const AppHeader: React.FC = () => {
       const structure = await getMenuStructure();
       setRootMenuItems(structure);
     } catch (error) {
-      // console.error('Failed to load dynamic menu:', error); // Removido log
+      console.error('Failed to load dynamic menu:', error);
     }
   }, []);
 

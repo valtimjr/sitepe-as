@@ -3,16 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addServiceOrderItem, updatePart, deleteServiceOrderItem, ServiceOrderItem, updateServiceOrderItem, Af, getAfsFromService } from '@/services';
-import PartCodeInput from './PartCodeInput'; // Import the new component
+import { Part, addServiceOrderItem, getParts, getAfsFromService, searchParts as searchPartsService, updatePart, deleteServiceOrderItem, ServiceOrderItem, updateServiceOrderItem, Af } from '@/services/partListService';
+import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save, Plus, FilePlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { useSession } from '@/components/SessionContextProvider';
-import { useQuery } from '@tanstack/react-query'; // Importar useQuery
+import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
 
 interface ServiceOrderDetails {
   af: string;
@@ -33,7 +32,7 @@ interface ServiceOrderFormProps {
 }
 
 const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder, listItems, setIsCreatingNewOrder }) => {
-  const { checkPageAccess } = useSession();
+  const { checkPageAccess } = useSession(); // Obter checkPageAccess
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -41,20 +40,30 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   const [horaInicio, setHoraInicio] = useState<string>('');
   const [horaFinal, setHoraFinal] = useState<string>('');
   const [servicoExecutado, setServicoExecutado] = useState<string>('');
-  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Part[]>([]);
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
+  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]); // Alterado para Af[]
+  const [isLoadingParts, setIsLoadingParts] = useState(true);
+  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
   const [isOsInvalid, setIsOsInvalid] = useState(false);
   const [currentBlankOsItemId, setCurrentBlankOsItemId] = useState<string | null>(null);
-  const [partCodeInput, setPartCodeInput] = useState(''); // Novo estado para o input de código da peça
 
-  // Use useQuery for AFs, as PartCodeInput now handles parts internally
-  const { data: allAvailableAfs = [], isLoading: isLoadingAfs } = useQuery<Af[]>({
-    queryKey: ['afs'],
-    queryFn: getAfsFromService,
-    initialData: [], // Começa com um array vazio para carregamento instantâneo
-    staleTime: 5 * 60 * 1000,
-    placeholderData: (previousData) => previousData || [],
-  });
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setIsLoadingParts(true);
+      const parts = await getParts();
+      setAllAvailableParts(parts);
+      setIsLoadingParts(false);
+
+      setIsLoadingAfs(true);
+      const afs = await getAfsFromService(); // Usar getAfsFromService para obter objetos Af
+      setAllAvailableAfs(afs);
+      setIsLoadingAfs(false);
+    };
+    loadInitialData();
+  }, []);
 
   useEffect(() => {
     if (editingServiceOrder) {
@@ -88,19 +97,34 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
   }, [editingServiceOrder, listItems]);
 
   useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (searchQuery.length > 1) {
+        setIsLoadingParts(true);
+        const results = await searchPartsService(searchQuery);
+        setSearchResults(results);
+        setIsLoadingParts(false);
+      } else {
+        setSearchResults([]);
+      }
+    };
+    const handler = setTimeout(() => {
+      fetchSearchResults();
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  useEffect(() => {
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
 
-  const handlePartCodeInputChange = (value: string) => {
-    setPartCodeInput(value);
-    // onSelectPart será chamado pelo PartCodeInput quando uma peça for encontrada
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
   };
 
-  const handleSelectPart = (part: Part | null) => {
+  const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
-    if (part) {
-      setPartCodeInput(part.codigo); // Garante que o input reflita o código da peça selecionada
-    }
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   const handleSelectAf = (selectedAfNumber: string) => {
@@ -120,6 +144,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     try {
       await updatePart({ ...selectedPart, tags: editedTags });
       showSuccess('Tags da peça atualizadas com sucesso!');
+      const updatedParts = await getParts();
+      setAllAvailableParts(updatedParts);
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
       showError('Erro ao atualizar as tags da peça.');
@@ -135,16 +161,18 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     setHoraInicio('');
     setHoraFinal('');
     setServicoExecutado('');
+    setSearchQuery('');
+    setSearchResults([]);
     setEditedTags('');
     setIsOsInvalid(false);
-    setPartCodeInput(''); // Limpa o input de código da peça
   };
 
   const resetPartFields = () => {
     setSelectedPart(null);
     setQuantidade(1);
+    setSearchQuery('');
+    setSearchResults([]);
     setEditedTags('');
-    setPartCodeInput(''); // Limpa o input de código da peça
   };
 
   const handleOsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -255,6 +283,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         showSuccess('Item adicionado à lista!');
         resetPartFields();
         onItemAdded();
+        const updatedAfs = await getAfsFromService(); // Atualiza a lista de AFs
+        setAllAvailableAfs(updatedAfs);
         setIsCreatingNewOrder(false);
       } catch (error) {
         showError('Erro ao adicionar item à lista.');
@@ -280,6 +310,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         showSuccess('Ordem de Serviço criada sem peças. Adicione peças agora!');
         setCurrentBlankOsItemId(newBlankId);
         onItemAdded();
+        const updatedAfs = await getAfsFromService(); // Atualiza a lista de AFs
+        setAllAvailableAfs(updatedAfs);
         setIsCreatingNewOrder(false);
       } catch (error) {
         showError('Erro ao criar ordem de serviço.');
@@ -288,9 +320,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     }
   };
 
+  // Lógica para desabilitar a edição de tags
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
-  const isSubmitDisabled = isLoadingAfs || !af || isOsInvalid || (editingServiceOrder?.mode === 'add_part' && !selectedPart);
+  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !af || isOsInvalid || (editingServiceOrder?.mode === 'add_part' && !selectedPart);
 
   const isOsDetailsReadOnly = editingServiceOrder?.mode === 'add_part';
   const isPartDetailsVisible = !editingServiceOrder || editingServiceOrder.mode === 'add_part';
@@ -391,11 +424,25 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               <Separator className="my-6" />
               <h3 className="text-lg font-semibold">Detalhes da Peça (Opcional)</h3>
               <div>
-                <Label htmlFor="part-code-input">Código da Peça</Label>
-                <PartCodeInput
-                  value={partCodeInput}
-                  onChange={handlePartCodeInputChange}
+                <Label htmlFor="search-part">Buscar Peça</Label>
+                <PartSearchInput
+                  onSearch={handleSearch}
+                  searchResults={searchResults}
                   onSelectPart={handleSelectPart}
+                  searchQuery={searchQuery}
+                  allParts={allAvailableParts}
+                  isLoading={isLoadingParts}
+                />
+              </div>
+              <div>
+                <Label htmlFor="codigo_peca">Código da Peça</Label>
+                <Input
+                  id="codigo_peca"
+                  type="text"
+                  value={selectedPart?.codigo || ''}
+                  placeholder="Código da peça selecionada"
+                  readOnly
+                  className="bg-muted"
                 />
               </div>
               <div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import PartListItemForm from '@/components/PartListItemForm';
 import PartsListDisplay from '@/components/PartsListDisplay';
-import { getSimplePartsListItems, SimplePartItem } from '@/services'; // Usar getSimplePartsListItems e SimplePartItem
+import { getSimplePartsListItems, SimplePartItem } from '@/services/partListService'; // Usar getSimplePartsListItems e SimplePartItem
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, List } from 'lucide-react';
