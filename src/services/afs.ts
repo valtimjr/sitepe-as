@@ -43,13 +43,14 @@ export const getAfsFromService = async (): Promise<Af[]> => {
     const remoteAfs = await fetchAllPaginated<Af>('afs', 'af_number');
     console.log(`getAfsFromService: Supabase retornou ${remoteAfs.length} AFs.`);
     
+    // Sempre limpa o cache local para refletir o estado atual do Supabase
+    await localDb.afs.clear();
     if (remoteAfs.length > 0) {
-      console.log('getAfsFromService: Limpando cache local e atualizando com dados do Supabase...');
-      await localDb.afs.clear(); // Limpa o cache antigo
-      await bulkPutLocalAfs(remoteAfs); // Atualiza o cache com os dados mais recentes
+      console.log('getAfsFromService: Atualizando cache local com dados do Supabase...');
+      await bulkPutLocalAfs(remoteAfs);
       console.log('getAfsFromService: Cache local de AFs atualizado com sucesso.');
     } else {
-      console.log('getAfsFromService: Supabase não retornou AFs. Mantendo cache local como está (ou vazio).');
+      console.log('getAfsFromService: Supabase não retornou AFs. Cache local esvaziado.');
     }
     return remoteAfs;
   } catch (error) {

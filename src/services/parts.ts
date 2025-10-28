@@ -43,15 +43,14 @@ export const getParts = async (): Promise<Part[]> => {
       const remoteParts = await fetchAllPaginated<Part>('parts', 'codigo');
       console.log(`getParts: Supabase retornou ${remoteParts.length} peças.`);
       
+      // Sempre limpa o cache local para refletir o estado atual do Supabase
+      await localDb.parts.clear();
       if (remoteParts.length > 0) {
-        console.log('getParts: Limpando cache local e atualizando com dados do Supabase...');
-        await localDb.parts.clear();
+        console.log('getParts: Atualizando cache local com dados do Supabase...');
         await bulkPutLocalParts(remoteParts);
         console.log('getParts: Cache local de peças atualizado com sucesso.');
       } else {
-        console.log('getParts: Supabase não retornou peças. Mantendo cache local como está (ou vazio).');
-        // Se o Supabase não tem dados, e o local tinha, queremos manter o local.
-        // Se o Supabase não tem dados, e o local estava vazio, ele continua vazio.
+        console.log('getParts: Supabase não retornou peças. Cache local esvaziado.');
       }
       return remoteParts;
     } catch (remoteError) {
