@@ -36,25 +36,13 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
   };
 
   const handleInputBlur = () => {
-    // Pequeno atraso para permitir que os eventos de clique nos itens da lista sejam registrados
-    // O handleClickOutside já deve lidar com cliques fora, mas este é um fallback para o próprio input
+    // Adiciona um pequeno atraso para permitir que o evento de clique no item da lista seja processado
+    // antes de fechar o dropdown. O handleClickOutside é o principal responsável por fechar.
     setTimeout(() => {
-      // Verifica se o foco ainda está dentro do componente (ex: se o usuário clicou em um item da lista)
       if (!containerRef.current?.contains(document.activeElement)) {
         setIsDropdownOpen(false);
       }
-    }, 100);
-  };
-
-  const handleInputMouseDown = (e: React.MouseEvent) => {
-    if (isDropdownOpen) {
-      // Se o dropdown estiver aberto e o usuário clicar no input, previne a mudança de foco e o fecha
-      e.preventDefault(); // Previne que o input ganhe foco, o que impediria o onFocus de disparar
-      setIsDropdownOpen(false);
-    } else {
-      // Se o dropdown estiver fechado, permite o comportamento padrão (o onFocus irá abri-lo)
-      // Não é necessário fazer nada aqui, o onFocus cuidará da abertura
-    }
+    }, 150);
   };
 
   const handleSelectAndClose = (part: Part) => {
@@ -62,7 +50,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
     onSearch(''); // Limpa a query de busca após a seleção
     setIsDropdownOpen(false); // Fecha o dropdown imediatamente
     if (inputRef.current) {
-      inputRef.current.blur(); // Desfoca manualmente o input para garantir que o onBlur seja acionado
+      inputRef.current.blur(); // Desfoca manualmente o input
     }
   };
 
@@ -84,7 +72,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           onChange={(e) => onSearch(e.target.value)}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
-          onMouseDown={handleInputMouseDown} // Usa onMouseDown para a lógica de toggle
+          // Removido onMouseDown para evitar conflitos de foco/blur
           className="w-full"
           ref={inputRef}
         />
@@ -97,7 +85,8 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
                 <li
                   key={part.id}
                   className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onMouseDown={(e) => e.preventDefault()} // Previne o onBlur de fechar antes do onClick
+                  // Mantemos onMouseDown para prevenir que o blur feche o dropdown antes do onClick
+                  onMouseDown={(e) => e.preventDefault()} 
                   onClick={() => handleSelectAndClose(part)}
                 >
                   {part.codigo} - {part.descricao}
