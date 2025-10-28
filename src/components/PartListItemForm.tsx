@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Part, addSimplePartItem, updatePart, Af, getAfsFromService } from '@/services';
-import PartSearchInput from './PartSearchInput'; // Import the new component
+import PartCodeInput from './PartCodeInput'; // Import the new component
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
 import { Save } from 'lucide-react';
@@ -22,8 +22,9 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   const [af, setAf] = useState('');
   
   const [editedTags, setEditedTags] = useState<string>('');
+  const [partCodeInput, setPartCodeInput] = useState(''); // Novo estado para o input de código da peça
 
-  // Use useQuery for AFs, as PartSearchInput now handles parts internally
+  // Use useQuery for AFs, as PartCodeInput now handles parts internally
   const { data: allAvailableAfs = [], isLoading: isLoadingAfs } = useQuery<Af[]>({
     queryKey: ['afs'],
     queryFn: getAfsFromService,
@@ -36,8 +37,16 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
 
-  const handleSelectPart = (part: Part) => {
+  const handlePartCodeInputChange = (value: string) => {
+    setPartCodeInput(value);
+    // onSelectPart será chamado pelo PartCodeInput quando uma peça for encontrada
+  };
+
+  const handleSelectPart = (part: Part | null) => {
     setSelectedPart(part);
+    if (part) {
+      setPartCodeInput(part.codigo); // Garante que o input reflita o código da peça selecionada
+    }
   };
 
   const handleSelectAf = (selectedAfNumber: string) => {
@@ -86,6 +95,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       setQuantidade(1);
       setAf('');
       setEditedTags('');
+      setPartCodeInput(''); // Limpa o input de código da peça
       onItemAdded();
     } catch (error) {
       showError('Erro ao adicionar item à lista.');
@@ -95,7 +105,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
 
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
-  const isSubmitDisabled = isLoadingAfs || !selectedPart; // isLoadingParts removed
+  const isSubmitDisabled = isLoadingAfs || !selectedPart;
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -105,21 +115,11 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="search-part">Buscar Peça</Label>
-            <PartSearchInput
+            <Label htmlFor="part-code-input">Código da Peça</Label>
+            <PartCodeInput
+              value={partCodeInput}
+              onChange={handlePartCodeInputChange}
               onSelectPart={handleSelectPart}
-              selectedPart={selectedPart}
-            />
-          </div>
-          <div>
-            <Label htmlFor="codigo_peca">Código da Peça</Label>
-            <Input
-              id="codigo_peca"
-              type="text"
-              value={selectedPart?.codigo || ''}
-              placeholder="Código da peça selecionada"
-              readOnly
-              className="bg-muted"
             />
           </div>
           <div>

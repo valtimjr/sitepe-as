@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import PartSearchInput from './PartSearchInput'; // Importar o novo componente
+import PartCodeInput from './PartCodeInput'; // Importar o novo componente
 import { getParts, exportDataAsCsv, exportDataAsJson, searchParts } from '@/services'; // Import searchParts
 import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -40,12 +40,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
   
   // Form states
   const [formItemName, setFormItemName] = useState('');
-  const [formPartCode, setFormPartCode] = useState(''); // New state for the raw part code input
+  const [partCodeInput, setPartCodeInput] = useState(''); // Novo estado para o input de código da peça
   const [formDescription, setFormDescription] = useState('');
   const [formQuantity, setFormQuantity] = useState(1);
   
-  const [selectedPartForForm, setSelectedPartForForm] = useState<Part | null>(null); // To hold the selected part from PartSearchInput
-  const [isPartSearching, setIsPartSearching] = useState(false); // State for part search loading
+  const [selectedPartForForm, setSelectedPartForForm] = useState<Part | null>(null); // To hold the selected part from PartCodeInput
 
   // Fetch all parts using react-query (not directly used for dropdown, but for initial data if needed)
   const { data: allAvailableParts = [], isLoading: isLoadingAllParts } = useQuery<Part[]>({
@@ -73,43 +72,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     loadItems();
   }, [loadItems]);
 
-  // Debounce effect for part code search
-  useEffect(() => {
-    const handler = setTimeout(async () => {
-      if (formPartCode.trim().length > 0) {
-        setIsPartSearching(true);
-        try {
-          const results = await searchParts(formPartCode.trim());
-          if (results.length === 1 && results[0].codigo.toLowerCase() === formPartCode.trim().toLowerCase()) {
-            setSelectedPartForForm(results[0]);
-            // Optionally pre-fill description if part is found
-            setFormDescription(results[0].descricao);
-            if (!formItemName.trim()) { // Only pre-fill item name if it's empty
-              setFormItemName(results[0].descricao);
-            }
-          } else {
-            setSelectedPartForForm(null); // Clear if no exact match or multiple matches
-          }
-        } catch (error) {
-          console.error("Error during part search:", error);
-          setSelectedPartForForm(null);
-        } finally {
-          setIsPartSearching(false);
-        }
-      } else {
-        setSelectedPartForForm(null);
-      }
-    }, 300); // 300ms debounce
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [formPartCode]); // Depend on formPartCode
-
   const resetForm = () => {
     setCurrentEditItem(null);
     setFormItemName('');
-    setFormPartCode('');
+    setPartCodeInput('');
     setFormDescription('');
     setFormQuantity(1);
     setSelectedPartForForm(null); // Clear selected part
@@ -123,27 +89,43 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
   const handleEdit = (item: CustomListItem) => {
     setCurrentEditItem(item);
     setFormItemName(item.item_name);
-    setFormPartCode(item.part_code || '');
+    setPartCodeInput(item.part_code || '');
     setFormDescription(item.description || '');
     setFormQuantity(item.quantity);
     setSelectedPartForForm(null); // Clear selected part, it will be set if user re-selects
     setIsDialogOpen(true);
   };
 
-  // This function is no longer needed as PartSearchInput doesn't have onSelectPart
-  // const handleSelectPart = (part: Part) => {
-  //   setSelectedPartForForm(part);
-  //   setFormPartCode(part.codigo);
-  //   setFormDescription(part.descricao);
-  //   setFormItemName(part.descricao); // Optionally pre-fill item name with part description
-  // };
+  const handlePartCodeInputChange = (value: string) => {
+    setPartCodeInput(value);
+    // onSelectPart será chamado pelo PartCodeInput quando uma peça for encontrada
+  };
+
+  const handleSelectPartForForm = (part: Part | null) => {
+    setSelectedPartForForm(part);
+    if (part) {
+      setPartCodeInput(part.codigo); // Garante que o input reflita o código da peça selecionada
+      setFormDescription(part.descricao); // Preenche a descrição com a da peça
+      if (!formItemName.trim()) { // Se o nome do item estiver vazio, preenche com a descrição da peça
+        setFormItemName(part.descricao);
+      }
+    } else {
+      // Se nenhuma peça for selecionada/encontrada, limpa a descrição e o nome do item (se for igual à descrição da peça anterior)
+      if (formDescription === selectedPartForForm?.descricao) {
+        setFormDescription('');
+      }
+      if (formItemName === selectedPartForForm?.descricao) {
+        setFormItemName('');
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const trimmedItemName = formItemName.trim();
     const trimmedDescription = formDescription.trim();
-    const trimmedPartCode = formPartCode.trim();
+    const trimmedPartCode = partCodeInput.trim(); // Usar partCodeInput
 
     if (formQuantity <= 0) {
       showError('A quantidade deve ser maior que zero.');
@@ -401,9 +383,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
             <div className="space-y-2">
               <Label htmlFor="part-code-input">Código da Peça (Opcional)</Label>
               <div className="relative">
-                <PartSearchInput
-                  onSelectPart={setSelectedPartForForm}
-                  selectedPart={selectedPartForForm}
+                <PartCodeInput
+                  value={partCodeInput}
+                  onChange={handlePartCodeInputChange}
+                  onSelectPart={handleSelectPartForForm}
                 />
               </div>
             </div>
