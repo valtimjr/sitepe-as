@@ -3,11 +3,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Part, searchParts as searchPartsService } from '@/services/partListService';
+import { Part, searchParts as searchPartsService, getParts } from '@/services/partListService';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, Search, Loader2 } from 'lucide-react';
+import { showError } from '@/utils/toast';
 
 const SearchParts = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -21,14 +22,33 @@ const SearchParts = () => {
   useEffect(() => {
     const performSearch = async () => {
       setIsLoading(true);
-      // Sempre chama searchPartsService, mesmo com uma query vazia, para garantir dados atualizados
-      const results = await searchPartsService(searchQuery);
-      setDisplayedParts(results);
-      setIsLoading(false);
+      try {
+        let results: Part[];
+        if (searchQuery.length > 0) {
+          // Busca com query (debounce aplicado)
+          results = await searchPartsService(searchQuery);
+        } else {
+          // Se a query estiver vazia, carrega todas as peças (priorizando cache)
+          results = await getParts();
+        }
+        setDisplayedParts(results);
+      } catch (error) {
+        showError('Erro ao carregar ou buscar peças.');
+        console.error('Failed to load/search parts:', error);
+        setDisplayedParts([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
+    
+    // Aplica debounce apenas se houver uma query, caso contrário, executa imediatamente
+    // para carregar a lista completa (se a query for limpa).
+    const delay = searchQuery.length > 0 ? 300 : 0; 
+    
     const handler = setTimeout(() => {
       performSearch();
-    }, 300); // Debounce search input
+    }, delay); 
+    
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
@@ -58,7 +78,10 @@ const SearchParts = () => {
             </div>
 
             {isLoading ? (
-              <p className="text-center text-muted-foreground py-4">Carregando peças...</p>
+              <p className="text-center text-muted-foreground py-4 flex items-center justify-center">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Carregando peças...
+              </p>
             ) : displayedParts.length === 0 && searchQuery.length > 0 ? (
               <p className="text-center text-muted-foreground py-4">Nenhuma peça encontrada para "{searchQuery}".</p>
             ) : displayedParts.length === 0 && searchQuery.length === 0 ? (

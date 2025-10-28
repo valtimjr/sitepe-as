@@ -81,45 +81,47 @@ const fetchAllPaginated = async <T>(tableName: string, orderByColumn: string): P
   return allData;
 };
 
-// REMOVIDA A LÓGICA DE SEEDING AUTOMÁTICO PARA EVITAR ERROS DE PERMISSÃO ANÔNIMA
-const seedPartsFromJson = async (): Promise<void> => {
-  // A leitura de dados iniciais deve ser feita pelo administrador via importação.
-  // Se a tabela estiver vazia, o app simplesmente não terá dados até que o admin os insira.
-  return;
-};
+// --- Funções para Peças (Parts) ---
 
-// REMOVIDA A LÓGICA DE SEEDING AUTOMÁTICO PARA EVITAR ERROS DE PERMISSÃO ANÔNIMA
-const seedAfs = async (): Promise<void> => {
-  // A leitura de dados iniciais deve ser feita pelo administrador via importação.
-  // Se a tabela estiver vazia, o app simplesmente não terá dados até que o admin os insira.
-  return;
-};
-
+/**
+ * Retorna as peças do cache local imediatamente e inicia a sincronização
+ * com o Supabase em segundo plano se estiver online.
+ * @returns Uma promessa que resolve imediatamente com os dados do cache.
+ */
 export const getParts = async (): Promise<Part[]> => {
   const online = await isOnline();
   
+  // 1. Retorna o cache local imediatamente
+  const localParts = await getLocalParts();
+  
   if (!online) {
     console.log('Offline: Serving parts from local cache.');
-    return getLocalParts();
+    return localParts;
   }
 
-  try {
-    // Se online, usa a função paginada para buscar TODAS as peças
-    const data = await fetchAllPaginated<Part>('parts', 'codigo');
-
-    // Atualiza o cache local com os dados do Supabase
-    await localDb.parts.clear();
-    await bulkPutLocalParts(data);
-    return data;
-  } catch (error) {
-    console.error('Error fetching all parts from Supabase, falling back to local cache:', error);
-    // Fallback para IndexedDB se Supabase falhar
-    return getLocalParts();
-  }
+  // 2. Se online, inicia a sincronização em segundo plano
+  // Não esperamos por esta promessa, mas a retornamos para que o chamador possa usá-la
+  // se quiser esperar pela atualização (embora o objetivo seja não esperar).
+  const syncPromise = fetchAllPaginated<Part>('parts', 'codigo')
+    .then(async (data) => {
+      // Atualiza o cache local com os dados do Supabase
+      await localDb.parts.clear();
+      await bulkPutLocalParts(data);
+      console.log('Background sync of Parts complete.');
+      return data;
+    })
+    .catch(error => {
+      console.error('Background sync of Parts failed:', error);
+      return localParts; // Retorna o cache local em caso de falha na sincronização
+    });
+      
+  // Retorna o cache local imediatamente. Se o cache estiver vazio,
+  // o chamador pode optar por esperar pelo syncPromise (mas não faremos isso aqui).
+  return localParts.length > 0 ? localParts : syncPromise;
 };
 
 export const getAllPartsForExport = async (): Promise<Part[]> => {
-  // Reutiliza a função paginada
+  // Reutiliza a função paginada (usada apenas pelo Admin/Export)
   return fetchAllPaginated<Part>('parts', 'codigo');
 };
 
@@ -278,35 +280,20 @@ export const getAfsFromService = async (): Promise<Af[]> => {
   }
 
   // 2. Se online, inicia a sincronização em segundo plano
-  if (localAfs.length === 0 || localAfs.length < 1000) { // Se o cache estiver vazio ou pequeno, espera a sincronização
-    try {
-      const data = await fetchAllPaginated<Af>('afs', 'af_number');
-      
+  const syncPromise = fetchAllPaginated<Af>('afs', 'af_number')
+    .then(async (data) => {
       // Atualiza o cache local com os dados do Supabase
       await localDb.afs.clear();
       await bulkPutLocalAfs(data);
-      return data; // Retorna os dados sincronizados
-    } catch (error) {
-      console.error('Error fetching all AFs from Supabase, returning local cache:', error);
-      return localAfs; // Retorna o que tinha no cache em caso de falha na sincronização
-    }
-  } else {
-    // Se o cache for grande, retorna o cache imediatamente e sincroniza em background
-    console.log('Online: Serving AFs from local cache and starting background sync.');
-    
-    // Não espera por esta promessa
-    fetchAllPaginated<Af>('afs', 'af_number')
-      .then(async (data) => {
-        await localDb.afs.clear();
-        await bulkPutLocalAfs(data);
-        console.log('Background sync of AFs complete.');
-      })
-      .catch(error => {
-        console.error('Background sync of AFs failed:', error);
-      });
+      console.log('Background sync of AFs complete.');
+      return data;
+    })
+    .catch(error => {
+      console.error('Background sync of AFs failed:', error);
+      return localAfs; // Retorna o cache local em caso de falha na sincronização
+    });
       
-    return localAfs;
-  }
+  return localAfs.length > 0 ? localAfs : syncPromise;
 };
 
 export const getAllAfsForExport = async (): Promise<Af[]> => {
