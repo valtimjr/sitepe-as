@@ -4,11 +4,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Adicionado esta linha
-import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem, updateSimplePartItem, getParts, getAfsFromService, Part, Af } from '@/services/partListService';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem, updateSimplePartItem, getParts, getAfsFromService, Part, Af, addSimplePartItem } from '@/services/partListService';
 import { generatePartsListPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, GripVertical, MoreHorizontal, Edit, Save, XCircle, Loader2 } from 'lucide-react';
+import { Trash2, Download, Copy, GripVertical, MoreHorizontal, Edit, Save, XCircle, Loader2, PlusCircle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,8 +29,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import PartSearchInput from './PartSearchInput'; // Reusing existing component
-import AfSearchInput from './AfSearchInput'; // Reusing existing component
+import PartSearchInput from './PartSearchInput';
+import AfSearchInput from './AfSearchInput';
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
@@ -44,22 +44,31 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   const [orderedItems, setOrderedItems] = useState<SimplePartItem[]>(listItems);
   const [draggedItem, setDraggedItem] = useState<SimplePartItem | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [isAddingInline, setIsAddingInline] = useState(false);
 
   // Form states for the currently edited item
   const [formQuantity, setFormQuantity] = useState<number>(1);
   const [formAf, setFormAf] = useState('');
   const [formPartCode, setFormPartCode] = useState('');
   const [formDescription, setFormDescription] = useState('');
-  const [selectedPartForEdit, setSelectedPartForEdit] = useState<Part | null>(null); // For inline part search
-  const [searchQueryForEdit, setSearchQueryForEdit] = useState(''); // For inline part search
+  const [selectedPartForEdit, setSelectedPartForEdit] = useState<Part | null>(null);
+  const [searchQueryForEdit, setSearchQueryForEdit] = useState('');
+
+  // Form states for inline add item
+  const [inlineFormQuantity, setInlineFormQuantity] = useState<number>(1);
+  const [inlineFormAf, setInlineFormAf] = useState('');
+  const [inlineFormPartCode, setInlineFormPartCode] = useState('');
+  const [inlineFormDescription, setInlineFormDescription] = useState('');
+  const [inlineSelectedPart, setInlineSelectedPart] = useState<Part | null>(null);
+  const [inlineSearchQuery, setInlineSearchQuery] = useState('');
+  const [inlineSearchResults, setInlineSearchResults] = useState<Part[]>([]);
 
   // Global parts and AFs for search inputs
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
-  const [searchResultsForEdit, setSearchResultsForEdit] = useState<Part[]>([]); // For inline part search
-
+  
   // Sincroniza o estado interno com a prop listItems quando ela muda
   useEffect(() => {
     setOrderedItems(listItems);
@@ -81,14 +90,12 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     loadInitialData();
   }, []);
 
-  // Effect for inline part search
+  // Effect for inline part search (edit mode)
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQueryForEdit.length > 1) {
-        // setIsLoadingParts(true); // This might interfere with global loading state
-        const results = await getParts(searchQueryForEdit); // Assuming getParts can take a search query
+        const results = await getParts(searchQueryForEdit);
         setSearchResultsForEdit(results);
-        // setIsLoadingParts(false);
       } else {
         setSearchResultsForEdit([]);
       }
@@ -98,6 +105,22 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     }, 300);
     return () => clearTimeout(handler);
   }, [searchQueryForEdit]);
+
+  // Effect for inline part search (add mode)
+  useEffect(() => {
+    const fetchInlineSearchResults = async () => {
+      if (inlineSearchQuery.length > 1) {
+        const results = await getParts(inlineSearchQuery);
+        setInlineSearchResults(results);
+      } else {
+        setInlineSearchResults([]);
+      }
+    };
+    const handler = setTimeout(() => {
+      fetchInlineSearchResults();
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [inlineSearchQuery]);
 
 
   const handleExportPdf = () => {
@@ -230,8 +253,9 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     setFormAf(item.af || '');
     setFormPartCode(item.codigo_peca || '');
     setFormDescription(item.descricao || '');
-    setSelectedPartForEdit(null); // Reset selected part for search
-    setSearchQueryForEdit(''); // Clear search query
+    setSelectedPartForEdit(null);
+    setSearchQueryForEdit('');
+    setIsAddingInline(false); // Fecha o inline add se estiver aberto
   };
 
   const handleSaveEdit = async (originalItem: SimplePartItem) => {
@@ -256,7 +280,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       await updateSimplePartItem(updatedItem);
       showSuccess('Item atualizado com sucesso!');
       setEditingItemId(null);
-      onListChanged(); // Reload list to reflect changes
+      onListChanged();
     } catch (error) {
       showError('Erro ao salvar edição do item.');
       console.error('Failed to save edited item:', error);
@@ -265,7 +289,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
   const handleCancelEdit = () => {
     setEditingItemId(null);
-    // Reset form states (optional, as they will be re-initialized on next edit)
   };
 
   const handleSelectPartForEdit = (part: Part | null) => {
@@ -274,20 +297,87 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       setFormPartCode(part.codigo);
       setFormDescription(part.descricao);
     } else {
-      // If part is null, clear description but keep part code as typed
       setFormDescription('');
     }
   };
 
   const handlePartCodeChangeForEdit = (value: string) => {
     setFormPartCode(value);
-    setSearchQueryForEdit(value); // Trigger search
-    setSelectedPartForEdit(null); // Clear selected part if user types
+    setSearchQueryForEdit(value);
+    setSelectedPartForEdit(null);
   };
 
   const handleAfSelectForEdit = (afNumber: string) => {
     setFormAf(afNumber);
   };
+  // --- End Inline Edit Handlers ---
+
+  // --- Inline Add Handlers ---
+  const handleToggleInlineAdd = () => {
+    setIsAddingInline(prev => !prev);
+    if (!isAddingInline) { // Se está abrindo o formulário
+      setInlineFormQuantity(1);
+      setInlineFormAf('');
+      setInlineFormPartCode('');
+      setInlineFormDescription('');
+      setInlineSelectedPart(null);
+      setInlineSearchQuery('');
+      setEditingItemId(null); // Fecha o inline edit se estiver aberto
+    }
+  };
+
+  const handleSaveInlineAdd = async () => {
+    if (!inlineFormPartCode.trim() && !inlineFormDescription.trim()) {
+      showError('O Código da Peça ou a Descrição são obrigatórios.');
+      return;
+    }
+    if (inlineFormQuantity <= 0) {
+      showError('A quantidade deve ser maior que zero.');
+      return;
+    }
+
+    const newItem: Omit<SimplePartItem, 'id'> = {
+      quantidade: inlineFormQuantity,
+      af: inlineFormAf.trim() || undefined,
+      codigo_peca: inlineFormPartCode.trim(),
+      descricao: inlineFormDescription.trim(),
+    };
+
+    try {
+      await addSimplePartItem(newItem);
+      showSuccess('Novo item adicionado com sucesso!');
+      setIsAddingInline(false);
+      onListChanged();
+    } catch (error) {
+      showError('Erro ao adicionar novo item.');
+      console.error('Failed to add new item inline:', error);
+    }
+  };
+
+  const handleCancelInlineAdd = () => {
+    setIsAddingInline(false);
+  };
+
+  const handleSelectPartForInlineAdd = (part: Part | null) => {
+    setInlineSelectedPart(part);
+    if (part) {
+      setInlineFormPartCode(part.codigo);
+      setInlineFormDescription(part.descricao);
+    } else {
+      setInlineFormDescription('');
+    }
+  };
+
+  const handlePartCodeChangeForInlineAdd = (value: string) => {
+    setInlineFormPartCode(value);
+    setInlineSearchQuery(value);
+    setInlineSelectedPart(null);
+  };
+
+  const handleAfSelectForInlineAdd = (afNumber: string) => {
+    setInlineFormAf(afNumber);
+  };
+  // --- End Inline Add Handlers ---
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -356,7 +446,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
         </div>
       </CardContent>
       <CardContent>
-        {orderedItems.length === 0 ? (
+        {orderedItems.length === 0 && !isAddingInline ? (
           <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione peças para começar!</p>
         ) : (
           <div className="overflow-x-auto">
@@ -366,14 +456,14 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   <TableHead className="w-[40px] p-2"></TableHead> {/* Coluna para o handle de drag */}
                   <TableHead className="w-auto whitespace-normal break-words p-2">Peça (Cód. / Descrição / AF)</TableHead>
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                  <TableHead className="w-[40px] p-2 text-right">Ações</TableHead>
+                  <TableHead className="w-[80px] p-2 text-right">Ações</TableHead> {/* Largura ajustada para 2 botões */}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {orderedItems.map((item) => (
                   <TableRow 
                     key={item.id}
-                    draggable={editingItemId !== item.id} // Only draggable if not in edit mode
+                    draggable={editingItemId !== item.id && !isAddingInline} // Only draggable if not in edit/add mode
                     onDragStart={(e) => handleDragStart(e, item)}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, item)}
@@ -392,7 +482,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                           <div className="flex flex-col gap-1">
                             <Label htmlFor={`edit-part-code-${item.id}`} className="sr-only">Código da Peça</Label>
                             <PartSearchInput
-                              onSearch={setSearchQueryForEdit}
+                              onSearch={handlePartCodeChangeForEdit}
                               searchResults={searchResultsForEdit}
                               onSelectPart={handleSelectPartForEdit}
                               searchQuery={searchQueryForEdit}
@@ -428,7 +518,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                             className="w-full text-center"
                           />
                         </TableCell>
-                        <TableCell className="w-[40px] p-2 text-right">
+                        <TableCell className="w-[80px] p-2 text-right">
                           <div className="flex justify-end items-center gap-1">
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -463,51 +553,126 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                         
                         <TableCell className="w-[4rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell>
                         
-                        <TableCell className="w-[40px] p-2 text-right">
-                          <DropdownMenu>
+                        <TableCell className="w-[80px] p-2 text-right">
+                          <div className="flex justify-end items-center gap-1">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
+                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(item)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
                               </TooltipTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleEditClick(item)}>
-                                  <Edit className="h-4 w-4 mr-2" /> Editar
-                                </DropdownMenuItem>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                                      <Trash2 className="h-4 w-4 mr-2" /> Remover
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Esta ação irá remover o item "{item.codigo_peca || item.descricao}" da lista. Esta ação não pode ser desfeita.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDeleteItem(item.id)}>Remover</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </DropdownMenuContent>
+                              <TooltipContent>Editar Item</TooltipContent>
                             </Tooltip>
-                          </DropdownMenu>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-destructive">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Remover Item</TooltipContent>
+                                </Tooltip>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta ação irá remover o item "{item.codigo_peca || item.descricao}" da lista. Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteItem(item.id)}>Remover</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </TableCell>
                       </>
                     )}
                   </TableRow>
                 ))}
+
+                {isAddingInline && (
+                  <TableRow className="bg-accent/10">
+                    <TableCell className="w-[40px] p-2"></TableCell>
+                    <TableCell className="w-auto whitespace-normal break-words p-2 space-y-1">
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor="inline-part-code" className="sr-only">Código da Peça</Label>
+                        <PartSearchInput
+                          onSearch={handlePartCodeChangeForInlineAdd}
+                          searchResults={inlineSearchResults}
+                          onSelectPart={handleSelectPartForInlineAdd}
+                          searchQuery={inlineSearchQuery}
+                          allParts={allAvailableParts}
+                          isLoading={isLoadingParts}
+                        />
+                        <Label htmlFor="inline-description" className="sr-only">Descrição</Label>
+                        <Input
+                          id="inline-description"
+                          type="text"
+                          value={inlineFormDescription}
+                          onChange={(e) => setInlineFormDescription(e.target.value)}
+                          placeholder="Descrição da peça"
+                          className="text-xs"
+                        />
+                        <Label htmlFor="inline-af" className="sr-only">AF</Label>
+                        <AfSearchInput
+                          value={inlineFormAf}
+                          onChange={setInlineFormAf}
+                          availableAfs={allAvailableAfs}
+                          onSelectAf={handleAfSelectForInlineAdd}
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell className="w-[4rem] p-2 text-center">
+                      <Label htmlFor="inline-quantity" className="sr-only">Quantidade</Label>
+                      <Input
+                        id="inline-quantity"
+                        type="number"
+                        value={inlineFormQuantity}
+                        onChange={(e) => setInlineFormQuantity(parseInt(e.target.value) || 1)}
+                        min="1"
+                        className="w-full text-center"
+                      />
+                    </TableCell>
+                    <TableCell className="w-[80px] p-2 text-right">
+                      <div className="flex justify-end items-center gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={handleSaveInlineAdd}>
+                              <Save className="h-4 w-4 text-green-600" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Salvar</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={handleCancelInlineAdd}>
+                              <XCircle className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Cancelar</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
         )}
+        <div className="mt-4 text-center">
+          <Button 
+            onClick={handleToggleInlineAdd} 
+            variant="outline" 
+            className="flex items-center gap-2"
+            disabled={editingItemId !== null} // Desabilita se estiver editando outro item
+          >
+            <PlusCircle className="h-4 w-4" /> {isAddingInline ? 'Cancelar Adição' : 'Adicionar Item Inline'}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
