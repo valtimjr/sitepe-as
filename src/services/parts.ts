@@ -22,24 +22,35 @@ export const getPartsFromLocal = async (): Promise<Part[]> => {
 
 /**
  * Fetches parts from Supabase and updates the local IndexedDB cache.
+ * Always tries to return data from local cache if available,
+ * and updates it from Supabase when online.
  */
 export const getParts = async (): Promise<Part[]> => {
   const online = await isOnline();
-
-  if (!online) {
-    console.log('Offline: Não é possível buscar peças do Supabase.');
-    return []; // Retorna vazio se offline e não pode buscar do Supabase
-  }
+  let localData: Part[] = [];
 
   try {
-    const remoteParts = await fetchAllPaginated<Part>('parts', 'codigo');
-    await localDb.parts.clear(); // Limpa o cache antigo
-    await bulkPutLocalParts(remoteParts); // Atualiza o cache com os dados mais recentes
-    console.log('Online: Peças buscadas do Supabase e cache local atualizado.');
-    return remoteParts;
-  } catch (error) {
-    console.error('Online: Falha ao buscar peças do Supabase. O cache local pode estar desatualizado.', error);
-    throw new Error(`Erro ao buscar peças do Supabase: ${error instanceof Error ? error.message : String(error)}`);
+    localData = await getLocalParts(); // Sempre tenta obter dados locais primeiro
+  } catch (localError) {
+    console.error('Error loading parts from local cache:', localError);
+  }
+
+  if (online) {
+    try {
+      const remoteParts = await fetchAllPaginated<Part>('parts', 'codigo');
+      // Somente atualiza o cache local se a busca remota foi bem-sucedida
+      await localDb.parts.clear();
+      await bulkPutLocalParts(remoteParts);
+      console.log('Online: Peças buscadas do Supabase e cache local atualizado.');
+      return remoteParts;
+    } catch (remoteError) {
+      console.error('Online: Falha ao buscar peças do Supabase. Retornando dados do cache local.', remoteError);
+      // Se a busca remota falhar, retorna o que foi obtido do cache local
+      return localData;
+    }
+  } else {
+    console.log('Offline: Retornando peças do cache local.');
+    return localData; // Se offline, apenas retorna os dados locais
   }
 };
 
