@@ -97,8 +97,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
   // Effect for inline part search (edit mode)
   useEffect(() => {
-    if (isMobile) return; // Desabilita em mobile
-
+    // A edição inline é desabilitada em mobile, mas a busca ainda pode ser útil para preencher o formulário externo
     const fetchSearchResults = async () => {
       if (searchQueryForEdit.length > 1) {
         const results = await getParts(searchQueryForEdit);
@@ -111,12 +110,11 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQueryForEdit, isMobile]);
+  }, [searchQueryForEdit]);
 
   // Effect for inline part search (add mode)
   useEffect(() => {
-    if (isMobile) return; // Desabilita em mobile
-
+    // A adição inline é desabilitada em mobile, mas a busca ainda pode ser útil para preencher o formulário externo
     const fetchInlineSearchResults = async () => {
       if (inlineSearchQuery.length > 1) {
         const results = await getParts(inlineSearchQuery);
@@ -129,7 +127,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       fetchInlineSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [inlineSearchQuery, isMobile]);
+  }, [inlineSearchQuery]);
 
 
   const handleExportPdf = () => {
@@ -213,7 +211,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
   // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: SimplePartItem) => {
-    if (isMobile) return; // Desabilita em mobile
     setDraggedItem(item);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', item.id);
@@ -221,19 +218,16 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
-    if (isMobile) return; // Desabilita em mobile
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     e.currentTarget.classList.add('border-t-2', 'border-primary');
   };
 
   const handleDragLeave = (e: React.DragEvent<HTMLTableRowElement>) => {
-    if (isMobile) return; // Desabilita em mobile
     e.currentTarget.classList.remove('border-t-2', 'border-primary');
   };
 
   const handleDrop = (e: React.DragEvent<HTMLTableRowElement>, targetItem: SimplePartItem) => {
-    if (isMobile) return; // Desabilita em mobile
     e.preventDefault();
     e.currentTarget.classList.remove('border-t-2', 'border-primary');
 
@@ -254,7 +248,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   };
 
   const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
-    if (isMobile) return; // Desabilita em mobile
     e.currentTarget.classList.remove('opacity-50');
     setDraggedItem(null);
   };
@@ -474,7 +467,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[40px] p-2">
-                    {!isMobile && <GripVertical className="h-4 w-4 text-muted-foreground" />} {/* Drag handle header */}
+                    <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle header */}
                   </TableHead>
                   <TableHead className="w-auto whitespace-normal break-words p-2">Peça (Cód. / Descrição / AF)</TableHead>
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
@@ -485,7 +478,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                 {orderedItems.map((item) => (
                   <TableRow 
                     key={item.id}
-                    draggable={!isMobile && editingItemId !== item.id && !isAddingInline} // Only draggable if not in edit/add mode AND not mobile
+                    draggable={editingItemId !== item.id && !isAddingInline} // Always draggable if not in edit/add mode
                     onDragStart={(e) => handleDragStart(e, item)}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, item)}
@@ -494,8 +487,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                     data-id={item.id}
                     className="relative"
                   >
-                    <TableCell className="w-[40px] p-2">
-                      {!isMobile && <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />}
+                    <TableCell className="w-[40px] p-2 cursor-grab">
+                      <GripVertical className="h-4 w-4 text-muted-foreground" />
                     </TableCell>
                     
                     {editingItemId === item.id && !isMobile ? ( // Inline edit only on desktop
