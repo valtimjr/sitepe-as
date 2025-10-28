@@ -48,7 +48,7 @@ const PartManagementTable: React.FC = () => {
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = new Set());
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set()); // CORREÇÃO AQUI
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
