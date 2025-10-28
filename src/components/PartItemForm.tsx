@@ -3,29 +3,54 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addSimplePartItem, getParts, searchParts as searchPartsService, updatePart, getAfsFromService, Af } from '@/services/partListService';
+import { Part, addSimplePartItem, getParts, searchParts as searchPartsService, updatePart, getAfsFromService, Af, updateSimplePartItem } from '@/services/partListService'; // Adicionado updateSimplePartItem
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save } from 'lucide-react';
-import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
+import { Save, XCircle } from 'lucide-react'; // Adicionado XCircle para o botão Cancelar
+import { useSession } from '@/components/SessionContextProvider';
+import { SimplePartItem } from '@/services/localDbService'; // Importar SimplePartItem
 
-interface PartListItemFormProps {
-  onItemAdded: () => void;
+interface PartItemFormProps {
+  onItemAdded: () => void; // Mantido para adição, mas também chamado após edição
+  editingItem?: SimplePartItem | null; // Novo prop para o item a ser editado
+  onCloseEdit?: () => void; // Novo prop para fechar o formulário de edição
 }
 
-const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
-  const { checkPageAccess } = useSession(); // Obter checkPageAccess
+const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, onCloseEdit }) => {
+  const { checkPageAccess } = useSession();
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]); // Alterado para Af[]
+  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
+
+  // Efeito para inicializar o formulário com os dados do item de edição
+  useEffect(() => {
+    if (editingItem) {
+      // Preenche os campos com os dados do item de edição
+      setQuantidade(editingItem.quantidade ?? 1);
+      setAf(editingItem.af || '');
+      // Para o PartSearchInput, precisamos de um objeto Part completo, então buscamos
+      const partFromEdit = allAvailableParts.find(p => p.codigo === editingItem.codigo_peca);
+      setSelectedPart(partFromEdit || null);
+      setEditedTags(partFromEdit?.tags || '');
+      // Define a query de busca para o código da peça para que o PartSearchInput exiba corretamente
+      setSearchQuery(editingItem.codigo_peca || ''); 
+    } else {
+      // Reseta os campos para o modo de adição
+      setSelectedPart(null);
+      setQuantidade(1);
+      setAf('');
+      setEditedTags('');
+      setSearchQuery('');
+    }
+  }, [editingItem, allAvailableParts]); // Depende de editingItem e allAvailableParts
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -35,7 +60,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
       setIsLoadingParts(false);
 
       setIsLoadingAfs(true);
-      const afs = await getAfsFromService(); // Usar getAfsFromService para obter objetos Af
+      const afs = await getAfsFromService();
       setAllAvailableAfs(afs);
       setIsLoadingAfs(false);
     };
@@ -69,7 +94,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
 
   const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
-    setSearchQuery('');
+    setSearchQuery(''); // Limpa a query para que o input mostre o código da peça selecionada
     setSearchResults([]);
   };
 
@@ -107,26 +132,41 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
     }
 
     try {
-      await addSimplePartItem({
+      const itemData = {
         codigo_peca: selectedPart.codigo,
         descricao: selectedPart.descricao,
         quantidade,
         af: af.trim() !== '' ? af : undefined,
-      });
-      showSuccess('Item adicionado à lista de Peças!');
+      };
+
+      if (editingItem) {
+        // Modo de edição: atualiza o item existente
+        await updateSimplePartItem({
+          ...editingItem,
+          ...itemData,
+        });
+        showSuccess('Item atualizado com sucesso!');
+        onCloseEdit?.(); // Fecha o formulário de edição
+      } else {
+        // Modo de adição: adiciona um novo item
+        await addSimplePartItem(itemData);
+        showSuccess('Item adicionado à lista de Peças!');
+      }
       
+      // Limpa os campos após a operação (se não for edição ou se for edição e o formulário não fechar)
       setSelectedPart(null);
       setQuantidade(1);
       setAf('');
       setEditedTags('');
-      onItemAdded();
+      setSearchQuery('');
+      setSearchResults([]);
+      onItemAdded(); // Notifica o pai que a lista foi alterada
     } catch (error) {
-      showError('Erro ao adicionar item à lista.');
-      console.error('Failed to add item to list:', error);
+      showError('Erro ao salvar item na lista.');
+      console.error('Failed to save item to list:', error);
     }
   };
 
-  // Lógica para desabilitar a edição de tags
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
   const isSubmitDisabled = isLoadingParts || isLoadingAfs || !selectedPart;
@@ -134,7 +174,7 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle>Adicionar Item à Lista de Peças</CardTitle>
+        <CardTitle>{editingItem ? 'Editar Item' : 'Adicionar Item à Lista de Peças'}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -220,11 +260,20 @@ const PartListItemForm: React.FC<PartListItemFormProps> = ({ onItemAdded }) => {
               />
             )}
           </div>
-          <Button type="submit" className="w-full" disabled={isSubmitDisabled}>Adicionar à Lista</Button>
+          <div className="flex gap-2">
+            {editingItem && (
+              <Button type="button" variant="outline" onClick={onCloseEdit} className="w-full">
+                <XCircle className="mr-2 h-4 w-4" /> Cancelar
+              </Button>
+            )}
+            <Button type="submit" className="w-full" disabled={isSubmitDisabled}>
+              <Save className="mr-2 h-4 w-4" /> {editingItem ? 'Salvar Alterações' : 'Adicionar à Lista'}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>
   );
 };
 
-export default PartListItemForm;
+export default PartItemForm;
