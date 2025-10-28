@@ -62,7 +62,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   const [inlineFormDescription, setInlineFormDescription] = useState('');
   const [inlineSelectedPart, setInlineSelectedPart] = useState<Part | null>(null);
   const [inlineSearchQuery, setInlineSearchQuery] = useState('');
-  const [inlineSearchResults, setInlineSearchResults] = useState<Part[]>([]); // Corrigido: Adicionado setSearchResultsForEdit
+  const [inlineSearchResults, setInlineSearchResults] = useState<Part[]>([]);
 
   // Global parts and AFs for search inputs
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
@@ -387,13 +387,13 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       </CardHeader>
       <CardContent className="p-4 pt-0">
         <div className="mb-4">
-          <Label htmlFor="list-title">Título da Lista (para PDF/Cópia)</Label>
+          <Label htmlFor="list-title">Título da Lista</Label>
           <Input
             id="list-title"
             type="text"
             value={listTitle}
             onChange={(e) => onTitleChange(e.target.value)}
-            placeholder="Ex: Peças para Manutenção de Frota X"
+            placeholder="Lista de Peças"
             className="w-full"
           />
         </div>
@@ -671,7 +671,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
             className="flex items-center gap-2"
             disabled={editingItemId !== null} // Desabilita se estiver editando outro item
           >
-            <PlusCircle className="h-4 w-4" /> {isAddingInline ? 'Cancelar Adição' : 'Adicionar Item Inline'}
+            <PlusCircle className="h-4 w-4" /> {isAddingInline ? 'Cancelar Adição' : 'Adicionar Item'}
           </Button>
         </div>
       </CardContent>
