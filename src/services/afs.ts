@@ -16,26 +16,26 @@ export interface Af extends LocalAf {}
  */
 export const getAfsFromService = async (): Promise<Af[]> => {
   const online = await isOnline();
-  const localAfs = await getLocalAfs();
+  let localAfs = await getLocalAfs(); // Obter dados locais primeiro
   
   if (!online) {
-    console.log('Offline: Serving AFs from local cache.');
+    console.log('Offline: Servindo AFs do cache local.');
     return localAfs;
   }
 
-  const syncPromise = fetchAllPaginated<Af>('afs', 'af_number')
-    .then(async (data) => {
-      await localDb.afs.clear();
-      await bulkPutLocalAfs(data);
-      console.log('Background sync of AFs complete.');
-      return data;
-    })
-    .catch(error => {
-      console.error('Background sync of AFs failed:', error);
-      return localAfs;
-    });
-      
-  return localAfs.length > 0 ? localAfs : syncPromise;
+  // Se online, sempre tentar buscar do Supabase
+  try {
+    const remoteAfs = await fetchAllPaginated<Af>('afs', 'af_number');
+    // Se bem-sucedido, limpar o cache local e atualizar com os dados remotos
+    await localDb.afs.clear();
+    await bulkPutLocalAfs(remoteAfs);
+    console.log('Online: AFs buscados do Supabase e cache local atualizado.');
+    return remoteAfs;
+  } catch (error) {
+    console.error('Online: Falha ao buscar AFs do Supabase. Retornando para o cache local.', error);
+    // Se a busca no Supabase falhar, retornar os dados locais (que podem estar vazios)
+    return localAfs;
+  }
 };
 
 export const getAllAfsForExport = async (): Promise<Af[]> => {

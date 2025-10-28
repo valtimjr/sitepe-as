@@ -18,26 +18,26 @@ export interface Part extends LocalPart {}
  */
 export const getParts = async (): Promise<Part[]> => {
   const online = await isOnline();
-  const localParts = await getLocalParts();
-  
+  let localParts = await getLocalParts(); // Obter dados locais primeiro
+
   if (!online) {
-    console.log('Offline: Serving parts from local cache.');
+    console.log('Offline: Servindo peças do cache local.');
     return localParts;
   }
 
-  const syncPromise = fetchAllPaginated<Part>('parts', 'codigo')
-    .then(async (data) => {
-      await localDb.parts.clear();
-      await bulkPutLocalParts(data);
-      console.log('Background sync of Parts complete.');
-      return data;
-    })
-    .catch(error => {
-      console.error('Background sync of Parts failed:', error);
-      return localParts;
-    });
-      
-  return localParts.length > 0 ? localParts : syncPromise;
+  // Se online, sempre tentar buscar do Supabase
+  try {
+    const remoteParts = await fetchAllPaginated<Part>('parts', 'codigo');
+    // Se bem-sucedido, limpar o cache local e atualizar com os dados remotos
+    await localDb.parts.clear();
+    await bulkPutLocalParts(remoteParts);
+    console.log('Online: Peças buscadas do Supabase e cache local atualizado.');
+    return remoteParts;
+  } catch (error) {
+    console.error('Online: Falha ao buscar peças do Supabase. Retornando para o cache local.', error);
+    // Se a busca no Supabase falhar, retornar os dados locais (que podem estar vazios)
+    return localParts;
+  }
 };
 
 export const getAllPartsForExport = async (): Promise<Part[]> => {
