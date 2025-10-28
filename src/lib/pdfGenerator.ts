@@ -282,8 +282,8 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
       const subTitle = titleLines[1];
       doc.setFontSize(10); // Reduzido de 12 para 10
       doc.setFont(undefined, 'normal');
-      doc.text(subTitle, 14, currentY);
-      currentY += 7; // Reduzido o espaçamento
+    doc.text(subTitle, 14, currentY);
+    currentY += 7; // Reduzido o espaçamento
     }
   } else {
     // Fallback

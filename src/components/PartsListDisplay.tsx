@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem } from '@/services/partListService';
 import { generatePartsListPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy } from 'lucide-react';
+import { Trash2, Download, Copy, GripVertical } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,77 +25,56 @@ import { Label } from '@/components/ui/label';
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
   onListChanged: () => void;
+  onListReordered: (reorderedItems: SimplePartItem[]) => void; // Nova prop
   listTitle: string;
   onTitleChange: (title: string) => void;
 }
 
-const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged, listTitle, onTitleChange }) => {
-  const displayedItems = listItems;
+const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged, onListReordered, listTitle, onTitleChange }) => {
+  const [orderedItems, setOrderedItems] = useState<SimplePartItem[]>(listItems);
+  const [draggedItem, setDraggedItem] = useState<SimplePartItem | null>(null);
+
+  // Sincroniza o estado interno com a prop listItems quando ela muda
+  useEffect(() => {
+    setOrderedItems(listItems);
+  }, [listItems]);
 
   const handleExportPdf = () => {
-    if (displayedItems.length === 0) {
+    if (orderedItems.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    // Passa o título personalizado para a função de geração de PDF
-    generatePartsListPdf(displayedItems, listTitle);
+    // Passa o título personalizado e a lista na ordem atual
+    generatePartsListPdf(orderedItems, listTitle);
     showSuccess('PDF gerado com sucesso!');
   };
 
-  // Nova função para formatar o texto agrupado por AF
-  const formatListTextGroupedByAf = () => {
-    if (displayedItems.length === 0) return '';
+  // Função para formatar o texto da lista na ordem atual
+  const formatListText = () => {
+    if (orderedItems.length === 0) return '';
 
-    // 1. Agrupar e ordenar itens
-    const groupedByAf: { [key: string]: SimplePartItem[] } = {};
-    displayedItems.forEach(item => {
-      const afKey = item.af || 'SEM_AF';
-      if (!groupedByAf[afKey]) {
-        groupedByAf[afKey] = [];
-      }
-      groupedByAf[afKey].push(item);
-    });
+    let formattedText = `${listTitle}\n\n`;
 
-    // Ordenar as chaves (AFs) numericamente, colocando 'SEM_AF' por último
-    const sortedAfKeys = Object.keys(groupedByAf).sort((a, b) => {
-      if (a === 'SEM_AF') return 1;
-      if (b === 'SEM_AF') return -1;
-      return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-    });
-
-    let formattedText = '';
-
-    // 2. Adicionar o título da lista
-    formattedText += `${listTitle}\n\n`;
-
-    // 3. Iterar sobre os grupos e formatar
-    sortedAfKeys.forEach(afKey => {
-      const items = groupedByAf[afKey];
-      const afDisplay = afKey === 'SEM_AF' ? 'SEM AF' : afKey;
-
-      formattedText += `AF:${afDisplay}\n`;
-
-      items.forEach(item => {
-        const quantidade = item.quantidade ?? 1;
-        const codigo = item.codigo_peca || '';
-        const descricao = item.descricao || '';
-        
-        // Formato: [QUANTIDADE] - [CÓDIGO] [DESCRIÇÃO]
-        formattedText += `${quantidade} - ${codigo} ${descricao}`.trim() + '\n';
-      });
-      formattedText += '\n'; // Linha em branco entre grupos
+    orderedItems.forEach(item => {
+      const quantidade = item.quantidade ?? 1;
+      const codigo = item.codigo_peca || '';
+      const descricao = item.descricao || '';
+      const af = item.af ? ` (AF: ${item.af})` : '';
+      
+      // Formato: [QUANTIDADE] - [CÓDIGO] [DESCRIÇÃO] (AF: [AF])
+      formattedText += `${quantidade} - ${codigo} ${descricao}${af}`.trim() + '\n';
     });
 
     return formattedText.trim();
   };
 
   const handleCopyList = async () => {
-    if (displayedItems.length === 0) {
+    if (orderedItems.length === 0) {
       showError('A lista está vazia. Adicione itens antes de copiar.');
       return;
     }
 
-    const textToCopy = formatListTextGroupedByAf();
+    const textToCopy = formatListText();
 
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -107,12 +86,12 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   };
 
   const handleShareOnWhatsApp = () => {
-    if (displayedItems.length === 0) {
+    if (orderedItems.length === 0) {
       showError('A lista está vazia. Adicione itens antes de compartilhar.');
       return;
     }
 
-    const textToShare = formatListTextGroupedByAf();
+    const textToShare = formatListText();
     const encodedText = encodeURIComponent(textToShare);
     const whatsappUrl = `https://wa.me/?text=${encodedText}`;
 
@@ -142,6 +121,52 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     }
   };
 
+  // --- Drag and Drop Handlers ---
+  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: SimplePartItem) => {
+    setDraggedItem(item);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item.id); // Necessário para Firefox
+    e.currentTarget.classList.add('opacity-50'); // Feedback visual
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.preventDefault(); // Permite o drop
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('border-t-2', 'border-primary'); // Feedback visual para o alvo
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.currentTarget.classList.remove('border-t-2', 'border-primary'); // Remove feedback
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLTableRowElement>, targetItem: SimplePartItem) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-t-2', 'border-primary'); // Remove feedback
+
+    if (draggedItem && draggedItem.id !== targetItem.id) {
+      const newOrderedItems = [...orderedItems];
+      const draggedIndex = newOrderedItems.findIndex(item => item.id === draggedItem.id);
+      const targetIndex = newOrderedItems.findIndex(item => item.id === targetItem.id);
+
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+        // Remove o item arrastado
+        const [removed] = newOrderedItems.splice(draggedIndex, 1);
+        // Insere o item arrastado na nova posição
+        newOrderedItems.splice(targetIndex, 0, removed);
+        
+        setOrderedItems(newOrderedItems);
+        onListReordered(newOrderedItems); // Notifica o componente pai
+      }
+    }
+    setDraggedItem(null);
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.currentTarget.classList.remove('opacity-50'); // Remove feedback do item arrastado
+    setDraggedItem(null);
+  };
+  // --- End Drag and Drop Handlers ---
+
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader className="pb-2">
@@ -162,7 +187,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
         <div className="flex flex-wrap justify-end gap-2">
             <Button 
               onClick={handleCopyList} 
-              disabled={displayedItems.length === 0} 
+              disabled={orderedItems.length === 0} 
               size="icon"
               className="sm:w-auto sm:px-4"
             >
@@ -171,21 +196,21 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
             </Button>
             <Button 
               onClick={handleShareOnWhatsApp} 
-              disabled={displayedItems.length === 0} 
+              disabled={orderedItems.length === 0} 
               variant="ghost" 
               className="h-10 w-10 p-0 rounded-full" 
               aria-label="Compartilhar no WhatsApp" 
             >
               <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
             </Button>
-            <Button onClick={handleExportPdf} disabled={displayedItems.length === 0} className="flex items-center gap-2">
+            <Button onClick={handleExportPdf} disabled={orderedItems.length === 0} className="flex items-center gap-2">
               <Download className="h-4 w-4" /> Exportar PDF
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button 
                   variant="destructive" 
-                  disabled={displayedItems.length === 0} 
+                  disabled={orderedItems.length === 0} 
                   size="icon"
                   className="sm:w-auto sm:px-4"
                 >
@@ -209,24 +234,35 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
         </div>
       </CardContent>
       <CardContent>
-        {displayedItems.length === 0 ? (
+        {orderedItems.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione peças para começar!</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  {/* Coluna principal combinada */}
+                  <TableHead className="w-[40px] p-2"></TableHead> {/* Coluna para o handle de drag */}
                   <TableHead className="w-auto whitespace-normal break-words p-2">Peça (Cód. / Descrição / AF)</TableHead>
-                  {/* Colunas compactas */}
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                   <TableHead className="w-[40px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displayedItems.map((item) => (
-                  <TableRow key={item.id}>
-                    {/* Célula principal com Código, Descrição e AF */}
+                {orderedItems.map((item) => (
+                  <TableRow 
+                    key={item.id}
+                    draggable="true"
+                    onDragStart={(e) => handleDragStart(e, item)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, item)}
+                    onDragLeave={handleDragLeave}
+                    onDragEnd={handleDragEnd}
+                    data-id={item.id} // Adiciona data-id para identificar o alvo do drop
+                    className="relative" // Necessário para o feedback visual do dragover
+                  >
+                    <TableCell className="w-[40px] p-2 cursor-grab">
+                      <GripVertical className="h-4 w-4 text-muted-foreground" />
+                    </TableCell>
                     <TableCell className="w-auto whitespace-normal break-words p-2">
                       <div className="flex flex-col">
                         <span className="font-medium text-sm">{item.codigo_peca || 'N/A'}</span>
@@ -237,10 +273,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                       </div>
                     </TableCell>
                     
-                    {/* Coluna Quantidade */}
                     <TableCell className="w-[4rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell>
                     
-                    {/* Coluna Ações */}
                     <TableCell className="w-[40px] p-2 text-right">
                       <Tooltip>
                         <TooltipTrigger asChild>

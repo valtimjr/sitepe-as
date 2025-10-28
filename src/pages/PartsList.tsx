@@ -35,6 +35,13 @@ const PartsList = () => {
     loadListItems();
   }, []);
 
+  // Nova função para lidar com a reordenação da lista
+  const handleListReordered = (reorderedItems: SimplePartItem[]) => {
+    setListItems(reorderedItems);
+    // Opcional: Salvar a nova ordem no IndexedDB ou Supabase se a ordem precisar ser persistente
+    // Por enquanto, a ordem é apenas visual e para exportação/cópia imediata.
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
@@ -49,8 +56,9 @@ const PartsList = () => {
           <PartsListDisplay 
             listItems={listItems} 
             onListChanged={loadListItems} 
-            listTitle={listTitle} // Passando o título
-            onTitleChange={setListTitle} // Passando a função de atualização
+            onListReordered={handleListReordered} // Passando a nova função
+            listTitle={listTitle} 
+            onTitleChange={setListTitle} 
           />
         </div>
       )}
