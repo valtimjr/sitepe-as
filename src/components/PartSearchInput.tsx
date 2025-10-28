@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Part, getParts, searchParts as searchPartsService } from '@/services';
+import { Part, getParts } from '@/services'; // Removed searchPartsService import as we'll filter locally
 import { useQuery } from '@tanstack/react-query';
 
 interface PartSearchInputProps {
@@ -16,10 +16,9 @@ interface PartSearchInputProps {
 
 const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selectedPart }) => {
   const [open, setOpen] = useState(false);
-  const [displayValue, setDisplayValue] = useState(selectedPart?.codigo || ''); // Value shown in the trigger button
   const [searchQuery, setSearchQuery] = useState(''); // Internal search query for CommandInput
   const [filteredParts, setFilteredParts] = useState<Part[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const commandInputRef = useRef<HTMLInputElement>(null); // Ref for CommandInput
 
   // Fetch all parts using react-query
   const { data: allParts = [], isLoading: isLoadingAllParts } = useQuery<Part[]>({
@@ -30,41 +29,42 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selecte
     placeholderData: (previousData) => previousData || [],
   });
 
-  // Debounce search logic for CommandInput
-  useEffect(() => {
-    const handler = setTimeout(async () => {
-      if (searchQuery.length > 0) {
-        setIsSearching(true);
-        try {
-          const results = await searchPartsService(searchQuery);
-          setFilteredParts(results);
-        } finally {
-          setIsSearching(false);
-        }
-      } else {
-        setFilteredParts(allParts); // Show all parts when search is empty
-      }
-    }, 300); // 300ms debounce
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [searchQuery, allParts]);
-
-  // Update internal displayValue when selectedPart prop changes
+  // Effect to synchronize searchQuery with selectedPart and filter locally
   useEffect(() => {
     if (selectedPart) {
-      setDisplayValue(selectedPart.codigo);
-      setSearchQuery(selectedPart.codigo); // Keep search input in sync with selected part
+      setSearchQuery(selectedPart.codigo);
     } else {
-      setDisplayValue('');
       setSearchQuery('');
     }
   }, [selectedPart]);
 
+  // Effect to filter parts based on searchQuery from allParts
+  useEffect(() => {
+    if (searchQuery.length > 0) {
+      const lowerCaseQuery = searchQuery.toLowerCase();
+      const results = allParts.filter(part =>
+        part.codigo.toLowerCase().includes(lowerCaseQuery) ||
+        part.descricao.toLowerCase().includes(lowerCaseQuery) ||
+        (part.tags && part.tags.toLowerCase().includes(lowerCaseQuery))
+      );
+      setFilteredParts(results);
+    } else {
+      setFilteredParts(allParts); // Show all parts when search is empty
+    }
+  }, [searchQuery, allParts]);
+
+  // Focus the CommandInput when the popover opens
+  useEffect(() => {
+    if (open) {
+      // Use a timeout to ensure the CommandInput is rendered before trying to focus
+      setTimeout(() => {
+        commandInputRef.current?.focus();
+      }, 50); 
+    }
+  }, [open]);
+
   const handleSelect = (part: Part) => {
-    setDisplayValue(part.codigo);
-    setSearchQuery(part.codigo); // Keep search input in sync
+    setSearchQuery(part.codigo); // Update search query to show selected part's code
     onSelectPart(part);
     setOpen(false);
   };
@@ -72,6 +72,13 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selecte
   const getPartDisplay = (part: Part) => {
     return `${part.codigo} - ${part.descricao}`;
   };
+
+  // Determine the text to display on the PopoverTrigger button
+  const triggerButtonText = selectedPart 
+    ? getPartDisplay(selectedPart)
+    : (searchQuery.length > 0 && filteredParts.length === 1 && filteredParts[0].codigo === searchQuery)
+      ? getPartDisplay(filteredParts[0]) // If only one result matches exactly, display it
+      : "Selecionar peça...";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -83,23 +90,22 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selecte
           className="w-full justify-between"
           disabled={isLoadingAllParts}
         >
-          {displayValue
-            ? getPartDisplay(allParts.find((part) => part.codigo === displayValue) || { id: '', codigo: displayValue, descricao: 'Peça não encontrada' })
-            : "Selecionar peça..."}
+          {isLoadingAllParts ? "Carregando peças..." : triggerButtonText}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
         <Command>
           <CommandInput
+            ref={commandInputRef} // Attach ref here
             placeholder="Buscar peça..."
             value={searchQuery}
             onValueChange={setSearchQuery}
           />
           <CommandList>
-            {isLoadingAllParts || isSearching ? (
+            {isLoadingAllParts ? (
               <CommandEmpty className="flex items-center justify-center py-4">
-                <Loader2 className="h-4 w-4 animate-spin mr-2" /> {isLoadingAllParts ? 'Carregando peças...' : 'Buscando resultados...'}
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando peças...
               </CommandEmpty>
             ) : filteredParts.length === 0 && searchQuery.length > 0 ? (
               <CommandEmpty>Nenhuma peça encontrada para "{searchQuery}".</CommandEmpty>
@@ -110,7 +116,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSelectPart, selecte
                 {filteredParts.map((part) => (
                   <CommandItem
                     key={part.id}
-                    value={`${part.codigo} ${part.descricao} ${part.tags}`}
+                    value={`${part.codigo} ${part.descricao} ${part.tags}`} // Value for CommandItem search
                     onSelect={() => handleSelect(part)}
                   >
                     <Check
