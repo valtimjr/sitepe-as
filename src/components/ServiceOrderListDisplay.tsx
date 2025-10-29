@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem } from '@/services/partListService';
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical } from 'lucide-react';
+import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -383,9 +383,22 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
     e.currentTarget.classList.remove('opacity-50');
+    // Se a ordem foi alterada manualmente, resetar o sortOrder para 'manual'
+    if (sortOrder !== 'manual') {
+      onSortOrderChange('manual');
+      showSuccess('Ordem manual aplicada. As setas de ordenação foram removidas.');
+    }
     setDraggedGroup(null);
   };
   // --- End Drag and Drop Handlers ---
+
+  const handleTimeSortClick = () => {
+    if (sortOrder === 'asc') {
+      onSortOrderChange('desc');
+    } else {
+      onSortOrderChange('asc');
+    }
+  };
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -457,6 +470,19 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                   <TableHead className="w-auto whitespace-normal break-words p-2">Peça</TableHead>
                   {/* Coluna Qtd com largura fixa */}
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                  {/* Coluna Hora com botão de ordenação */}
+                  <TableHead className="w-[120px] p-2 text-right">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleTimeSortClick} 
+                      className="flex items-center justify-end gap-1 w-full"
+                    >
+                      <Clock className="h-4 w-4" /> Hora
+                      {sortOrder === 'asc' && <ArrowDownNarrowWide className="h-4 w-4" />}
+                      {sortOrder === 'desc' && <ArrowUpNarrowWide className="h-4 w-4" />}
+                    </Button>
+                  </TableHead>
                   {/* Coluna Opções (alinhada à direita) */}
                   <TableHead className="w-[40px] p-2 text-right">Opções</TableHead>
                 </TableRow>
@@ -569,6 +595,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                             </DropdownMenu>
                           </div>
                         </TableCell>
+                        <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar com a coluna de opções */}
                       </TableRow>
 
                       {/* Linhas de Peças */}
@@ -584,6 +611,9 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           </TableCell>
                           <TableCell className="w-[4rem] p-2">{part.quantidade ?? ''}</TableCell>
                           
+                          {/* Célula de Hora (vazia para itens de peça) */}
+                          <TableCell className="w-[120px] p-2"></TableCell>
+
                           {/* Célula de Ações para a Peça (alinhada com a coluna Opções) */}
                           <TableCell className="w-[40px] p-2 text-right">
                             {isEditingThisServiceOrder && editingServiceOrder?.mode === 'edit_details' && (
@@ -606,7 +636,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           <TableCell colSpan={2} className="text-center p-2">
                             Nenhuma peça adicionada a esta OS.
                           </TableCell>
-                          <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar */}
+                          <TableCell className="w-[120px] p-2"></TableCell> {/* Célula vazia para alinhar com Hora */}
+                          <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar com Opções */}
                         </TableRow>
                       )}
                     </React.Fragment>

@@ -114,7 +114,7 @@ const ServiceOrderList = () => {
 
   const handleSortChange = useCallback((order: SortOrder) => {
     setSortOrder(order);
-    showSuccess(`Lista ordenada por hora: ${order === 'asc' ? 'Crescente' : order === 'desc' ? 'Decrescente' : 'Manual'}.`);
+    // A mensagem de sucesso será exibida pelo ServiceOrderListDisplay
   }, []);
 
   return (
@@ -128,42 +128,6 @@ const ServiceOrderList = () => {
         <Button onClick={handleNewServiceOrder} className="flex items-center gap-2">
           <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
         </Button>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              variant={sortOrder === 'asc' ? 'default' : 'outline'} 
-              onClick={() => handleSortChange('asc')} 
-              className="flex items-center gap-2"
-            >
-              <ArrowUpNarrowWide className="h-4 w-4" /> Hora (Cresc.)
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Ordenar por hora de início (crescente)</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              variant={sortOrder === 'desc' ? 'default' : 'outline'} 
-              onClick={() => handleSortChange('desc')} 
-              className="flex items-center gap-2"
-            >
-              <ArrowDownNarrowWide className="h-4 w-4" /> Hora (Decresc.)
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Ordenar por hora de início (decrescente)</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              variant={sortOrder === 'manual' ? 'default' : 'outline'} 
-              onClick={() => handleSortChange('manual')} 
-              className="flex items-center gap-2"
-            >
-              <Clock className="h-4 w-4" /> Ordem Manual
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Manter ordem definida por arrastar e soltar</TooltipContent>
-        </Tooltip>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
@@ -181,7 +145,7 @@ const ServiceOrderList = () => {
           editingServiceOrder={editingServiceOrder}
           isLoading={isLoading} 
           sortOrder={sortOrder}
-          onSortOrderChange={setSortOrder}
+          onSortOrderChange={handleSortChange}
         />
       </div>
       <MadeWithDyad />
