@@ -66,6 +66,7 @@ const timeToEffectiveMinutes = (timeString: string | undefined): number | null =
   let totalMinutes = hours * 60 + minutes;
   // Se o horário for entre 00:00 (inclusive) e 07:00 (exclusive),
   // adiciona 24 horas (1440 minutos) para que seja ordenado efetivamente no "dia seguinte".
+  // Isso faz com que os turnos noturnos que cruzam a meia-noite sejam ordenados corretamente após os turnos da noite.
   if (hours >= 0 && hours < 7) { // Horários de 00:00 a 06:59
     totalMinutes += 24 * 60;
   }
@@ -167,7 +168,8 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);
 };
 
-export const generateServiceOrderPdf = (listItems: ServiceOrderItem[], title: string = 'Ordens de Serviço'): void => {
+// ATUALIZADO: generateServiceOrderPdf agora aceita ServiceOrderGroup[]
+export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: string = 'Ordens de Serviço'): void => {
   const doc = new jsPDF();
 
   doc.setFontSize(18);
@@ -176,58 +178,9 @@ export const generateServiceOrderPdf = (listItems: ServiceOrderItem[], title: st
   const tableColumn = ["AF", "OS", "Início", "Fim", "Serviço Executado", "Peça", "Quantidade"];
   const tableRows: any[] = [];
 
-  const groupedForPdf: { [key: string]: {
-    af: string;
-    os?: number;
-    servico_executado?: string;
-    hora_inicio?: string;
-    hora_final?: string;
-    createdAt: Date;
-    parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
-  } } = {};
-
-  listItems.forEach(item => {
-    const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}-${item.created_at?.getTime() || 'no_created_at'}`;
-    if (!groupedForPdf[key]) {
-      groupedForPdf[key] = {
-        af: item.af,
-        os: item.os,
-        servico_executado: item.servico_executado,
-        hora_inicio: item.hora_inicio,
-        hora_final: item.hora_final,
-        createdAt: item.created_at || new Date(),
-        parts: [],
-      };
-    } else {
-      if (item.created_at && groupedForPdf[key].createdAt && item.created_at < groupedForPdf[key].createdAt) {
-        groupedForPdf[key].createdAt = item.created_at;
-      }
-    }
-    groupedForPdf[key].parts.push({
-      id: item.id,
-      quantidade: item.quantidade,
-      descricao: item.descricao,
-      codigo_peca: item.codigo_peca,
-    });
-  });
-
-  // ATUALIZADO: Ordenação dos grupos para o PDF usando a nova lógica de tempo
-  const sortedGroups = Object.values(groupedForPdf).sort((a, b) => {
-    // 1. Ordenar por hora_inicio usando a lógica de minutos efetivos
-    const startComparison = compareTimeStringsForPdf(a.hora_inicio, b.hora_inicio);
-    if (startComparison !== 0) return startComparison;
-
-    // 2. Ordenar por hora_final usando a lógica de minutos efetivos
-    const endComparison = compareTimeStringsForPdf(a.hora_final, b.hora_final);
-    if (endComparison !== 0) return endComparison;
-
-    // 3. Fallback para created_at (mais antigo primeiro)
-    if (!a.createdAt || !b.createdAt) return 0;
-    return a.createdAt.getTime() - b.createdAt.getTime();
-  });
-
-  sortedGroups.forEach(group => {
-    group.parts.forEach((part, index) => {
+  // A lista já vem agrupada e ordenada, então apenas a iteramos
+  groupedServiceOrders.forEach(group => {
+    group.parts.forEach((part: any, index: number) => {
       const partDescription = part.codigo_peca && part.descricao 
         ? `${part.codigo_peca} - ${part.descricao}` 
         : part.codigo_peca || part.descricao || '';

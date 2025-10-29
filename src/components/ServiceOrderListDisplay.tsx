@@ -216,8 +216,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    // Passa os itens brutos, mas a função de PDF já agrupa e ordena internamente
-    generateServiceOrderPdf(listItems, 'Lista de Ordens de Serviço');
+    // Passa os itens JÁ AGRUPADOS E ORDENADOS para a função de PDF
+    generateServiceOrderPdf(groupedServiceOrders, 'Lista de Ordens de Serviço');
     showSuccess('PDF gerado com sucesso!');
   };
 
