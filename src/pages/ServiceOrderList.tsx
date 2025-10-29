@@ -5,8 +5,9 @@ import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
 import { getServiceOrderItems, ServiceOrderItem } from '@/services/partListService'; // Usar getServiceOrderItems e ServiceOrderItem
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, FilePlus, ClipboardList } from 'lucide-react';
+import { ArrowLeft, FilePlus, ClipboardList, Clock, ArrowUpNarrowWide, ArrowDownNarrowWide } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ServiceOrderDetails {
   af: string;
@@ -18,11 +19,14 @@ interface ServiceOrderDetails {
   mode: 'add_part' | 'edit_details';
 }
 
+type SortOrder = 'manual' | 'asc' | 'desc';
+
 const ServiceOrderList = () => {
   const [listItems, setListItems] = useState<ServiceOrderItem[]>([]); // Agora usa ServiceOrderItem
   const [isLoading, setIsLoading] = useState(true);
   const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
   const [isCreatingNewOrder, setIsCreatingNewOrder] = useState(false);
+  const [sortOrder, setSortOrder] = useState<SortOrder>('manual'); // Novo estado para a ordem de classificação
 
   useEffect(() => {
     document.title = "Ordens de Serviço - AutoBoard";
@@ -40,7 +44,7 @@ const ServiceOrderList = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [setListItems, setIsLoading, showError]);
+  }, []);
 
   useEffect(() => {
     loadListItems();
@@ -108,6 +112,11 @@ const ServiceOrderList = () => {
     showSuccess('Iniciando nova Ordem de Serviço.');
   }, [setEditingServiceOrder, showSuccess, setIsCreatingNewOrder]);
 
+  const handleSortChange = useCallback((order: SortOrder) => {
+    setSortOrder(order);
+    showSuccess(`Lista ordenada por hora: ${order === 'asc' ? 'Crescente' : order === 'desc' ? 'Decrescente' : 'Manual'}.`);
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <h1 className="text-4xl font-extrabold mb-4 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
@@ -115,10 +124,46 @@ const ServiceOrderList = () => {
         Lista de Ordens de Serviço
       </h1>
       
-      <div className="w-full max-w-6xl flex justify-center mb-8">
+      <div className="w-full max-w-6xl flex flex-wrap justify-center gap-4 mb-8">
         <Button onClick={handleNewServiceOrder} className="flex items-center gap-2">
           <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
         </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              variant={sortOrder === 'asc' ? 'default' : 'outline'} 
+              onClick={() => handleSortChange('asc')} 
+              className="flex items-center gap-2"
+            >
+              <ArrowUpNarrowWide className="h-4 w-4" /> Hora (Cresc.)
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Ordenar por hora de início (crescente)</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              variant={sortOrder === 'desc' ? 'default' : 'outline'} 
+              onClick={() => handleSortChange('desc')} 
+              className="flex items-center gap-2"
+            >
+              <ArrowDownNarrowWide className="h-4 w-4" /> Hora (Decresc.)
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Ordenar por hora de início (decrescente)</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              variant={sortOrder === 'manual' ? 'default' : 'outline'} 
+              onClick={() => handleSortChange('manual')} 
+              className="flex items-center gap-2"
+            >
+              <Clock className="h-4 w-4" /> Ordem Manual
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Manter ordem definida por arrastar e soltar</TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
@@ -132,9 +177,11 @@ const ServiceOrderList = () => {
         <ServiceOrderListDisplay 
           listItems={listItems} 
           onListChanged={loadListItems} 
-          isLoading={isLoading} 
           onEditServiceOrder={handleEditServiceOrder}
           editingServiceOrder={editingServiceOrder}
+          isLoading={isLoading} 
+          sortOrder={sortOrder}
+          onSortOrderChange={setSortOrder}
         />
       </div>
       <MadeWithDyad />
