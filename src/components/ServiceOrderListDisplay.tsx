@@ -340,7 +340,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, group: ServiceOrderGroup) => {
-    // Sempre permite arrastar
+    // Drag-and-drop sempre ativo
     setDraggedGroup(group);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', group.id);
@@ -361,7 +361,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     e.preventDefault();
     e.currentTarget.classList.remove('border-t-2', 'border-primary');
 
-    if (draggedGroup && draggedGroup.id !== targetGroup.id) { // Removida a condição `sortOrder === 'manual'`
+    if (draggedGroup && draggedGroup.id !== targetGroup.id) {
       const newOrderedGroups = [...groupedServiceOrders];
       const draggedIndex = newOrderedGroups.findIndex(group => group.id === draggedGroup.id);
       const targetIndex = newOrderedGroups.findIndex(group => group.id === targetGroup.id);
@@ -371,7 +371,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         newOrderedGroups.splice(targetIndex, 0, removed);
         setGroupedServiceOrders(newOrderedGroups);
         onSortOrderChange('manual'); // Define a ordem como manual após o drag-and-drop
-        showSuccess('Ordem manual aplicada. As setas de ordenação foram removidas.');
+        // Mensagem removida aqui
       }
     }
     setDraggedGroup(null);
@@ -379,6 +379,11 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
     e.currentTarget.classList.remove('opacity-50');
+    // Se a ordem foi alterada manualmente, resetar o sortOrder para 'manual'
+    if (sortOrder !== 'manual') {
+      onSortOrderChange('manual');
+      // Mensagem removida aqui
+    }
     setDraggedGroup(null);
   };
   // --- End Drag and Drop Handlers ---
