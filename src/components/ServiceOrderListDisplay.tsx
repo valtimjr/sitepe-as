@@ -371,7 +371,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         newOrderedGroups.splice(targetIndex, 0, removed);
         setGroupedServiceOrders(newOrderedGroups);
         onSortOrderChange('manual'); // Define a ordem como manual após o drag-and-drop
-        // Mensagem removida aqui
       }
     }
     setDraggedGroup(null);
@@ -379,11 +378,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
     e.currentTarget.classList.remove('opacity-50');
-    // Se a ordem foi alterada manualmente, resetar o sortOrder para 'manual'
-    if (sortOrder !== 'manual') {
-      onSortOrderChange('manual');
-      // Mensagem removida aqui
-    }
     setDraggedGroup(null);
   };
   // --- End Drag and Drop Handlers ---
@@ -464,23 +458,23 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                   <TableHead className="w-[40px] p-2">
                     <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle header */}
                   </TableHead>
-                  {/* Coluna Peça (ocupa a maior parte do espaço) */}
-                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça</TableHead>
-                  {/* Coluna Qtd com largura fixa */}
-                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                  {/* Coluna Hora com botão de ordenação */}
-                  <TableHead className="w-[120px] p-2 text-left"> {/* Alinhado à esquerda para o ícone */}
+                  {/* NOVO: Coluna para o botão de ordenação de Hora */}
+                  <TableHead className="w-[60px] p-2 text-left">
                     <Button 
                       variant="ghost" 
-                      size="sm" 
+                      size="icon" 
                       onClick={handleTimeSortClick} 
-                      className="flex items-center justify-start gap-1 w-full" // Alinhado à esquerda
+                      className="flex items-center justify-center w-full"
                     >
-                      <Clock className="h-4 w-4" /> Hora
+                      <Clock className="h-4 w-4" />
                       {sortOrder === 'asc' && <ArrowDownNarrowWide className="h-4 w-4 ml-1" />}
                       {sortOrder === 'desc' && <ArrowUpNarrowWide className="h-4 w-4 ml-1" />}
                     </Button>
                   </TableHead>
+                  {/* Coluna Peça (ocupa a maior parte do espaço) */}
+                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça</TableHead>
+                  {/* Coluna Qtd com largura fixa */}
+                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                   {/* Coluna Opções (alinhada à direita) */}
                   <TableHead className="w-[40px] p-2 text-right">Opções</TableHead>
                 </TableRow>
@@ -514,8 +508,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         <TableCell className="w-[40px] p-2 cursor-grab">
                           <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </TableCell>
-                        {/* Célula única que abrange as colunas de Peça e Qtd */}
-                        <TableCell colSpan={2} className="font-semibold py-2 align-top">
+                        {/* Célula única que abrange as colunas do botão de ordenação, Peça e Qtd */}
+                        <TableCell colSpan={3} className="font-semibold py-2 align-top"> {/* colSpan ajustado para 3 */}
                           <div className="flex justify-between items-start">
                             {/* Detalhes da OS (Lado Esquerdo) */}
                             <div className="flex flex-col space-y-1 flex-grow">
@@ -599,6 +593,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                       {group.parts.map((part, partIndex) => (
                         <TableRow key={part.id} className={isEditingThisServiceOrder ? 'bg-accent/10' : ''}>
                           <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar com o drag handle */}
+                          <TableCell className="w-[60px] p-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
                           <TableCell className="w-auto whitespace-normal break-words p-2">
                             <span className="text-sm">
                               {part.codigo_peca && part.descricao 
@@ -608,9 +603,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           </TableCell>
                           <TableCell className="w-[4rem] p-2">{part.quantidade ?? ''}</TableCell>
                           
-                          {/* Célula de Hora (vazia para itens de peça) */}
-                          <TableCell className="w-[120px] p-2"></TableCell>
-
                           {/* Célula de Ações para a Peça (alinhada com a coluna Opções) */}
                           <TableCell className="w-[40px] p-2 text-right">
                             {isEditingThisServiceOrder && editingServiceOrder?.mode === 'edit_details' && (
@@ -630,10 +622,10 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                       {group.parts.filter(p => p.codigo_peca || p.descricao).length === 0 && (
                         <TableRow className="text-muted-foreground italic">
                           <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar */}
-                          <TableCell colSpan={2} className="text-center p-2">
+                          <TableCell className="w-[60px] p-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
+                          <TableCell colSpan={2} className="text-center p-2"> {/* colSpan ajustado para 2 */}
                             Nenhuma peça adicionada a esta OS.
                           </TableCell>
-                          <TableCell className="w-[120px] p-2"></TableCell> {/* Célula vazia para alinhar com Hora */}
                           <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar com Opções */}
                         </TableRow>
                       )}
