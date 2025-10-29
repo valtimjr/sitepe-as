@@ -59,24 +59,36 @@ interface ServiceOrderListDisplayProps {
   onSortOrderChange: (order: SortOrder) => void;
 }
 
+const timeToEffectiveMinutes = (timeString: string | undefined): number | null => {
+  if (!timeString) return null;
+  const [hours, minutes] = timeString.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return null;
+
+  let totalMinutes = hours * 60 + minutes;
+  // Se o horário for entre 00:00 (inclusive) e 07:00 (exclusive),
+  // adiciona 24 horas (1440 minutos) para que seja ordenado efetivamente no "dia seguinte".
+  // Isso faz com que os turnos noturnos que cruzam a meia-noite sejam ordenados corretamente após os turnos da noite.
+  if (hours >= 0 && hours < 7) { // Horários de 00:00 a 06:59
+    totalMinutes += 24 * 60;
+  }
+  return totalMinutes;
+};
+
+const compareTimeStrings = (t1: string | undefined, t2: string | undefined): number => {
+  const effectiveMinutes1 = timeToEffectiveMinutes(t1);
+  const effectiveMinutes2 = timeToEffectiveMinutes(t2);
+
+  // Lida com horários indefinidos/nulos: indefinido vem por último
+  if (effectiveMinutes1 === null && effectiveMinutes2 === null) return 0;
+  if (effectiveMinutes1 === null) return 1; // t1 é indefinido, então é "depois"
+  if (effectiveMinutes2 === null) return -1; // t2 é indefinido, então é "depois"
+
+  return effectiveMinutes1 - effectiveMinutes2;
+};
+
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder, sortOrder, onSortOrderChange }) => {
   const [groupedServiceOrders, setGroupedServiceOrders] = useState<ServiceOrderGroup[]>([]);
   const [draggedGroup, setDraggedGroup] = useState<ServiceOrderGroup | null>(null);
-
-  // Função auxiliar para comparar strings de tempo
-  const compareTimeStrings = (t1: string | undefined, t2: string | undefined): number => {
-    const time1 = t1 || '';
-    const time2 = t2 || '';
-    const d1 = time1.length > 0;
-    const d2 = time2.length > 0;
-
-    if (d1 && !d2) return -1;
-    if (!d1 && d2) return 1;
-    
-    if (time1 < time2) return -1;
-    if (time1 > time2) return 1;
-    return 0;
-  };
 
   // Função para agrupar e ordenar os itens brutos
   const processListItems = useCallback((items: ServiceOrderItem[], currentSortOrder: SortOrder): ServiceOrderGroup[] => {
@@ -458,13 +470,13 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                   <TableHead className="w-[40px] p-2">
                     <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle header */}
                   </TableHead>
-                  {/* NOVO: Coluna para o botão de ordenação de Hora */}
-                  <TableHead className="w-[60px] p-2 text-left">
+                  {/* Coluna Hora com botão de ordenação (movida para a esquerda) */}
+                  <TableHead className="w-[60px] p-2 text-left"> {/* Alinhado à esquerda para o ícone */}
                     <Button 
                       variant="ghost" 
-                      size="icon" 
+                      size="icon" // Alterado para size="icon"
                       onClick={handleTimeSortClick} 
-                      className="flex items-center justify-center w-full"
+                      className="flex items-center justify-center w-full" // Centralizado
                     >
                       <Clock className="h-4 w-4" />
                       {sortOrder === 'asc' && <ArrowDownNarrowWide className="h-4 w-4 ml-1" />}
@@ -509,7 +521,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </TableCell>
                         {/* Célula única que abrange as colunas do botão de ordenação, Peça e Qtd */}
-                        <TableCell colSpan={3} className="font-semibold py-2 align-top"> {/* colSpan ajustado para 3 */}
+                        <TableCell colSpan={4} className="font-semibold py-2 align-top"> {/* colSpan ajustado para 4 */}
                           <div className="flex justify-between items-start">
                             {/* Detalhes da OS (Lado Esquerdo) */}
                             <div className="flex flex-col space-y-1 flex-grow">
