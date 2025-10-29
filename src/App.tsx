@@ -33,7 +33,7 @@ const AppWrapper = () => {
   // e mover a chamada do hook para um componente que encapsula as rotas.
 
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <BrowserRouter> {/* Removida a propriedade 'future' */}
       <SessionContextProvider>
         <AppContent />
       </SessionContextProvider>
