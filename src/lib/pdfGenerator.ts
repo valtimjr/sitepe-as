@@ -57,6 +57,34 @@ const calculateTotalHours = (entry?: string, exit?: string): string => {
   }
 };
 
+// NOVO: Função auxiliar para converter hora em minutos efetivos para ordenação
+const timeToEffectiveMinutes = (timeString: string | undefined): number | null => {
+  if (!timeString) return null;
+  const [hours, minutes] = timeString.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return null;
+
+  let totalMinutes = hours * 60 + minutes;
+  // Se o horário for entre 00:00 (inclusive) e 07:00 (exclusive),
+  // adiciona 24 horas (1440 minutos) para que seja ordenado efetivamente no "dia seguinte".
+  if (hours >= 0 && hours < 7) { // Horários de 00:00 a 06:59
+    totalMinutes += 24 * 60;
+  }
+  return totalMinutes;
+};
+
+// ATUALIZADO: Função auxiliar para comparar strings de tempo usando minutos efetivos
+const compareTimeStringsForPdf = (t1: string | undefined, t2: string | undefined): number => {
+  const effectiveMinutes1 = timeToEffectiveMinutes(t1);
+  const effectiveMinutes2 = timeToEffectiveMinutes(t2);
+
+  // Lida com horários indefinidos/nulos: indefinido vem por último
+  if (effectiveMinutes1 === null && effectiveMinutes2 === null) return 0;
+  if (effectiveMinutes1 === null) return 1; // t1 é indefinido, então é "depois"
+  if (effectiveMinutes2 === null) return -1; // t2 é indefinido, então é "depois"
+
+  return effectiveMinutes1 - effectiveMinutes2;
+};
+
 export const generatePartsListPdf = (listItems: SimplePartItem[], title: string = 'Lista de Peças'): void => {
   const doc = new jsPDF();
   let currentY = 22;
@@ -159,7 +187,7 @@ export const generateServiceOrderPdf = (listItems: ServiceOrderItem[], title: st
   } } = {};
 
   listItems.forEach(item => {
-    const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}`;
+    const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}-${item.created_at?.getTime() || 'no_created_at'}`;
     if (!groupedForPdf[key]) {
       groupedForPdf[key] = {
         af: item.af,
@@ -183,29 +211,14 @@ export const generateServiceOrderPdf = (listItems: ServiceOrderItem[], title: st
     });
   });
 
-  const compareTimeStrings = (t1: string | undefined, t2: string | undefined): number => {
-    const time1 = t1 || '';
-    const time2 = t2 || '';
-    const d1 = time1.length > 0;
-    const d2 = time2.length > 0;
-
-    // Prioritize defined times (defined comes first)
-    if (d1 && !d2) return -1;
-    if (!d1 && d2) return 1;
-    
-    // If both defined or both undefined, sort chronologically (string comparison works for HH:MM)
-    if (time1 < time2) return -1;
-    if (time1 > time2) return 1;
-    return 0;
-  };
-
+  // ATUALIZADO: Ordenação dos grupos para o PDF usando a nova lógica de tempo
   const sortedGroups = Object.values(groupedForPdf).sort((a, b) => {
-    // 1. Ordenar por hora_inicio
-    const startComparison = compareTimeStrings(a.hora_inicio, b.hora_inicio);
+    // 1. Ordenar por hora_inicio usando a lógica de minutos efetivos
+    const startComparison = compareTimeStringsForPdf(a.hora_inicio, b.hora_inicio);
     if (startComparison !== 0) return startComparison;
 
-    // 2. Ordenar por hora_final
-    const endComparison = compareTimeStrings(a.hora_final, b.hora_final);
+    // 2. Ordenar por hora_final usando a lógica de minutos efetivos
+    const endComparison = compareTimeStringsForPdf(a.hora_final, b.hora_final);
     if (endComparison !== 0) return endComparison;
 
     // 3. Fallback para created_at (mais antigo primeiro)
