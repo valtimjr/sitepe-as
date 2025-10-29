@@ -180,18 +180,20 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
 
   // A lista já vem agrupada e ordenada, então apenas a iteramos
   groupedServiceOrders.forEach(group => {
-    group.parts.forEach((part: any, index: number) => {
+    const partsToRender = group.parts.length > 0 ? group.parts : [{ id: 'no-parts', codigo_peca: 'Nenhuma peça', descricao: '', quantidade: '' }];
+    
+    partsToRender.forEach((part: any, index: number) => {
       const partDescription = part.codigo_peca && part.descricao 
         ? `${part.codigo_peca} - ${part.descricao}` 
         : part.codigo_peca || part.descricao || '';
 
       if (index === 0) {
         tableRows.push([
-          { content: group.af, rowSpan: group.parts.length, styles: { valign: 'top', fontStyle: 'bold' } },
-          { content: group.os || '', rowSpan: group.parts.length, styles: { valign: 'top' } },
-          { content: group.hora_inicio || '', rowSpan: group.parts.length, styles: { valign: 'top' } },
-          { content: group.hora_final || '', rowSpan: group.parts.length, styles: { valign: 'top' } },
-          { content: group.servico_executado || '', rowSpan: group.parts.length, styles: { valign: 'top', cellWidth: 40 } },
+          { content: group.af, rowSpan: partsToRender.length, styles: { valign: 'top', fontStyle: 'bold' } },
+          { content: group.os || '', rowSpan: partsToRender.length, styles: { valign: 'top' } },
+          { content: group.hora_inicio || '', rowSpan: partsToRender.length, styles: { valign: 'top' } },
+          { content: group.hora_final || '', rowSpan: partsToRender.length, styles: { valign: 'top' } },
+          { content: group.servico_executado || '', rowSpan: partsToRender.length, styles: { valign: 'top', cellWidth: 40 } },
           partDescription,
           part.quantidade ?? '',
         ]);
