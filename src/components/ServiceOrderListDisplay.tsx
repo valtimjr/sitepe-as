@@ -340,11 +340,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, group: ServiceOrderGroup) => {
-    if (sortOrder !== 'manual') {
-      showError('Mude para a ordem manual para arrastar e soltar.');
-      e.preventDefault();
-      return;
-    }
+    // Sempre permite arrastar
     setDraggedGroup(group);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', group.id);
@@ -365,7 +361,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     e.preventDefault();
     e.currentTarget.classList.remove('border-t-2', 'border-primary');
 
-    if (draggedGroup && draggedGroup.id !== targetGroup.id && sortOrder === 'manual') {
+    if (draggedGroup && draggedGroup.id !== targetGroup.id) { // Removida a condição `sortOrder === 'manual'`
       const newOrderedGroups = [...groupedServiceOrders];
       const draggedIndex = newOrderedGroups.findIndex(group => group.id === draggedGroup.id);
       const targetIndex = newOrderedGroups.findIndex(group => group.id === targetGroup.id);
@@ -374,8 +370,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         const [removed] = newOrderedGroups.splice(draggedIndex, 1);
         newOrderedGroups.splice(targetIndex, 0, removed);
         setGroupedServiceOrders(newOrderedGroups);
-        // Não precisa chamar onListChanged aqui, pois a ordem é apenas visual
-        // e os botões de exportação/cópia usarão `groupedServiceOrders`
+        onSortOrderChange('manual'); // Define a ordem como manual após o drag-and-drop
+        showSuccess('Ordem manual aplicada. As setas de ordenação foram removidas.');
       }
     }
     setDraggedGroup(null);
@@ -383,11 +379,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
     e.currentTarget.classList.remove('opacity-50');
-    // Se a ordem foi alterada manualmente, resetar o sortOrder para 'manual'
-    if (sortOrder !== 'manual') {
-      onSortOrderChange('manual');
-      showSuccess('Ordem manual aplicada. As setas de ordenação foram removidas.');
-    }
     setDraggedGroup(null);
   };
   // --- End Drag and Drop Handlers ---
@@ -395,7 +386,9 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
   const handleTimeSortClick = () => {
     if (sortOrder === 'asc') {
       onSortOrderChange('desc');
-    } else {
+    } else if (sortOrder === 'desc') {
+      onSortOrderChange('manual'); // Volta para manual
+    } else { // Se for manual, vai para asc
       onSortOrderChange('asc');
     }
   };
@@ -505,7 +498,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                       {/* Linha de Detalhes da OS (Agrupamento) */}
                       <TableRow 
                         className="border-t-4 border-primary dark:border-primary bg-muted/50 hover:bg-muted/80"
-                        draggable={sortOrder === 'manual'}
+                        draggable={true} // Sempre draggable
                         onDragStart={(e) => handleDragStart(e, group)}
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, group)}
@@ -514,7 +507,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         data-id={group.id}
                       >
                         <TableCell className="w-[40px] p-2 cursor-grab">
-                          {sortOrder === 'manual' && <GripVertical className="h-4 w-4 text-muted-foreground" />}
+                          <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </TableCell>
                         {/* Célula única que abrange as colunas de Peça e Qtd */}
                         <TableCell colSpan={2} className="font-semibold py-2 align-top">
