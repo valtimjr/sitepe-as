@@ -471,16 +471,16 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                   {/* Coluna Qtd com largura fixa */}
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                   {/* Coluna Hora com botão de ordenação */}
-                  <TableHead className="w-[120px] p-2 text-right">
+                  <TableHead className="w-[120px] p-2 text-left"> {/* Alinhado à esquerda para o ícone */}
                     <Button 
                       variant="ghost" 
                       size="sm" 
                       onClick={handleTimeSortClick} 
-                      className="flex items-center justify-end gap-1 w-full"
+                      className="flex items-center justify-start gap-1 w-full" // Alinhado à esquerda
                     >
                       <Clock className="h-4 w-4" /> Hora
-                      {sortOrder === 'asc' && <ArrowDownNarrowWide className="h-4 w-4" />}
-                      {sortOrder === 'desc' && <ArrowUpNarrowWide className="h-4 w-4" />}
+                      {sortOrder === 'asc' && <ArrowDownNarrowWide className="h-4 w-4 ml-1" />}
+                      {sortOrder === 'desc' && <ArrowUpNarrowWide className="h-4 w-4 ml-1" />}
                     </Button>
                   </TableHead>
                   {/* Coluna Opções (alinhada à direita) */}
@@ -516,7 +516,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         <TableCell className="w-[40px] p-2 cursor-grab">
                           {sortOrder === 'manual' && <GripVertical className="h-4 w-4 text-muted-foreground" />}
                         </TableCell>
-                        {/* Célula única que abrange todas as colunas */}
+                        {/* Célula única que abrange as colunas de Peça e Qtd */}
                         <TableCell colSpan={2} className="font-semibold py-2 align-top">
                           <div className="flex justify-between items-start">
                             {/* Detalhes da OS (Lado Esquerdo) */}
@@ -595,7 +595,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                             </DropdownMenu>
                           </div>
                         </TableCell>
-                        <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar com a coluna de opções */}
                       </TableRow>
 
                       {/* Linhas de Peças */}
