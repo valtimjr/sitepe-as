@@ -247,12 +247,12 @@ const PartManagementTable: React.FC = () => {
   };
 
   const handleImportCsv = () => {
-    console.log('handleImportCsv: Triggering file input click.');
+    console.log('handleImportCsv: Triggering file input click on ref:', fileInputRef.current);
     fileInputRef.current?.click();
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('handleFileChange: Function started.');
+    console.log('handleFileChange: Function started. Event:', event);
     const file = event.target.files?.[0];
     
     if (!file) {
@@ -487,12 +487,13 @@ const PartManagementTable: React.FC = () => {
               <DropdownMenuItem onSelect={handleImportCsv}>
                 <Upload className="h-4 w-4 mr-2" /> Importar CSV
               </DropdownMenuItem>
+              {/* Input de arquivo visível temporariamente para depuração */}
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 accept=".csv"
-                style={{ position: 'absolute', left: '-9999px' }} // Alterado para posicionamento off-screen
+                // style={{ position: 'absolute', left: '-9999px' }} // Removido para depuração
               />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
