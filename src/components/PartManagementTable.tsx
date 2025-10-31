@@ -246,6 +246,7 @@ const PartManagementTable: React.FC = () => {
     }
   };
 
+  // Ação para o botão "Importar CSV"
   const handleImportCsv = () => {
     console.log('handleImportCsv: Triggering file input click on ref:', fileInputRef.current);
     fileInputRef.current?.click();
@@ -482,6 +483,10 @@ const PartManagementTable: React.FC = () => {
       <CardHeader className="flex flex-col space-y-2 pb-2">
         <CardTitle className="text-2xl font-bold">Gerenciar Peças</CardTitle>
         <div className="flex flex-wrap gap-2 justify-end">
+          {/* Novo botão "Importar CSV" direto */}
+          <Button onClick={handleImportCsv} className="flex items-center gap-2">
+            <Upload className="h-4 w-4" /> Importar CSV
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2">
@@ -489,17 +494,6 @@ const PartManagementTable: React.FC = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={handleImportCsv}>
-                <Upload className="h-4 w-4 mr-2" /> Importar CSV
-              </DropdownMenuItem>
-              {/* Input de arquivo oculto novamente */}
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept=".csv"
-                style={{ position: 'absolute', left: '-9999px' }} 
-              />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Download className="h-4 w-4 mr-2" /> Exportar
@@ -541,6 +535,15 @@ const PartManagementTable: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
+        {/* Input de arquivo oculto */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".csv"
+          style={{ position: 'absolute', left: '-9999px' }} 
+        />
+        
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -707,6 +710,7 @@ const PartManagementTable: React.FC = () => {
 
       {/* AlertDialog de Confirmação de Importação */}
       <AlertDialog open={isImportConfirmOpen} onOpenChange={setIsImportConfirmOpen}>
+        {console.log('AlertDialog open state:', isImportConfirmOpen)} {/* NOVO LOG AQUI */}
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
