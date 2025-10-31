@@ -256,6 +256,7 @@ const PartManagementTable: React.FC = () => {
     console.log('handleFileChange called.');
     if (!file) {
       console.log('No file selected.');
+      showError('Nenhum arquivo selecionado.'); // Feedback explícito
       return;
     }
     console.log('File selected:', file.name);
@@ -264,11 +265,13 @@ const PartManagementTable: React.FC = () => {
     
     reader.onload = (e) => {
       const csvText = e.target?.result as string;
+      console.log('FileReader onload: CSV text read.');
       
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
+          console.log('Papa.parse complete. Results:', results);
           const parsedData = results.data as any[];
           
           let newParts: Part[] = parsedData.map(row => {
@@ -276,7 +279,10 @@ const PartManagementTable: React.FC = () => {
             const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']);
             const tags = getRowValue(row, ['tags', 'tag']) || '';
             
-            if (!codigo || !descricao) return null; // Linha inválida se faltar código ou descrição
+            if (!codigo || !descricao) {
+              console.warn('Skipping row due to missing codigo or descricao:', row);
+              return null; // Linha inválida se faltar código ou descrição
+            }
 
             return {
               id: getRowValue(row, ['id']) || uuidv4(),
@@ -286,15 +292,9 @@ const PartManagementTable: React.FC = () => {
             };
           }).filter((part): part is Part => part !== null);
 
-          if (newParts.length === 0) {
-            showError('Nenhum dado válido encontrado no arquivo CSV.');
-            return;
-          }
-          
           // --- Lógica de Deduplicação ---
           const partMap = new Map<string, Part>();
           newParts.forEach(part => {
-            // A última ocorrência de um CÓDIGO no CSV prevalece
             partMap.set(part.codigo, part);
           });
           const deduplicatedParts = Array.from(partMap.values());
@@ -303,22 +303,27 @@ const PartManagementTable: React.FC = () => {
           setParsedPartsToImport(deduplicatedParts);
           setImportLog([
             `Arquivo lido: ${file.name}`, 
-            `Total de linhas válidas encontradas: ${newParts.length}`,
+            `Total de linhas processadas: ${parsedData.length}`, // Log total processed lines
+            `Linhas válidas encontradas: ${newParts.length}`,
             `Peças únicas prontas para importação: ${deduplicatedParts.length}`
           ]);
-          setIsImportConfirmOpen(true);
+          setIsImportConfirmOpen(true); // Sempre abre o diálogo para mostrar o log
 
         },
         error: (error: any) => {
-          showError('Erro ao analisar o arquivo CSV.');
-          console.error('CSV parsing error:', error);
+          console.error('Papa.parse error:', error);
+          showError('Erro ao analisar o arquivo CSV. Verifique o console para detalhes.');
+          setImportLog(prev => [...prev, `ERRO ao analisar CSV: ${error.message}`]);
+          setIsImportConfirmOpen(true); // Abre o diálogo mesmo em caso de erro de análise
         }
       });
     };
 
     reader.onerror = () => {
-      showError('Erro ao ler o arquivo.');
       console.error('FileReader error:', reader.error);
+      showError('Erro ao ler o arquivo. Verifique o console para detalhes.');
+      setImportLog(prev => [...prev, `ERRO ao ler arquivo: ${reader.error?.message}`]);
+      setIsImportConfirmOpen(true); // Abre o diálogo mesmo em caso de erro de leitura
     };
 
     reader.readAsText(file);
@@ -671,9 +676,15 @@ const PartManagementTable: React.FC = () => {
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div> {/* Usando div para corrigir o aninhamento de DOM */}
-                <p className="mb-4">
-                  Você está prestes a importar {parsedPartsToImport.length} peças. Isso irá atualizar as peças existentes com o mesmo Código ou criar novas.
-                </p>
+                {parsedPartsToImport.length > 0 ? (
+                  <p className="mb-4">
+                    Você está prestes a importar {parsedPartsToImport.length} peças. Isso irá atualizar as peças existentes com o mesmo Código ou criar novas.
+                  </p>
+                ) : (
+                  <p className="mb-4 text-destructive">
+                    Nenhuma peça válida encontrada para importação. Verifique o formato do seu arquivo CSV.
+                  </p>
+                )}
                 <h4 className="font-semibold text-foreground mb-2">Log de Processamento:</h4>
                 <ScrollArea className="h-40 w-full rounded-md border p-4 text-sm font-mono bg-muted/50">
                   {importLog.map((line, index) => (
@@ -692,7 +703,7 @@ const PartManagementTable: React.FC = () => {
             }}>
               Cancelar
             </AlertDialogCancel>
-            <AlertDialogAction onClick={confirmImport}>
+            <AlertDialogAction onClick={confirmImport} disabled={parsedPartsToImport.length === 0}>
               Confirmar Importação
             </AlertDialogAction>
           </AlertDialogFooter>
