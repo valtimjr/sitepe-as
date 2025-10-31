@@ -247,40 +247,55 @@ const PartManagementTable: React.FC = () => {
   };
 
   const handleImportCsv = () => {
+    console.log('handleImportCsv: Triggering file input click.');
     fileInputRef.current?.click();
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('handleFileChange: Function started.');
     const file = event.target.files?.[0];
     
-    console.log('handleFileChange called.');
     if (!file) {
-      console.log('No file selected.');
-      showError('Nenhum arquivo selecionado.'); // Feedback explícito
+      console.log('handleFileChange: No file selected.');
+      setImportLog(['Nenhum arquivo selecionado.']);
+      setParsedPartsToImport([]);
+      setIsImportConfirmOpen(true); // Abre o diálogo para mostrar o log
       return;
     }
-    console.log('File selected:', file.name);
+    console.log('handleFileChange: File selected:', file.name);
 
     const reader = new FileReader();
     
     reader.onload = (e) => {
+      console.log('FileReader.onload: File read successfully.');
       const csvText = e.target?.result as string;
-      console.log('FileReader onload: CSV text read.');
       
+      if (!csvText.trim()) {
+        console.warn('FileReader.onload: CSV file is empty.');
+        setImportLog([
+          `Arquivo lido: ${file.name}`,
+          'O arquivo CSV está vazio ou contém apenas espaços em branco.',
+          'Nenhuma peça válida encontrada para importação.'
+        ]);
+        setParsedPartsToImport([]);
+        setIsImportConfirmOpen(true); // Abre o diálogo para mostrar o log
+        return;
+      }
+
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
-          console.log('Papa.parse complete. Results:', results);
+          console.log('Papa.parse complete. Raw results:', results);
           const parsedData = results.data as any[];
           
-          let newParts: Part[] = parsedData.map(row => {
+          let newParts: Part[] = parsedData.map((row, index) => {
             const codigo = getRowValue(row, ['codigo', 'código', 'code']);
             const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']);
             const tags = getRowValue(row, ['tags', 'tag']) || '';
             
             if (!codigo || !descricao) {
-              console.warn('Skipping row due to missing codigo or descricao:', row);
+              console.warn(`Skipping row ${index + 1} due to missing 'codigo' or 'descricao':`, row);
               return null; // Linha inválida se faltar código ou descrição
             }
 
@@ -295,6 +310,7 @@ const PartManagementTable: React.FC = () => {
           // --- Lógica de Deduplicação ---
           const partMap = new Map<string, Part>();
           newParts.forEach(part => {
+            // A última ocorrência de um CÓDIGO no CSV prevalece
             partMap.set(part.codigo, part);
           });
           const deduplicatedParts = Array.from(partMap.values());
@@ -303,7 +319,7 @@ const PartManagementTable: React.FC = () => {
           setParsedPartsToImport(deduplicatedParts);
           setImportLog([
             `Arquivo lido: ${file.name}`, 
-            `Total de linhas processadas: ${parsedData.length}`, // Log total processed lines
+            `Total de linhas processadas: ${parsedData.length}`,
             `Linhas válidas encontradas: ${newParts.length}`,
             `Peças únicas prontas para importação: ${deduplicatedParts.length}`
           ]);
@@ -312,8 +328,12 @@ const PartManagementTable: React.FC = () => {
         },
         error: (error: any) => {
           console.error('Papa.parse error:', error);
-          showError('Erro ao analisar o arquivo CSV. Verifique o console para detalhes.');
-          setImportLog(prev => [...prev, `ERRO ao analisar CSV: ${error.message}`]);
+          setImportLog([
+            `Arquivo lido: ${file.name}`,
+            `ERRO ao analisar o arquivo CSV: ${error.message}`,
+            'Nenhuma peça válida encontrada para importação.'
+          ]);
+          setParsedPartsToImport([]);
           setIsImportConfirmOpen(true); // Abre o diálogo mesmo em caso de erro de análise
         }
       });
@@ -321,8 +341,12 @@ const PartManagementTable: React.FC = () => {
 
     reader.onerror = () => {
       console.error('FileReader error:', reader.error);
-      showError('Erro ao ler o arquivo. Verifique o console para detalhes.');
-      setImportLog(prev => [...prev, `ERRO ao ler arquivo: ${reader.error?.message}`]);
+      setImportLog([
+        `Arquivo lido: ${file.name}`,
+        `ERRO ao ler o arquivo: ${reader.error?.message || 'Erro desconhecido.'}`,
+        'Nenhuma peça válida encontrada para importação.'
+      ]);
+      setParsedPartsToImport([]);
       setIsImportConfirmOpen(true); // Abre o diálogo mesmo em caso de erro de leitura
     };
 
@@ -332,10 +356,19 @@ const PartManagementTable: React.FC = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    console.log('handleFileChange: Function finished.');
   };
 
   const confirmImport = async () => {
     const newParts = parsedPartsToImport;
+    if (newParts.length === 0) {
+      showError('Nenhuma peça válida para importar.');
+      setIsImportConfirmOpen(false);
+      setImportLog([]);
+      setParsedPartsToImport([]);
+      return;
+    }
+
     const loadingToastId = showLoading('Importando e sincronizando peças...');
     setImportLog(prev => [...prev, 'Iniciando importação para o banco de dados...']);
 
