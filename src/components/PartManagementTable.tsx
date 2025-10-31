@@ -314,7 +314,8 @@ const PartManagementTable: React.FC = () => {
             `Linhas válidas encontradas: ${newParts.length}`,
             `Peças únicas prontas para importação: ${deduplicatedParts.length}`
           ]);
-          setIsImportConfirmOpen(true);
+          // Adiciona um pequeno atraso antes de abrir o AlertDialog
+          setTimeout(() => setIsImportConfirmOpen(true), 100); 
 
         },
         error: (error: any) => {
@@ -324,7 +325,7 @@ const PartManagementTable: React.FC = () => {
             'Nenhuma peça válida encontrada para importação.'
           ]);
           setParsedPartsToImport([]);
-          setIsImportConfirmOpen(true);
+          setTimeout(() => setIsImportConfirmOpen(true), 100);
         }
       });
     };
@@ -336,7 +337,7 @@ const PartManagementTable: React.FC = () => {
         'Nenhuma peça válida encontrada para importação.'
       ]);
       setParsedPartsToImport([]);
-      setIsImportConfirmOpen(true);
+      setTimeout(() => setIsImportConfirmOpen(true), 100);
     };
 
     reader.readAsText(file);
@@ -473,17 +474,9 @@ const PartManagementTable: React.FC = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={handleImportCsv}>
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleImportCsv(); }}> {/* Previne o fechamento padrão */}
                 <Upload className="h-4 w-4 mr-2" /> Importar CSV
               </DropdownMenuItem>
-              {/* Input de arquivo oculto */}
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept=".csv"
-                style={{ position: 'absolute', left: '-9999px' }} 
-              />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Download className="h-4 w-4 mr-2" /> Exportar
@@ -525,6 +518,15 @@ const PartManagementTable: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
+        {/* Input de arquivo oculto */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".csv"
+          style={{ position: 'absolute', left: '-9999px' }} 
+        />
+        
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
