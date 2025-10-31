@@ -310,7 +310,6 @@ const PartManagementTable: React.FC = () => {
           // --- Lógica de Deduplicação ---
           const partMap = new Map<string, Part>();
           newParts.forEach(part => {
-            // A última ocorrência de um CÓDIGO no CSV prevalece
             partMap.set(part.codigo, part);
           });
           const deduplicatedParts = Array.from(partMap.values());
@@ -408,7 +407,7 @@ const PartManagementTable: React.FC = () => {
           return;
         }
         exportDataAsCsv(dataToExport, 'todas_pecas.csv');
-        showSuccess('Todas as peças exportadas para CSV com sucesso!');
+        showSuccess('Todos as peças exportadas para CSV com sucesso!');
       }
     } catch (error) {
       showError('Erro ao exportar peças.');
@@ -493,7 +492,7 @@ const PartManagementTable: React.FC = () => {
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 accept=".csv"
-                className="hidden"
+                style={{ position: 'absolute', left: '-9999px' }} // Alterado para posicionamento off-screen
               />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
