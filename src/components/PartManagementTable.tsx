@@ -246,20 +246,20 @@ const PartManagementTable: React.FC = () => {
     }
   };
 
-  // Ação para o botão "Importar CSV" no DropdownMenu
-  const handleImportCsvFromDropdown = () => {
-    console.log('handleImportCsvFromDropdown: Triggering file input click.');
+  const handleImportCsv = () => {
+    console.log('handleImportCsv: Triggering file input click on ref:', fileInputRef.current);
     fileInputRef.current?.click();
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('handleFileChange: Function started.');
+    console.log('handleFileChange: Function started. Event:', event);
     const file = event.target.files?.[0];
     
     if (!file) {
       console.log('handleFileChange: No file selected. event.target.files:', event.target.files);
       setImportLog(['Nenhum arquivo selecionado.']);
       setParsedPartsToImport([]);
+      console.log('handleFileChange: Setting isImportConfirmOpen to true (no file).');
       setIsImportConfirmOpen(true); // Abre o diálogo para mostrar o log
       return;
     }
@@ -279,6 +279,7 @@ const PartManagementTable: React.FC = () => {
           'Nenhuma peça válida encontrada para importação.'
         ]);
         setParsedPartsToImport([]);
+        console.log('FileReader.onload: Setting isImportConfirmOpen to true (empty CSV).');
         setIsImportConfirmOpen(true); // Abre o diálogo para mostrar o log
         return;
       }
@@ -323,6 +324,7 @@ const PartManagementTable: React.FC = () => {
             `Linhas válidas encontradas: ${newParts.length}`,
             `Peças únicas prontas para importação: ${deduplicatedParts.length}`
           ]);
+          console.log('handleFileChange: Setting isImportConfirmOpen to true (parsed data).');
           setIsImportConfirmOpen(true); // Sempre abre o diálogo para mostrar o log
 
         },
@@ -334,6 +336,7 @@ const PartManagementTable: React.FC = () => {
             'Nenhuma peça válida encontrada para importação.'
           ]);
           setParsedPartsToImport([]);
+          console.log('handleFileChange: Setting isImportConfirmOpen to true (parsing error).');
           setIsImportConfirmOpen(true); // Abre o diálogo mesmo em caso de erro de análise
         }
       });
@@ -347,6 +350,7 @@ const PartManagementTable: React.FC = () => {
         'Nenhuma peça válida encontrada para importação.'
       ]);
       setParsedPartsToImport([]);
+      console.log('handleFileChange: Setting isImportConfirmOpen to true (read error).');
       setIsImportConfirmOpen(true); // Abre o diálogo mesmo em caso de erro de leitura
     };
 
@@ -400,7 +404,7 @@ const PartManagementTable: React.FC = () => {
           return;
         }
         exportDataAsCsv(dataToExport, 'pecas_selecionadas.csv');
-        showSuccess(`${dataToToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
+        showSuccess(`${dataToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
       } else {
         dataToExport = await getAllPartsForExport();
         if (dataToExport.length === 0) {
@@ -437,7 +441,7 @@ const PartManagementTable: React.FC = () => {
           showError('Nenhuma peça para exportar.');
           return;
         }
-        exportDataAsJson(dataToExport, 'todas_pecas.json');
+        exportDataAsJson(dataToToExport, 'todas_pecas.json');
         showSuccess('Todas as peças exportadas para JSON com sucesso!');
       }
     } catch (error) {
@@ -485,9 +489,17 @@ const PartManagementTable: React.FC = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={handleImportCsvFromDropdown}>
+              <DropdownMenuItem onSelect={handleImportCsv}>
                 <Upload className="h-4 w-4 mr-2" /> Importar CSV
               </DropdownMenuItem>
+              {/* Input de arquivo oculto novamente */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".csv"
+                style={{ position: 'absolute', left: '-9999px' }} 
+              />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Download className="h-4 w-4 mr-2" /> Exportar
@@ -529,22 +541,6 @@ const PartManagementTable: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
-        {/* Input de arquivo visível temporariamente para depuração */}
-        <div className="mb-4 flex items-center gap-2">
-          <Label htmlFor="file-upload" className="sr-only">Selecionar Arquivo CSV</Label>
-          <Input
-            id="file-upload"
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept=".csv"
-            className="flex-grow"
-          />
-          <Button onClick={() => fileInputRef.current?.click()} variant="outline">
-            <Upload className="h-4 w-4 mr-2" /> Selecionar Arquivo CSV
-          </Button>
-        </div>
-        
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
