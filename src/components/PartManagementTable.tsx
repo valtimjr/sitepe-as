@@ -246,13 +246,14 @@ const PartManagementTable: React.FC = () => {
     }
   };
 
-  const handleImportCsv = () => {
-    console.log('handleImportCsv: Triggering file input click on ref:', fileInputRef.current);
+  // Ação para o botão "Importar CSV" no DropdownMenu
+  const handleImportCsvFromDropdown = () => {
+    console.log('handleImportCsvFromDropdown: Triggering file input click.');
     fileInputRef.current?.click();
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('handleFileChange: Function started. Event:', event);
+    console.log('handleFileChange: Function started.');
     const file = event.target.files?.[0];
     
     if (!file) {
@@ -399,7 +400,7 @@ const PartManagementTable: React.FC = () => {
           return;
         }
         exportDataAsCsv(dataToExport, 'pecas_selecionadas.csv');
-        showSuccess(`${dataToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
+        showSuccess(`${dataToToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
       } else {
         dataToExport = await getAllPartsForExport();
         if (dataToExport.length === 0) {
@@ -484,17 +485,9 @@ const PartManagementTable: React.FC = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={handleImportCsv}>
+              <DropdownMenuItem onSelect={handleImportCsvFromDropdown}>
                 <Upload className="h-4 w-4 mr-2" /> Importar CSV
               </DropdownMenuItem>
-              {/* Input de arquivo oculto novamente */}
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept=".csv"
-                style={{ position: 'absolute', left: '-9999px' }} 
-              />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Download className="h-4 w-4 mr-2" /> Exportar
@@ -536,6 +529,22 @@ const PartManagementTable: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
+        {/* Input de arquivo visível temporariamente para depuração */}
+        <div className="mb-4 flex items-center gap-2">
+          <Label htmlFor="file-upload" className="sr-only">Selecionar Arquivo CSV</Label>
+          <Input
+            id="file-upload"
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".csv"
+            className="flex-grow"
+          />
+          <Button onClick={() => fileInputRef.current?.click()} variant="outline">
+            <Upload className="h-4 w-4 mr-2" /> Selecionar Arquivo CSV
+          </Button>
+        </div>
+        
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
