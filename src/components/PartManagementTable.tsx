@@ -256,13 +256,13 @@ const PartManagementTable: React.FC = () => {
     const file = event.target.files?.[0];
     
     if (!file) {
-      console.log('handleFileChange: No file selected.');
+      console.log('handleFileChange: No file selected. event.target.files:', event.target.files);
       setImportLog(['Nenhum arquivo selecionado.']);
       setParsedPartsToImport([]);
       setIsImportConfirmOpen(true); // Abre o diálogo para mostrar o log
       return;
     }
-    console.log('handleFileChange: File selected:', file.name);
+    console.log('handleFileChange: File selected:', file.name, 'File object:', file);
 
     const reader = new FileReader();
     
@@ -487,13 +487,13 @@ const PartManagementTable: React.FC = () => {
               <DropdownMenuItem onSelect={handleImportCsv}>
                 <Upload className="h-4 w-4 mr-2" /> Importar CSV
               </DropdownMenuItem>
-              {/* Input de arquivo visível temporariamente para depuração */}
+              {/* Input de arquivo oculto novamente */}
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 accept=".csv"
-                // style={{ position: 'absolute', left: '-9999px' }} // Removido para depuração
+                style={{ position: 'absolute', left: '-9999px' }} 
               />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
