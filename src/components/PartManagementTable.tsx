@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal, FileText } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -37,6 +37,23 @@ import {
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+// Função auxiliar para obter valor de uma linha, ignorando case e variações
+const getRowValue = (row: any, keys: string[]): string | undefined => {
+  const lowerCaseRow = Object.keys(row).reduce((acc, key) => {
+    acc[key.toLowerCase()] = row[key];
+    return acc;
+  }, {} as { [key: string]: any });
+
+  for (const key of keys) {
+    const value = lowerCaseRow[key.toLowerCase()];
+    if (value !== undefined && value !== null) {
+      return String(value).trim();
+    }
+  }
+  return undefined;
+};
 
 const PartManagementTable: React.FC = () => {
   const { checkPageAccess } = useSession(); // Obter checkPageAccess
@@ -49,6 +66,11 @@ const PartManagementTable: React.FC = () => {
   const [formTags, setFormTags] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set()); // Linha corrigida
+
+  // Novos estados para importação
+  const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
+  const [parsedPartsToImport, setParsedPartsToImport] = useState<Part[]>([]);
+  const [importLog, setImportLog] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -230,38 +252,101 @@ const PartManagementTable: React.FC = () => {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      Papa.parse(file, {
+    
+    console.log('handleFileChange called.');
+    if (!file) {
+      console.log('No file selected.');
+      return;
+    }
+    console.log('File selected:', file.name);
+
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const csvText = e.target?.result as string;
+      
+      Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
-        complete: async (results) => {
+        complete: (results) => {
           const parsedData = results.data as any[];
-          const newParts: Part[] = parsedData.map(row => ({
-            id: row.id || uuidv4(),
-            codigo: row.codigo,
-            descricao: row.descricao,
-            tags: row.tags || '',
-          })).filter(part => part.codigo && part.descricao);
+          
+          let newParts: Part[] = parsedData.map(row => {
+            const codigo = getRowValue(row, ['codigo', 'código', 'code']);
+            const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']);
+            const tags = getRowValue(row, ['tags', 'tag']) || '';
+            
+            if (!codigo || !descricao) return null; // Linha inválida se faltar código ou descrição
+
+            return {
+              id: getRowValue(row, ['id']) || uuidv4(),
+              codigo: codigo,
+              descricao: descricao,
+              tags: tags,
+            };
+          }).filter((part): part is Part => part !== null);
 
           if (newParts.length === 0) {
             showError('Nenhum dado válido encontrado no arquivo CSV.');
             return;
           }
+          
+          // --- Lógica de Deduplicação ---
+          const partMap = new Map<string, Part>();
+          newParts.forEach(part => {
+            // A última ocorrência de um CÓDIGO no CSV prevalece
+            partMap.set(part.codigo, part);
+          });
+          const deduplicatedParts = Array.from(partMap.values());
+          // --- Fim da Lógica de Deduplicação ---
 
-          try {
-            await importParts(newParts);
-            showSuccess(`${newParts.length} peças importadas/atualizadas com sucesso!`);
-            loadPartsAfterAction();
-          } catch (error) {
-            showError('Erro ao importar peças do CSV.');
-            console.error('Failed to import parts from CSV:', error);
-          }
+          setParsedPartsToImport(deduplicatedParts);
+          setImportLog([
+            `Arquivo lido: ${file.name}`, 
+            `Total de linhas válidas encontradas: ${newParts.length}`,
+            `Peças únicas prontas para importação: ${deduplicatedParts.length}`
+          ]);
+          setIsImportConfirmOpen(true);
+
         },
         error: (error: any) => {
           showError('Erro ao analisar o arquivo CSV.');
           console.error('CSV parsing error:', error);
         }
       });
+    };
+
+    reader.onerror = () => {
+      showError('Erro ao ler o arquivo.');
+      console.error('FileReader error:', reader.error);
+    };
+
+    reader.readAsText(file);
+
+    // Limpa o input para permitir a importação do mesmo arquivo novamente
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const confirmImport = async () => {
+    const newParts = parsedPartsToImport;
+    const loadingToastId = showLoading('Importando e sincronizando peças...');
+    setImportLog(prev => [...prev, 'Iniciando importação para o banco de dados...']);
+
+    try {
+      await importParts(newParts);
+      setImportLog(prev => [...prev, `Sucesso: ${newParts.length} peças importadas/atualizadas.`]);
+      showSuccess(`${newParts.length} peças importadas/atualizadas com sucesso!`);
+      loadPartsAfterAction();
+    } catch (error) {
+      setImportLog(prev => [...prev, 'ERRO: Falha na importação para o Supabase.']);
+      showError('Erro ao importar peças do CSV. Verifique o log.');
+      console.error('Failed to import parts from CSV:', error);
+    } finally {
+      dismissToast(loadingToastId);
+      setIsImportConfirmOpen(false);
+      setParsedPartsToImport([]);
     }
   };
 
@@ -362,7 +447,7 @@ const PartManagementTable: React.FC = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleImportCsv}>
+              <DropdownMenuItem onSelect={handleImportCsv}>
                 <Upload className="h-4 w-4 mr-2" /> Importar CSV
               </DropdownMenuItem>
               <input
@@ -576,6 +661,43 @@ const PartManagementTable: React.FC = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de Confirmação de Importação */}
+      <AlertDialog open={isImportConfirmOpen} onOpenChange={setIsImportConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" /> Confirmar Importação de Peças
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div> {/* Usando div para corrigir o aninhamento de DOM */}
+                <p className="mb-4">
+                  Você está prestes a importar {parsedPartsToImport.length} peças. Isso irá atualizar as peças existentes com o mesmo Código ou criar novas.
+                </p>
+                <h4 className="font-semibold text-foreground mb-2">Log de Processamento:</h4>
+                <ScrollArea className="h-40 w-full rounded-md border p-4 text-sm font-mono bg-muted/50">
+                  {importLog.map((line, index) => (
+                    <p key={index} className="text-[0.8rem] text-muted-foreground whitespace-pre-wrap">
+                      {line}
+                    </p>
+                  ))}
+                </ScrollArea>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setParsedPartsToImport([]);
+              setImportLog([]);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmImport}>
+              Confirmar Importação
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
