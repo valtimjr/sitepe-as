@@ -12,6 +12,7 @@ import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
+import RelatedItemsHoverCard from '@/components/RelatedItemsHoverCard'; // Importar o novo componente
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -192,15 +193,22 @@ const CustomListPage: React.FC = () => {
                     <TableRow key={item.id}>
                       <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
                       <TableCell className="w-auto whitespace-normal break-words p-2">
-                        <div className="flex flex-col">
-                          {item.part_code && (
-                            <span className="font-medium text-sm text-primary">{item.part_code}</span>
-                          )}
-                          <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
-                          {item.description && (
-                            <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
-                          )}
-                        </div>
+                        <RelatedItemsHoverCard
+                          partCode={item.part_code}
+                          itemName={item.item_name}
+                          excludeItemId={item.id}
+                          excludeListId={item.list_id}
+                        >
+                          <div className="flex flex-col">
+                            {item.part_code && (
+                              <span className="font-medium text-sm text-primary">{item.part_code}</span>
+                            )}
+                            <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
+                            {item.description && (
+                              <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
+                            )}
+                          </div>
+                        </RelatedItemsHoverCard>
                       </TableCell>
                     </TableRow>
                   ))}

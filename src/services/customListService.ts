@@ -49,6 +49,42 @@ export const getCustomListItems = async (listId: string): Promise<CustomListItem
   return data as CustomListItem[];
 };
 
+// NOVA FUNÇÃO: Busca itens relacionados em outras listas
+export const getRelatedCustomListItems = async (
+  partCode: string | null,
+  itemName: string,
+  excludeItemId: string,
+  excludeListId: string
+): Promise<CustomListItem[]> => {
+  let query = supabase
+    .from('custom_list_items')
+    .select('*, custom_lists(title)') // Seleciona itens e o título da lista pai
+    .neq('id', excludeItemId) // Exclui o item original
+    .neq('list_id', excludeListId) // Exclui itens da mesma lista
+    .limit(5); // Limita o número de resultados para não sobrecarregar
+
+  if (partCode) {
+    query = query.eq('part_code', partCode);
+  } else {
+    // Se não houver part_code, tenta buscar por item_name
+    query = query.ilike('item_name', `%${itemName}%`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching related custom list items:', error);
+    return [];
+  }
+
+  // Mapeia os dados para incluir o título da lista pai diretamente no objeto do item
+  return data.map(item => ({
+    ...item,
+    list_title: item.custom_lists?.title || 'Lista Desconhecida'
+  })) as CustomListItem[];
+};
+
+
 export const createCustomList = async (title: string, userId: string): Promise<CustomList> => {
   const { data, error } = await supabase
     .from('custom_lists')
