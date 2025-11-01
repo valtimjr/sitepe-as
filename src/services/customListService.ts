@@ -65,14 +65,22 @@ export const getRelatedCustomListItems = async (
     .neq('list_id', excludeListId) // Exclui itens da mesma lista
     .limit(5); // Limita o número de resultados para não sobrecarregar
 
+  let queryConditions: string[] = [];
+
   if (partCode) {
-    console.log('getRelatedCustomListItems: Querying by part_code:', partCode);
-    query = query.eq('part_code', partCode);
-  } else if (itemName) { // Only query by itemName if partCode is null
-    console.log('getRelatedCustomListItems: Querying by item_name (ilike):', itemName);
-    query = query.ilike('item_name', `%${itemName}%`);
+    queryConditions.push(`part_code.eq.${partCode}`);
+  }
+  // Adiciona item_name à busca se for diferente do partCode (para evitar redundância)
+  // ou se partCode for nulo (item_name é a única forma de busca)
+  if (itemName && (itemName !== partCode || !partCode)) {
+    queryConditions.push(`item_name.ilike.%${itemName}%`);
+  }
+
+  if (queryConditions.length > 0) {
+    console.log('getRelatedCustomListItems: Building query with OR conditions:', queryConditions.join(','));
+    query = query.or(queryConditions.join(','));
   } else {
-    console.log('getRelatedCustomListItems: No partCode or itemName to query by, returning empty array.');
+    console.log('getRelatedCustomListItems: No valid search criteria, returning empty array.');
     return []; // No search criteria
   }
 
