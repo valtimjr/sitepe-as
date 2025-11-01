@@ -52,29 +52,32 @@ export const getCustomListItems = async (listId: string): Promise<CustomListItem
 // NOVA FUNÇÃO: Busca itens relacionados em outras listas
 export const getRelatedCustomListItems = async (
   partCode: string | null,
-  itemName: string,
+  itemName: string, // Este parâmetro não será mais usado para a busca, mas mantido na assinatura.
   excludeItemId: string,
   excludeListId: string
 ): Promise<CustomListItem[]> => {
   console.log('getRelatedCustomListItems: Called with:', { partCode, itemName, excludeItemId, excludeListId });
 
+  if (!partCode) {
+    console.log('getRelatedCustomListItems: partCode is null, returning empty array.');
+    return [];
+  }
+
   let relatedItemIdsFromRelations: string[] = [];
   let partIdsToSearch: string[] = [];
 
-  // Step 1: If partCode is provided, find its corresponding part_id from the 'parts' table.
-  if (partCode) {
-    const { data: partData, error: partError } = await supabase
-      .from('parts')
-      .select('id')
-      .eq('codigo', partCode)
-      .limit(1); // Assuming part_code is unique or we only care about one match
+  // Step 1: Find the part_id from the 'parts' table using the provided partCode.
+  const { data: partData, error: partError } = await supabase
+    .from('parts')
+    .select('id')
+    .eq('codigo', partCode)
+    .limit(1);
 
-    if (partError && partError.code !== 'PGRST116') {
-      console.error('getRelatedCustomListItems: Error fetching part ID for partCode:', partError);
-    } else if (partData && partData.length > 0) {
-      partIdsToSearch.push(partData[0].id);
-      console.log('getRelatedCustomListItems: Found part_id for partCode:', partData[0].id);
-    }
+  if (partError && partError.code !== 'PGRST116') {
+    console.error('getRelatedCustomListItems: Error fetching part ID for partCode:', partError);
+  } else if (partData && partData.length > 0) {
+    partIdsToSearch.push(partData[0].id);
+    console.log('getRelatedCustomListItems: Found part_id for partCode:', partData[0].id);
   }
 
   // Step 2: If we have part_ids, find custom_list_item_ids from custom_list_item_relations
@@ -96,14 +99,9 @@ export const getRelatedCustomListItems = async (
   let queryConditions: string[] = [];
 
   // Condition A: Direct match on custom_list_items.part_code
-  if (partCode) {
-    queryConditions.push(`part_code.eq.${partCode}`);
-  }
-  // Condition B: Fuzzy match on custom_list_items.item_name
-  if (itemName) {
-    queryConditions.push(`item_name.ilike.%${itemName}%`);
-  }
-  // Condition C: Match by custom_list_item_id found via relations
+  queryConditions.push(`part_code.eq.${partCode}`);
+
+  // Condition B: Match by custom_list_item_id found via relations (if any)
   if (relatedItemIdsFromRelations.length > 0) {
     queryConditions.push(`id.in.(${relatedItemIdsFromRelations.join(',')})`);
   }
