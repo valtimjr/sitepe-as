@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import PartSearchInput from './PartSearchInput';
-import { getParts, searchParts as searchPartsService } from '@/services/partListService'; // Importação corrigida
+import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService'; // Importação corrigida: adicionado updatePart
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -52,6 +52,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
+  const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null); // Armazena o objeto Part completo
 
   // Drag and Drop states
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
@@ -88,19 +89,36 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   // Efeito para preencher o formulário quando `editingItem` muda (para uso em Dialog/Sheet)
   useEffect(() => {
-    if (editingItem) {
-      setCurrentEditItem(editingItem);
-      setFormItemName(editingItem.item_name);
-      setFormPartCode(editingItem.part_code || '');
-      setFormDescription(editingItem.description || '');
-      setFormQuantity(editingItem.quantity);
-      setSearchQuery('');
-      setSearchResults([]);
-      setIsDialogOpen(true); // Abre o dialog/sheet automaticamente
-    } else {
-      resetForm(); // Reseta se não houver item de edição
-    }
-  }, [editingItem]);
+    const initializeFormForEdit = async () => {
+      if (editingItem) {
+        setCurrentEditItem(editingItem);
+        setFormItemName(editingItem.item_name);
+        setFormPartCode(editingItem.part_code || '');
+        setFormDescription(editingItem.description || '');
+        setFormQuantity(editingItem.quantity);
+        setSearchQuery('');
+        setSearchResults([]);
+
+        if (editingItem.part_code) {
+          // Busca a peça completa para preencher selectedPartFromSearch
+          const parts = await getParts(editingItem.part_code); 
+          if (parts.length === 1 && parts[0].codigo === editingItem.part_code) {
+            setSelectedPartFromSearch(parts[0]);
+          } else {
+            setSelectedPartFromSearch(null);
+          }
+        } else {
+          setSelectedPartFromSearch(null);
+        }
+        setIsDialogOpen(true); // Abre o dialog/sheet automaticamente
+      } else {
+        resetForm(); // Reseta se não houver item de edição
+        setSelectedPartFromSearch(null); // Garante que seja nulo para novos itens
+      }
+    };
+
+    initializeFormForEdit();
+  }, [editingItem, allAvailableParts]);
 
 
   useEffect(() => {
@@ -128,6 +146,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setFormQuantity(1);
     setSearchQuery('');
     setSearchResults([]);
+    setSelectedPartFromSearch(null);
   };
 
   const handleAdd = () => {
@@ -147,6 +166,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleSelectPart = (part: Part) => {
+    setSelectedPartFromSearch(part); // Armazena o objeto Part completo
     setFormPartCode(part.codigo);
     setFormDescription(part.descricao);
     setFormItemName(part.name || part.descricao || ''); // Preenche o nome do item com o nome da peça ou descrição
@@ -359,6 +379,34 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
   // --- End Drag and Drop Handlers ---
 
+  const handleSaveGlobalPartName = async () => {
+    if (!selectedPartFromSearch || !formPartCode) {
+      showError('Nenhuma peça selecionada para atualizar o nome global.');
+      return;
+    }
+  
+    const currentGlobalName = selectedPartFromSearch.name || '';
+    if (formItemName.trim() === currentGlobalName.trim()) {
+      showError('O nome global não foi alterado.');
+      return;
+    }
+  
+    const loadingToastId = showLoading('Atualizando nome global da peça...');
+    try {
+      await updatePart({ ...selectedPartFromSearch, name: formItemName.trim() });
+      showSuccess('Nome global da peça atualizado com sucesso!');
+      // Recarrega todas as peças para atualizar o cache e dropdowns
+      await loadParts();
+      // Atualiza o selectedPartFromSearch para refletir o novo nome global
+      setSelectedPartFromSearch(prev => prev ? { ...prev, name: formItemName.trim() } : null);
+    } catch (error) {
+      showError('Erro ao atualizar nome global da peça.');
+      console.error('Failed to update global part name:', error);
+    } finally {
+      dismissToast(loadingToastId);
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
@@ -558,12 +606,35 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
             <div className="space-y-2">
               <Label htmlFor="item-name">Nome Personalizado (Opcional)</Label>
-              <Input
-                id="item-name"
-                value={formItemName}
-                onChange={(e) => setFormItemName(e.target.value)}
-                placeholder="Ex: Kit de Reparo do Motor"
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  id="item-name"
+                  value={formItemName}
+                  onChange={(e) => setFormItemName(e.target.value)}
+                  placeholder="Ex: Kit de Reparo do Motor"
+                  className="flex-1"
+                />
+                {formPartCode && selectedPartFromSearch && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleSaveGlobalPartName}
+                        disabled={
+                          !selectedPartFromSearch ||
+                          formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim() ||
+                          !formItemName.trim()
+                        }
+                      >
+                        <Save className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Salvar como nome global da peça</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
             </div>
             
             <div className="space-y-2">
