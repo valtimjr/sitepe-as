@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, LogOut, Database, Menu, List as ListIcon } from 'lucide-react';
@@ -13,6 +13,8 @@ import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
 import { cn } from '@/lib/utils';
 
+const DATABASE_MANAGER_ACTIVE_TAB_KEY = 'database_manager_active_tab';
+
 const DatabaseManagerPage: React.FC = () => {
   const { isLoading, checkPageAccess, profile } = useSession();
   const navigate = useNavigate();
@@ -21,14 +23,6 @@ const DatabaseManagerPage: React.FC = () => {
     document.title = "Gerenciador de Banco de Dados - Gerenciador de Peças";
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p>Carregando gerenciador de banco de dados...</p>
-      </div>
-    );
-  }
-  
   const canAccessMenuManager = checkPageAccess('/menu-manager');
   const isAdmin = profile?.role === 'admin';
   
@@ -38,6 +32,35 @@ const DatabaseManagerPage: React.FC = () => {
     ...(canAccessMenuManager ? ['menu'] : []),
   ];
 
+  // Define o valor padrão da aba para a primeira aba visível
+  const defaultTab = visibleTabs[0];
+
+  // Estado para a aba ativa, lendo do localStorage ou usando o padrão
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const savedTab = localStorage.getItem(DATABASE_MANAGER_ACTIVE_TAB_KEY);
+    // Verifica se a aba salva é uma das abas visíveis para o usuário atual
+    if (savedTab && visibleTabs.includes(savedTab)) {
+      return savedTab;
+    }
+    return defaultTab;
+  });
+
+  // Atualiza a aba ativa se as ababas visíveis mudarem (ex: mudança de perfil)
+  useEffect(() => {
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab(defaultTab);
+      localStorage.setItem(DATABASE_MANAGER_ACTIVE_TAB_KEY, defaultTab);
+    }
+  }, [visibleTabs, activeTab, defaultTab]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+        <p>Carregando gerenciador de banco de dados...</p>
+      </div>
+    );
+  }
+  
   // Se não houver abas visíveis, o usuário não deveria estar aqui (mas o SessionContextProvider já lida com o redirecionamento)
   if (visibleTabs.length === 0) {
     return null;
@@ -50,9 +73,6 @@ const DatabaseManagerPage: React.FC = () => {
                         totalVisibleTabs === 2 ? 'grid-cols-2' : 
                         'grid-cols-1';
 
-  // Define o valor padrão da aba para a primeira aba visível
-  const defaultTab = visibleTabs[0];
-
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
@@ -60,7 +80,14 @@ const DatabaseManagerPage: React.FC = () => {
         Gerenciador de Banco de Dados
       </h1>
 
-      <Tabs defaultValue={defaultTab} className="w-full max-w-6xl">
+      <Tabs 
+        value={activeTab} 
+        onValueChange={(tab) => {
+          setActiveTab(tab);
+          localStorage.setItem(DATABASE_MANAGER_ACTIVE_TAB_KEY, tab);
+        }} 
+        className="w-full max-w-6xl"
+      >
         <TabsList className={cn("grid w-full h-auto mb-4", gridColsClass)}>
           {isAdmin && <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>}
           {isAdmin && <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>}
