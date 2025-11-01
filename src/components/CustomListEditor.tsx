@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem } from '@/services/customListService';
@@ -344,18 +344,33 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[40px] p-2">
-                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" /> {/* Ícone para ações de ordenação */}
+                    <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Ícone para drag handle */}
                   </TableHead>
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                  <TableHead className="w-[40px] p-2 text-right">Ações</TableHead>
+                  <TableHead className="w-[120px] p-2 text-right">Ações</TableHead> {/* Aumentado para acomodar 4 botões */}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((item, index) => (
                   <TableRow key={item.id}>
                     <TableCell className="w-[40px] p-2">
-                      <div className="flex flex-col gap-1">
+                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                    </TableCell>
+                    <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
+                    <TableCell className="w-auto whitespace-normal break-words p-2">
+                      <div className="flex flex-col">
+                        {item.part_code && (
+                          <span className="font-medium text-sm text-primary">{item.part_code}</span>
+                        )}
+                        <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
+                        {item.description && (
+                          <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="w-[120px] p-2 text-right"> {/* Largura ajustada */}
+                      <div className="flex justify-end items-center gap-1">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button 
@@ -382,22 +397,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
                           </TooltipTrigger>
                           <TooltipContent>Mover para Baixo</TooltipContent>
                         </Tooltip>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                    <TableCell className="w-auto whitespace-normal break-words p-2">
-                      <div className="flex flex-col">
-                        {item.part_code && (
-                          <span className="font-medium text-sm text-primary">{item.part_code}</span>
-                        )}
-                        <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
-                        {item.description && (
-                          <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="w-[40px] p-2 text-right">
-                      <div className="flex justify-end items-center gap-1">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button variant="ghost" size="icon" onClick={() => handleEdit(item)} className="h-8 w-8">
