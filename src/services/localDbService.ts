@@ -6,6 +6,7 @@ export interface Part {
   codigo: string;
   descricao: string;
   tags?: string;
+  name?: string; // Adicionado o campo 'name'
 }
 
 export interface SimplePartItem {
@@ -124,6 +125,13 @@ class LocalDexieDb extends Dexie {
       afs: '++id, af_number, descricao', // Atualizado para incluir 'descricao'
       apontamentos: 'id, user_id, date, synced_at',
     });
+    this.version(6).stores({
+      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
+      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
+      parts: '++id, codigo, descricao, tags, name', // Adicionado 'name'
+      afs: '++id, af_number, descricao',
+      apontamentos: 'id, user_id, date, synced_at',
+    });
   }
 }
 
@@ -160,11 +168,12 @@ export const searchLocalParts = async (query: string): Promise<Part[]> => {
   const regexPattern = new RegExp(escapedWords.join('.*'), 'i'); // 'i' para case-insensitive
 
   let results = allParts.filter(part => {
+    const nameMatch = part.name && part.name.toLowerCase().match(regexPattern);
     const codigoMatch = part.codigo.toLowerCase().match(regexPattern);
     const descricaoMatch = part.descricao.toLowerCase().match(regexPattern);
     const tagsMatch = part.tags && part.tags.toLowerCase().match(regexPattern);
 
-    return codigoMatch || descricaoMatch || tagsMatch;
+    return nameMatch || codigoMatch || descricaoMatch || tagsMatch;
   });
 
   // Helper para determinar a qualidade da correspondência em um campo
@@ -188,20 +197,22 @@ export const searchLocalParts = async (query: string): Promise<Part[]> => {
     // Usa o mesmo regexPattern do filtro para a pontuação
     const sortRegexPattern = new RegExp(escapedWords.join('.*'), 'i');
 
+    const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
     const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
     const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
     const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
 
+    const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
     const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
     const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
     const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
 
-    // Prioriza tags
+    // Prioriza nome
+    if (aNameScore !== bNameScore) return bNameScore - aNameScore;
+    // Depois tags
     if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
-
     // Depois código
     if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
-
     // Por último descrição
     if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
 

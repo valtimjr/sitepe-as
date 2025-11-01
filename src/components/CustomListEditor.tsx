@@ -31,9 +31,11 @@ import RelatedItemsHoverCard from '@/components/RelatedItemsHoverCard'; // Impor
 interface CustomListEditorProps {
   list: CustomList;
   onClose: () => void;
+  editingItem?: CustomListItem | null; // Novo prop para o item a ser editado
+  onItemSaved: () => void; // Novo callback para quando um item é salvo (adicionado ou editado)
 }
 
-const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) => {
+const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved }) => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -84,6 +86,23 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     loadParts();
   }, [loadItems, loadParts]);
 
+  // Efeito para preencher o formulário quando `editingItem` muda (para uso em Dialog/Sheet)
+  useEffect(() => {
+    if (editingItem) {
+      setCurrentEditItem(editingItem);
+      setFormItemName(editingItem.item_name);
+      setFormPartCode(editingItem.part_code || '');
+      setFormDescription(editingItem.description || '');
+      setFormQuantity(editingItem.quantity);
+      setSearchQuery('');
+      setSearchResults([]);
+      setIsDialogOpen(true); // Abre o dialog/sheet automaticamente
+    } else {
+      resetForm(); // Reseta se não houver item de edição
+    }
+  }, [editingItem]);
+
+
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQuery.length > 1) {
@@ -130,6 +149,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
   const handleSelectPart = (part: Part) => {
     setFormPartCode(part.codigo);
     setFormDescription(part.descricao);
+    setFormItemName(part.name || part.descricao || ''); // Preenche o nome do item com o nome da peça ou descrição
     setSearchQuery('');
     setSearchResults([]);
   };
@@ -174,6 +194,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
       
       setIsDialogOpen(false);
       loadItems();
+      onItemSaved(); // Notifica o componente pai que um item foi salvo
     } catch (error) {
       showError('Erro ao salvar item.');
       console.error('Failed to save item:', error);
@@ -185,6 +206,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
       await deleteCustomListItem(itemId);
       showSuccess('Item excluído com sucesso!');
       loadItems();
+      onItemSaved(); // Notifica o componente pai que um item foi excluído
     } catch (error) {
       showError('Erro ao excluir item.');
       console.error('Failed to delete item:', error);
@@ -214,6 +236,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
 
       showSuccess('Ordem atualizada!');
       await loadItems(); // Recarrega para refletir a nova ordem
+      onItemSaved(); // Notifica o componente pai que a ordem foi alterada
     } catch (error) {
       showError('Erro ao reordenar itens.');
       console.error('Failed to reorder list items:', error);
@@ -318,6 +341,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
           await Promise.all(updatePromises);
           showSuccess('Ordem atualizada com sucesso!');
           await loadItems(); // Recarrega para garantir a consistência
+          onItemSaved(); // Notifica o componente pai que a ordem foi alterada
         } catch (error) {
           showError('Erro ao reordenar itens.');
           console.error('Failed to persist new order:', error);
@@ -521,16 +545,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="item-name">Nome (Opcional)</Label>
-              <Input
-                id="item-name"
-                value={formItemName}
-                onChange={(e) => setFormItemName(e.target.value)}
-                placeholder="Ex: Kit de Reparo do Motor"
-              />
-            </div>
-            
-            <div className="space-y-2">
               <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
               <PartSearchInput
                 onSearch={setSearchQuery}
@@ -542,6 +556,16 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="item-name">Nome Personalizado (Opcional)</Label>
+              <Input
+                id="item-name"
+                value={formItemName}
+                onChange={(e) => setFormItemName(e.target.value)}
+                placeholder="Ex: Kit de Reparo do Motor"
+              />
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="part-code">Código da Peça (Opcional)</Label>
               <Input

@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
@@ -13,12 +13,20 @@ import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova fun
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import RelatedItemsHoverCard from '@/components/RelatedItemsHoverCard'; // Importar o novo componente
+import CustomListEditor from '@/components/CustomListEditor'; // Importar o editor
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Para o modal de edição
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Para o modal de edição em mobile
+import { useIsMobile } from '@/hooks/use-mobile'; // Para detectar mobile
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [listTitle, setListTitle] = useState('Carregando Lista...');
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState<CustomListItem | null>(null);
+
+  const isMobile = useIsMobile(); // Detecta se é mobile
 
   const loadList = useCallback(async () => {
     if (!listId) return;
@@ -108,6 +116,22 @@ const CustomListPage: React.FC = () => {
     showSuccess('PDF gerado com sucesso!');
   };
 
+  const handleEditItemClick = (item: CustomListItem) => {
+    setItemToEdit(item);
+    setIsEditModalOpen(true);
+  };
+
+  const handleItemSavedOrClosed = () => {
+    setIsEditModalOpen(false);
+    setItemToEdit(null);
+    loadList(); // Recarrega a lista para refletir as alterações
+  };
+
+  const ModalComponent = isMobile ? Sheet : Dialog;
+  const ModalContentComponent = isMobile ? SheetContent : DialogContent;
+  const ModalHeaderComponent = isMobile ? SheetHeader : DialogHeader;
+  const ModalTitleComponent = isMobile ? SheetTitle : DialogTitle;
+
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <div className="w-full max-w-4xl flex justify-between items-center mb-4 mt-8">
@@ -186,6 +210,7 @@ const CustomListPage: React.FC = () => {
                   <TableRow>
                     <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                     <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                    <TableHead className="w-[40px] p-2 text-right">Ações</TableHead> {/* Nova coluna de ações */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -210,6 +235,16 @@ const CustomListPage: React.FC = () => {
                           </div>
                         </RelatedItemsHoverCard>
                       </TableCell>
+                      <TableCell className="w-[40px] p-2 text-right">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Editar Item</TooltipContent>
+                        </Tooltip>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -219,6 +254,23 @@ const CustomListPage: React.FC = () => {
         </CardContent>
       </Card>
       <MadeWithDyad />
+
+      {/* Modal de Edição (Dialog para desktop, Sheet para mobile) */}
+      <ModalComponent open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <ModalContentComponent className={isMobile ? "w-full sm:max-w-lg overflow-y-auto" : "sm:max-w-[425px]"}>
+          <ModalHeaderComponent>
+            <ModalTitleComponent>Editar Item da Lista</ModalTitleComponent>
+          </ModalHeaderComponent>
+          {itemToEdit && listId && (
+            <CustomListEditor
+              list={{ id: listId, title: listTitle, user_id: '' }} // Passa um objeto CustomList mínimo
+              onClose={handleItemSavedOrClosed}
+              editingItem={itemToEdit}
+              onItemSaved={handleItemSavedOrClosed}
+            />
+          )}
+        </ModalContentComponent>
+      </ModalComponent>
     </div>
   );
 };

@@ -32,7 +32,9 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network'; // Importar Network
 
-export interface Part extends LocalPart {}
+export interface Part extends LocalPart {
+  name?: string; // Adicionado o campo 'name'
+}
 export interface SimplePartItem extends LocalSimplePartItem {}
 export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends LocalAf {}
@@ -170,13 +172,23 @@ const seedAfs = async (): Promise<void> => {
   }
 };
 
-export const getParts = async (): Promise<Part[]> => {
+export const getParts = async (query?: string): Promise<Part[]> => {
   await seedPartsFromJson(); // Garante que o Supabase esteja populado
 
-  const { data, error } = await supabase
+  let queryBuilder = supabase
     .from('parts')
     .select('*')
     .limit(1000); // Limite de 1000 para exibição
+
+  if (query) {
+    const lowerCaseQuery = query.toLowerCase().trim();
+    const searchPattern = lowerCaseQuery.split(/\s+/).filter(Boolean).join('%');
+    queryBuilder = queryBuilder.or(
+      `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
+    );
+  }
+
+  const { data, error } = await queryBuilder;
 
   if (error) {
     console.error('Error fetching parts from Supabase:', error);
@@ -250,7 +262,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     
     // Usa o padrão construído para busca 'ilike' nos campos relevantes
     queryBuilder = queryBuilder.or(
-      `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%`
+      `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
     );
   }
 
@@ -287,20 +299,22 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
 
     results.sort((a, b) => {
+      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
 
+      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
 
-      // Prioriza tags
+      // Prioriza nome
+      if (aNameScore !== bNameScore) return bNameScore - aNameScore;
+      // Depois tags
       if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
-
       // Depois código
       if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
-
       // Por último descrição
       if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
 
@@ -315,7 +329,7 @@ export const updatePart = async (updatedPart: Part): Promise<void> => {
   // Atualiza no Supabase
   const { error: supabaseError } = await supabase
     .from('parts')
-    .update({ codigo: updatedPart.codigo, descricao: updatedPart.descricao, tags: updatedPart.tags })
+    .update({ codigo: updatedPart.codigo, descricao: updatedPart.descricao, tags: updatedPart.tags, name: updatedPart.name })
     .eq('id', updatedPart.id);
 
   if (supabaseError) {
@@ -765,7 +779,8 @@ export const cleanupEmptyParts = async (): Promise<number> => {
       const emptyPartsIds = data
         .filter(part =>
           (!part.codigo || part.codigo.trim() === '') &&
-          (!part.descricao || part.descricao.trim() === '')
+          (!part.descricao || part.descricao.trim() === '') &&
+          (!part.name || part.name.trim() === '') // Inclui o novo campo 'name' na verificação
         )
         .map(part => part.id);
       allIdsToDelete = allIdsToDelete.concat(emptyPartsIds);

@@ -64,6 +64,7 @@ const PartManagementTable: React.FC = () => {
   const [formCodigo, setFormCodigo] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
+  const [formName, setFormName] = useState(''); // Novo estado para o nome
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set()); // Linha corrigida
 
@@ -123,6 +124,7 @@ const PartManagementTable: React.FC = () => {
     setFormCodigo('');
     setFormDescricao('');
     setFormTags('');
+    setFormName(''); // Limpa o nome
     setIsDialogOpen(true);
   };
 
@@ -131,6 +133,7 @@ const PartManagementTable: React.FC = () => {
     setFormCodigo(part.codigo);
     setFormDescricao(part.descricao);
     setFormTags(part.tags || '');
+    setFormName(part.name || ''); // Preenche o nome
     setIsDialogOpen(true);
   };
 
@@ -165,6 +168,7 @@ const PartManagementTable: React.FC = () => {
           codigo: formCodigo,
           descricao: formDescricao,
           tags: formTags, // Usa formTags (que pode ter sido revertido se !canEditTags)
+          name: formName, // Inclui o novo campo 'name'
         });
         showSuccess('Peça atualizada com sucesso!');
       } else {
@@ -172,6 +176,7 @@ const PartManagementTable: React.FC = () => {
           codigo: formCodigo,
           descricao: formDescricao,
           tags: formTags,
+          name: formName, // Inclui o novo campo 'name'
         });
         showSuccess('Peça adicionada com sucesso!');
       }
@@ -286,6 +291,7 @@ const PartManagementTable: React.FC = () => {
             const codigo = getRowValue(row, ['codigo', 'código', 'code']);
             const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']);
             const tags = getRowValue(row, ['tags', 'tag']) || '';
+            const name = getRowValue(row, ['name', 'nome']) || ''; // Novo campo 'name'
             
             if (!codigo || !descricao) {
               return null; // Linha inválida se faltar código ou descrição
@@ -296,6 +302,7 @@ const PartManagementTable: React.FC = () => {
               codigo: codigo,
               descricao: descricao,
               tags: tags,
+              name: name, // Inclui o novo campo 'name'
             };
           }).filter((part): part is Part => part !== null);
 
@@ -392,11 +399,11 @@ const PartManagementTable: React.FC = () => {
         showSuccess(`${dataToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
       } else {
         dataToExport = await getAllPartsForExport();
-        if (dataToExport.length === 0) {
+        if (dataToToExport.length === 0) {
           showError('Nenhuma peça para exportar.');
           return;
         }
-        exportDataAsCsv(dataToToExport, 'todas_pecas.csv');
+        exportDataAsCsv(dataToToToExport, 'todas_pecas.csv');
         showSuccess('Todos as peças exportadas para CSV com sucesso!');
       }
     } catch (error) {
@@ -426,7 +433,7 @@ const PartManagementTable: React.FC = () => {
           showError('Nenhuma peça para exportar.');
           return;
         }
-        exportDataAsJson(dataToToExport, 'todas_pecas.json');
+        exportDataAsJson(dataToToToExport, 'todas_pecas.json');
         showSuccess('Todas as peças exportadas para JSON com sucesso!');
       }
     } catch (error) {
@@ -531,7 +538,7 @@ const PartManagementTable: React.FC = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Buscar peça por código, descrição ou tags..."
+            placeholder="Buscar peça por código, descrição, nome ou tags..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -602,6 +609,7 @@ const PartManagementTable: React.FC = () => {
                     />
                   </TableHead>
                   <TableHead>Código</TableHead>
+                  <TableHead>Nome</TableHead> {/* Nova coluna para o nome */}
                   <TableHead>Descrição</TableHead>
                   <TableHead>Tags</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -618,6 +626,7 @@ const PartManagementTable: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell className="font-medium">{part.codigo}</TableCell>
+                    <TableCell>{part.name || 'N/A'}</TableCell> {/* Exibe o nome */}
                     <TableCell>{part.descricao}</TableCell>
                     <TableCell>{part.tags || ''}</TableCell>
                     <TableCell className="text-right">
@@ -652,6 +661,18 @@ const PartManagementTable: React.FC = () => {
                 onChange={(e) => setFormCodigo(e.target.value)}
                 className="col-span-3"
                 required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Nome
+              </Label>
+              <Input
+                id="name"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="Nome da peça (ex: Filtro de Ar)"
+                className="col-span-3"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">

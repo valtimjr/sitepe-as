@@ -16,6 +16,14 @@ export interface UserProfile {
   badge: string | null;
 }
 
+export interface Part {
+  id: string;
+  codigo: string;
+  descricao: string;
+  tags?: string;
+  name?: string; // NOVO CAMPO: Nome global da peça
+}
+
 export interface Apontamento {
   id: string;
   user_id: string;
@@ -44,6 +52,7 @@ export interface CustomListItem {
   quantity: number;
   order_index: number; // Adicionado order_index
   created_at?: Date;
+  list_title?: string; // Adicionado para hover card de itens relacionados
 }
 
 export interface MenuItem {
