@@ -54,7 +54,11 @@ const getRowValue = (row: any, keys: string[]): string | undefined => {
   return undefined;
 };
 
+const AF_DIALOG_OPEN_KEY = 'af_dialog_open';
+const EDITING_AF_ID_KEY = 'editing_af_id';
+
 const AfManagementTable: React.FC = () => {
+  const { checkPageAccess } = useSession();
   const [afs, setAfs] = useState<Af[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -71,9 +75,49 @@ const AfManagementTable: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Effect to load initial AFs and restore dialog state from localStorage
   useEffect(() => {
-    loadAfs();
-  }, []);
+    const loadInitialDataAndRestoreState = async () => {
+      setIsLoading(true);
+      try {
+        const fetchedAfs = await getAfsFromService();
+        setAfs(fetchedAfs);
+
+        // Restore dialog state
+        const savedIsDialogOpen = localStorage.getItem(AF_DIALOG_OPEN_KEY) === 'true';
+        const savedEditingAfId = localStorage.getItem(EDITING_AF_ID_KEY);
+
+        if (savedIsDialogOpen) {
+          setIsDialogOpen(true);
+          if (savedEditingAfId && savedEditingAfId !== 'new') {
+            const afToEdit = fetchedAfs.find(a => a.id === savedEditingAfId);
+            if (afToEdit) {
+              setCurrentAf(afToEdit);
+              setFormAfNumber(afToEdit.af_number);
+              setFormDescricao(afToEdit.descricao || '');
+            } else {
+              // If AF not found, clear localStorage and close dialog
+              localStorage.removeItem(AF_DIALOG_OPEN_KEY);
+              localStorage.removeItem(EDITING_AF_ID_KEY);
+              setIsDialogOpen(false);
+            }
+          } else if (savedEditingAfId === 'new') {
+            // Restore 'add new AF' state
+            setCurrentAf(null);
+            setFormAfNumber('');
+            setFormDescricao('');
+          }
+        }
+      } catch (error) {
+        showError('Erro ao carregar AFs.');
+        console.error('Failed to load AFs:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadInitialDataAndRestoreState();
+  }, []); // Run only once on mount
 
   const loadAfs = async () => {
     setIsLoading(true);
@@ -99,6 +143,8 @@ const AfManagementTable: React.FC = () => {
     setFormAfNumber('');
     setFormDescricao('');
     setIsDialogOpen(true);
+    localStorage.setItem(AF_DIALOG_OPEN_KEY, 'true');
+    localStorage.setItem(EDITING_AF_ID_KEY, 'new'); // Mark as new item
   };
 
   const handleEditAf = (af: Af) => {
@@ -106,6 +152,16 @@ const AfManagementTable: React.FC = () => {
     setFormAfNumber(af.af_number);
     setFormDescricao(af.descricao || '');
     setIsDialogOpen(true);
+    localStorage.setItem(AF_DIALOG_OPEN_KEY, 'true');
+    localStorage.setItem(EDITING_AF_ID_KEY, af.id);
+  };
+
+  const setAndPersistIsDialogOpen = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      localStorage.removeItem(AF_DIALOG_OPEN_KEY);
+      localStorage.removeItem(EDITING_AF_ID_KEY);
+    }
   };
 
   const handleDeleteAf = async (id: string) => {
@@ -143,7 +199,7 @@ const AfManagementTable: React.FC = () => {
         await addAf(payload);
         showSuccess('AF adicionado com sucesso!');
       }
-      setIsDialogOpen(false);
+      setAndPersistIsDialogOpen(false); // Use the new setter
       loadAfs();
     } catch (error) {
       showError('Erro ao salvar AF.');
@@ -337,11 +393,11 @@ const AfManagementTable: React.FC = () => {
         showSuccess(`${dataToExport.length} AFs selecionados exportados para JSON com sucesso!`);
       } else {
         dataToExport = await getAllAfsForExport();
-        if (dataToExport.length === 0) {
+        if (dataToToExport.length === 0) {
           showError('Nenhum AF para exportar.');
           return;
         }
-        exportDataAsJson(dataToExport, 'todos_afs.json');
+        exportDataAsJson(dataToToExport, 'todos_afs.json');
         showSuccess('Todos os AFs exportados para JSON com sucesso!');
       }
     } catch (error) {
@@ -485,7 +541,7 @@ const AfManagementTable: React.FC = () => {
       </CardContent>
 
       {/* Dialog de Edição/Adição */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setAndPersistIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{currentAf ? 'Editar AF' : 'Adicionar Novo AF'}</DialogTitle>
@@ -516,7 +572,7 @@ const AfManagementTable: React.FC = () => {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setAndPersistIsDialogOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
               <Button type="submit">
@@ -536,9 +592,15 @@ const AfManagementTable: React.FC = () => {
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div> {/* Usando div para corrigir o aninhamento de DOM */}
-                <p className="mb-4">
-                  Você está prestes a importar {parsedAfsToImport.length} AFs. Isso irá atualizar os AFs existentes com o mesmo AF ou criar novos.
-                </p>
+                {parsedAfsToImport.length > 0 ? (
+                  <p className="mb-4">
+                    Você está prestes a importar {parsedAfsToImport.length} AFs. Isso irá atualizar os AFs existentes com o mesmo AF ou criar novos.
+                  </p>
+                ) : (
+                  <p className="mb-4 text-destructive">
+                    Nenhum AF válido encontrado para importação. Verifique o formato do seu arquivo CSV.
+                  </p>
+                )}
                 <h4 className="font-semibold text-foreground mb-2">Log de Processamento:</h4>
                 <ScrollArea className="h-40 w-full rounded-md border p-4 text-sm font-mono bg-muted/50">
                   {importLog.map((line, index) => (
@@ -557,7 +619,7 @@ const AfManagementTable: React.FC = () => {
             }}>
               Cancelar
             </AlertDialogCancel>
-            <AlertDialogAction onClick={confirmImport}>
+            <AlertDialogAction onClick={confirmImport} disabled={parsedAfsToImport.length === 0}>
               Confirmar Importação
             </AlertDialogAction>
           </AlertDialogFooter>

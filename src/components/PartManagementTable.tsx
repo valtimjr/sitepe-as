@@ -55,6 +55,9 @@ const getRowValue = (row: any, keys: string[]): string | undefined => {
   return undefined;
 };
 
+const PART_DIALOG_OPEN_KEY = 'part_dialog_open';
+const EDITING_PART_ID_KEY = 'editing_part_id';
+
 const PartManagementTable: React.FC = () => {
   const { checkPageAccess } = useSession(); // Obter checkPageAccess
   const [parts, setParts] = useState<Part[]>([]);
@@ -74,12 +77,41 @@ const PartManagementTable: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Effect to load initial parts and restore dialog state from localStorage
   useEffect(() => {
-    const loadInitialParts = async () => {
+    const loadInitialDataAndRestoreState = async () => {
       setIsLoading(true);
       try {
         const fetchedParts = await getParts();
         setParts(fetchedParts);
+
+        // Restore dialog state
+        const savedIsDialogOpen = localStorage.getItem(PART_DIALOG_OPEN_KEY) === 'true';
+        const savedEditingPartId = localStorage.getItem(EDITING_PART_ID_KEY);
+
+        if (savedIsDialogOpen) {
+          setIsDialogOpen(true);
+          if (savedEditingPartId && savedEditingPartId !== 'new') {
+            const partToEdit = fetchedParts.find(p => p.id === savedEditingPartId);
+            if (partToEdit) {
+              setCurrentPart(partToEdit);
+              setFormCodigo(partToEdit.codigo);
+              setFormDescricao(partToEdit.descricao);
+              setFormTags(partToEdit.tags || '');
+            } else {
+              // If part not found, clear localStorage and close dialog
+              localStorage.removeItem(PART_DIALOG_OPEN_KEY);
+              localStorage.removeItem(EDITING_PART_ID_KEY);
+              setIsDialogOpen(false);
+            }
+          } else if (savedEditingPartId === 'new') {
+            // Restore 'add new part' state
+            setCurrentPart(null);
+            setFormCodigo('');
+            setFormDescricao('');
+            setFormTags('');
+          }
+        }
       } catch (error) {
         showError('Erro ao carregar peças.');
         console.error('Failed to load parts:', error);
@@ -88,10 +120,8 @@ const PartManagementTable: React.FC = () => {
       }
     };
 
-    if (!searchQuery) {
-      loadInitialParts();
-    }
-  }, [searchQuery]);
+    loadInitialDataAndRestoreState();
+  }, []); // Run only once on mount
 
   useEffect(() => {
     const fetchSearchResults = async () => {
@@ -124,6 +154,8 @@ const PartManagementTable: React.FC = () => {
     setFormDescricao('');
     setFormTags('');
     setIsDialogOpen(true);
+    localStorage.setItem(PART_DIALOG_OPEN_KEY, 'true');
+    localStorage.setItem(EDITING_PART_ID_KEY, 'new'); // Mark as new item
   };
 
   const handleEditPart = (part: Part) => {
@@ -132,6 +164,16 @@ const PartManagementTable: React.FC = () => {
     setFormDescricao(part.descricao);
     setFormTags(part.tags || '');
     setIsDialogOpen(true);
+    localStorage.setItem(PART_DIALOG_OPEN_KEY, 'true');
+    localStorage.setItem(EDITING_PART_ID_KEY, part.id);
+  };
+
+  const setAndPersistIsDialogOpen = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      localStorage.removeItem(PART_DIALOG_OPEN_KEY);
+      localStorage.removeItem(EDITING_PART_ID_KEY);
+    }
   };
 
   const handleDeletePart = async (id: string) => {
@@ -175,7 +217,7 @@ const PartManagementTable: React.FC = () => {
         });
         showSuccess('Peça adicionada com sucesso!');
       }
-      setIsDialogOpen(false);
+      setAndPersistIsDialogOpen(false); // Use the new setter
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao salvar peça.');
@@ -636,7 +678,7 @@ const PartManagementTable: React.FC = () => {
         )}
       </CardContent>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setAndPersistIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{currentPart ? 'Editar Peça' : 'Adicionar Nova Peça'}</DialogTitle>
@@ -680,7 +722,7 @@ const PartManagementTable: React.FC = () => {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setAndPersistIsDialogOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
               <Button type="submit">
