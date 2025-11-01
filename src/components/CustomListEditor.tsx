@@ -50,6 +50,9 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
 
+  // Drag and Drop states
+  const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
+
   const loadItems = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -271,6 +274,66 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     showSuccess('PDF gerado com sucesso!');
   };
 
+  // --- Drag and Drop Handlers ---
+  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: CustomListItem) => {
+    setDraggedItem(item);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item.id); // Usar o ID para identificar o item
+    e.currentTarget.classList.add('opacity-50');
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('border-t-2', 'border-primary'); // Feedback visual
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.currentTarget.classList.remove('border-t-2', 'border-primary');
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, targetItem: CustomListItem) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-t-2', 'border-primary');
+
+    if (draggedItem && draggedItem.id !== targetItem.id) {
+      const newOrderedItems = [...items];
+      const draggedIndex = newOrderedItems.findIndex(item => item.id === draggedItem.id);
+      const targetIndex = newOrderedItems.findIndex(item => item.id === targetItem.id);
+
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+        const [removed] = newOrderedItems.splice(draggedIndex, 1);
+        newOrderedItems.splice(targetIndex, 0, removed);
+        
+        // Atualiza o estado local imediatamente para feedback visual
+        setItems(newOrderedItems);
+
+        const loadingToastId = showLoading('Reordenando itens...');
+        try {
+          // Persiste a nova ordem no banco de dados
+          const updatePromises = newOrderedItems.map((item, index) => 
+            updateCustomListItem({ ...item, order_index: index })
+          );
+          await Promise.all(updatePromises);
+          showSuccess('Ordem atualizada com sucesso!');
+          await loadItems(); // Recarrega para garantir a consistência
+        } catch (error) {
+          showError('Erro ao reordenar itens.');
+          console.error('Failed to persist new order:', error);
+        } finally {
+          dismissToast(loadingToastId);
+        }
+      }
+    }
+    setDraggedItem(null);
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.currentTarget.classList.remove('opacity-50');
+    setDraggedItem(null);
+  };
+  // --- End Drag and Drop Handlers ---
+
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
@@ -353,9 +416,19 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
               </TableHeader>
               <TableBody>
                 {items.map((item, index) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="w-[40px] p-2">
-                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                  <TableRow 
+                    key={item.id}
+                    draggable // Habilita o arrastar
+                    onDragStart={(e) => handleDragStart(e, item)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, item)}
+                    onDragLeave={handleDragLeave}
+                    onDragEnd={handleDragEnd}
+                    data-id={item.id}
+                    className="relative"
+                  >
+                    <TableCell className="w-[40px] p-2 cursor-grab">
+                      <GripVertical className="h-4 w-4 text-muted-foreground" />
                     </TableCell>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
                     <TableCell className="w-auto whitespace-normal break-words p-2">
