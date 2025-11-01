@@ -27,10 +27,6 @@ import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova fun
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 
-const CUSTOM_LIST_ITEM_DIALOG_OPEN_KEY = 'custom_list_item_dialog_open';
-const EDITING_CUSTOM_LIST_ITEM_ID_KEY = 'editing_custom_list_item_id';
-const EDITING_CUSTOM_LIST_ID_KEY = 'editing_custom_list_id'; // To ensure we restore for the correct list
-
 interface CustomListEditorProps {
   list: CustomList;
   onClose: () => void;
@@ -82,63 +78,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     }
   }, []);
 
-  // Effect to load items and parts, and restore dialog state from localStorage
   useEffect(() => {
-    const initializeComponent = async () => {
-      setIsLoading(true); // Start loading for items
-      setIsLoadingParts(true); // Start loading for parts
-
-      try {
-        // Load items first
-        const fetchedItems = await getCustomListItems(list.id);
-        setItems(fetchedItems); // Update state
-
-        // Then load all available parts
-        const parts = await getParts();
-        setAllAvailableParts(parts); // Update state
-
-        // Now, restore dialog state using the freshly fetched items
-        const savedIsDialogOpen = localStorage.getItem(CUSTOM_LIST_ITEM_DIALOG_OPEN_KEY) === 'true';
-        const savedEditingItemId = localStorage.getItem(EDITING_CUSTOM_LIST_ITEM_ID_KEY);
-        const savedListId = localStorage.getItem(EDITING_CUSTOM_LIST_ID_KEY);
-
-        if (savedIsDialogOpen && savedListId === list.id) {
-          setIsDialogOpen(true);
-          if (savedEditingItemId && savedEditingItemId !== 'new') {
-            const itemToEdit = fetchedItems.find(i => i.id === savedEditingItemId);
-            if (itemToEdit) {
-              setCurrentEditItem(itemToEdit);
-              setFormItemName(itemToEdit.item_name);
-              setFormPartCode(itemToEdit.part_code || '');
-              setFormDescription(itemToEdit.description || '');
-              setFormQuantity(itemToEdit.quantity);
-            } else {
-              // If item not found, clear localStorage and close dialog
-              localStorage.removeItem(CUSTOM_LIST_ITEM_DIALOG_OPEN_KEY);
-              localStorage.removeItem(EDITING_CUSTOM_LIST_ITEM_ID_KEY);
-              localStorage.removeItem(EDITING_CUSTOM_LIST_ID_KEY);
-              setIsDialogOpen(false);
-            }
-          } else if (savedEditingItemId === 'new') {
-            setCurrentEditItem(null);
-            setFormItemName('');
-            setFormPartCode('');
-            setFormDescription('');
-            setFormQuantity(1);
-          }
-        }
-      } catch (error) {
-        showError('Erro ao carregar dados da lista ou peças.');
-        console.error('Failed to load initial data:', error);
-      } finally {
-        setIsLoading(false); // Finish loading for items
-        setIsLoadingParts(false); // Finish loading for parts
-      }
-    };
-
-    initializeComponent();
-  }, [list.id]); // Dependencies: only list.id, as all other functions are setters or stable imports.
-
+    loadItems();
+    loadParts();
+  }, [loadItems, loadParts]);
 
   useEffect(() => {
     const fetchSearchResults = async () => {
@@ -165,17 +108,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     setFormQuantity(1);
     setSearchQuery('');
     setSearchResults([]);
-    localStorage.removeItem(CUSTOM_LIST_ITEM_DIALOG_OPEN_KEY);
-    localStorage.removeItem(EDITING_CUSTOM_LIST_ITEM_ID_KEY);
-    localStorage.removeItem(EDITING_CUSTOM_LIST_ID_KEY);
   };
 
   const handleAdd = () => {
     resetForm();
     setIsDialogOpen(true);
-    localStorage.setItem(CUSTOM_LIST_ITEM_DIALOG_OPEN_KEY, 'true');
-    localStorage.setItem(EDITING_CUSTOM_LIST_ITEM_ID_KEY, 'new');
-    localStorage.setItem(EDITING_CUSTOM_LIST_ID_KEY, list.id);
   };
 
   const handleEdit = (item: CustomListItem) => {
@@ -187,9 +124,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     setSearchQuery('');
     setSearchResults([]);
     setIsDialogOpen(true);
-    localStorage.setItem(CUSTOM_LIST_ITEM_DIALOG_OPEN_KEY, 'true');
-    localStorage.setItem(EDITING_CUSTOM_LIST_ITEM_ID_KEY, item.id);
-    localStorage.setItem(EDITING_CUSTOM_LIST_ID_KEY, list.id);
   };
 
   const handleSelectPart = (part: Part) => {
@@ -197,15 +131,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     setFormDescription(part.descricao);
     setSearchQuery('');
     setSearchResults([]);
-  };
-
-  const setAndPersistIsDialogOpen = (open: boolean) => {
-    setIsDialogOpen(open);
-    if (!open) {
-      localStorage.removeItem(CUSTOM_LIST_ITEM_DIALOG_OPEN_KEY);
-      localStorage.removeItem(EDITING_CUSTOM_LIST_ITEM_ID_KEY);
-      localStorage.removeItem(EDITING_CUSTOM_LIST_ID_KEY);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -246,7 +171,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
         showSuccess('Item adicionado com sucesso!');
       }
       
-      setAndPersistIsDialogOpen(false);
+      setIsDialogOpen(false);
       loadItems();
     } catch (error) {
       showError('Erro ao salvar item.');
@@ -582,7 +507,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
         )}
       </CardContent>
 
-      <Dialog open={isDialogOpen} onOpenChange={setAndPersistIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{currentEditItem ? 'Editar Item' : 'Adicionar Novo Item'}</DialogTitle>
@@ -643,7 +568,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setAndPersistIsDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
               <Button type="submit">

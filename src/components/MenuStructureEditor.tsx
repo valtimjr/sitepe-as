@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { MenuItem, CustomList } from '@/types/supabase';
 import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists } from '@/services/customListService';
@@ -76,9 +76,6 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   const [formParentId, setFormParentId] = useState<string | null>(null);
   const [formListId, setFormListId] = useState<string | null>(null);
   const [formOrderIndex, setFormOrderIndex] = useState(0);
-
-  // Drag and Drop states
-  const [draggedItem, setDraggedItem] = useState<MenuItem | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -200,75 +197,6 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     }
   };
 
-  // --- Drag and Drop Handlers ---
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, item: MenuItem) => {
-    setDraggedItem(item);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', item.id); // Usar o ID para identificar o item
-    e.currentTarget.classList.add('opacity-50');
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    e.currentTarget.classList.add('border-t-2', 'border-primary'); // Feedback visual
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.currentTarget.classList.remove('border-t-2', 'border-primary');
-  };
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetItem: MenuItem) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('border-t-2', 'border-primary');
-
-    if (draggedItem && draggedItem.id !== targetItem.id) {
-      // Apenas permite reordenar dentro do mesmo nível hierárquico
-      if (draggedItem.parent_id !== targetItem.parent_id) {
-        showError('Não é possível mover itens entre níveis hierárquicos via arrastar e soltar nesta visualização.');
-        setDraggedItem(null);
-        return;
-      }
-
-      const siblings = flatMenuItems
-        .filter(i => i.parent_id === draggedItem.parent_id)
-        .sort((a, b) => a.order_index - b.order_index);
-
-      const draggedIndex = siblings.findIndex(item => item.id === draggedItem.id);
-      const targetIndex = siblings.findIndex(item => item.id === targetItem.id);
-
-      if (draggedIndex !== -1 && targetIndex !== -1) {
-        const newOrderedSiblings = [...siblings];
-        const [removed] = newOrderedSiblings.splice(draggedIndex, 1);
-        newOrderedSiblings.splice(targetIndex, 0, removed);
-        
-        const loadingToastId = showLoading('Reordenando itens...');
-        try {
-          // Persiste a nova ordem no banco de dados
-          const updatePromises = newOrderedSiblings.map((item, index) => 
-            updateMenuItem({ ...item, order_index: index })
-          );
-          await Promise.all(updatePromises);
-          showSuccess('Ordem atualizada com sucesso!');
-          await loadData(); // Recarrega para garantir a consistência
-          onMenuUpdated();
-        } catch (error) {
-          showError('Erro ao reordenar itens.');
-          console.error('Failed to persist new order:', error);
-        } finally {
-          dismissToast(loadingToastId);
-        }
-      }
-    }
-    setDraggedItem(null);
-  };
-
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-    e.currentTarget.classList.remove('opacity-50');
-    setDraggedItem(null);
-  };
-  // --- End Drag and Drop Handlers ---
-
   const renderMenuItem = (item: MenuItem, level: number, siblings: MenuItem[]) => {
     const isListLink = !!item.list_id;
     const hasChildren = item.children && item.children.length > 0;
@@ -276,23 +204,12 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     const isLast = siblings.findIndex(i => i.id === item.id) === siblings.length - 1;
 
     return (
-      <div 
-        key={item.id} 
-        draggable // Habilita o arrastar
-        onDragStart={(e) => handleDragStart(e, item)}
-        onDragOver={handleDragOver}
-        onDrop={(e) => handleDrop(e, item)}
-        onDragLeave={handleDragLeave}
-        onDragEnd={handleDragEnd}
-        data-id={item.id}
-        className={cn("border-b last:border-b-0 relative", level > 0 && 'ml-4')}
-      >
+      <div key={item.id} className={cn("border-b last:border-b-0", level > 0 && 'ml-4')}>
         <div className={cn(
           "flex items-center py-2 px-3 transition-colors",
           isListLink ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-muted/20'
         )}>
           <div className="flex-1 flex items-center gap-2" style={{ paddingLeft: `${level * 10}px` }}>
-            <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" /> {/* Drag handle */}
             {hasChildren ? (
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             ) : (
