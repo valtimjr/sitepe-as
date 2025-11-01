@@ -33,7 +33,7 @@ interface CustomListEditorProps {
   list: CustomList;
   onClose: () => void;
   editingItem?: CustomListItem | null;
-  onItemSaved: () => void;
+  onItemSaved?: () => void; // Tornada opcional
 }
 
 interface PartRelationFormState {
@@ -241,7 +241,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       
       setIsMainItemDialogOpen(false);
       loadItems();
-      onItemSaved();
+      onItemSaved?.(); // Usando encadeamento opcional
     } catch (error) {
       showError('Erro ao salvar item.');
       console.error('Failed to save item:', error);
@@ -253,7 +253,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       await deleteCustomListItem(itemId);
       showSuccess('Item excluído com sucesso!');
       loadItems();
-      onItemSaved();
+      onItemSaved?.(); // Usando encadeamento opcional
     } catch (error) {
       showError('Erro ao excluir item.');
       console.error('Failed to delete item:', error);
@@ -282,7 +282,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
       showSuccess('Ordem atualizada!');
       await loadItems();
-      onItemSaved();
+      onItemSaved?.(); // Usando encadeamento opcional
     } catch (error) {
       showError('Erro ao reordenar itens.');
       console.error('Failed to reorder list items:', error);
@@ -384,7 +384,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           await Promise.all(updatePromises);
           showSuccess('Ordem atualizada com sucesso!');
           await loadItems();
-          onItemSaved();
+          onItemSaved?.(); // Usando encadeamento opcional
         } catch (error) {
           showError('Erro ao reordenar itens.');
           console.error('Failed to persist new order:', error);
@@ -453,7 +453,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       const results = await searchPartsService(query);
       setPartsForNewRelation(prev => prev.map(field => field.id === fieldId ? { ...field, searchResults: results, isLoadingSearch: false } : field));
     }, 300);
-    // Limpar timeout anterior se a query mudar rapidamente
     return () => clearTimeout(handler);
   };
 
