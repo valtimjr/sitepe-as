@@ -5,8 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal } from 'lucide-react';
-import { showSuccess, showError } from '@/utils/toast';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown } from 'lucide-react';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem } from '@/services/customListService';
 import {
@@ -151,7 +151,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     // Determina o nome final do item: usa o nome personalizado, ou a descrição como fallback
     const finalItemName = trimmedItemName || trimmedDescription;
 
-    const payload: Omit<CustomListItem, 'id' | 'created_at'> = {
+    const payload: Omit<CustomListItem, 'id' | 'created_at' | 'order_index'> = {
       list_id: list.id,
       item_name: finalItemName,
       part_code: trimmedPartCode || null,
@@ -184,6 +184,37 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
     } catch (error) {
       showError('Erro ao excluir item.');
       console.error('Failed to delete item:', error);
+    }
+  };
+
+  const handleMoveItem = async (item: CustomListItem, direction: 'up' | 'down') => {
+    const siblings = items.filter(i => i.list_id === item.list_id).sort((a, b) => a.order_index - b.order_index);
+    const currentIndex = siblings.findIndex(i => i.id === item.id);
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+    if (targetIndex < 0 || targetIndex >= siblings.length) return;
+
+    const currentItem = siblings[currentIndex];
+    const targetItem = siblings[targetIndex];
+
+    if (!currentItem || !targetItem) return;
+
+    const loadingToastId = showLoading('Reordenando itens...');
+
+    try {
+      // Troca os índices de ordem
+      await Promise.all([
+        updateCustomListItem({ ...currentItem, order_index: targetItem.order_index }),
+        updateCustomListItem({ ...targetItem, order_index: currentItem.order_index }),
+      ]);
+
+      showSuccess('Ordem atualizada!');
+      await loadItems(); // Recarrega para refletir a nova ordem
+    } catch (error) {
+      showError('Erro ao reordenar itens.');
+      console.error('Failed to reorder list items:', error);
+    } finally {
+      dismissToast(loadingToastId);
     }
   };
 
@@ -312,14 +343,47 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px] p-2">
+                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" /> {/* Ícone para ações de ordenação */}
+                  </TableHead>
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
                   <TableHead className="w-[40px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.map((item) => (
+                {items.map((item, index) => (
                   <TableRow key={item.id}>
+                    <TableCell className="w-[40px] p-2">
+                      <div className="flex flex-col gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleMoveItem(item, 'up')}
+                              disabled={index === 0}
+                            >
+                              <ArrowUp className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Mover para Cima</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleMoveItem(item, 'down')}
+                              disabled={index === items.length - 1}
+                            >
+                              <ArrowDown className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Mover para Baixo</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TableCell>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
                     <TableCell className="w-auto whitespace-normal break-words p-2">
                       <div className="flex flex-col">

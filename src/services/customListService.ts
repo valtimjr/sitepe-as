@@ -39,7 +39,7 @@ export const getCustomListItems = async (listId: string): Promise<CustomListItem
     .from('custom_list_items')
     .select('*')
     .eq('list_id', listId)
-    .order('created_at', { ascending: true });
+    .order('order_index', { ascending: true }); // Ordena por order_index
 
   if (error) {
     console.error('Error fetching custom list items:', error);
@@ -88,8 +88,25 @@ export const deleteCustomList = async (listId: string): Promise<void> => {
   }
 };
 
-export const addCustomListItem = async (item: Omit<CustomListItem, 'id'>): Promise<CustomListItem> => {
-  const newItem = { ...item, id: uuidv4() };
+export const addCustomListItem = async (item: Omit<CustomListItem, 'id' | 'order_index'>): Promise<CustomListItem> => {
+  // Determina o próximo order_index
+  const { data: existingItems, error: fetchError } = await supabase
+    .from('custom_list_items')
+    .select('order_index')
+    .eq('list_id', item.list_id)
+    .order('order_index', { ascending: false })
+    .limit(1);
+
+  if (fetchError) {
+    console.error('Error fetching max order_index for custom list item:', fetchError);
+    throw new Error(`Erro ao determinar a ordem do item: ${fetchError.message}`);
+  }
+
+  const nextOrderIndex = (existingItems && existingItems.length > 0)
+    ? existingItems[0].order_index + 1
+    : 0; // Começa de 0 se não houver itens
+
+  const newItem = { ...item, id: uuidv4(), order_index: nextOrderIndex };
   const { data, error } = await supabase
     .from('custom_list_items')
     .insert(newItem)
@@ -111,7 +128,8 @@ export const updateCustomListItem = async (item: CustomListItem): Promise<void> 
       item_name: item.item_name, 
       part_code: item.part_code, 
       description: item.description, 
-      quantity: item.quantity 
+      quantity: item.quantity,
+      order_index: item.order_index, // Permite atualizar order_index
     })
     .eq('id', item.id);
 

@@ -42,6 +42,7 @@ export interface CustomListItem {
   part_code: string | null;
   description: string | null;
   quantity: number;
+  order_index: number; // Adicionado order_index
   created_at?: Date;
 }
 
