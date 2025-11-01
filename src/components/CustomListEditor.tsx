@@ -5,10 +5,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Link as LinkIcon } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { CustomList, CustomListItem, Part } from '@/types/supabase';
-import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem } from '@/services/customListService';
+import { CustomList, CustomListItem, Part, CustomListItemRelation } from '@/types/supabase';
+import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, getCustomListItemRelations, addCustomListItemRelation, deleteCustomListItemRelation } from '@/services/customListService';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,18 +21,27 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import PartSearchInput from './PartSearchInput';
-import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService'; // Importação corrigida: adicionado updatePart
+import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
-import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
+import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
-import RelatedItemsHoverCard from '@/components/RelatedItemsHoverCard'; // Importar o novo componente
+import RelatedItemsHoverCard from '@/components/RelatedItemsHoverCard';
 
 interface CustomListEditorProps {
   list: CustomList;
   onClose: () => void;
-  editingItem?: CustomListItem | null; // Novo prop para o item a ser editado
-  onItemSaved: () => void; // Novo callback para quando um item é salvo (adicionado ou editado)
+  editingItem?: CustomListItem | null;
+  onItemSaved: () => void;
+}
+
+interface PartRelationFormState {
+  id: string; // Usado para identificar a linha no formulário
+  selectedPart: Part | null;
+  searchQuery: string;
+  searchResults: Part[];
+  quantity: number;
+  isLoadingSearch: boolean;
 }
 
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved }) => {
@@ -41,18 +50,24 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentEditItem, setCurrentEditItem] = useState<CustomListItem | null>(null);
   
-  // Form states
+  // Form states for main item
   const [formItemName, setFormItemName] = useState('');
   const [formPartCode, setFormPartCode] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formQuantity, setFormQuantity] = useState(1);
   
-  // Search states
+  // Search states for main item form
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
-  const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null); // Armazena o objeto Part completo
+  const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null);
+
+  // Item Relations states
+  const [itemRelations, setItemRelations] = useState<CustomListItemRelation[]>([]);
+  const [isRelationModalOpen, setIsRelationModalOpen] = useState(false);
+  const [partsForNewRelation, setPartsForNewRelation] = useState<PartRelationFormState[]>([]);
+  const [isSavingRelations, setIsSavingRelations] = useState(false);
 
   // Drag and Drop states
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
@@ -82,12 +97,23 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     }
   }, []);
 
+  const loadItemRelations = useCallback(async (itemId: string) => {
+    try {
+      const relations = await getCustomListItemRelations(itemId);
+      setItemRelations(relations);
+    } catch (error) {
+      showError('Erro ao carregar relações do item.');
+      console.error('Failed to load item relations:', error);
+      setItemRelations([]);
+    }
+  }, []);
+
   useEffect(() => {
     loadItems();
     loadParts();
   }, [loadItems, loadParts]);
 
-  // Efeito para preencher o formulário quando `editingItem` muda (para uso em Dialog/Sheet)
+  // Efeito para preencher o formulário e carregar relações quando `editingItem` muda
   useEffect(() => {
     const initializeFormForEdit = async () => {
       if (editingItem) {
@@ -100,7 +126,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setSearchResults([]);
 
         if (editingItem.part_code) {
-          // Busca a peça completa para preencher selectedPartFromSearch
           const parts = await getParts(editingItem.part_code); 
           if (parts.length === 1 && parts[0].codigo === editingItem.part_code) {
             setSelectedPartFromSearch(parts[0]);
@@ -110,15 +135,17 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         } else {
           setSelectedPartFromSearch(null);
         }
-        setIsDialogOpen(true); // Abre o dialog/sheet automaticamente
+        setIsDialogOpen(true);
+        loadItemRelations(editingItem.id); // Carrega as relações para o item em edição
       } else {
-        resetForm(); // Reseta se não houver item de edição
-        setSelectedPartFromSearch(null); // Garante que seja nulo para novos itens
+        resetForm();
+        setSelectedPartFromSearch(null);
+        setItemRelations([]); // Limpa as relações se for um novo item
       }
     };
 
     initializeFormForEdit();
-  }, [editingItem, allAvailableParts]);
+  }, [editingItem, allAvailableParts, loadItemRelations]);
 
 
   useEffect(() => {
@@ -163,13 +190,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setSearchQuery('');
     setSearchResults([]);
     setIsDialogOpen(true);
+    loadItemRelations(item.id); // Carrega as relações para o item em edição
   };
 
   const handleSelectPart = (part: Part) => {
-    setSelectedPartFromSearch(part); // Armazena o objeto Part completo
+    setSelectedPartFromSearch(part);
     setFormPartCode(part.codigo);
     setFormDescription(part.descricao);
-    setFormItemName(part.name || part.descricao || ''); // Preenche o nome do item com o nome da peça ou descrição
+    setFormItemName(part.name || part.descricao || '');
     setSearchQuery('');
     setSearchResults([]);
   };
@@ -186,13 +214,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       return;
     }
 
-    // Validação: Pelo menos o nome personalizado OU a descrição deve estar preenchido
     if (!trimmedItemName && !trimmedDescription) {
       showError('O Nome ou a Descrição da Peça deve ser preenchido.');
       return;
     }
 
-    // Determina o nome final do item: usa o nome personalizado, ou a descrição como fallback
     const finalItemName = trimmedItemName || trimmedDescription;
 
     const payload: Omit<CustomListItem, 'id' | 'created_at' | 'order_index'> = {
@@ -214,7 +240,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       
       setIsDialogOpen(false);
       loadItems();
-      onItemSaved(); // Notifica o componente pai que um item foi salvo
+      onItemSaved();
     } catch (error) {
       showError('Erro ao salvar item.');
       console.error('Failed to save item:', error);
@@ -226,7 +252,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       await deleteCustomListItem(itemId);
       showSuccess('Item excluído com sucesso!');
       loadItems();
-      onItemSaved(); // Notifica o componente pai que um item foi excluído
+      onItemSaved();
     } catch (error) {
       showError('Erro ao excluir item.');
       console.error('Failed to delete item:', error);
@@ -248,15 +274,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     const loadingToastId = showLoading('Reordenando itens...');
 
     try {
-      // Troca os índices de ordem
       await Promise.all([
         updateCustomListItem({ ...currentItem, order_index: targetItem.order_index }),
         updateCustomListItem({ ...targetItem, order_index: currentItem.order_index }),
       ]);
 
       showSuccess('Ordem atualizada!');
-      await loadItems(); // Recarrega para refletir a nova ordem
-      onItemSaved(); // Notifica o componente pai que a ordem foi alterada
+      await loadItems();
+      onItemSaved();
     } catch (error) {
       showError('Erro ao reordenar itens.');
       console.error('Failed to reorder list items:', error);
@@ -276,7 +301,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       const codigo = item.part_code ? ` (Cód: ${item.part_code})` : '';
       const descricao = item.description || '';
       
-      // Formato: [QUANTIDADE] - [NOME PERSONALIZADO] [DESCRIÇÃO] (Cód: [CÓDIGO])
       formattedText += `${quantidade} - ${nome} ${descricao}${codigo}`.trim() + '\n';
     });
 
@@ -322,14 +346,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: CustomListItem) => {
     setDraggedItem(item);
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', item.id); // Usar o ID para identificar o item
+    e.dataTransfer.setData('text/plain', item.id);
     e.currentTarget.classList.add('opacity-50');
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    e.currentTarget.classList.add('border-t-2', 'border-primary'); // Feedback visual
+    e.currentTarget.classList.add('border-t-2', 'border-primary');
   };
 
   const handleDragLeave = (e: React.DragEvent<HTMLTableRowElement>) => {
@@ -349,19 +373,17 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         const [removed] = newOrderedItems.splice(draggedIndex, 1);
         newOrderedItems.splice(targetIndex, 0, removed);
         
-        // Atualiza o estado local imediatamente para feedback visual
         setItems(newOrderedItems);
 
         const loadingToastId = showLoading('Reordenando itens...');
         try {
-          // Persiste a nova ordem no banco de dados
           const updatePromises = newOrderedItems.map((item, index) => 
             updateCustomListItem({ ...item, order_index: index })
           );
           await Promise.all(updatePromises);
           showSuccess('Ordem atualizada com sucesso!');
-          await loadItems(); // Recarrega para garantir a consistência
-          onItemSaved(); // Notifica o componente pai que a ordem foi alterada
+          await loadItems();
+          onItemSaved();
         } catch (error) {
           showError('Erro ao reordenar itens.');
           console.error('Failed to persist new order:', error);
@@ -395,9 +417,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     try {
       await updatePart({ ...selectedPartFromSearch, name: formItemName.trim() });
       showSuccess('Nome global da peça atualizado com sucesso!');
-      // Recarrega todas as peças para atualizar o cache e dropdowns
       await loadParts();
-      // Atualiza o selectedPartFromSearch para refletir o novo nome global
       setSelectedPartFromSearch(prev => prev ? { ...prev, name: formItemName.trim() } : null);
     } catch (error) {
       showError('Erro ao atualizar nome global da peça.');
@@ -407,10 +427,99 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     }
   };
 
+  // --- Item Relations Handlers ---
+  const handleAddRelationClick = () => {
+    if (!currentEditItem) {
+      showError('Selecione ou crie um item primeiro para adicionar relações.');
+      return;
+    }
+    setPartsForNewRelation([{ id: uuidv4(), selectedPart: null, searchQuery: '', searchResults: [], quantity: 1, isLoadingSearch: false }]);
+    setIsRelationModalOpen(true);
+  };
+
+  const handleAddPartFieldToRelation = () => {
+    setPartsForNewRelation(prev => [...prev, { id: uuidv4(), selectedPart: null, searchQuery: '', searchResults: [], quantity: 1, isLoadingSearch: false }]);
+  };
+
+  const handleRemovePartFieldFromRelation = (id: string) => {
+    setPartsForNewRelation(prev => prev.filter(p => p.id !== id));
+  };
+
+  const handleRelationPartSearch = (fieldId: string, query: string) => {
+    setPartsForNewRelation(prev => prev.map(field => field.id === fieldId ? { ...field, searchQuery: query, isLoadingSearch: true } : field));
+    
+    const handler = setTimeout(async () => {
+      const results = await searchPartsService(query);
+      setPartsForNewRelation(prev => prev.map(field => field.id === fieldId ? { ...field, searchResults: results, isLoadingSearch: false } : field));
+    }, 300);
+    // Limpar timeout anterior se a query mudar rapidamente
+    return () => clearTimeout(handler);
+  };
+
+  const handleRelationPartSelect = (fieldId: string, part: Part) => {
+    setPartsForNewRelation(prev => prev.map(field => field.id === fieldId ? { ...field, selectedPart: part, searchQuery: '', searchResults: [] } : field));
+  };
+
+  const handleRelationQuantityChange = (fieldId: string, quantity: number) => {
+    setPartsForNewRelation(prev => prev.map(field => field.id === fieldId ? { ...field, quantity: quantity } : field));
+  };
+
+  const handleSaveRelations = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentEditItem) {
+      showError('Nenhum item selecionado para adicionar relações.');
+      return;
+    }
+
+    const relationsToAdd = partsForNewRelation.filter(p => p.selectedPart && p.quantity > 0);
+
+    if (relationsToAdd.length === 0) {
+      showError('Nenhuma peça válida selecionada para adicionar como relação.');
+      return;
+    }
+
+    setIsSavingRelations(true);
+    const loadingToastId = showLoading('Adicionando relações...');
+
+    try {
+      const promises = relationsToAdd.map(async (rel) => {
+        if (rel.selectedPart) {
+          await addCustomListItemRelation({
+            custom_list_item_id: currentEditItem.id,
+            part_id: rel.selectedPart.id,
+            quantity: rel.quantity,
+          });
+        }
+      });
+      await Promise.all(promises);
+      showSuccess(`${relationsToAdd.length} relação(ões) adicionada(s) com sucesso!`);
+      setIsRelationModalOpen(false);
+      loadItemRelations(currentEditItem.id); // Recarrega as relações para o item atual
+    } catch (error) {
+      showError('Erro ao salvar relações.');
+      console.error('Failed to save relations:', error);
+    } finally {
+      dismissToast(loadingToastId);
+      setIsSavingRelations(false);
+    }
+  };
+
+  const handleDeleteRelation = async (relationId: string) => {
+    try {
+      await deleteCustomListItemRelation(relationId);
+      showSuccess('Relação excluída com sucesso!');
+      if (currentEditItem) {
+        loadItemRelations(currentEditItem.id);
+      }
+    } catch (error) {
+      showError('Erro ao excluir relação.');
+      console.error('Failed to delete relation:', error);
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
-        {/* Linha 1: Botões de Ação Rápida (Voltar e Adicionar Item) */}
         <div className="flex justify-between items-center">
           <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Voltar
@@ -420,12 +529,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           </Button>
         </div>
         
-        {/* Linha 2: Título da Lista (Centralizado) */}
         <CardTitle className="text-2xl font-bold text-center pt-2">
           {list.title}
         </CardTitle>
         
-        {/* Linha 3: Botões de Exportação/Cópia */}
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -480,18 +587,18 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[40px] p-2">
-                    <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Ícone para drag handle */}
+                    <GripVertical className="h-4 w-4 text-muted-foreground" />
                   </TableHead>
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                  <TableHead className="w-[120px] p-2 text-right">Ações</TableHead> {/* Aumentado para acomodar 4 botões */}
+                  <TableHead className="w-[120px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((item, index) => (
                   <TableRow 
                     key={item.id}
-                    draggable // Habilita o arrastar
+                    draggable
                     onDragStart={(e) => handleDragStart(e, item)}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, item)}
@@ -521,7 +628,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                         </div>
                       </RelatedItemsHoverCard>
                     </TableCell>
-                    <TableCell className="w-[120px] p-2 text-right"> {/* Largura ajustada */}
+                    <TableCell className="w-[120px] p-2 text-right">
                       <div className="flex justify-end items-center gap-1">
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -675,6 +782,142 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               </Button>
               <Button type="submit">
                 <Save className="h-4 w-4 mr-2" /> Salvar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Seção de Relações de Itens */}
+      {currentEditItem && (
+        <Card className="w-full mt-8">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xl font-bold flex items-center gap-2">
+              <LinkIcon className="h-5 w-5" /> Relações de Itens
+            </CardTitle>
+            <Button onClick={handleAddRelationClick} className="flex items-center gap-2">
+              <PlusCircle className="h-4 w-4" /> Adicionar Relação
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {itemRelations.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">Nenhuma relação adicionada a este item.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[4rem]">Qtd</TableHead>
+                      <TableHead>Peça Relacionada</TableHead>
+                      <TableHead className="w-[80px] text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {itemRelations.map(relation => (
+                      <TableRow key={relation.id}>
+                        <TableCell className="font-medium">{relation.quantity}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm text-primary">{relation.part_codigo}</span>
+                            <span className="text-xs text-muted-foreground">{relation.part_name || relation.part_descricao || 'N/A'}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta ação irá remover a relação com a peça "{relation.part_codigo}". Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteRelation(relation.id)}>Excluir</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Modal para Adicionar Relações */}
+      <Dialog open={isRelationModalOpen} onOpenChange={setIsRelationModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Adicionar Relações ao Item</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSaveRelations} className="grid gap-4 py-4">
+            {partsForNewRelation.map((field, index) => (
+              <div key={field.id} className="flex items-end gap-2 border-b pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor={`relation-search-${field.id}`} className="sr-only">Buscar Peça</Label>
+                  <PartSearchInput
+                    onSearch={(query) => handleRelationPartSearch(field.id, query)}
+                    searchResults={field.searchResults}
+                    onSelectPart={(part) => handleRelationPartSelect(field.id, part)}
+                    searchQuery={field.searchQuery}
+                    allParts={allAvailableParts}
+                    isLoading={field.isLoadingSearch}
+                  />
+                  {field.selectedPart && (
+                    <div className="text-sm text-muted-foreground">
+                      Cód: {field.selectedPart.codigo} - Nome: {field.selectedPart.name || field.selectedPart.descricao}
+                    </div>
+                  )}
+                </div>
+                <div className="w-24 space-y-2">
+                  <Label htmlFor={`relation-quantity-${field.id}`}>Qtd</Label>
+                  <Input
+                    id={`relation-quantity-${field.id}`}
+                    type="number"
+                    value={field.quantity}
+                    onChange={(e) => handleRelationQuantityChange(field.id, parseInt(e.target.value) || 1)}
+                    min="1"
+                    className="w-full"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleRemovePartFieldFromRelation(field.id)}
+                  className="text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button type="button" variant="outline" onClick={handleAddPartFieldToRelation} className="w-full">
+              <PlusCircle className="h-4 w-4 mr-2" /> Adicionar Outra Peça
+            </Button>
+            <DialogFooter className="mt-4">
+              <Button type="button" variant="outline" onClick={() => setIsRelationModalOpen(false)}>
+                <XCircle className="h-4 w-4 mr-2" /> Cancelar
+              </Button>
+              <Button type="submit" disabled={isSavingRelations}>
+                {isSavingRelations ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" /> Salvar Relações
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </form>

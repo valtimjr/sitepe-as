@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
-import { CustomList, CustomListItem, MenuItem } from '@/types/supabase';
+import { CustomList, CustomListItem, MenuItem, CustomListItemRelation } from '@/types/supabase';
 
 // --- Custom Lists Management ---
 
@@ -184,6 +184,103 @@ export const deleteCustomListItem = async (itemId: string): Promise<void> => {
   if (error) {
     console.error('Error deleting custom list item:', error);
     throw new Error(`Erro ao excluir item da lista: ${error.message}`);
+  }
+};
+
+// --- Custom List Item Relations Management ---
+
+export const getCustomListItemRelations = async (customListItemId: string): Promise<CustomListItemRelation[]> => {
+  const { data, error } = await supabase
+    .from('custom_list_item_relations')
+    .select(`
+      id,
+      custom_list_item_id,
+      part_id,
+      quantity,
+      created_at,
+      parts (
+        codigo,
+        name,
+        descricao
+      )
+    `)
+    .eq('custom_list_item_id', customListItemId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching custom list item relations:', error);
+    throw new Error(`Erro ao buscar relações do item da lista: ${error.message}`);
+  }
+
+  return data.map(relation => ({
+    id: relation.id,
+    custom_list_item_id: relation.custom_list_item_id,
+    part_id: relation.part_id,
+    quantity: relation.quantity,
+    created_at: relation.created_at ? new Date(relation.created_at) : undefined,
+    part_codigo: relation.parts?.codigo,
+    part_name: relation.parts?.name,
+    part_descricao: relation.parts?.descricao,
+  })) as CustomListItemRelation[];
+};
+
+export const addCustomListItemRelation = async (relation: Omit<CustomListItemRelation, 'id' | 'created_at' | 'part_codigo' | 'part_name' | 'part_descricao'>): Promise<CustomListItemRelation> => {
+  const newRelation = { ...relation, id: uuidv4() };
+  const { data, error } = await supabase
+    .from('custom_list_item_relations')
+    .insert(newRelation)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error adding custom list item relation:', error);
+    throw new Error(`Erro ao adicionar relação ao item da lista: ${error.message}`);
+  }
+
+  // Retorna o objeto completo com os dados da peça para atualização da UI
+  const { data: fetchedRelation, error: fetchError } = await supabase
+    .from('custom_list_item_relations')
+    .select(`
+      id,
+      custom_list_item_id,
+      part_id,
+      quantity,
+      created_at,
+      parts (
+        codigo,
+        name,
+        descricao
+      )
+    `)
+    .eq('id', data.id)
+    .single();
+
+  if (fetchError) {
+    console.error('Error fetching newly added relation with part details:', fetchError);
+    throw new Error(`Erro ao buscar detalhes da nova relação: ${fetchError.message}`);
+  }
+
+  return {
+    id: fetchedRelation.id,
+    custom_list_item_id: fetchedRelation.custom_list_item_id,
+    part_id: fetchedRelation.part_id,
+    quantity: fetchedRelation.quantity,
+    created_at: fetchedRelation.created_at ? new Date(fetchedRelation.created_at) : undefined,
+    part_codigo: fetchedRelation.parts?.codigo,
+    part_name: fetchedRelation.parts?.name,
+    part_descricao: fetchedRelation.parts?.descricao,
+  } as CustomListItemRelation;
+};
+
+export const deleteCustomListItemRelation = async (relationId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('custom_list_item_relations')
+    .delete()
+    .eq('id', relationId);
+
+  if (error) {
+    console.error('Error deleting custom list item relation:', error);
+    throw new Error(`Erro ao excluir relação do item da lista: ${error.message}`);
   }
 };
 

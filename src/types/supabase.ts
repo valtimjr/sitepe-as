@@ -55,6 +55,18 @@ export interface CustomListItem {
   list_title?: string; // Adicionado para hover card de itens relacionados
 }
 
+export interface CustomListItemRelation {
+  id: string;
+  custom_list_item_id: string;
+  part_id: string;
+  quantity: number;
+  created_at?: Date;
+  // Campos adicionais para exibição (não do DB diretamente, mas join)
+  part_codigo?: string;
+  part_name?: string;
+  part_descricao?: string;
+}
+
 export interface MenuItem {
   id: string;
   parent_id: string | null;
