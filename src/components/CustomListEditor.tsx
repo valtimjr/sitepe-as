@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Link as LinkIcon } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Link as LinkIcon, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part, CustomListItemRelation } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, getCustomListItemRelations, addCustomListItemRelation, deleteCustomListItemRelation } from '@/services/customListService';
@@ -47,7 +47,7 @@ interface PartRelationFormState {
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved }) => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isMainItemDialogOpen, setIsMainItemDialogOpen] = useState(false); // Renomeado para clareza
   const [currentEditItem, setCurrentEditItem] = useState<CustomListItem | null>(null);
   
   // Form states for main item
@@ -63,9 +63,9 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null);
 
-  // Item Relations states
+  // Item Relations states (agora dentro do contexto do modal principal)
   const [itemRelations, setItemRelations] = useState<CustomListItemRelation[]>([]);
-  const [isRelationModalOpen, setIsRelationModalOpen] = useState(false);
+  const [isRelationModalOpen, setIsRelationModalOpen] = useState(false); // Modal aninhado
   const [partsForNewRelation, setPartsForNewRelation] = useState<PartRelationFormState[]>([]);
   const [isSavingRelations, setIsSavingRelations] = useState(false);
 
@@ -135,7 +135,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         } else {
           setSelectedPartFromSearch(null);
         }
-        setIsDialogOpen(true);
+        setIsMainItemDialogOpen(true);
         loadItemRelations(editingItem.id); // Carrega as relações para o item em edição
       } else {
         resetForm();
@@ -178,7 +178,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const handleAdd = () => {
     resetForm();
-    setIsDialogOpen(true);
+    setIsMainItemDialogOpen(true);
   };
 
   const handleEdit = (item: CustomListItem) => {
@@ -189,7 +189,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setFormQuantity(item.quantity);
     setSearchQuery('');
     setSearchResults([]);
-    setIsDialogOpen(true);
+    setIsMainItemDialogOpen(true);
     loadItemRelations(item.id); // Carrega as relações para o item em edição
   };
 
@@ -238,7 +238,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         showSuccess('Item adicionado com sucesso!');
       }
       
-      setIsDialogOpen(false);
+      setIsMainItemDialogOpen(false);
       loadItems();
       onItemSaved();
     } catch (error) {
@@ -430,7 +430,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   // --- Item Relations Handlers ---
   const handleAddRelationClick = () => {
     if (!currentEditItem) {
-      showError('Selecione ou crie um item primeiro para adicionar relações.');
+      showError('Nenhum item selecionado para adicionar relações.');
       return;
     }
     setPartsForNewRelation([{ id: uuidv4(), selectedPart: null, searchQuery: '', searchResults: [], quantity: 1, isLoadingSearch: false }]);
@@ -452,7 +452,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       const results = await searchPartsService(query);
       setPartsForNewRelation(prev => prev.map(field => field.id === fieldId ? { ...field, searchResults: results, isLoadingSearch: false } : field));
     }, 300);
-    // Limpar timeout anterior se a query mudar rapidamente
     return () => clearTimeout(handler);
   };
 
@@ -520,6 +519,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
+        {/* Linha 1: Botões de Ação Rápida (Voltar e Adicionar Item) */}
         <div className="flex justify-between items-center">
           <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Voltar
@@ -529,10 +529,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           </Button>
         </div>
         
+        {/* Linha 2: Título da Lista (Centralizado) */}
         <CardTitle className="text-2xl font-bold text-center pt-2">
           {list.title}
         </CardTitle>
         
+        {/* Linha 3: Botões de Exportação/Cópia */}
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -693,8 +695,9 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         )}
       </CardContent>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+      {/* Modal Principal para Adicionar/Editar Item */}
+      <Dialog open={isMainItemDialogOpen} onOpenChange={setIsMainItemDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow */}
           <DialogHeader>
             <DialogTitle>{currentEditItem ? 'Editar Item' : 'Adicionar Novo Item'}</DialogTitle>
           </DialogHeader>
@@ -777,7 +780,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setIsMainItemDialogOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
               <Button type="submit">
@@ -785,77 +788,76 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               </Button>
             </DialogFooter>
           </form>
+
+          {/* Seção de Relações de Itens (visível apenas ao editar um item existente) */}
+          {currentEditItem && (
+            <div className="mt-6 border-t pt-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <LinkIcon className="h-5 w-5" /> Relações de Peças
+                </h3>
+                <Button onClick={handleAddRelationClick} className="flex items-center gap-2" size="sm">
+                  <PlusCircle className="h-4 w-4" /> Adicionar
+                </Button>
+              </div>
+              
+              {itemRelations.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-2">Nenhuma relação adicionada a este item.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[4rem]">Qtd</TableHead>
+                        <TableHead>Peça Relacionada</TableHead>
+                        <TableHead className="w-[80px] text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {itemRelations.map(relation => (
+                        <TableRow key={relation.id}>
+                          <TableCell className="font-medium">{relation.quantity}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-sm text-primary">{relation.part_codigo}</span>
+                              <span className="text-xs text-muted-foreground">{relation.part_name || relation.part_descricao || 'N/A'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta ação irá remover a relação com a peça "{relation.part_codigo}". Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteRelation(relation.id)}>Excluir</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
-      {/* Seção de Relações de Itens */}
-      {currentEditItem && (
-        <Card className="w-full mt-8">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xl font-bold flex items-center gap-2">
-              <LinkIcon className="h-5 w-5" /> Relações de Itens
-            </CardTitle>
-            <Button onClick={handleAddRelationClick} className="flex items-center gap-2">
-              <PlusCircle className="h-4 w-4" /> Adicionar Relação
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {itemRelations.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">Nenhuma relação adicionada a este item.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[4rem]">Qtd</TableHead>
-                      <TableHead>Peça Relacionada</TableHead>
-                      <TableHead className="w-[80px] text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {itemRelations.map(relation => (
-                      <TableRow key={relation.id}>
-                        <TableCell className="font-medium">{relation.quantity}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium text-sm text-primary">{relation.part_codigo}</span>
-                            <span className="text-xs text-muted-foreground">{relation.part_name || relation.part_descricao || 'N/A'}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta ação irá remover a relação com a peça "{relation.part_codigo}". Esta ação não pode ser desfeita.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteRelation(relation.id)}>Excluir</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Modal para Adicionar Relações */}
+      {/* Modal Aninhado para Adicionar Múltiplas Relações */}
       <Dialog open={isRelationModalOpen} onOpenChange={setIsRelationModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow */}
           <DialogHeader>
             <DialogTitle>Adicionar Relações ao Item</DialogTitle>
           </DialogHeader>
