@@ -481,9 +481,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                     onDragEnd={handleDragEnd}
                     data-id={item.id}
                     className="relative"
-                  >
-                    <TableCell className="w-[40px] p-2 cursor-grab">
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
+                  ><TableCell className="w-[40px] p-2 cursor-grab">
+                      <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle */}
                     </TableCell>
                     
                     {editingItemId === item.id && !isMobile ? ( // Inline edit only on desktop

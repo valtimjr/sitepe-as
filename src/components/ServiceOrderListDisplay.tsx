@@ -516,8 +516,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         onDragLeave={handleDragLeave}
                         onDragEnd={handleDragEnd}
                         data-id={group.id}
-                      >
-                        <TableCell className="w-[40px] p-2 cursor-grab">
+                      ><TableCell className="w-[40px] p-2 cursor-grab">
                           <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </TableCell>
                         {/* Célula única que abrange as colunas do botão de ordenação, Peça e Qtd */}

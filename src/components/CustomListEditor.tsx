@@ -426,8 +426,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
                     onDragEnd={handleDragEnd}
                     data-id={item.id}
                     className="relative"
-                  >
-                    <TableCell className="w-[40px] p-2 cursor-grab">
+                  ><TableCell className="w-[40px] p-2 cursor-grab">
                       <GripVertical className="h-4 w-4 text-muted-foreground" />
                     </TableCell>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
