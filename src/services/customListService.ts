@@ -58,46 +58,84 @@ export const getRelatedCustomListItems = async (
 ): Promise<CustomListItem[]> => {
   console.log('getRelatedCustomListItems: Called with:', { partCode, itemName, excludeItemId, excludeListId });
 
-  let query = supabase
-    .from('custom_list_items')
-    .select('*, custom_lists(title)') // Seleciona itens e o título da lista pai
-    .neq('id', excludeItemId) // Exclui o item original
-    .neq('list_id', excludeListId) // Exclui itens da mesma lista
-    .limit(5); // Limita o número de resultados para não sobrecarregar
+  let relatedItemIdsFromRelations: string[] = [];
+  let partIdsToSearch: string[] = [];
 
+  // Step 1: If partCode is provided, find its corresponding part_id from the 'parts' table.
+  if (partCode) {
+    const { data: partData, error: partError } = await supabase
+      .from('parts')
+      .select('id')
+      .eq('codigo', partCode)
+      .limit(1); // Assuming part_code is unique or we only care about one match
+
+    if (partError && partError.code !== 'PGRST116') {
+      console.error('getRelatedCustomListItems: Error fetching part ID for partCode:', partError);
+    } else if (partData && partData.length > 0) {
+      partIdsToSearch.push(partData[0].id);
+      console.log('getRelatedCustomListItems: Found part_id for partCode:', partData[0].id);
+    }
+  }
+
+  // Step 2: If we have part_ids, find custom_list_item_ids from custom_list_item_relations
+  if (partIdsToSearch.length > 0) {
+    const { data: relationsData, error: relationsError } = await supabase
+      .from('custom_list_item_relations')
+      .select('custom_list_item_id')
+      .in('part_id', partIdsToSearch);
+
+    if (relationsError) {
+      console.error('getRelatedCustomListItems: Error fetching custom_list_item_ids from relations:', relationsError);
+    } else if (relationsData && relationsData.length > 0) {
+      relatedItemIdsFromRelations = relationsData.map(r => r.custom_list_item_id);
+      console.log('getRelatedCustomListItems: Found related custom_list_item_ids from relations:', relatedItemIdsFromRelations);
+    }
+  }
+
+  // Step 3: Build the main query for custom_list_items
   let queryConditions: string[] = [];
 
+  // Condition A: Direct match on custom_list_items.part_code
   if (partCode) {
     queryConditions.push(`part_code.eq.${partCode}`);
   }
-  // Adiciona item_name à busca se for diferente do partCode (para evitar redundância)
-  // ou se partCode for nulo (item_name é a única forma de busca)
-  if (itemName && (itemName !== partCode || !partCode)) {
+  // Condition B: Fuzzy match on custom_list_items.item_name
+  if (itemName) {
     queryConditions.push(`item_name.ilike.%${itemName}%`);
   }
-
-  if (queryConditions.length > 0) {
-    console.log('getRelatedCustomListItems: Building query with OR conditions:', queryConditions.join(','));
-    query = query.or(queryConditions.join(','));
-  } else {
-    console.log('getRelatedCustomListItems: No valid search criteria, returning empty array.');
-    return []; // No search criteria
+  // Condition C: Match by custom_list_item_id found via relations
+  if (relatedItemIdsFromRelations.length > 0) {
+    queryConditions.push(`id.in.(${relatedItemIdsFromRelations.join(',')})`);
   }
 
-  const { data, error } = await query;
+  if (queryConditions.length === 0) {
+    console.log('getRelatedCustomListItems: No valid search criteria after all steps, returning empty array.');
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('custom_list_items')
+    .select('*, custom_lists(title)')
+    .or(queryConditions.join(',')) // Combine all conditions with OR
+    .neq('id', excludeItemId) // Exclude the original item
+    .neq('list_id', excludeListId) // Exclude items from the same list
+    .limit(5); // Limit the number of results
 
   if (error) {
-    console.error('getRelatedCustomListItems: Error fetching related custom list items:', error);
+    console.error('getRelatedCustomListItems: Error fetching final related custom list items:', error);
     return [];
   }
 
   console.log('getRelatedCustomListItems: Raw data from Supabase:', data);
 
-  // Mapeia os dados para incluir o título da lista pai diretamente no objeto do item
-  return data.map(item => ({
+  // Deduplicate results if any item was matched by multiple conditions
+  const uniqueItemsMap = new Map<string, CustomListItem>();
+  data.forEach(item => uniqueItemsMap.set(item.id, {
     ...item,
     list_title: item.custom_lists?.title || 'Lista Desconhecida'
-  })) as CustomListItem[];
+  }));
+
+  return Array.from(uniqueItemsMap.values());
 };
 
 
