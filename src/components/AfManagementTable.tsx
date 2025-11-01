@@ -363,11 +363,11 @@ const AfManagementTable: React.FC = () => {
         showSuccess(`${dataToExport.length} AFs selecionados exportados para CSV com sucesso!`);
       } else {
         dataToExport = await getAllAfsForExport();
-        if (dataToExport.length === 0) {
+        if (dataToToExport.length === 0) {
           showError('Nenhum AF para exportar.');
           return;
         }
-        exportDataAsCsv(dataToExport, 'todos_afs.csv');
+        exportDataAsCsv(dataToToExport, 'todos_afs.csv');
         showSuccess('Todos os AFs exportados para CSV com sucesso!');
       }
     } catch (error) {

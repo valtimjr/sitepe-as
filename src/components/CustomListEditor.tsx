@@ -57,20 +57,52 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
   // Drag and Drop states
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
 
+  const loadItems = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const fetchedItems = await getCustomListItems(list.id);
+      setItems(fetchedItems);
+    } catch (error) {
+      showError('Erro ao carregar itens da lista.');
+      console.error('Failed to load custom list items:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [list.id]);
+
+  const loadParts = useCallback(async () => {
+    setIsLoadingParts(true);
+    try {
+      const parts = await getParts();
+      setAllAvailableParts(parts);
+    } catch (error) {
+      console.error('Failed to load all parts:', error);
+    } finally {
+      setIsLoadingParts(false);
+    }
+  }, []);
+
   // Effect to load items and parts, and restore dialog state from localStorage
   useEffect(() => {
-    const loadDataAndRestoreState = async () => {
-      setIsLoading(true);
-      try {
-        const fetchedItems = await getCustomListItems(list.id);
-        setItems(fetchedItems);
+    const initializeComponent = async () => {
+      setIsLoading(true); // Start loading for items
+      setIsLoadingParts(true); // Start loading for parts
 
-        // Restore dialog state
+      try {
+        // Load items first
+        const fetchedItems = await getCustomListItems(list.id);
+        setItems(fetchedItems); // Update state
+
+        // Then load all available parts
+        const parts = await getParts();
+        setAllAvailableParts(parts); // Update state
+
+        // Now, restore dialog state using the freshly fetched items
         const savedIsDialogOpen = localStorage.getItem(CUSTOM_LIST_ITEM_DIALOG_OPEN_KEY) === 'true';
         const savedEditingItemId = localStorage.getItem(EDITING_CUSTOM_LIST_ITEM_ID_KEY);
         const savedListId = localStorage.getItem(EDITING_CUSTOM_LIST_ID_KEY);
 
-        if (savedIsDialogOpen && savedListId === list.id) { // Only restore if it's for the current list
+        if (savedIsDialogOpen && savedListId === list.id) {
           setIsDialogOpen(true);
           if (savedEditingItemId && savedEditingItemId !== 'new') {
             const itemToEdit = fetchedItems.find(i => i.id === savedEditingItemId);
@@ -88,7 +120,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
               setIsDialogOpen(false);
             }
           } else if (savedEditingItemId === 'new') {
-            // Restore 'add new item' state
             setCurrentEditItem(null);
             setFormItemName('');
             setFormPartCode('');
@@ -97,16 +128,17 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
           }
         }
       } catch (error) {
-        showError('Erro ao carregar itens da lista.');
-        console.error('Failed to load custom list items:', error);
+        showError('Erro ao carregar dados da lista ou peças.');
+        console.error('Failed to load initial data:', error);
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Finish loading for items
+        setIsLoadingParts(false); // Finish loading for parts
       }
     };
 
-    loadDataAndRestoreState();
-    loadParts(); // Load parts regardless of dialog state
-  }, [list.id, loadParts]); // Depend on list.id and loadParts
+    initializeComponent();
+  }, [list.id]); // Dependencies: only list.id, as all other functions are setters or stable imports.
+
 
   useEffect(() => {
     const fetchSearchResults = async () => {
@@ -623,13 +655,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
       </Dialog>
     </Card>
   );
-};
-
-// Helper para verificar se um item tem filhos (usado para desabilitar link de lista)
-const hasChildren = (item: MenuItem | null) => {
-  if (!item) return false;
-  // Esta é uma verificação heurística baseada no estado atual da hierarquia
-  return item.children && item.children.length > 0;
 };
 
 export default CustomListEditor;

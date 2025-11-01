@@ -438,7 +438,7 @@ const PartManagementTable: React.FC = () => {
           showError('Nenhuma peça para exportar.');
           return;
         }
-        exportDataAsCsv(dataToToExport, 'todas_pecas.csv');
+        exportDataAsCsv(dataToExport, 'todas_pecas.csv');
         showSuccess('Todos as peças exportadas para CSV com sucesso!');
       }
     } catch (error) {
