@@ -404,15 +404,18 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
         ) : (
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader><TableRow>
+              <TableHeader>
+                <TableRow>
                   <TableHead className="w-[40px] p-2">
                     <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Ícone para drag handle */}
                   </TableHead>
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
                   <TableHead className="w-[120px] p-2 text-right">Ações</TableHead> {/* Aumentado para acomodar 4 botões */}
-                </TableRow></TableHeader>
-              <TableBody>{items.map((item, index) => (
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item, index) => (
                   <TableRow 
                     key={item.id}
                     draggable // Habilita o arrastar
@@ -487,7 +490,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
                               <AlertDialogDescription>
                                 Esta ação irá remover o item "{item.item_name}" da lista. Esta ação não pode ser desfeita.
                               </AlertDialogDescription>
-                            </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancelar</AlertDialogCancel>
