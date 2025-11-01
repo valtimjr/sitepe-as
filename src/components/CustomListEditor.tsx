@@ -487,6 +487,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose }) =>
                               <AlertDialogDescription>
                                 Esta ação irá remover o item "{item.item_name}" da lista. Esta ação não pode ser desfeita.
                               </AlertDialogDescription>
+                            </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancelar</AlertDialogCancel>
