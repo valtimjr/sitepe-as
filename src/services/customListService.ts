@@ -56,6 +56,8 @@ export const getRelatedCustomListItems = async (
   excludeItemId: string,
   excludeListId: string
 ): Promise<CustomListItem[]> => {
+  console.log('getRelatedCustomListItems: Called with:', { partCode, itemName, excludeItemId, excludeListId });
+
   let query = supabase
     .from('custom_list_items')
     .select('*, custom_lists(title)') // Seleciona itens e o título da lista pai
@@ -64,18 +66,24 @@ export const getRelatedCustomListItems = async (
     .limit(5); // Limita o número de resultados para não sobrecarregar
 
   if (partCode) {
+    console.log('getRelatedCustomListItems: Querying by part_code:', partCode);
     query = query.eq('part_code', partCode);
-  } else {
-    // Se não houver part_code, tenta buscar por item_name
+  } else if (itemName) { // Only query by itemName if partCode is null
+    console.log('getRelatedCustomListItems: Querying by item_name (ilike):', itemName);
     query = query.ilike('item_name', `%${itemName}%`);
+  } else {
+    console.log('getRelatedCustomListItems: No partCode or itemName to query by, returning empty array.');
+    return []; // No search criteria
   }
 
   const { data, error } = await query;
 
   if (error) {
-    console.error('Error fetching related custom list items:', error);
+    console.error('getRelatedCustomListItems: Error fetching related custom list items:', error);
     return [];
   }
+
+  console.log('getRelatedCustomListItems: Raw data from Supabase:', data);
 
   // Mapeia os dados para incluir o título da lista pai diretamente no objeto do item
   return data.map(item => ({

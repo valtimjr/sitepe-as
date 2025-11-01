@@ -34,19 +34,27 @@ const RelatedItemsHoverCard: React.FC<RelatedItemsHoverCardProps> = ({
   const [isOpen, setIsOpen] = useState(false);
 
   const fetchRelated = useCallback(async () => {
-    if (!partCode && !itemName) return; // Não busca se não houver identificador
+    console.log('RelatedItemsHoverCard: fetchRelated called. isOpen:', isOpen);
+    console.log('RelatedItemsHoverCard: Props - partCode:', partCode, 'itemName:', itemName, 'excludeItemId:', excludeItemId, 'excludeListId:', excludeListId);
+
+    if (!partCode && !itemName) {
+      console.log('RelatedItemsHoverCard: No partCode or itemName, skipping fetch.');
+      setRelatedItems([]);
+      return; // Não busca se não houver identificador
+    }
 
     setIsLoading(true);
     try {
       const items = await getRelatedCustomListItems(partCode, itemName, excludeItemId, excludeListId);
+      console.log('RelatedItemsHoverCard: Fetched related items:', items);
       setRelatedItems(items);
     } catch (error) {
-      console.error('Failed to fetch related items:', error);
+      console.error('RelatedItemsHoverCard: Failed to fetch related items:', error);
       showError('Erro ao carregar itens relacionados.');
     } finally {
       setIsLoading(false);
     }
-  }, [partCode, itemName, excludeItemId, excludeListId]);
+  }, [partCode, itemName, excludeItemId, excludeListId, isOpen]);
 
   // Busca os itens relacionados apenas quando o HoverCard é aberto
   useEffect(() => {
@@ -56,6 +64,8 @@ const RelatedItemsHoverCard: React.FC<RelatedItemsHoverCardProps> = ({
       setRelatedItems([]); // Limpa os itens quando o card é fechado
     }
   }, [isOpen, fetchRelated]);
+
+  console.log('RelatedItemsHoverCard: Rendering. relatedItems.length:', relatedItems.length, 'isLoading:', isLoading);
 
   return (
     <HoverCard openDelay={200} closeDelay={100} onOpenChange={setIsOpen}>
