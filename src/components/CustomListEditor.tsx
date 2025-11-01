@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'; // Importar DialogDescription
 import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Link as LinkIcon, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part, CustomListItemRelation } from '@/types/supabase';
@@ -27,6 +27,7 @@ import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import RelatedItemsHoverCard from '@/components/RelatedItemsHoverCard';
+import { v4 as uuidv4 } from 'uuid'; // Importar uuidv4
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -430,7 +431,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   // --- Item Relations Handlers ---
   const handleAddRelationClick = () => {
     if (!currentEditItem) {
-      showError('Nenhum item selecionado para adicionar relações.');
+      showError('Selecione ou crie um item primeiro para adicionar relações.');
       return;
     }
     setPartsForNewRelation([{ id: uuidv4(), selectedPart: null, searchQuery: '', searchResults: [], quantity: 1, isLoadingSearch: false }]);
@@ -452,6 +453,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       const results = await searchPartsService(query);
       setPartsForNewRelation(prev => prev.map(field => field.id === fieldId ? { ...field, searchResults: results, isLoadingSearch: false } : field));
     }, 300);
+    // Limpar timeout anterior se a query mudar rapidamente
     return () => clearTimeout(handler);
   };
 
@@ -519,7 +521,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
-        {/* Linha 1: Botões de Ação Rápida (Voltar e Adicionar Item) */}
         <div className="flex justify-between items-center">
           <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Voltar
@@ -529,12 +530,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           </Button>
         </div>
         
-        {/* Linha 2: Título da Lista (Centralizado) */}
         <CardTitle className="text-2xl font-bold text-center pt-2">
           {list.title}
         </CardTitle>
         
-        {/* Linha 3: Botões de Exportação/Cópia */}
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -697,9 +696,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
       {/* Modal Principal para Adicionar/Editar Item */}
       <Dialog open={isMainItemDialogOpen} onOpenChange={setIsMainItemDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow */}
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{currentEditItem ? 'Editar Item' : 'Adicionar Novo Item'}</DialogTitle>
+            <DialogDescription>
+              {currentEditItem ? 'Edite os detalhes do item da lista.' : 'Adicione um novo item à lista personalizada.'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="space-y-2">
@@ -857,9 +859,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
       {/* Modal Aninhado para Adicionar Múltiplas Relações */}
       <Dialog open={isRelationModalOpen} onOpenChange={setIsRelationModalOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow */}
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Adicionar Relações ao Item</DialogTitle>
+            <DialogDescription>
+              Selecione as peças que estão relacionadas a este item da lista.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSaveRelations} className="grid gap-4 py-4">
             {partsForNewRelation.map((field, index) => (
