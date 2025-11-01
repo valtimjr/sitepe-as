@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'; // Importar DialogDescription
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Link as LinkIcon, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part, CustomListItemRelation } from '@/types/supabase';
@@ -27,7 +27,7 @@ import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import RelatedItemsHoverCard from '@/components/RelatedItemsHoverCard';
-import { v4 as uuidv4 } from 'uuid'; // Importar uuidv4
+import { v4 as uuidv4 } from 'uuid';
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -521,6 +521,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
+        {/* Linha 1: Botões de Ação Rápida (Voltar e Adicionar Item) */}
         <div className="flex justify-between items-center">
           <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Voltar
@@ -530,10 +531,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           </Button>
         </div>
         
+        {/* Linha 2: Título da Lista (Centralizado) */}
         <CardTitle className="text-2xl font-bold text-center pt-2">
           {list.title}
         </CardTitle>
         
+        {/* Linha 3: Botões de Exportação/Cópia */}
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -743,7 +746,9 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                         <Save className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Salvar como nome global da peça</TooltipContent>
+                    <TooltipContent>
+                      Salvar este nome como o nome global da peça "{selectedPartFromSearch.codigo}"
+                    </TooltipContent>
                   </Tooltip>
                 )}
               </div>
