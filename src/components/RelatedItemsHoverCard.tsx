@@ -37,14 +37,15 @@ const RelatedItemsHoverCard: React.FC<RelatedItemsHoverCardProps> = ({
     console.log('RelatedItemsHoverCard: fetchRelated called. isOpen:', isOpen);
     console.log('RelatedItemsHoverCard: Props - partCode:', partCode, 'itemName:', itemName, 'excludeItemId:', excludeItemId, 'excludeListId:', excludeListId);
 
-    if (!partCode && !itemName) {
-      console.log('RelatedItemsHoverCard: No partCode or itemName, skipping fetch.');
+    if (!partCode) { // Apenas verifica partCode, conforme a nova lógica de busca
+      console.log('RelatedItemsHoverCard: No partCode, skipping fetch.');
       setRelatedItems([]);
-      return; // Não busca se não houver identificador
+      return; 
     }
 
     setIsLoading(true);
     try {
+      // Passa itemName, mas a função de serviço agora o ignora para a busca principal
       const items = await getRelatedCustomListItems(partCode, itemName, excludeItemId, excludeListId);
       console.log('RelatedItemsHoverCard: Fetched related items:', items);
       setRelatedItems(items);

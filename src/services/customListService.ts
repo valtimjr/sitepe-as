@@ -66,7 +66,7 @@ export const getRelatedCustomListItems = async (
   let relatedItemIdsFromRelations: string[] = [];
   let partIdsToSearch: string[] = [];
 
-  // Step 1: Find the part_id from the 'parts' table using the provided partCode.
+  // Step 1: If partCode is provided, find its corresponding part_id from the 'parts' table.
   const { data: partData, error: partError } = await supabase
     .from('parts')
     .select('id')
@@ -100,7 +100,7 @@ export const getRelatedCustomListItems = async (
 
   // Condition A: Direct match on custom_list_items.part_code
   queryConditions.push(`part_code.eq.${partCode}`);
-
+  
   // Condition B: Match by custom_list_item_id found via relations (if any)
   if (relatedItemIdsFromRelations.length > 0) {
     queryConditions.push(`id.in.(${relatedItemIdsFromRelations.join(',')})`);
@@ -111,10 +111,13 @@ export const getRelatedCustomListItems = async (
     return [];
   }
 
+  const finalQueryOrString = queryConditions.join(',');
+  console.log('getRelatedCustomListItems: Final Supabase .or() query string:', finalQueryOrString);
+
   const { data, error } = await supabase
     .from('custom_list_items')
     .select('*, custom_lists(title)')
-    .or(queryConditions.join(',')) // Combine all conditions with OR
+    .or(finalQueryOrString) // Combine all conditions with OR
     .neq('id', excludeItemId) // Exclude the original item
     .neq('list_id', excludeListId) // Exclude items from the same list
     .limit(5); // Limit the number of results
