@@ -607,9 +607,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                 <TooltipContent>Opções da Ordem de Serviço</TooltipContent>
                               </Tooltip>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenAddPartForm(group)}>
-                                  <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Nova Peça
-                                </DropdownMenuItem>
+                                {/* REMOVIDO: Botão "Adicionar Nova Peça" foi movido para fora do dropdown */}
                                 <DropdownMenuItem onClick={() => onEditServiceOrder({ 
                                   af: group.af, 
                                   os: group.os, 
@@ -699,17 +697,19 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           </TableCell>
                         </TableRow>
                       ))}
-                      {/* Se não houver peças, mas houver um item em branco (para manter a OS), exibe uma linha de aviso */}
-                      {group.parts.filter(p => p.codigo_peca || p.descricao).length === 0 && (
-                        <TableRow className="text-muted-foreground italic">
-                          <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar */}
-                          <TableCell className="w-[60px] p-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
-                          <TableCell colSpan={2} className="text-center p-2"> {/* colSpan ajustado para 2 */}
-                            Nenhuma peça adicionada a esta OS.
-                          </TableCell>
-                          <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar com Opções */}
-                        </TableRow>
-                      )}
+                      {/* Botão "Adicionar Peça" abaixo da última peça (ou se não houver peças) */}
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleOpenAddPartForm(group)}
+                            className="flex items-center gap-2 mx-auto"
+                          >
+                            <PlusCircle className="h-4 w-4" /> Adicionar Peça
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     </React.Fragment>
                   );
                 })}
