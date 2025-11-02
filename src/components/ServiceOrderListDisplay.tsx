@@ -575,11 +575,11 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[40px] p-2">
+                  <TableHead className="w-[30px] px-1 py-2">
                     <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle header */}
                   </TableHead>
                   {/* Coluna Hora com botão de ordenação (movida para a esquerda) */}
-                  <TableHead className="w-[60px] p-2 text-left"> {/* Alinhado à esquerda para o ícone */}
+                  <TableHead className="w-[50px] px-1 py-2 text-left"> {/* Alinhado à esquerda para o ícone */}
                     <Button 
                       variant="ghost" 
                       size="icon" // Alterado para size="icon"
@@ -592,11 +592,11 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                     </Button>
                   </TableHead>
                   {/* Coluna Peça (ocupa a maior parte do espaço) */}
-                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça</TableHead>
+                  <TableHead className="w-auto whitespace-normal break-words px-1 py-2">Peça</TableHead>
                   {/* Coluna Qtd com largura fixa */}
-                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                  <TableHead className="w-[3rem] px-1 py-2">Qtd</TableHead>
                   {/* Coluna Opções (alinhada à direita) */}
-                  <TableHead className="w-[80px] p-2 text-right">Opções</TableHead>
+                  <TableHead className="w-[70px] px-1 py-2 text-right">Opções</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -624,7 +624,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         onDragLeave={handleDragLeave}
                         onDragEnd={handleDragEnd}
                         data-id={group.id}
-                      ><TableCell className="w-[40px] p-2 cursor-grab">
+                      ><TableCell className="w-[30px] px-1 py-2 cursor-grab">
                           <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </TableCell>
                         {/* Célula única que abrange as colunas do botão de ordenação, Peça e Qtd */}
@@ -701,19 +701,19 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                       {/* Linhas de Peças */}
                       {group.parts.map((part, partIndex) => (
                         <TableRow key={part.id} className={isEditingThisServiceOrder ? 'bg-accent/10' : ''}>
-                          <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar com o drag handle */}
-                          <TableCell className="w-[70px] p-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
-                          <TableCell className="w-auto whitespace-normal break-words p-2">
+                          <TableCell className="w-[30px] px-1 py-2"></TableCell> {/* Célula vazia para alinhar com o drag handle */}
+                          <TableCell className="w-[50px] px-1 py-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
+                          <TableCell className="w-auto whitespace-normal break-words px-1 py-2">
                             <span className="text-sm">
                               {part.codigo_peca && part.descricao 
                                 ? `${part.codigo_peca} - ${part.descricao}` 
                                 : part.codigo_peca || part.descricao || 'Item sem descrição'}
                             </span>
                           </TableCell>
-                          <TableCell className="w-[4rem] p-2">{part.quantidade ?? ''}</TableCell>
+                          <TableCell className="w-[3rem] px-1 py-2">{part.quantidade ?? ''}</TableCell>
                           
                           {/* Célula de Ações para a Peça (alinhada com a coluna Opções) */}
-                          <TableCell className="w-[80px] p-2 text-right">
+                          <TableCell className="w-[70px] px-1 py-2 text-right">
                             <div className="flex justify-end items-center gap-1">
                               <Tooltip>
                                 <TooltipTrigger asChild>
