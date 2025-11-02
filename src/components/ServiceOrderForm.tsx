@@ -511,8 +511,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   isLoading={isLoadingParts}
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Agrupado para layout lado a lado */}
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Alterado para md:grid-cols-3 */}
+                <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
                   <Label htmlFor="codigo_peca">Código da Peça</Label>
                   <Input
                     id="codigo_peca"
@@ -523,7 +523,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                     className="bg-muted"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2"> {/* Nome da Peça: maior */}
                   <Label htmlFor="name">Nome da Peça</Label>
                   <Input
                     id="name"
@@ -535,8 +535,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Agrupado para layout lado a lado */}
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Alterado para md:grid-cols-3 */}
+                <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
                   <Label htmlFor="descricao">Descrição</Label>
                   <Input
                     id="descricao"
@@ -547,7 +547,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                     className="bg-muted"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-1"> {/* Quantidade: menor */}
                   <Label htmlFor="quantidade">Quantidade</Label>
                   <Input
                     id="quantidade"
