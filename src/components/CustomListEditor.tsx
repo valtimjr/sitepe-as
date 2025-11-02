@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea'; // Importar Textarea
+import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -67,6 +68,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   // Drag and Drop states
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
+
+  const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
   const loadItems = useCallback(async () => {
     setIsLoading(true);
@@ -548,11 +551,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[40px] p-2">
+                  <TableHead className="w-[30px] p-2"> {/* Ajustado para 30px */}
                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                   </TableHead>
-                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                  <TableHead className="w-[3rem] p-2">Qtd</TableHead> {/* Ajustado para 3rem */}
                   <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                  <TableHead className="w-[70px] p-2 text-right">Ações</TableHead> {/* Ajustado para 70px */}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -567,12 +571,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                     onDragEnd={handleDragEnd}
                     data-id={item.id}
                     className="relative"
-                  ><TableCell className="w-[40px] p-2 cursor-grab">
+                  ><TableCell className="w-[30px] p-2 cursor-grab"> {/* Ajustado para 30px */}
                       <GripVertical className="h-4 w-4 text-muted-foreground" />
                     </TableCell>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
                     <TableCell className="w-auto whitespace-normal break-words p-2">
-                        <div className="flex flex-col">
+                        <div className="flex flex-col items-start">
                           {item.part_code && (
                             <span className="font-medium text-sm text-primary">{item.part_code}</span>
                           )}
@@ -597,8 +601,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                           )}
                         </div>
                     </TableCell>
-                    <TableCell className="w-[120px] p-2 text-right">
-                      <div className="flex justify-end items-center gap-1">
+                    <TableCell className="w-[70px] p-2 text-right"> {/* Ajustado para 70px */}
+                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1"> {/* Empilha verticalmente em mobile */}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button 
