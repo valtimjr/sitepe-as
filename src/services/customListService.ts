@@ -54,9 +54,12 @@ export const getRelatedCustomListItems = async (
   partCode: string | null,
   itemName: string, // Este parâmetro não será mais usado para a busca, mas mantido na assinatura.
   excludeItemId: string,
-  excludeListId: string
+  excludeListId: string // Este parâmetro será ignorado para filtrar por list_id, conforme solicitado
 ): Promise<CustomListItem[]> => {
+  console.log('getRelatedCustomListItems: Called with:', { partCode, itemName, excludeItemId, excludeListId });
+
   if (!partCode) {
+    console.log('getRelatedCustomListItems: No partCode, returning empty array.');
     return [];
   }
 
@@ -74,6 +77,9 @@ export const getRelatedCustomListItems = async (
     console.error('getRelatedCustomListItems: Error fetching part ID for partCode:', partError);
   } else if (partData && partData.length > 0) {
     partIdsToSearch.push(partData[0].id);
+    console.log('getRelatedCustomListItems: Found part_id for partCode:', partData[0].id);
+  } else {
+    console.log('getRelatedCustomListItems: No part_id found for partCode:', partCode);
   }
 
   // Step 2: If we have part_ids, find custom_list_item_ids from custom_list_item_relations
@@ -87,6 +93,9 @@ export const getRelatedCustomListItems = async (
       console.error('getRelatedCustomListItems: Error fetching custom_list_item_ids from relations:', relationsError);
     } else if (relationsData && relationsData.length > 0) {
       relatedItemIdsFromRelations = relationsData.map(r => r.custom_list_item_id);
+      console.log('getRelatedCustomListItems: Found relatedItemIdsFromRelations:', relatedItemIdsFromRelations);
+    } else {
+      console.log('getRelatedCustomListItems: No custom_list_item_ids found in relations for part_id(s):', partIdsToSearch);
     }
   }
 
@@ -102,23 +111,27 @@ export const getRelatedCustomListItems = async (
   }
 
   if (queryConditions.length === 0) {
+    console.log('getRelatedCustomListItems: No query conditions generated.');
     return [];
   }
 
   const finalQueryOrString = queryConditions.join(',');
+  console.log('getRelatedCustomListItems: Final Supabase .or() query string:', finalQueryOrString);
 
   const { data, error } = await supabase
     .from('custom_list_items')
     .select('*, custom_lists(title)')
     .or(finalQueryOrString) // Combine all conditions with OR
-    .neq('id', excludeItemId) // Exclude the original item
-    .neq('list_id', excludeListId) // Exclude items from the same list
+    .neq('id', excludeItemId) // Exclude the original item itself
+    // Removed .neq('list_id', excludeListId) to show items from the same list, as requested
     .limit(5); // Limit the number of results
 
   if (error) {
     console.error('getRelatedCustomListItems: Error fetching final related custom list items:', error);
     return [];
   }
+
+  console.log('getRelatedCustomListItems: Raw data from Supabase:', data);
 
   // Deduplicate results if any item was matched by multiple conditions
   const uniqueItemsMap = new Map<string, CustomListItem>();
