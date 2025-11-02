@@ -648,52 +648,53 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                               )}
                             </div>
                             
-                            {/* DropdownMenu (Lado Direito, alinhado com a coluna Opções) */}
-                            <DropdownMenu>
+                            {/* Botões de Ação (Lado Direito, alinhado com a coluna Opções) */}
+                            <div className="flex items-center gap-1 shrink-0">
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                                      <MoreVertical className="h-4 w-4 text-muted-foreground" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => onEditServiceOrder({ 
+                                      af: group.af, 
+                                      os: group.os, 
+                                      hora_inicio: group.hora_inicio, 
+                                      hora_final: group.hora_final, 
+                                      servico_executado: group.servico_executado,
+                                      createdAt: group.createdAt,
+                                      mode: 'edit-so-details'
+                                    })}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Opções da Ordem de Serviço</TooltipContent>
+                                <TooltipContent>Editar Detalhes da OS</TooltipContent>
                               </Tooltip>
-                              <DropdownMenuContent align="end">
-                                {/* REMOVIDO: Botão "Adicionar Nova Peça" foi movido para fora do dropdown */}
-                                <DropdownMenuItem onClick={() => onEditServiceOrder({ 
-                                  af: group.af, 
-                                  os: group.os, 
-                                  hora_inicio: group.hora_inicio, 
-                                  hora_final: group.hora_final, 
-                                  servico_executado: group.servico_executado,
-                                  createdAt: group.createdAt,
-                                  mode: 'edit-so-details' // Passa o modo correto
-                                })}>
-                                  <Pencil className="mr-2 h-4 w-4" /> Editar Detalhes da OS
-                                </DropdownMenuItem>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                                      <Trash2 className="mr-2 h-4 w-4" /> Excluir Ordem de Serviço
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Esta ação irá remover TODOS os itens da Ordem de Serviço AF: {group.af}{group.os ? `, OS: ${group.os}` : ''}. Esta ação não pode ser desfeita.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDeleteServiceOrder(group)}>Excluir OS</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                              <AlertDialog>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="text-destructive">
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Excluir Ordem de Serviço</TooltipContent>
+                                </Tooltip>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta ação irá remover TODOS os itens da Ordem de Serviço AF: {group.af}{group.os ? `, OS: ${group.os}` : ''}. Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteServiceOrder(group)}>Excluir OS</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </div>
                         </TableCell>
                       </TableRow>
