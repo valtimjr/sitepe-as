@@ -29,7 +29,7 @@ const CustomListPage: React.FC = () => {
   const [itemToEdit, setItemToEdit] = useState<CustomListItem | null>(null);
 
   // Estados para seleção e exportação
-  const [selectedItemIds, setSelectedItemIds] = new Set());
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [afForExport, setAfForExport] = useState('');
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
