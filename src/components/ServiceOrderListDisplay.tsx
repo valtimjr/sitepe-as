@@ -489,80 +489,82 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           <CardTitle className="text-2xl font-bold mb-2 sm:mb-0">Lista de Ordens de Serviço</CardTitle>
         </div>
       </CardHeader>
-      <div className="flex flex-row flex-wrap items-center justify-end gap-2 p-4 pt-0"> {/* Alterado para flex-row e items-center */}
+      <div className="flex flex-col sm:flex-row flex-wrap items-center justify-end gap-2 p-4 pt-0"> {/* Alterado para flex-col em mobile */}
           {/* Botão "Iniciar Nova Ordem de Serviço" */}
           <Button 
             onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
-            className="flex items-center gap-2 w-full flex-1 sm:w-auto sm:mr-auto" // Adicionado flex-1
+            className="flex items-center gap-2 w-full sm:flex-grow" // w-full para mobile, sm:flex-grow para desktop
           >
             <FilePlus className="h-4 w-4" /> Iniciar Nova OS
           </Button>
-          <Button 
-            onClick={handleCopyList} 
-            disabled={groupedServiceOrders.length === 0 || isLoading} 
-            className="flex-none sm:w-auto sm:px-4 bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground" // Alterado para flex-none
-          >
-            <Copy className="h-4 w-4" /> 
-            <span className="hidden sm:inline ml-2">Copiar Lista</span>
-          </Button>
-          <Button 
-            onClick={handleShareOnWhatsApp} 
-            disabled={groupedServiceOrders.length === 0 || isLoading} 
-            variant="ghost" 
-            className="h-10 w-10 p-0 rounded-full" 
-            aria-label="Compartilhar no WhatsApp" 
-          >
-            <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
-          </Button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                onClick={handleExportPdf} 
-                disabled={groupedServiceOrders.length === 0 || isLoading} 
-                variant={isMobile ? "ghost" : "default"} // Ghost para mobile, default para desktop
-                size={isMobile ? "icon" : undefined} // Icon size para mobile, undefined para desktop
-                className={cn(
-                  "flex items-center gap-2",
-                  isMobile ? "h-10 w-10 p-0" : "" // Tamanho para mobile
-                )}
-              >
-                {isMobile ? (
-                  <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-10 w-10" />
-                ) : (
-                  <>
-                    <FileDown className="h-4 w-4" /> 
-                    {"Exportar PDF"}
-                  </>
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Exportar PDF</TooltipContent>
-          </Tooltip>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button 
-                variant="destructive" 
-                disabled={groupedServiceOrders.length === 0 || isLoading} 
-                size="icon"
-                className="flex-none sm:w-auto sm:px-4" // Alterado para flex-none
-              >
-                <Trash2 className="h-4 w-4" /> 
-                <span className="hidden sm:inline ml-2">Limpar Lista</span>
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta ação irá remover todos os itens da sua lista de ordens de serviço. Esta ação não pode ser desfeita.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearList}>Limpar</AlertDialogAction>
-              </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          <div className="flex flex-row flex-wrap items-center justify-end gap-2 w-full sm:w-auto"> {/* Novo container para os outros botões */}
+            <Button 
+              onClick={handleCopyList} 
+              disabled={groupedServiceOrders.length === 0 || isLoading} 
+              className="flex-1 sm:w-auto sm:px-4 bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground" // Adicionado flex-1 e estilos
+            >
+              <Copy className="h-4 w-4" /> 
+              <span className="hidden sm:inline ml-2">Copiar Lista</span>
+            </Button>
+            <Button 
+              onClick={handleShareOnWhatsApp} 
+              disabled={groupedServiceOrders.length === 0 || isLoading} 
+              variant="ghost" 
+              className="h-10 w-10 p-0 rounded-full" 
+              aria-label="Compartilhar no WhatsApp" 
+            >
+              <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={handleExportPdf} 
+                  disabled={groupedServiceOrders.length === 0 || isLoading} 
+                  variant={isMobile ? "ghost" : "default"} // Ghost para mobile, default para desktop
+                  size={isMobile ? "icon" : undefined} // Icon size para mobile, undefined para desktop
+                  className={cn(
+                    "flex items-center gap-2",
+                    isMobile ? "h-10 w-10 p-0" : "" // Tamanho para mobile
+                  )}
+                >
+                  {isMobile ? (
+                    <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-10 w-10" />
+                  ) : (
+                    <>
+                      <FileDown className="h-4 w-4" /> 
+                      {"Exportar PDF"}
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Exportar PDF</TooltipContent>
+            </Tooltip>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="destructive" 
+                  disabled={groupedServiceOrders.length === 0 || isLoading} 
+                  size="icon"
+                  className="flex-1 sm:w-auto sm:px-4" // Adicionado flex-1
+                >
+                  <Trash2 className="h-4 w-4" /> 
+                  <span className="hidden sm:inline ml-2">Limpar Lista</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação irá remover todos os itens da sua lista de ordens de serviço. Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearList}>Limpar</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          </div>
         </div>
       <CardContent>
         {isLoading ? (
