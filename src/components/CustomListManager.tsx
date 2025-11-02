@@ -148,7 +148,7 @@ const CustomListManager: React.FC = () => {
                     <TableCell className="font-medium">{list.title}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => handleOpenEditor(list)} className="mr-2">
-                        <FileText className="h-4 w-4" /> Visualizar Itens
+                        <FileText className="h-4 w-4" /> 
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleEditListTitle(list)} className="mr-2">
                         <Edit className="h-4 w-4" />
