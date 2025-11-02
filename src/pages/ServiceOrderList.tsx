@@ -139,7 +139,7 @@ const ServiceOrderList: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-4 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
+      <h1 className="text-4xl font-extrabold mb-4 mt-8 text-center text-primary dark:text-primary flex items-center justify-center gap-3">
         <ClipboardList className="h-8 w-8 text-primary" />
         Lista de Ordens de Serviço
       </h1>
