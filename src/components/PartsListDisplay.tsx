@@ -23,7 +23,6 @@ import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import PartSearchInput from './PartSearchInput';
@@ -202,7 +201,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showError('Erro ao remover item da lista.');
       console.error('PartsListDisplay: Failed to delete item:', error); // NOVO LOG
     }
-  };
+  }, []);
 
   // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: SimplePartItem) => {
@@ -473,7 +472,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       </CardContent>
       <CardContent>
         {orderedItems.length === 0 && !isAddingInline ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione peças para começar!</p>
+          <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione itens para começar!</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -482,7 +481,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   <TableHead className="w-[40px] p-2">
                     <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle header */}
                   </TableHead>
-                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça (Cód. / Descrição / AF)</TableHead>
+                  <TableHead className="w-[calc(100%-168px)] whitespace-normal break-words p-2">Peça (Cód. / Descrição / AF)</TableHead>
                   <TableHead className="w-[3rem] p-2">Qtd</TableHead> {/* Largura ajustada */}
                   <TableHead className="w-[80px] p-2 text-right">Ações</TableHead>
                 </TableRow>
@@ -505,7 +504,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                     
                     {editingItemId === item.id && !isMobile ? ( // Inline edit only on desktop
                       <>
-                        <TableCell className="w-auto whitespace-normal break-words p-2 space-y-1">
+                        <TableCell className="w-[calc(100%-168px)] whitespace-normal break-words p-2 space-y-1">
                           <div className="flex flex-col gap-1">
                             <Label htmlFor={`edit-search-part-${item.id}`} className="sr-only">Buscar Peça</Label>
                             <PartSearchInput
@@ -583,7 +582,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                       </>
                     ) : (
                       <>
-                        <TableCell className="w-auto whitespace-normal break-words p-2">
+                        <TableCell className="w-[calc(100%-168px)] whitespace-normal break-words p-2">
                           <div className="flex flex-col">
                             <span className="font-medium text-sm">{item.codigo_peca || 'N/A'}</span>
                             <span className="text-xs text-muted-foreground">{item.descricao || 'N/A'}</span>
@@ -639,7 +638,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                 {isAddingInline && !isMobile && ( // Inline add only on desktop
                   <TableRow className="bg-accent/10">
                     <TableCell className="w-[40px] p-2"></TableCell>
-                    <TableCell className="w-auto whitespace-normal break-words p-2 space-y-1">
+                    <TableCell className="w-[calc(100%-168px)] whitespace-normal break-words p-2 space-y-1">
                       <div className="flex flex-col gap-1">
                         <Label htmlFor="inline-search-part" className="sr-only">Buscar Peça</Label>
                         <PartSearchInput
