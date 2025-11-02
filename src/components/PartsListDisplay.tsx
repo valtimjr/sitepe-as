@@ -432,7 +432,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   )}
                 >
                   {isMobile ? (
-                    <FileDown className="h-6 w-6" /> // Usar FileDown da Lucide para mobile também
+                    <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-10 w-10" />
                   ) : (
                     <>
                       <FileDown className="h-4 w-4" /> 
