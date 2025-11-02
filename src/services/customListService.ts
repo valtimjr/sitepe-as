@@ -265,6 +265,7 @@ export const createCustomList = async (title: string, userId: string): Promise<C
 };
 
 export const updateCustomList = async (list: CustomList): Promise<void> => {
+  console.log('customListService: updateCustomList - Saving list ID:', list.id, 'with items_data:', list.items_data); // LOG
   const { error } = await supabase
     .from('custom_lists')
     .update({ title: list.title, items_data: list.items_data, updated_at: new Date().toISOString() }) // Inclui updated_at
@@ -300,7 +301,7 @@ export const addCustomListItem = async (listId: string, item: Omit<CustomListIte
     order_index: currentItems.length > 0 ? Math.max(...currentItems.map(i => i.order_index)) + 1 : 0,
     itens_relacionados: item.itens_relacionados || [], // Garante o campo
   };
-  const updatedItems = [...currentItems, newItem]; // Removido .sort()
+  const updatedItems = [...currentItems, newItem];
   
   await updateCustomList({ ...currentList, items_data: updatedItems });
   return newItem;
@@ -312,7 +313,7 @@ export const updateCustomListItem = async (listId: string, item: CustomListItem)
 
   const updatedItems = (currentList.items_data || []).map(existingItem =>
     existingItem.id === item.id ? { ...item, list_id: listId, itens_relacionados: item.itens_relacionados || [] } : existingItem
-  ); // Removido .sort()
+  );
 
   await updateCustomList({ ...currentList, items_data: updatedItems });
 };

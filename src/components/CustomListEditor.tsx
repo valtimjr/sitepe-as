@@ -73,13 +73,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
   const loadItems = useCallback(async () => {
+    if (!list.id) return; // Adicionado para evitar chamadas desnecessárias
     setIsLoading(true);
     try {
       const fetchedItems = await getCustomListItems(list.id);
+      console.log('CustomListEditor: loadItems - Fetched items:', fetchedItems); // LOG
       setItems(fetchedItems);
     } catch (error) {
       showError('Erro ao carregar itens da lista.');
-      console.error('Failed to load custom list items:', error);
+      console.error('CustomListEditor: Failed to load custom list items:', error); // LOG
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +93,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       const parts = await getParts();
       setAllAvailableParts(parts);
     } catch (error) {
-      console.error('Failed to load all parts:', error);
+      console.error('CustomListEditor: Failed to load all parts:', error); // LOG
     } finally {
       setIsLoadingParts(false);
     }
@@ -261,7 +263,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       onItemSaved?.(); // Usando encadeamento opcional
     } catch (error) {
       showError('Erro ao salvar item.');
-      console.error('Failed to save item:', error);
+      console.error('CustomListEditor: Failed to save item:', error); // LOG
     }
   };
 
@@ -273,16 +275,20 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       onItemSaved?.(); // Usando encadeamento opcional
     } catch (error) {
       showError('Erro ao excluir item.');
-      console.error('Failed to delete item:', error);
+      console.error('CustomListEditor: Failed to delete item:', error); // LOG
     }
   };
 
   const handleMoveItem = async (item: CustomListItem, direction: 'up' | 'down') => {
+    console.log('CustomListEditor: handleMoveItem - Initial items:', items); // LOG
     const currentItemsCopy = [...items]; // Usar a cópia do estado atual
     const currentIndex = currentItemsCopy.findIndex(i => i.id === item.id);
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
-    if (targetIndex < 0 || targetIndex >= currentItemsCopy.length) return;
+    if (targetIndex < 0 || targetIndex >= currentItemsCopy.length) {
+      console.log('CustomListEditor: handleMoveItem - Invalid target index, returning.'); // LOG
+      return;
+    }
 
     // Realiza a troca no array local
     const [removed] = currentItemsCopy.splice(currentIndex, 1);
@@ -293,6 +299,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       ...reorderedItem,
       order_index: index,
     }));
+
+    console.log('CustomListEditor: handleMoveItem - Updated items with new order_index:', updatedItemsWithNewOrder); // LOG
+    
+    // Atualiza o estado local imediatamente para feedback visual
+    setItems(updatedItemsWithNewOrder);
 
     const loadingToastId = showLoading('Reordenando itens...');
 
@@ -307,7 +318,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       onItemSaved?.();
     } catch (error) {
       showError('Erro ao reordenar itens.');
-      console.error('Failed to reorder list items:', error);
+      console.error('CustomListEditor: Failed to reorder list items:', error); // LOG
+      // Em caso de erro, você pode querer reverter o estado local aqui
     } finally {
       dismissToast(loadingToastId);
     }
@@ -344,7 +356,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       showSuccess('Lista de peças copiada para a área de transferência!');
     } catch (err) {
       showError('Erro ao copiar a lista. Por favor, tente novamente.');
-      console.error('Failed to copy list items:', err);
+      console.error('CustomListEditor: Failed to copy list items:', err); // LOG
     }
   };
 
@@ -368,6 +380,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: CustomListItem) => {
+    console.log('CustomListEditor: handleDragStart - Dragged item:', item); // LOG
     setDraggedItem(item);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', item.id);
@@ -389,6 +402,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     e.currentTarget.classList.remove('opacity-50');
 
     if (draggedItem && draggedItem.id !== targetItem.id) {
+      console.log('CustomListEditor: handleDrop - Dragged item:', draggedItem); // LOG
+      console.log('CustomListEditor: handleDrop - Target item:', targetItem); // LOG
+      console.log('CustomListEditor: handleDrop - Initial items:', items); // LOG
+
       const currentItemsCopy = [...items]; // Usar a cópia do estado atual
       const draggedIndex = currentItemsCopy.findIndex(item => item.id === draggedItem.id);
       const targetIndex = currentItemsCopy.findIndex(item => item.id === targetItem.id);
@@ -404,6 +421,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           order_index: index,
         }));
         
+        console.log('CustomListEditor: handleDrop - Updated items with new order_index:', updatedItemsWithNewOrder); // LOG
+
         // Atualiza o estado local imediatamente para feedback visual
         setItems(updatedItemsWithNewOrder);
 
@@ -419,7 +438,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           onItemSaved?.();
         } catch (error) {
           showError('Erro ao reordenar itens.');
-          console.error('Failed to persist new order:', error);
+          console.error('CustomListEditor: Failed to persist new order:', error); // LOG
           // Em caso de erro, você pode querer reverter o estado local aqui
         } finally {
           dismissToast(loadingToastId);
@@ -455,7 +474,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       setSelectedPartFromSearch(prev => prev ? { ...prev, name: formItemName.trim() } : null);
     } catch (error) {
       showError('Erro ao atualizar nome global da peça.');
-      console.error('Failed to update global part name:', error);
+      console.error('CustomListEditor: Failed to update global part name:', error); // LOG
     } finally {
       dismissToast(loadingToastId);
     }
