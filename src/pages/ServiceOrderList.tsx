@@ -20,8 +20,9 @@ interface ServiceOrderDetails {
   hora_final?: string;
   servico_executado?: string;
   createdAt?: Date;
-  mode: 'add_part' | 'edit_details' | 'create-new-so'; // Adicionado 'create-new-so'
 }
+
+type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
 
 type SortOrder = 'manual' | 'asc' | 'desc';
 
@@ -92,7 +93,6 @@ const ServiceOrderList: React.FC = () => {
             hora_final: latestOrder.hora_final,
             servico_executado: latestOrder.servico_executado,
             createdAt: latestOrder.created_at,
-            mode: 'add_part', // Modo padrão para a OS mais recente
           });
           // showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
         }
@@ -106,14 +106,8 @@ const ServiceOrderList: React.FC = () => {
   const handleEditServiceOrder = useCallback((details: ServiceOrderDetails) => {
     setEditingServiceOrder(details);
     setIsFormOpen(true); // Abre o formulário
-    if (details.mode === 'edit_details') {
-      showSuccess(`Editando detalhes da Ordem de Serviço AF: ${details.af}${details.os ? `, OS: ${details.os}` : ''}`);
-    } else if (details.mode === 'add_part') {
-      showSuccess(`Adicionando peça à Ordem de Serviço AF: ${details.af}${details.os ? `, OS: ${details.os}` : ''}`);
-    } else if (details.mode === 'create-new-so') {
-      showSuccess('Iniciando nova Ordem de Serviço.');
-    }
-  }, [setEditingServiceOrder, showSuccess, setIsFormOpen]);
+    // showSuccess messages are now handled by the form itself
+  }, [setEditingServiceOrder, setIsFormOpen]);
 
   const handleNewServiceOrder = useCallback(() => {
     setEditingServiceOrder(null); // Garante que é uma nova OS
@@ -166,19 +160,11 @@ const ServiceOrderList: React.FC = () => {
           <div className="py-4">
             <ServiceOrderForm 
               onItemAdded={handleFormClose} 
-              editingServiceOrder={editingServiceOrder}
               onNewServiceOrder={handleNewServiceOrder} // Passa para o formulário poder iniciar uma nova OS
               listItems={listItems}
-              setIsCreatingNewOrder={() => {}} // Não é mais usado diretamente aqui
               mode={editingServiceOrder?.mode || 'create-new-so'} // Garante um modo padrão
-              initialSoDetails={editingServiceOrder?.mode === 'add_part' || editingServiceOrder?.mode === 'edit_details' ? {
-                af: editingServiceOrder.af,
-                os: editingServiceOrder.os,
-                hora_inicio: editingServiceOrder.hora_inicio,
-                hora_final: editingServiceOrder.hora_final,
-                servico_executado: editingServiceOrder.servico_executado,
-                createdAt: editingServiceOrder.createdAt || new Date(),
-              } : null}
+              initialSoData={editingServiceOrder} // Passa o objeto ServiceOrderDetails completo
+              initialPartData={null} // Não há peça inicial para este formulário principal
               onClose={handleFormClose}
             />
           </div>

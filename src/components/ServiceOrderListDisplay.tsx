@@ -36,8 +36,16 @@ interface ServiceOrderDetails {
   hora_inicio?: string;
   hora_final?: string;
   servico_executado?: string;
+  createdAt?: Date; // createdAt é opcional aqui, mas será obrigatório no ServiceOrderGroupDetails
+}
+
+interface ServiceOrderGroupDetails {
+  af: string;
+  os?: number;
+  hora_inicio?: string;
+  hora_final?: string;
+  servico_executado?: string;
   createdAt: Date; // createdAt é obrigatório para agrupar
-  mode: 'add_part' | 'edit_details' | 'create-new-so'; // Adicionado 'create-new-so'
 }
 
 interface ServiceOrderGroup {
@@ -57,7 +65,7 @@ interface ServiceOrderListDisplayProps {
   listItems: ServiceOrderItem[];
   onListChanged: () => void;
   isLoading: boolean;
-  onEditServiceOrder: (details: ServiceOrderDetails) => void;
+  onEditServiceOrder: (details: ServiceOrderDetails & { mode: FormMode }) => void; // Atualizado para incluir 'mode'
   editingServiceOrder: ServiceOrderDetails | null;
   sortOrder: SortOrder;
   onSortOrderChange: (order: SortOrder) => void;
@@ -99,7 +107,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
   // Estados para o formulário de adição/edição de peças (via Sheet/Dialog)
   const [isPartFormOpen, setIsPartFormOpen] = useState(false);
   const [partToEdit, setPartToEdit] = useState<ServiceOrderItem | null>(null);
-  const [soGroupForPartForm, setSoGroupForPartForm] = useState<ServiceOrderGroup | null>(null);
+  const [soGroupForPartForm, setSoGroupForPartForm] = useState<ServiceOrderGroupDetails | null>(null); // Usar ServiceOrderGroupDetails
   const [partFormMode, setPartFormMode] = useState<'add-part-to-existing-so' | 'edit-part'>('add-part-to-existing-so');
 
   // Função para agrupar e ordenar os itens brutos
@@ -311,7 +319,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         hora_final: itemToDelete.hora_final,
         servico_executado: itemToDelete.servico_executado,
         createdAt: itemToDelete.created_at || new Date(),
-        mode: editingServiceOrder?.mode || 'add_part',
       };
 
       const originalCreatedAt = itemToDelete.created_at;
@@ -350,7 +357,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         }
       }
 
-      onEditServiceOrder({ ...currentSOIdentifier, createdAt: originalCreatedAt });
+      onEditServiceOrder({ ...currentSOIdentifier, mode: 'add_part' }); // Passa o modo correto
       onListChanged();
 
     } catch (error) {
@@ -439,7 +446,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   // --- Funções para o formulário de peças (inline/sheet) ---
   const handleOpenAddPartForm = (group: ServiceOrderGroup) => {
-    setSoGroupForPartForm(group);
+    setSoGroupForPartForm({
+      af: group.af,
+      os: group.os,
+      hora_inicio: group.hora_inicio,
+      hora_final: group.hora_final,
+      servico_executado: group.servico_executado,
+      createdAt: group.createdAt,
+    });
     setPartToEdit(null); // Garante que é modo de adição
     setPartFormMode('add-part-to-existing-so');
     setIsPartFormOpen(true);
@@ -447,7 +461,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   const handleOpenEditPartForm = (part: ServiceOrderItem, group: ServiceOrderGroup) => {
     setPartToEdit(part);
-    setSoGroupForPartForm(group); // Passa o grupo para o formulário saber a qual OS a peça pertence
+    setSoGroupForPartForm({
+      af: group.af,
+      os: group.os,
+      hora_inicio: group.hora_inicio,
+      hora_final: group.hora_final,
+      servico_executado: group.servico_executado,
+      createdAt: group.createdAt,
+    }); // Passa o grupo para o formulário saber a qual OS a peça pertence
     setPartFormMode('edit-part');
     setIsPartFormOpen(true);
   };
@@ -645,7 +666,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                   hora_final: group.hora_final, 
                                   servico_executado: group.servico_executado,
                                   createdAt: group.createdAt,
-                                  mode: 'edit_details'
+                                  mode: 'edit-so-details' // Passa o modo correto
                                 })}>
                                   <Pencil className="mr-2 h-4 w-4" /> Editar Detalhes da OS
                                 </DropdownMenuItem>
@@ -775,18 +796,11 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                 mode={partFormMode}
                 onItemAdded={handlePartFormClose}
                 onClose={handlePartFormClose}
-                initialPart={partToEdit}
-                initialSoDetails={soGroupForPartForm ? {
-                  af: soGroupForPartForm.af,
-                  os: soGroupForPartForm.os,
-                  hora_inicio: soGroupForPartForm.hora_inicio,
-                  hora_final: soGroupForPartForm.hora_final,
-                  servico_executado: soGroupForPartForm.servico_executado,
-                  createdAt: soGroupForPartForm.createdAt,
-                } : null}
+                initialPartData={partToEdit} // Passa a peça a ser editada
+                initialSoData={soGroupForPartForm} // Passa os detalhes da OS para a qual a peça pertence
+                onNewServiceOrder={() => {}} // Não é relevante neste contexto
                 listItems={listItems} // Passa listItems para o formulário
                 setIsCreatingNewOrder={() => {}} // Não é relevante neste contexto
-                onNewServiceOrder={() => {}} // Não é relevante neste contexto
               />
             </div>
           </SheetContent>
