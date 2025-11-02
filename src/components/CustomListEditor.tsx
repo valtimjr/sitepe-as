@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
@@ -54,10 +55,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null);
-
-  // Search states for related items
-  const [searchQueryRelated, setSearchQueryRelated] = useState('');
-  const [searchResultsRelated, setSearchResultsRelated] = useState<Part[]>([]);
 
   // Drag and Drop states
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
@@ -126,23 +123,22 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   }, [editingItem, allAvailableParts]);
 
 
-  // Efeito para a busca de peças relacionadas
   useEffect(() => {
     const fetchSearchResults = async () => {
-      if (searchQueryRelated.length > 1) { // Usar searchQueryRelated aqui
+      if (searchQuery.length > 1) {
         setIsLoadingParts(true);
-        const results = await searchPartsService(searchQueryRelated); // Usar searchQueryRelated aqui
-        setSearchResultsRelated(results);
+        const results = await searchPartsService(searchQuery);
+        setSearchResults(results);
         setIsLoadingParts(false);
       } else {
-        setSearchResultsRelated([]);
+        setSearchResults([]);
       }
     };
     const handler = setTimeout(() => {
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQueryRelated]); // Dependência de searchQueryRelated
+  }, [searchQuery]);
 
   const resetForm = () => {
     setCurrentEditItem(null);
@@ -413,8 +409,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const handleAddRelatedPart = (part: Part) => {
     if (!formItensRelacionados.includes(part.codigo)) {
       setFormItensRelacionados(prev => [...prev, part.codigo]);
-      setSearchQueryRelated(''); // Limpa o campo de busca
-      setSearchResultsRelated([]); // Limpa os resultados
+      setSearchQuery(''); // Limpa o campo de busca
+      setSearchResults([]); // Limpa os resultados
       showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
     } else {
       showError(`Peça ${part.codigo} já está na lista de itens relacionados.`);
@@ -531,21 +527,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                           {item.description && (
                             <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
                           )}
-                          {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-help">
-                                  <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p className="font-bold mb-1">Itens Relacionados:</p>
-                                <ul className="list-disc list-inside">
-                                  {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
-                                </ul>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
                         </div>
                     </TableCell>
                     <TableCell className="w-[120px] p-2 text-right">
@@ -645,7 +626,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   placeholder="Ex: Kit de Reparo do Motor"
                   className="flex-1"
                 />
-                {formPartCode.trim() && ( {/* Renderiza o botão se houver um part_code */}
+                {formPartCode && selectedPartFromSearch && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -654,24 +635,16 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                         size="icon"
                         onClick={handleSaveGlobalPartName}
                         disabled={
-                          !formPartCode.trim() || // Desabilita se o código da peça estiver vazio
-                          !selectedPartFromSearch || // Desabilita se não houver peça global correspondente
-                          !formItemName.trim() || // Desabilita se o nome personalizado estiver vazio
-                          (selectedPartFromSearch && formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim()) // Desabilita se o nome personalizado for igual ao nome/descrição global
+                          !selectedPartFromSearch ||
+                          formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim() ||
+                          !formItemName.trim()
                         }
                       >
                         <Save className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {!formPartCode.trim() ?
-                        "Insira um Código da Peça para salvar o nome global." :
-                        !selectedPartFromSearch ?
-                          `Nenhuma peça global encontrada para o código "${formPartCode}". Não é possível salvar o nome global.` :
-                          !formItemName.trim() ?
-                            "O nome personalizado não pode estar vazio para ser salvo globalmente." :
-                            `Salvar este nome como o nome global da peça "${selectedPartFromSearch.codigo}"`
-                      }
+                      Salvar este nome como o nome global da peça "{selectedPartFromSearch.codigo}"
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -716,10 +689,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                 <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
               </Label>
               <PartSearchInput
-                onSearch={setSearchQueryRelated} // Reutiliza o searchQuery principal para a busca de relacionados
-                searchResults={searchResultsRelated}
+                onSearch={setSearchQuery} // Reutiliza o searchQuery principal para a busca de relacionados
+                searchResults={searchResults}
                 onSelectPart={handleAddRelatedPart}
-                searchQuery={searchQueryRelated}
+                searchQuery={searchQuery}
                 allParts={allAvailableParts}
                 isLoading={isLoadingParts}
               />
