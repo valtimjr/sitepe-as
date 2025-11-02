@@ -686,7 +686,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start"> {/* Adicionado items-start aqui */}
               <div className="space-y-2 md:col-span-2"> {/* Nome Personalizado: maior */}
-                <Label htmlFor="item-name">Nome Personalizado (Opcional)</Label>
+                <Label htmlFor="item-name">
+                  <span className="block h-4"></span> {/* Linha em branco para alinhar */}
+                  Nome Personalizado (Opcional)
+                </Label>
                 <div className="flex items-center gap-2">
                   <Input
                     id="item-name"
