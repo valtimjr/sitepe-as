@@ -465,7 +465,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                     <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle header */}
                   </TableHead>
                   <TableHead className="w-auto whitespace-normal break-words p-2">Peça (Cód. / Descrição / AF)</TableHead>
-                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                  <TableHead className="w-[3rem] p-2">Qtd</TableHead> {/* Largura ajustada */}
                   <TableHead className="w-[80px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -498,24 +498,30 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                               allParts={allAvailableParts}
                               isLoading={isLoadingParts}
                             />
-                            <Label htmlFor={`edit-part-code-${item.id}`} className="sr-only">Código da Peça</Label>
-                            <Input
-                              id={`edit-part-code-${item.id}`}
-                              type="text"
-                              value={formPartCode} // Exibe o código da peça selecionada
-                              readOnly // Somente leitura
-                              placeholder="Código da peça"
-                              className="text-xs bg-muted"
-                            />
-                            <Label htmlFor={`edit-description-${item.id}`} className="sr-only">Descrição</Label>
-                            <Input
-                              id={`edit-description-${item.id}`}
-                              type="text"
-                              value={formDescription} // Exibe a descrição da peça selecionada
-                              readOnly // Somente leitura
-                              placeholder="Descrição da peça"
-                              className="text-xs bg-muted"
-                            />
+                            <div className="grid grid-cols-3 gap-2"> {/* Layout para Código e Descrição */}
+                              <div className="col-span-1"> {/* Código da Peça: menor */}
+                                <Label htmlFor={`edit-part-code-${item.id}`} className="sr-only">Código da Peça</Label>
+                                <Input
+                                  id={`edit-part-code-${item.id}`}
+                                  type="text"
+                                  value={formPartCode} // Exibe o código da peça selecionada
+                                  readOnly // Somente leitura
+                                  placeholder="Código da peça"
+                                  className="text-xs bg-muted"
+                                />
+                              </div>
+                              <div className="col-span-2"> {/* Descrição: maior */}
+                                <Label htmlFor={`edit-description-${item.id}`} className="sr-only">Descrição</Label>
+                                <Input
+                                  id={`edit-description-${item.id}`}
+                                  type="text"
+                                  value={formDescription} // Exibe a descrição da peça selecionada
+                                  readOnly // Somente leitura
+                                  placeholder="Descrição da peça"
+                                  className="text-xs bg-muted"
+                                />
+                              </div>
+                            </div>
                             <Label htmlFor={`edit-af-${item.id}`} className="sr-only">AF</Label>
                             <AfSearchInput
                               value={formAf}
@@ -525,7 +531,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                             />
                           </div>
                         </TableCell>
-                        <TableCell className="w-[4rem] p-2 text-center">
+                        <TableCell className="w-[3rem] p-2 text-center"> {/* Largura ajustada */}
                           <Label htmlFor={`edit-quantity-${item.id}`} className="sr-only">Quantidade</Label>
                           <Input
                             id={`edit-quantity-${item.id}`}
@@ -569,7 +575,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                           </div>
                         </TableCell>
                         
-                        <TableCell className="w-[4rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell>
+                        <TableCell className="w-[3rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell> {/* Largura ajustada */}
                         
                         <TableCell className="w-[80px] p-2 text-right">
                           <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1"> {/* Alterado para flex-col em mobile */}
@@ -626,24 +632,30 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                           allParts={allAvailableParts}
                           isLoading={isLoadingParts}
                         />
-                        <Label htmlFor="inline-part-code" className="sr-only">Código da Peça</Label>
-                        <Input
-                          id="inline-part-code"
-                          type="text"
-                          value={inlineFormPartCode}
-                          readOnly
-                          placeholder="Código da peça"
-                          className="text-xs bg-muted"
-                        />
-                        <Label htmlFor="inline-description" className="sr-only">Descrição</Label>
-                        <Input
-                          id="inline-description"
-                          type="text"
-                          value={inlineFormDescription}
-                          readOnly
-                          placeholder="Descrição da peça"
-                          className="text-xs bg-muted"
-                        />
+                        <div className="grid grid-cols-3 gap-2"> {/* Layout para Código e Descrição */}
+                          <div className="col-span-1"> {/* Código da Peça: menor */}
+                            <Label htmlFor="inline-part-code" className="sr-only">Código da Peça</Label>
+                            <Input
+                              id="inline-part-code"
+                              type="text"
+                              value={inlineFormPartCode}
+                              readOnly
+                              placeholder="Código da peça"
+                              className="text-xs bg-muted"
+                            />
+                          </div>
+                          <div className="col-span-2"> {/* Descrição: maior */}
+                            <Label htmlFor="inline-description" className="sr-only">Descrição</Label>
+                            <Input
+                              id="inline-description"
+                              type="text"
+                              value={inlineFormDescription}
+                              readOnly
+                              placeholder="Descrição da peça"
+                              className="text-xs bg-muted"
+                            />
+                          </div>
+                        </div>
                         <Label htmlFor="inline-af" className="sr-only">AF</Label>
                         <AfSearchInput
                           value={inlineFormAf}
@@ -653,7 +665,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                         />
                       </div>
                     </TableCell>
-                    <TableCell className="w-[4rem] p-2 text-center">
+                    <TableCell className="w-[3rem] p-2 text-center"> {/* Largura ajustada */}
                       <Label htmlFor="inline-quantity" className="sr-only">Quantidade</Label>
                       <Input
                         id="inline-quantity"

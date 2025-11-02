@@ -199,38 +199,53 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               isLoading={isLoadingParts}
             />
           </div>
-          <div>
-            <Label htmlFor="codigo_peca">Código da Peça</Label>
-            <Input
-              id="codigo_peca"
-              type="text"
-              value={selectedPart?.codigo || ''}
-              placeholder="Código da peça selecionada"
-              readOnly
-              className="bg-muted"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Layout responsivo */}
+            <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
+              <Label htmlFor="codigo_peca">Código da Peça</Label>
+              <Input
+                id="codigo_peca"
+                type="text"
+                value={selectedPart?.codigo || ''}
+                placeholder="Código da peça selecionada"
+                readOnly
+                className="bg-muted"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2"> {/* Nome da Peça: maior */}
+              <Label htmlFor="name">Nome da Peça</Label>
+              <Input
+                id="name"
+                type="text"
+                value={selectedPart?.name || ''}
+                placeholder="Nome da peça selecionada"
+                readOnly
+                className="bg-muted"
+              />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="name">Nome da Peça</Label> {/* NOVO CAMPO */}
-            <Input
-              id="name"
-              type="text"
-              value={selectedPart?.name || ''}
-              placeholder="Nome da peça selecionada"
-              readOnly
-              className="bg-muted"
-            />
-          </div>
-          <div>
-            <Label htmlFor="descricao">Descrição</Label>
-            <Input
-              id="descricao"
-              type="text"
-              value={selectedPart?.descricao || ''}
-              placeholder="Descrição da peça selecionada"
-              readOnly
-              className="bg-muted"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Layout responsivo */}
+            <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
+              <Label htmlFor="descricao">Descrição</Label>
+              <Input
+                id="descricao"
+                type="text"
+                value={selectedPart?.descricao || ''}
+                placeholder="Descrição da peça selecionada"
+                readOnly
+                className="bg-muted"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-1"> {/* Quantidade: menor */}
+              <Label htmlFor="quantidade">Quantidade</Label>
+              <Input
+                id="quantidade"
+                type="number"
+                value={quantidade}
+                onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
+                min="1"
+                required
+              />
+            </div>
           </div>
           {selectedPart && (
             <div>
@@ -257,17 +272,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               </div>
             </div>
           )}
-          <div>
-            <Label htmlFor="quantidade">Quantidade</Label>
-            <Input
-              id="quantidade"
-              type="number"
-              value={quantidade}
-              onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
-              min="1"
-              required
-            />
-          </div>
           <div>
             <Label htmlFor="af">AF (Número de Frota) (Opcional)</Label>
             {isLoadingAfs ? (
