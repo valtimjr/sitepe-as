@@ -91,15 +91,8 @@ export const generatePartsListPdf = (listItems: SimplePartItem[], title: string 
   let currentY = 22;
 
   doc.setFontSize(18);
-  doc.text('Lista de Peças', 14, currentY);
+  doc.text(title, 14, currentY); // Usa o título fornecido como título principal
   currentY += 8;
-
-  // Adiciona o título personalizado (Título da Lista)
-  if (title && title !== 'Lista de Peças Simples') {
-    doc.setFontSize(12);
-    doc.text(title, 14, currentY);
-    currentY += 8;
-  }
 
   // Colunas simplificadas para a lista de peças
   const tableColumn = ["Código da Peça", "Descrição", "Quantidade", "AF"]; // AF movido para o final
@@ -133,12 +126,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   let currentY = 22;
 
   doc.setFontSize(18);
-  doc.text('Lista Personalizada de Peças', 14, currentY);
-  currentY += 8;
-
-  // Adiciona o título da lista
-  doc.setFontSize(12);
-  doc.text(title, 14, currentY);
+  doc.text(title, 14, currentY); // Usa o título fornecido como título principal
   currentY += 8;
 
   // Colunas para a lista personalizada
