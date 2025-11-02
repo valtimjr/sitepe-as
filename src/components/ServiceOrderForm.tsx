@@ -319,7 +319,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             os: initialSoData.os,
             hora_inicio: initialSoData.hora_inicio || undefined,
             hora_final: initialSoData.hora_final || undefined,
-            servico_executado: initialSoData.servico_executado,
+            servico_executado: servicoExecutado,
           }, initialSoData.createdAt);
           showSuccess('Peça adicionada à Ordem de Serviço!');
         }
@@ -386,7 +386,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const isSubmitDisabled = isLoadingParts || isLoadingAfs || (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) || isOsInvalid;
 
   // Determina quais seções mostrar
-  const showOsDetails = mode === 'create-new-so' || mode === 'edit-so-details' || mode === 'add-part-to-existing-so' || mode === 'edit-part';
+  const showOsDetails = mode === 'create-new-so' || mode === 'edit-so-details'; // Alterado para ocultar em modos de peça
   const showPartDetails = mode === 'create-new-so' || mode === 'add-part-to-existing-so' || mode === 'edit-part';
   const isOsDetailsReadOnly = mode === 'add-part-to-existing-so' || mode === 'edit-part';
 
