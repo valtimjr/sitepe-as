@@ -487,20 +487,12 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       <CardHeader className="pb-2">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
           <CardTitle className="text-2xl font-bold mb-2 sm:mb-0">Lista de Ordens de Serviço</CardTitle>
-          {/* Botão "Iniciar Nova Ordem de Serviço" para mobile (acima dos outros botões) */}
-          {isMobile && (
-            <Button 
-              onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
-              className="flex items-center gap-2 w-full sm:w-auto mb-4 sm:mb-0"
-            >
-              <FilePlus className="h-4 w-4" /> Iniciar Nova OS
-            </Button>
-          )}
+          {/* REMOVIDO: Botão "Iniciar Nova Ordem de Serviço" para mobile */}
         </div>
       </CardHeader>
       <div className="flex flex-wrap justify-end gap-2 p-4 pt-0">
-          {/* NOVO: Botão "Iniciar Nova Ordem de Serviço" para desktop, visível apenas se houver ordens */}
-          {!isMobile && groupedServiceOrders.length > 0 && (
+          {/* Botão "Iniciar Nova Ordem de Serviço" para desktop e mobile, visível apenas se houver ordens */}
+          {groupedServiceOrders.length > 0 && (
             <Button 
               onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
               className="flex items-center gap-2 mr-auto" // mr-auto para empurrar para a esquerda

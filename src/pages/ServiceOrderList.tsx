@@ -63,7 +63,7 @@ const ServiceOrderList: React.FC = () => {
       const uniqueServiceOrders: { [key: string]: ServiceOrderItem } = {};
       listItems.forEach(item => {
         const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}-${item.created_at?.getTime() || 'no_created_at'}`;
-        if (!uniqueServiceOrders[key] || (item.created_at && uniqueServiceOrders[key].created_at && item.created_at > uniqueServiceOrders[key].created_at!)) {
+        if (!uniqueServiceOrders[key] || (item.created_at && uniqueUniqueOrders[key].created_at && item.created_at > uniqueUniqueOrders[key].created_at!)) {
           uniqueServiceOrders[key] = item;
         }
       });
@@ -138,7 +138,8 @@ const ServiceOrderList: React.FC = () => {
         Lista de Ordens de Serviço
       </h1>
       
-      {/* Botão "Iniciar Nova Ordem de Serviço" para mobile (acima dos outros botões) */}
+      {/* REMOVIDO: Botão "Iniciar Nova Ordem de Serviço" para mobile */}
+      {/*
       {isMobile && (
         <Button 
           onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
@@ -147,6 +148,7 @@ const ServiceOrderList: React.FC = () => {
           <FilePlus className="h-4 w-4" /> Iniciar Nova OS
         </Button>
       )}
+      */}
 
       {/* O formulário principal agora é um modal/sheet */}
       <ModalComponent open={isFormOpen} onOpenChange={setIsFormOpen}>
