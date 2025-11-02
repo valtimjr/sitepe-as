@@ -343,7 +343,7 @@ const CustomListPage: React.FC = () => {
                         </TableCell>
                         <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
                         <TableCell className="w-auto whitespace-normal break-words p-2">
-                            <div className="flex flex-col items-center"> {/* Adicionado items-center aqui */}
+                            <div className="flex flex-col items-start"> {/* Removido items-center para alinhar à esquerda */}
                               {item.part_code && (
                                 <span className="font-medium text-sm text-primary">{item.part_code}</span>
                               )}
