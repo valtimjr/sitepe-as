@@ -579,7 +579,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                     <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle header */}
                   </TableHead>
                   {/* Coluna Hora com botão de ordenação (movida para a esquerda) */}
-                  <TableHead className="w-[60px] p-2 text-left"> {/* Alinhado à esquerda para o ícone */}
+                  <TableHead className="w-[70px] p-2 text-left"> {/* Alinhado à esquerda para o ícone */}
                     <Button 
                       variant="ghost" 
                       size="icon" // Alterado para size="icon"
@@ -596,7 +596,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                   {/* Coluna Qtd com largura fixa */}
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                   {/* Coluna Opções (alinhada à direita) */}
-                  <TableHead className="w-[40px] p-2 text-right">Opções</TableHead>
+                  <TableHead className="w-[100px] p-2 text-right">Opções</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -702,7 +702,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                       {group.parts.map((part, partIndex) => (
                         <TableRow key={part.id} className={isEditingThisServiceOrder ? 'bg-accent/10' : ''}>
                           <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar com o drag handle */}
-                          <TableCell className="w-[60px] p-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
+                          <TableCell className="w-[70px] p-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
                           <TableCell className="w-auto whitespace-normal break-words p-2">
                             <span className="text-sm">
                               {part.codigo_peca && part.descricao 
@@ -713,7 +713,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           <TableCell className="w-[4rem] p-2">{part.quantidade ?? ''}</TableCell>
                           
                           {/* Célula de Ações para a Peça (alinhada com a coluna Opções) */}
-                          <TableCell className="w-[40px] p-2 text-right">
+                          <TableCell className="w-[100px] p-2 text-right">
                             <div className="flex justify-end items-center gap-1">
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -772,8 +772,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           </div>
         )}
       </CardContent>
-      {/* Botão "Adicionar Ordem de Serviço" no final da lista - REMOVIDO */}
-      {/* {!isLoading && groupedServiceOrders.length > 0 && (
+      {/* Botão "Adicionar Ordem de Serviço" no final da lista - MANTIDO */}
+      {!isLoading && groupedServiceOrders.length > 0 && (
         <div className="mt-8 text-center">
           <Button 
             onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} // Inicia uma nova OS
@@ -782,7 +782,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
           </Button>
         </div>
-      )} */}
+      )}
 
       {/* Sheet/Dialog para Adicionar/Editar Peça */}
       {isPartFormOpen && (
