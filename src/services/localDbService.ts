@@ -63,12 +63,13 @@ class LocalDexieDb extends Dexie {
       afs: '++id, af_number',
     });
     this.version(2).stores({
-      simplePartsList: 'id, codigo_peca, descricao, created_at', // CORRIGIDO: 'id' em vez de '++id'
+      listItems: null, // Explicitamente deleta a tabela antiga
+      simplePartsList: 'id, codigo_peca, descricao, created_at', // Nova tabela com 'id' como chave primária
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number',
     }).upgrade(async tx => {
-      // Migração de dados da versão 1 para a versão 2 (mantida)
+      // Migração de dados da versão 1 para a versão 2
       const oldListItems = await tx.table('listItems').toArray();
       const simpleItems: SimplePartItem[] = [];
       const serviceItems: ServiceOrderItem[] = [];
@@ -76,7 +77,7 @@ class LocalDexieDb extends Dexie {
       oldListItems.forEach((item: any) => {
         if (item.af && item.af.trim() !== '') {
           serviceItems.push({
-            id: item.id,
+            id: item.id, // Usa o ID existente da tabela antiga
             codigo_peca: item.codigo_peca,
             descricao: item.descricao,
             quantidade: item.quantidade,
@@ -90,7 +91,7 @@ class LocalDexieDb extends Dexie {
         } else {
           if (item.codigo_peca && item.descricao && item.quantidade !== undefined) {
             simpleItems.push({
-              id: item.id,
+              id: item.id, // Usa o ID existente da tabela antiga
               codigo_peca: item.codigo_peca,
               descricao: item.descricao,
               quantidade: item.quantidade,
@@ -104,7 +105,7 @@ class LocalDexieDb extends Dexie {
       await tx.table('serviceOrderItems').bulkAdd(serviceItems);
     });
     this.version(3).stores({
-      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at', // CORRIGIDO: 'id' em vez de '++id'
+      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number',
@@ -112,14 +113,14 @@ class LocalDexieDb extends Dexie {
       // Migração de dados da versão 2 para a versão 3 (mantida)
     });
     this.version(4).stores({
-      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at', // CORRIGIDO: 'id' em vez de '++id'
+      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number',
       apontamentos: 'id, user_id, date, synced_at', // Novo esquema para apontamentos
     });
     this.version(5).stores({
-      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at', // CORRIGIDO: 'id' em vez de '++id'
+      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number, descricao', // Atualizado para incluir 'descricao'
@@ -131,6 +132,18 @@ class LocalDexieDb extends Dexie {
       parts: '++id, codigo, descricao, tags, name', // Adicionado 'name'
       afs: '++id, af_number, descricao',
       apontamentos: 'id, user_id, date, synced_at',
+    });
+    this.version(7).stores({ // Nova versão para garantir a aplicação correta do esquema
+      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
+      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
+      parts: '++id, codigo, descricao, tags, name',
+      afs: '++id, af_number, descricao',
+      apontamentos: 'id, user_id, date, synced_at',
+    }).upgrade(async tx => {
+      // Nenhuma lógica de migração específica é necessária aqui, pois as definições
+      // das tabelas já estão corretas e consistentes com a versão anterior (v6).
+      // Este upgrade serve principalmente para forçar o Dexie a reavaliar o esquema
+      // e corrigir quaisquer inconsistências internas que possam ter surgido.
     });
   }
 }
