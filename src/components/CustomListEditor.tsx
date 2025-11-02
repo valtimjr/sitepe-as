@@ -26,7 +26,6 @@ import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
-import RelatedItemsHoverCard from '@/components/RelatedItemsHoverCard';
 import { v4 as uuidv4 } from 'uuid';
 
 interface CustomListEditorProps {
@@ -121,7 +120,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setCurrentEditItem(editingItem);
         setFormItemName(editingItem.item_name);
         setFormPartCode(editingItem.part_code || '');
-        setFormDescription(editing.description || '');
+        setFormDescription(editingItem.description || '');
         setFormQuantity(editingItem.quantity);
         setSearchQuery('');
         setSearchResults([]);
@@ -302,6 +301,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       const codigo = item.part_code ? ` (Cód: ${item.part_code})` : '';
       const descricao = item.description || '';
       
+      // Formato: [QUANTIDADE] - [NOME PERSONALIZADO] [DESCRIÇÃO] (Cód: [CÓDIGO])
       formattedText += `${quantidade} - ${nome} ${descricao}${codigo}`.trim() + '\n';
     });
 
@@ -614,12 +614,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                     </TableCell>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
                     <TableCell className="w-auto whitespace-normal break-words p-2">
-                      <RelatedItemsHoverCard
-                        partCode={item.part_code}
-                        itemName={item.item_name}
-                        excludeItemId={item.id}
-                        excludeListId={item.list_id}
-                      >
                         <div className="flex flex-col">
                           {item.part_code && (
                             <span className="font-medium text-sm text-primary">{item.part_code}</span>
@@ -629,7 +623,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                             <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
                           )}
                         </div>
-                      </RelatedItemsHoverCard>
                     </TableCell>
                     <TableCell className="w-[120px] p-2 text-right">
                       <div className="flex justify-end items-center gap-1">
