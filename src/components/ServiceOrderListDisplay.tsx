@@ -497,15 +497,21 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           >
             <FilePlus className="h-4 w-4" /> Iniciar Nova OS
           </Button>
-          <Button 
-            onClick={handleCopyList} 
-            disabled={groupedServiceOrders.length === 0 || isLoading} 
-            size="icon"
-            className="sm:w-auto sm:px-4"
-          >
-            <Copy className="h-4 w-4" /> 
-            <span className="hidden sm:inline ml-2">Copiar Lista</span>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={handleCopyList} 
+                disabled={groupedServiceOrders.length === 0 || isLoading} 
+                variant="ghost" 
+                size="icon"
+                className="h-10 w-10 p-0 rounded-full sm:h-auto sm:w-auto sm:px-4 sm:rounded-md"
+              >
+                <Copy className="h-full w-full text-primary" /> 
+                <span className="hidden sm:inline ml-2">Copiar Lista</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copiar Lista</TooltipContent>
+          </Tooltip>
           <Button 
             onClick={handleShareOnWhatsApp} 
             disabled={groupedServiceOrders.length === 0 || isLoading} 

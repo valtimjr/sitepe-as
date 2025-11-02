@@ -257,11 +257,11 @@ const CustomListPage: React.FC = () => {
                 <Button 
                   onClick={handleCopyList} 
                   disabled={items.length === 0} 
-                  variant="secondary" 
+                  variant="ghost" 
                   size="icon"
-                  className="sm:w-auto sm:px-4"
+                  className="h-10 w-10 p-0 rounded-full sm:h-auto sm:w-auto sm:px-4 sm:rounded-md"
                 >
-                  <Copy className="h-4 w-4" /> 
+                  <Copy className="h-full w-full text-primary" /> 
                   <span className="hidden sm:inline ml-2">Copiar Lista</span>
                 </Button>
               </TooltipTrigger>
@@ -327,7 +327,7 @@ const CustomListPage: React.FC = () => {
                     </TableHead>
                     <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                     <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                  </TableRow>
+                  </TableHead>
                 </TableHeader>
                 <TableBody>
                   {items.map((item) => (

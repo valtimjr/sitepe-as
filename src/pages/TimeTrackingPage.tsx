@@ -553,9 +553,20 @@ const TimeTrackingPage: React.FC = () => {
             </div>
             
             <div className="flex flex-wrap justify-end gap-2 pt-2">
-              <Button onClick={handleCopyText} className="flex items-center gap-2">
-                <Copy className="h-4 w-4" /> Copiar Texto
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleCopyText} 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 p-0 rounded-full sm:h-auto sm:w-auto sm:px-4 sm:rounded-md"
+                  >
+                    <Copy className="h-full w-full text-primary" /> 
+                    <span className="hidden sm:inline ml-2">Copiar Texto</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Copiar Texto</TooltipContent>
+              </Tooltip>
               <Button 
                 onClick={handleShareOnWhatsApp} 
                 variant="ghost" 
