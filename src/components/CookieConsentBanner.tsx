@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { Link } from 'react-router-dom'; // Importar Link
 
 const COOKIE_CONSENT_KEY = 'cookie_consent_given';
 const COOKIE_PREFERENCES_KEY = 'cookie_preferences';
@@ -195,7 +196,7 @@ const CookieConsentBanner: React.FC = () => {
       </p>
       <div className="flex flex-col sm:flex-row gap-2 pt-2">
         <a href="#" className="text-sm text-primary hover:underline">Política de Privacidade</a>
-        <a href="#" className="text-sm text-primary hover:underline">Política de Cookies</a>
+        <Link to="/cookie-policy" className="text-sm text-primary hover:underline">Política de Cookies</Link> {/* Link atualizado */}
       </div>
     </div>
   );

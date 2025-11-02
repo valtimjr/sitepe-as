@@ -18,6 +18,7 @@ import TimeTrackingPage from "./pages/TimeTrackingPage";
 import CustomListPage from "./pages/CustomListPage";
 import MyCustomListsPage from "./pages/MyCustomListsPage";
 import CustomMenuOverview from "./pages/CustomMenuOverview";
+import CookiePolicyPage from "./pages/CookiePolicyPage"; // Importar a nova página
 import { SessionContextProvider } from "./components/SessionContextProvider";
 import AppHeader from "./components/AppHeader";
 import CookieConsentBanner from "./components/CookieConsentBanner";
@@ -63,6 +64,7 @@ const AppContent = () => {
         <Route path="/custom-list/:listId" element={<CustomListPage />} />
         <Route path="/my-custom-lists" element={<MyCustomListsPage />} />
         <Route path="/custom-menu-view" element={<CustomMenuOverview />} />
+        <Route path="/cookie-policy" element={<CookiePolicyPage />} /> {/* Nova rota */}
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
