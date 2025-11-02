@@ -684,7 +684,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Alterado para md:grid-cols-3 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start"> {/* Adicionado items-start aqui */}
               <div className="space-y-2 md:col-span-2"> {/* Nome Personalizado: maior */}
                 <Label htmlFor="item-name">Nome Personalizado (Opcional)</Label>
                 <div className="flex items-center gap-2">
@@ -732,7 +732,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               </div>
             </div> {/* End grid-cols-1 md:grid-cols-3 for name/part-code */}
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start"> {/* Adicionado items-start aqui */}
               <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
                 <Label htmlFor="description">Descrição (Opcional)</Label>
                 <Input

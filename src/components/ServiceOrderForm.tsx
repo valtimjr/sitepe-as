@@ -511,7 +511,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   isLoading={isLoadingParts}
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Alterado para md:grid-cols-3 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start"> {/* Adicionado items-start aqui */}
                 <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
                   <Label htmlFor="codigo_peca">Código da Peça</Label>
                   <Input
@@ -535,7 +535,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Alterado para md:grid-cols-3 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start"> {/* Adicionado items-start aqui */}
                 <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
                   <Label htmlFor="descricao">Descrição</Label>
                   <Input
