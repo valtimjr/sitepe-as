@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet'; // Importar Sheet e SheetDescription
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, deleteCustomListItem as deleteCustomListItemService } from '@/services/customListService';
@@ -158,7 +158,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       if (relatedSearchQuery.length > 1) {
         setIsLoadingParts(true);
         const results = await searchPartsService(relatedSearchQuery);
-        setRelatedSearchResults(results);
+        setSearchResultsRelated(results);
         setIsLoadingParts(false);
       } else {
         setRelatedSearchResults([]);
@@ -553,7 +553,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   </TableHead>
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                  <TableHead className="w-[120px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -580,6 +579,21 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                           <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
                           {item.description && (
                             <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
+                          )}
+                          {item.itens_relacionados && item.itens_relacionados.length > 0 && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-help">
+                                  <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="font-bold mb-1">Itens Relacionados:</p>
+                                <ul className="list-disc list-inside">
+                                  {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
+                                </ul>
+                              </TooltipContent>
+                            </Tooltip>
                           )}
                         </div>
                     </TableCell>
@@ -670,8 +684,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Alterado para md:grid-cols-3 */}
+              <div className="space-y-2 md:col-span-2"> {/* Nome Personalizado: maior */}
                 <Label htmlFor="item-name">Nome Personalizado (Opcional)</Label>
                 <div className="flex items-center gap-2">
                   <Input
@@ -706,7 +720,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                 </div>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
                 <Label htmlFor="part-code">Código da Peça (Opcional)</Label>
                 <Input
                   id="part-code"
@@ -716,10 +730,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   className="w-full"
                 />
               </div>
-            </div> {/* End grid-cols-1 md:grid-cols-2 for name/part-code */}
+            </div> {/* End grid-cols-1 md:grid-cols-3 for name/part-code */}
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
                 <Label htmlFor="description">Descrição (Opcional)</Label>
                 <Input
                   id="description"
@@ -730,7 +744,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 md:col-span-1"> {/* Quantidade: menor */}
                 <Label htmlFor="quantity">Quantidade</Label>
                 <Input
                   id="quantity"
