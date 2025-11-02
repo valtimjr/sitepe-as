@@ -63,31 +63,69 @@ export const getRelatedCustomListItems = async (
     return [];
   }
 
-  let relatedItemIdsFromRelations: string[] = [];
-  let partIdsToSearch: string[] = [];
+  let partIdsToSearchInRelations: string[] = [];
+  let partCodesToSearchInCustomListItems: string[] = [partCode]; // Always include the original partCode
 
-  // Step 1: If partCode is provided, find its corresponding part_id from the 'parts' table.
-  const { data: partData, error: partError } = await supabase
+  // Step 1: Find the source Part from the 'parts' table using the provided partCode.
+  const { data: sourcePartData, error: sourcePartError } = await supabase
     .from('parts')
-    .select('id')
+    .select('id, codigo, name, descricao, tags')
     .eq('codigo', partCode)
     .limit(1);
 
-  if (partError && partError.code !== 'PGRST116') {
-    console.error('getRelatedCustomListItems: Error fetching part ID for partCode:', partError);
-  } else if (partData && partData.length > 0) {
-    partIdsToSearch.push(partData[0].id);
-    console.log('getRelatedCustomListItems: Found part_id for partCode:', partData[0].id);
+  if (sourcePartError && sourcePartError.code !== 'PGRST116') {
+    console.error('getRelatedCustomListItems: Error fetching source part ID for partCode:', sourcePartError);
+  } else if (sourcePartData && sourcePartData.length > 0) {
+    const sourcePart = sourcePartData[0];
+    partIdsToSearchInRelations.push(sourcePart.id);
+    console.log('getRelatedCustomListItems: Found source part_id:', sourcePart.id, 'and details:', sourcePart);
+
+    // Step 2: Find other "related" Parts based on tags or name/description similarity.
+    // This is the "buscados diretos na tabela parts" part.
+    let relatedPartsQueryConditions: string[] = [];
+    if (sourcePart.tags && sourcePart.tags.trim().length > 0) {
+      const tagsArray = sourcePart.tags.split(';').map(tag => tag.trim()).filter(Boolean);
+      if (tagsArray.length > 0) {
+        relatedPartsQueryConditions.push(`tags.ilike.%${tagsArray.join('%|%')}%`); // Match any of the tags
+      }
+    }
+    if (sourcePart.name && sourcePart.name.trim().length > 0) {
+      relatedPartsQueryConditions.push(`name.ilike.%${sourcePart.name.trim()}%`);
+    }
+    if (sourcePart.descricao && sourcePart.descricao.trim().length > 0) {
+      relatedPartsQueryConditions.push(`descricao.ilike.%${sourcePart.descricao.trim()}%`);
+    }
+
+    if (relatedPartsQueryConditions.length > 0) {
+      const { data: similarPartsData, error: similarPartsError } = await supabase
+        .from('parts')
+        .select('codigo')
+        .or(relatedPartsQueryConditions.join(','))
+        .neq('id', sourcePart.id) // Exclude the source part itself
+        .limit(10); // Limit to a reasonable number of similar parts
+
+      if (similarPartsError) {
+        console.error('getRelatedCustomListItems: Error fetching similar parts:', similarPartsError);
+      } else if (similarPartsData && similarPartsData.length > 0) {
+        similarPartsData.forEach(p => {
+          if (!partCodesToSearchInCustomListItems.includes(p.codigo)) {
+            partCodesToSearchInCustomListItems.push(p.codigo);
+          }
+        });
+        console.log('getRelatedCustomListItems: Found similar part codes:', similarPartsData.map(p => p.codigo));
+      }
+    }
   } else {
-    console.log('getRelatedCustomListItems: No part_id found for partCode:', partCode);
+    console.log('getRelatedCustomListItems: No source part_id found for partCode:', partCode);
   }
 
-  // Step 2: If we have part_ids, find custom_list_item_ids from custom_list_item_relations
-  if (partIdsToSearch.length > 0) {
+  // Step 3: Find custom_list_item_ids from custom_list_item_relations using the source part_id.
+  let relatedItemIdsFromRelations: string[] = [];
+  if (partIdsToSearchInRelations.length > 0) {
     const { data: relationsData, error: relationsError } = await supabase
       .from('custom_list_item_relations')
       .select('custom_list_item_id')
-      .in('part_id', partIdsToSearch);
+      .in('part_id', partIdsToSearchInRelations);
 
     if (relationsError) {
       console.error('getRelatedCustomListItems: Error fetching custom_list_item_ids from relations:', relationsError);
@@ -95,27 +133,29 @@ export const getRelatedCustomListItems = async (
       relatedItemIdsFromRelations = relationsData.map(r => r.custom_list_item_id);
       console.log('getRelatedCustomListItems: Found relatedItemIdsFromRelations:', relatedItemIdsFromRelations);
     } else {
-      console.log('getRelatedCustomListItems: No custom_list_item_ids found in relations for part_id(s):', partIdsToSearch);
+      console.log('getRelatedCustomListItems: No custom_list_item_ids found in relations for part_id(s):', partIdsToSearchInRelations);
     }
   }
 
-  // Step 3: Build the main query for custom_list_items
-  let queryConditions: string[] = [];
+  // Step 4: Build the main query for custom_list_items.
+  let finalQueryConditions: string[] = [];
 
-  // Condition A: Direct match on custom_list_items.part_code
-  queryConditions.push(`part_code.eq.${partCode}`);
+  // Condition A: Direct match on custom_list_items.part_code for the source part and similar parts.
+  if (partCodesToSearchInCustomListItems.length > 0) {
+    finalQueryConditions.push(`part_code.in.(${partCodesToSearchInCustomListItems.join(',')})`);
+  }
   
-  // Condition B: Match by custom_list_item_id found via relations (if any)
+  // Condition B: Match by custom_list_item_id found via relations (if any).
   if (relatedItemIdsFromRelations.length > 0) {
-    queryConditions.push(`id.in.(${relatedItemIdsFromRelations.join(',')})`);
+    finalQueryConditions.push(`id.in.(${relatedItemIdsFromRelations.join(',')})`);
   }
 
-  if (queryConditions.length === 0) {
-    console.log('getRelatedCustomListItems: No query conditions generated.');
+  if (finalQueryConditions.length === 0) {
+    console.log('getRelatedCustomListItems: No final query conditions generated.');
     return [];
   }
 
-  const finalQueryOrString = queryConditions.join(',');
+  const finalQueryOrString = finalQueryConditions.join(',');
   console.log('getRelatedCustomListItems: Final Supabase .or() query string:', finalQueryOrString);
 
   const { data, error } = await supabase
@@ -123,7 +163,6 @@ export const getRelatedCustomListItems = async (
     .select('*, custom_lists(title)')
     .or(finalQueryOrString) // Combine all conditions with OR
     .neq('id', excludeItemId) // Exclude the original item itself
-    // Removed .neq('list_id', excludeListId) to show items from the same list, as requested
     .limit(5); // Limit the number of results
 
   if (error) {
