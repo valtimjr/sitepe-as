@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, FilePlus, ClipboardList, Clock, ArrowUpNarrowWide, ArrowDownNarrowWide } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Importar Sheet
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Importar Dialog
+import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
 
 interface ServiceOrderDetails {
   af: string;
@@ -16,7 +19,7 @@ interface ServiceOrderDetails {
   hora_final?: string;
   servico_executado?: string;
   createdAt?: Date;
-  mode: 'add_part' | 'edit_details';
+  mode: 'add_part' | 'edit_details' | 'create-new-so'; // Adicionado 'create-new-so'
 }
 
 type SortOrder = 'manual' | 'asc' | 'desc';
@@ -25,8 +28,10 @@ const ServiceOrderList = () => {
   const [listItems, setListItems] = useState<ServiceOrderItem[]>([]); // Agora usa ServiceOrderItem
   const [isLoading, setIsLoading] = useState(true);
   const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
-  const [isCreatingNewOrder, setIsCreatingNewOrder] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>('manual'); // Novo estado para a ordem de classificação
+  const [isFormOpen, setIsFormOpen] = useState(false); // Novo estado para controlar a abertura do formulário principal
+
+  const isMobile = useIsMobile(); // Hook para detectar mobile
 
   useEffect(() => {
     document.title = "Ordens de Serviço - AutoBoard";
@@ -50,8 +55,9 @@ const ServiceOrderList = () => {
     loadListItems();
   }, [loadListItems]);
 
+  // Efeito para definir a OS mais recente para edição ao carregar a lista
   useEffect(() => {
-    if (listItems.length > 0) {
+    if (!isLoading && listItems.length > 0 && !isFormOpen) {
       const uniqueServiceOrders: { [key: string]: ServiceOrderItem } = {};
       listItems.forEach(item => {
         const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}`;
@@ -62,12 +68,13 @@ const ServiceOrderList = () => {
 
       const sortedUniqueOrders = Object.values(uniqueServiceOrders).sort((a, b) => {
         if (!a.created_at || !b.created_at) return 0;
-        return a.created_at.getTime() - b.created_at.getTime();
+        return b.created_at.getTime() - a.created_at.getTime(); // Mais recente primeiro
       });
 
       if (sortedUniqueOrders.length > 0) {
         const latestOrder = sortedUniqueOrders[0];
         
+        // Verifica se a OS mais recente já está sendo editada ou se o formulário está aberto para uma nova OS
         const isCurrentEditedOrderStillValid = editingServiceOrder && listItems.some(item =>
           item.af === editingServiceOrder.af &&
           (item.os === editingServiceOrder.os || (item.os === undefined && editingServiceOrder.os === undefined)) &&
@@ -76,7 +83,7 @@ const ServiceOrderList = () => {
           (item.servico_executado === editingServiceOrder.servico_executado || (editingServiceOrder.servico_executado === undefined && item.servico_executado === undefined))
         );
 
-        if (!isCreatingNewOrder && (!editingServiceOrder || !isCurrentEditedOrderStillValid)) {
+        if (!isCurrentEditedOrderStillValid) {
           setEditingServiceOrder({
             af: latestOrder.af,
             os: latestOrder.os,
@@ -84,38 +91,49 @@ const ServiceOrderList = () => {
             hora_final: latestOrder.hora_final,
             servico_executado: latestOrder.servico_executado,
             createdAt: latestOrder.created_at,
-            mode: 'add_part',
+            mode: 'add_part', // Modo padrão para a OS mais recente
           });
-          showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
+          // showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
         }
       } else {
         setEditingServiceOrder(null);
       }
-    } else {
-      setEditingServiceOrder(null);
     }
-  }, [listItems, editingServiceOrder, setEditingServiceOrder, showSuccess, showError, isCreatingNewOrder]);
+  }, [listItems, isLoading, isFormOpen, editingServiceOrder]);
+
 
   const handleEditServiceOrder = useCallback((details: ServiceOrderDetails) => {
-    setIsCreatingNewOrder(false);
     setEditingServiceOrder(details);
+    setIsFormOpen(true); // Abre o formulário
     if (details.mode === 'edit_details') {
       showSuccess(`Editando detalhes da Ordem de Serviço AF: ${details.af}${details.os ? `, OS: ${details.os}` : ''}`);
-    } else {
+    } else if (details.mode === 'add_part') {
       showSuccess(`Adicionando peça à Ordem de Serviço AF: ${details.af}${details.os ? `, OS: ${details.os}` : ''}`);
+    } else if (details.mode === 'create-new-so') {
+      showSuccess('Iniciando nova Ordem de Serviço.');
     }
-  }, [setEditingServiceOrder, showSuccess, setIsCreatingNewOrder]);
+  }, [setEditingServiceOrder, showSuccess, setIsFormOpen]);
 
   const handleNewServiceOrder = useCallback(() => {
-    setEditingServiceOrder(null);
-    setIsCreatingNewOrder(true);
-    showSuccess('Iniciando nova Ordem de Serviço.');
-  }, [setEditingServiceOrder, showSuccess, setIsCreatingNewOrder]);
+    setEditingServiceOrder(null); // Garante que é uma nova OS
+    setIsFormOpen(true); // Abre o formulário
+    handleEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' });
+  }, [handleEditServiceOrder, setIsFormOpen]);
+
+  const handleFormClose = useCallback(() => {
+    setIsFormOpen(false);
+    setEditingServiceOrder(null); // Limpa o item de edição ao fechar
+    loadListItems(); // Recarrega a lista para garantir que a OS mais recente seja selecionada
+  }, [setIsFormOpen, setEditingServiceOrder, loadListItems]);
 
   const handleSortChange = useCallback((order: SortOrder) => {
     setSortOrder(order);
-    // A mensagem de sucesso será exibida pelo ServiceOrderListDisplay
   }, []);
+
+  const ModalComponent = isMobile ? Sheet : Dialog;
+  const ModalContentComponent = isMobile ? SheetContent : DialogContent;
+  const ModalHeaderComponent = isMobile ? SheetHeader : DialogHeader;
+  const ModalTitleComponent = isMobile ? SheetTitle : DialogTitle;
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -131,13 +149,38 @@ const ServiceOrderList = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
-        <ServiceOrderForm 
-          onItemAdded={loadListItems} 
-          editingServiceOrder={editingServiceOrder}
-          onNewServiceOrder={handleNewServiceOrder}
-          listItems={listItems}
-          setIsCreatingNewOrder={setIsCreatingNewOrder}
-        />
+        {/* O formulário principal agora é um modal/sheet */}
+        <ModalComponent open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <ModalContentComponent className={isMobile ? "w-full sm:max-w-lg overflow-y-auto" : "sm:max-w-[425px]"}>
+            <ModalHeaderComponent>
+              <ModalTitleComponent>
+                {editingServiceOrder?.mode === 'edit_details' ? 'Editar Detalhes da Ordem de Serviço' :
+                 editingServiceOrder?.mode === 'add_part' ? 'Adicionar Peça à Ordem de Serviço' :
+                 'Criar Nova Ordem de Serviço'}
+              </ModalTitleComponent>
+            </ModalHeaderComponent>
+            <div className="py-4">
+              <ServiceOrderForm 
+                onItemAdded={handleFormClose} 
+                editingServiceOrder={editingServiceOrder}
+                onNewServiceOrder={handleNewServiceOrder} // Passa para o formulário poder iniciar uma nova OS
+                listItems={listItems}
+                setIsCreatingNewOrder={() => {}} // Não é mais usado diretamente aqui
+                mode={editingServiceOrder?.mode || 'create-new-so'} // Garante um modo padrão
+                initialSoDetails={editingServiceOrder?.mode === 'add_part' || editingServiceOrder?.mode === 'edit_details' ? {
+                  af: editingServiceOrder.af,
+                  os: editingServiceOrder.os,
+                  hora_inicio: editingServiceOrder.hora_inicio,
+                  hora_final: editingServiceOrder.hora_final,
+                  servico_executado: editingServiceOrder.servico_executado,
+                  createdAt: editingServiceOrder.createdAt || new Date(),
+                } : null}
+                onClose={handleFormClose}
+              />
+            </div>
+          </ModalContentComponent>
+        </ModalComponent>
+
         <ServiceOrderListDisplay 
           listItems={listItems} 
           onListChanged={loadListItems} 

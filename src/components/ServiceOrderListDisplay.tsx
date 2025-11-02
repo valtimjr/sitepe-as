@@ -36,7 +36,7 @@ interface ServiceOrderDetails {
   hora_final?: string;
   servico_executado?: string;
   createdAt: Date; // createdAt é obrigatório para agrupar
-  mode: 'add_part' | 'edit_details';
+  mode: 'add_part' | 'edit_details' | 'create-new-so'; // Adicionado 'create-new-so'
 }
 
 interface ServiceOrderGroup {
@@ -722,7 +722,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       {!isLoading && (
         <div className="mt-8 text-center">
           <Button 
-            onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'add_part' })} // Inicia uma nova OS
+            onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} // Inicia uma nova OS
             className="flex items-center gap-2 mx-auto"
           >
             <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
