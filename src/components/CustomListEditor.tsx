@@ -684,7 +684,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start"> {/* Adicionado items-start aqui */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <div className="space-y-2 md:col-span-2"> {/* Nome Personalizado: maior */}
                 <Label htmlFor="item-name">
                   <span className="block h-4"></span> {/* Linha em branco para alinhar */}
@@ -724,7 +724,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               </div>
               
               <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
-                <Label htmlFor="part-code">Código da Peça (Opcional)</Label>
+                <Label htmlFor="part-code">
+                  <span className="block h-4"></span> {/* Adicionado linha em branco aqui */}
+                  Código da Peça (Opcional)
+                </Label>
                 <Input
                   id="part-code"
                   value={formPartCode}
@@ -735,7 +738,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               </div>
             </div> {/* End grid-cols-1 md:grid-cols-3 for name/part-code */}
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start"> {/* Adicionado items-start aqui */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
                 <Label htmlFor="description">Descrição (Opcional)</Label>
                 <Input

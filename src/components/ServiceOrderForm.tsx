@@ -513,7 +513,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start"> {/* Adicionado items-start aqui */}
                 <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
-                  <Label htmlFor="codigo_peca">Código da Peça</Label>
+                  <Label htmlFor="codigo_peca">
+                    <span className="block h-4"></span> {/* Adicionado linha em branco aqui */}
+                    Código da Peça
+                  </Label>
                   <Input
                     id="codigo_peca"
                     type="text"
@@ -524,7 +527,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2"> {/* Nome da Peça: maior */}
-                  <Label htmlFor="name">Nome da Peça</Label>
+                  <Label htmlFor="name">
+                    <span className="block h-4"></span> {/* Adicionado linha em branco aqui */}
+                    Nome da Peça
+                  </Label>
                   <Input
                     id="name"
                     type="text"
