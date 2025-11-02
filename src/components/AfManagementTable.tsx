@@ -62,7 +62,7 @@ const AfManagementTable: React.FC = () => {
   const [formAfNumber, setFormAfNumber] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAfIds, setSelectedAfIds] = new Set());
+  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(() => new Set());
   
   // Novos estados para importação
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
