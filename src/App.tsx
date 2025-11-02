@@ -18,23 +18,17 @@ import TimeTrackingPage from "./pages/TimeTrackingPage";
 import CustomListPage from "./pages/CustomListPage";
 import MyCustomListsPage from "./pages/MyCustomListsPage";
 import CustomMenuOverview from "./pages/CustomMenuOverview";
-import CookiePolicyPage from "./pages/CookiePolicyPage"; // Importar a nova página
+import CookiePolicyPage from "./pages/CookiePolicyPage";
 import { SessionContextProvider } from "./components/SessionContextProvider";
 import AppHeader from "./components/AppHeader";
 import CookieConsentBanner from "./components/CookieConsentBanner";
-import { useOfflineSync } from "./hooks/useOfflineSync"; // Importar o novo hook
+import { useOfflineSync } from "./hooks/useOfflineSync";
 
 const queryClient = new QueryClient();
 
-// Componente Wrapper para usar o hook
 const AppWrapper = () => {
-  // O hook useOfflineSync deve ser chamado dentro do SessionContextProvider
-  // Vamos movê-lo para o componente SessionContextProvider ou para um componente filho.
-  // Para simplificar, vamos envolver o AppWrapper com BrowserRouter e SessionContextProvider
-  // e mover a chamada do hook para um componente que encapsula as rotas.
-
   return (
-    <BrowserRouter> {/* Removida a propriedade 'future' */}
+    <BrowserRouter>
       <SessionContextProvider>
         <AppContent />
       </SessionContextProvider>
@@ -42,7 +36,6 @@ const AppWrapper = () => {
   );
 };
 
-// Novo componente para conter o hook e as rotas
 const AppContent = () => {
   useOfflineSync();
   
@@ -64,10 +57,11 @@ const AppContent = () => {
         <Route path="/custom-list/:listId" element={<CustomListPage />} />
         <Route path="/my-custom-lists" element={<MyCustomListsPage />} />
         <Route path="/custom-menu-view" element={<CustomMenuOverview />} />
-        <Route path="/cookie-policy" element={<CookiePolicyPage />} /> {/* Nova rota */}
+        <Route path="/cookie-policy" element={<CookiePolicyPage />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <CookieConsentBanner /> {/* Movido para dentro do BrowserRouter */}
     </>
   );
 };
@@ -77,7 +71,6 @@ const App = () => (
     <TooltipProvider>
       <AppWrapper />
     </TooltipProvider>
-    <CookieConsentBanner />
   </QueryClientProvider>
 );
 
