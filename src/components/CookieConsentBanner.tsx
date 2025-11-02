@@ -18,6 +18,7 @@ interface CookiePreferences {
   navegacao: boolean;
   marketing: boolean;
   funcionalidades: boolean;
+  persistentes: boolean; // Novo tipo de cookie
 }
 
 const defaultPreferences: CookiePreferences = {
@@ -25,6 +26,7 @@ const defaultPreferences: CookiePreferences = {
   navegacao: true,
   marketing: false,
   funcionalidades: true,
+  persistentes: true, // Padrão como true
 };
 
 const CookieConsentBanner: React.FC = () => {
@@ -51,14 +53,14 @@ const CookieConsentBanner: React.FC = () => {
   };
 
   const handleAcceptAll = () => {
-    const allAccepted = { ...defaultPreferences, navegacao: true, marketing: true, funcionalidades: true };
+    const allAccepted = { ...defaultPreferences, navegacao: true, marketing: true, funcionalidades: true, persistentes: true };
     savePreferences(allAccepted);
     localStorage.setItem(COOKIE_CONSENT_KEY, 'true');
     setIsOpen(false);
   };
 
   const handleRejectAll = () => {
-    const allRejected = { ...defaultPreferences, navegacao: false, marketing: false, funcionalidades: false };
+    const allRejected = { ...defaultPreferences, navegacao: false, marketing: false, funcionalidades: false, persistentes: false };
     savePreferences(allRejected);
     localStorage.setItem(COOKIE_CONSENT_KEY, 'true');
     setIsOpen(false);
@@ -136,6 +138,24 @@ const CookieConsentBanner: React.FC = () => {
               </Label>
               <p className="text-sm text-muted-foreground">
                 Usado para registrar preferências de visualização (ex: turno selecionado) e ativar funcionalidades específicas.
+              </p>
+            </div>
+          </div>
+
+          {/* Persistentes - NOVO */}
+          <div className="flex items-start space-x-3">
+            <Checkbox
+              id="persistentes"
+              checked={preferences.persistentes}
+              onCheckedChange={(checked) => handleCheckboxChange('persistentes', checked === true)}
+              className="mt-1"
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label htmlFor="persistentes" className="font-bold text-base">
+                Persistentes
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Permanecem no seu dispositivo para lembrar preferências e configurações em visitas futuras (ex: tema, turno de trabalho).
               </p>
             </div>
           </div>
