@@ -291,7 +291,7 @@ const CustomListPage: React.FC = () => {
                   disabled={items.length === 0} 
                   variant="ghost" 
                   size="icon" 
-                  className="h-10 w-10 p-0 rounded-full sm:h-auto sm:w-auto sm:px-4 sm:rounded-md" // Ajuste para mobile
+                  className="h-10 w-10 p-0 rounded-none sm:h-auto sm:w-auto sm:px-4 sm:rounded-none" // Ajuste para mobile
                 >
                   {isMobile ? (
                     <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-full w-full" />
