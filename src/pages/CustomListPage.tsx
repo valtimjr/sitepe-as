@@ -3,21 +3,21 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle, XCircle } from 'lucide-react'; // XCircle adicionado aqui
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomList, CustomListItem } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af } from '@/services/partListService';
-import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importação corrigida
+import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import CustomListEditor from '@/components/CustomListEditor';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet'; // Usar Sheet diretamente
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import AfSearchInput from '@/components/AfSearchInput';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input'; // Adicionando a importação do Input
+import { Input } from '@/components/ui/input';
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
