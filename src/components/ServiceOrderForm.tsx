@@ -446,6 +446,17 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
                 />
               </div>
               <div>
+                <Label htmlFor="name">Nome da Peça</Label> {/* NOVO CAMPO */}
+                <Input
+                  id="name"
+                  type="text"
+                  value={selectedPart?.name || ''}
+                  placeholder="Nome da peça selecionada"
+                  readOnly
+                  className="bg-muted"
+                />
+              </div>
+              <div>
                 <Label htmlFor="descricao">Descrição</Label>
                 <Input
                   id="descricao"

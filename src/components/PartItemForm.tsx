@@ -32,24 +32,34 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
 
   // Efeito para inicializar o formulário com os dados do item de edição
   useEffect(() => {
-    if (editingItem) {
-      // Preenche os campos com os dados do item de edição
-      setQuantidade(editingItem.quantidade ?? 1);
-      setAf(editingItem.af || '');
-      // Para o PartSearchInput, precisamos de um objeto Part completo, então buscamos
-      const partFromEdit = allAvailableParts.find(p => p.codigo === editingItem.codigo_peca);
-      setSelectedPart(partFromEdit || null);
-      setEditedTags(partFromEdit?.tags || '');
-      // Define a query de busca para o código da peça para que o PartSearchInput exiba corretamente
-      setSearchQuery(editingItem.codigo_peca || ''); 
-    } else {
-      // Reseta os campos para o modo de adição
-      setSelectedPart(null);
-      setQuantidade(1);
-      setAf('');
-      setEditedTags('');
-      setSearchQuery('');
-    }
+    const initializeForm = async () => {
+      if (editingItem) {
+        setQuantidade(editingItem.quantidade ?? 1);
+        setAf(editingItem.af || '');
+        
+        // Para o PartSearchInput, precisamos de um objeto Part completo, então buscamos
+        // Primeiro, carrega todas as peças se ainda não estiverem carregadas
+        if (allAvailableParts.length === 0) {
+          const parts = await getParts();
+          setAllAvailableParts(parts);
+        }
+        
+        const partFromEdit = allAvailableParts.find(p => p.codigo === editingItem.codigo_peca);
+        setSelectedPart(partFromEdit || null);
+        setEditedTags(partFromEdit?.tags || '');
+        // Define a query de busca para o código da peça para que o PartSearchInput exiba corretamente
+        setSearchQuery(editingItem.codigo_peca || ''); 
+      } else {
+        // Reseta os campos para o modo de adição
+        setSelectedPart(null);
+        setQuantidade(1);
+        setAf('');
+        setEditedTags('');
+        setSearchQuery('');
+      }
+    };
+
+    initializeForm();
   }, [editingItem, allAvailableParts]); // Depende de editingItem e allAvailableParts
 
   useEffect(() => {
@@ -196,6 +206,17 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               type="text"
               value={selectedPart?.codigo || ''}
               placeholder="Código da peça selecionada"
+              readOnly
+              className="bg-muted"
+            />
+          </div>
+          <div>
+            <Label htmlFor="name">Nome da Peça</Label> {/* NOVO CAMPO */}
+            <Input
+              id="name"
+              type="text"
+              value={selectedPart?.name || ''}
+              placeholder="Nome da peça selecionada"
               readOnly
               className="bg-muted"
             />
