@@ -278,28 +278,33 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleMoveItem = async (item: CustomListItem, direction: 'up' | 'down') => {
-    const siblings = items.filter(i => i.list_id === item.list_id).sort((a, b) => a.order_index - b.order_index);
-    const currentIndex = siblings.findIndex(i => i.id === item.id);
+    const currentItemsCopy = [...items]; // Usar a cópia do estado atual
+    const currentIndex = currentItemsCopy.findIndex(i => i.id === item.id);
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
-    if (targetIndex < 0 || targetIndex >= siblings.length) return;
+    if (targetIndex < 0 || targetIndex >= currentItemsCopy.length) return;
 
-    const currentItem = siblings[currentIndex];
-    const targetItem = siblings[targetIndex];
+    // Realiza a troca no array local
+    const [removed] = currentItemsCopy.splice(currentIndex, 1);
+    currentItemsCopy.splice(targetIndex, 0, removed);
 
-    if (!currentItem || !targetItem) return;
+    // Atualiza o order_index de todos os itens com base na nova posição no array
+    const updatedItemsWithNewOrder = currentItemsCopy.map((reorderedItem, index) => ({
+      ...reorderedItem,
+      order_index: index,
+    }));
 
     const loadingToastId = showLoading('Reordenando itens...');
 
     try {
-      await Promise.all([
-        updateCustomListItem(list.id, { ...currentItem, order_index: targetItem.order_index }), // Passa list.id
-        updateCustomListItem(list.id, { ...targetItem, order_index: currentItem.order_index }), // Passa list.id
-      ]);
+      // Envia todos os itens atualizados para o banco de dados
+      await Promise.all(updatedItemsWithNewOrder.map(updatedItem =>
+        updateCustomListItem(list.id, updatedItem)
+      ));
 
       showSuccess('Ordem atualizada!');
-      await loadItems();
-      onItemSaved?.(); // Usando encadeamento opcional
+      await loadItems(); // Recarrega para garantir consistência com o DB
+      onItemSaved?.();
     } catch (error) {
       showError('Erro ao reordenar itens.');
       console.error('Failed to reorder list items:', error);
@@ -384,28 +389,38 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     e.currentTarget.classList.remove('opacity-50');
 
     if (draggedItem && draggedItem.id !== targetItem.id) {
-      const newOrderedItems = [...items];
-      const draggedIndex = newOrderedItems.findIndex(item => item.id === draggedItem.id);
-      const targetIndex = newOrderedItems.findIndex(item => item.id === targetItem.id);
+      const currentItemsCopy = [...items]; // Usar a cópia do estado atual
+      const draggedIndex = currentItemsCopy.findIndex(item => item.id === draggedItem.id);
+      const targetIndex = currentItemsCopy.findIndex(item => item.id === targetItem.id);
 
       if (draggedIndex !== -1 && targetIndex !== -1) {
-        const [removed] = newOrderedItems.splice(draggedIndex, 1);
-        newOrderedItems.splice(targetIndex, 0, removed);
+        // Realiza a reordenação no array local
+        const [removed] = currentItemsCopy.splice(draggedIndex, 1);
+        currentItemsCopy.splice(targetIndex, 0, removed);
         
-        setItems(newOrderedItems);
+        // Atualiza o order_index de todos os itens com base na nova posição no array
+        const updatedItemsWithNewOrder = currentItemsCopy.map((reorderedItem, index) => ({
+          ...reorderedItem,
+          order_index: index,
+        }));
+        
+        // Atualiza o estado local imediatamente para feedback visual
+        setItems(updatedItemsWithNewOrder);
 
         const loadingToastId = showLoading('Reordenando itens...');
         try {
-          const updatePromises = newOrderedItems.map((item, index) => 
-            updateCustomListItem(list.id, { ...item, order_index: index }) // Passa list.id
-          );
-          await Promise.all(updatePromises);
+          // Envia todos os itens atualizados para o banco de dados
+          await Promise.all(updatedItemsWithNewOrder.map(updatedItem =>
+            updateCustomListItem(list.id, updatedItem)
+          ));
+
           showSuccess('Ordem atualizada com sucesso!');
-          await loadItems();
-          onItemSaved?.(); // Usando encadeamento opcional
+          await loadItems(); // Recarrega para garantir consistência com o DB
+          onItemSaved?.();
         } catch (error) {
           showError('Erro ao reordenar itens.');
           console.error('Failed to persist new order:', error);
+          // Em caso de erro, você pode querer reverter o estado local aqui
         } finally {
           dismissToast(loadingToastId);
         }
