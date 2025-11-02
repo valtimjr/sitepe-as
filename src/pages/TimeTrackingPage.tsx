@@ -9,7 +9,7 @@ import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, Mo
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth } from '@/services/partListService';
-import { useSession } from '@/components/SessionContextProvider';
+import { useSession } => '@/components/SessionContextProvider';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { generateTimeTrackingPdf } from '@/lib/pdfGenerator';
 import { v4 as uuidv4 } from 'uuid';
