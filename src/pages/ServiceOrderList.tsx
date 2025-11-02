@@ -19,7 +19,7 @@ interface ServiceOrderDetails {
   hora_inicio?: string;
   hora_final?: string;
   servico_executado?: string;
-  createdAt?: Date;
+  createdAt?: Date; // createdAt é opcional aqui, mas será obrigatório no ServiceOrderGroupDetails
 }
 
 type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
@@ -30,7 +30,7 @@ const ServiceOrderList: React.FC = () => {
   const [listItems, setListItems] = useState<ServiceOrderItem[]>([]); // Agora usa ServiceOrderItem
   const [isLoading, setIsLoading] = useState(true);
   const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
-  const [sortOrder, setSortOrder] = useState<SortOrder>('manual'); // Novo estado para a ordem de classificação
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc'); // Alterado para 'asc' como padrão
   const [isFormOpen, setIsFormOpen] = useState(false); // Novo estado para controlar a abertura do formulário principal
 
   const isMobile = useIsMobile(); // Hook para detectar mobile
