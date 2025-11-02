@@ -19,6 +19,7 @@ import AfSearchInput from '@/components/AfSearchInput';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Importar Popover
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -34,6 +35,9 @@ const CustomListPage: React.FC = () => {
   const [afForExport, setAfForExport] = useState('');
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
+
+  // Estado para controlar o Popover de itens relacionados
+  const [isRelatedItemsPopoverOpen, setIsRelatedItemsPopoverOpen] = useState<string | null>(null);
 
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
@@ -342,7 +346,7 @@ const CustomListPage: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                        <TableCell className="w-auto whitespace-normal break-words p-2">
+                        <TableCell className="w-auto whitespace-normal break-words p-2 text-left"> {/* Alinhado à esquerda */}
                             <div className="flex flex-col items-start"> {/* Removido items-center para alinhar à esquerda */}
                               {item.part_code && (
                                 <span className="font-medium text-sm text-primary">{item.part_code}</span>
@@ -352,43 +356,23 @@ const CustomListPage: React.FC = () => {
                                 <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
                               )}
                               {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                                <Tooltip open={isMobile ? item.id === itemToEdit?.id && isEditModalOpen : undefined} onOpenChange={(open) => {
-                                  if (isMobile) {
-                                    if (open) {
-                                      setItemToEdit(item);
-                                      setIsEditModalOpen(true);
-                                    } else {
-                                      setItemToEdit(null);
-                                      setIsEditModalOpen(false);
-                                    }
-                                  }
-                                }}>
-                                  <TooltipTrigger asChild>
-                                    {/* Alterado para Button */}
+                                <Popover open={isRelatedItemsPopoverOpen === item.id} onOpenChange={(open) => setIsRelatedItemsPopoverOpen(open ? item.id : null)}>
+                                  <PopoverTrigger asChild>
                                     <Button 
                                       variant="ghost" 
                                       size="sm" 
                                       className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
-                                      onClick={() => {
-                                        if (isMobile) {
-                                          if (itemToEdit?.id === item.id && isEditModalOpen) {
-                                            handleItemSavedOrClosed(); // Fecha se já estiver aberto
-                                          } else {
-                                            handleEditItemClick(item); // Abre se estiver fechado
-                                          }
-                                        }
-                                      }}
                                     >
                                       <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
                                     </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent className="max-w-xs">
-                                    <p className="font-bold mb-1">Itens Relacionados:</p>
-                                    <ul className="list-disc list-inside">
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto max-w-xs p-2">
+                                    <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                                    <ul className="list-disc list-inside text-xs text-muted-foreground">
                                       {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
                                     </ul>
-                                  </TooltipContent>
-                                </Tooltip>
+                                  </PopoverContent>
+                                </Popover>
                               )}
                             </div>
                         </TableCell>
@@ -402,7 +386,7 @@ const CustomListPage: React.FC = () => {
         </Card>
         <MadeWithDyad />
 
-        {/* Sheet de Edição */}
+        {/* Sheet de Edição (mantido para o botão de lápis) */}
         <Sheet open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
           <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
             <SheetHeader>
