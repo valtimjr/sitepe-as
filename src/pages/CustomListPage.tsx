@@ -220,9 +220,7 @@ const CustomListPage: React.FC = () => {
                       <TableCell className="w-auto whitespace-normal break-words p-2">
                         <RelatedItemsHoverCard
                           partCode={item.part_code}
-                          itemName={item.item_name}
-                          excludeItemId={item.id}
-                          excludeListId={item.list_id}
+                          currentPartId={item.id} {/* Passa o ID do item atual */}
                         >
                           <div className="flex flex-col">
                             {item.part_code && (

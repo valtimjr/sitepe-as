@@ -121,7 +121,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setCurrentEditItem(editingItem);
         setFormItemName(editingItem.item_name);
         setFormPartCode(editingItem.part_code || '');
-        setFormDescription(editing.description || '');
+        setFormDescription(editingItem.description || '');
         setFormQuantity(editingItem.quantity);
         setSearchQuery('');
         setSearchResults([]);
@@ -616,9 +616,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                     <TableCell className="w-auto whitespace-normal break-words p-2">
                       <RelatedItemsHoverCard
                         partCode={item.part_code}
-                        itemName={item.item_name}
-                        excludeItemId={item.id}
-                        excludeListId={item.list_id}
+                        currentPartId={item.id} {/* Passa o ID do item atual */}
                       >
                         <div className="flex flex-col">
                           {item.part_code && (
