@@ -424,17 +424,15 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                 <Button 
                   onClick={handleExportPdf} 
                   disabled={orderedItems.length === 0} 
-                  variant="default" 
-                  className="flex items-center gap-2" 
-                >
-                  {isMobile ? (
-                    <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-10 w-10" />
-                  ) : (
-                    <>
-                      <FileDown className="h-4 w-4" /> 
-                      {"Exportar PDF"}
-                    </>
+                  variant={isMobile ? "ghost" : "default"} // Ghost para mobile, default para desktop
+                  size={isMobile ? "icon" : undefined} // Icon size para mobile, undefined para desktop
+                  className={cn(
+                    "flex items-center gap-2",
+                    isMobile ? "h-10 w-10 p-0" : "" // Tamanho para mobile
                   )}
+                >
+                  <FileDown className={cn("h-4 w-4", isMobile ? "h-6 w-6" : "")} /> {/* Ajusta o tamanho do ícone */}
+                  {!isMobile && "Exportar PDF"} {/* Texto apenas no desktop */}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Exportar PDF</TooltipContent>
@@ -621,7 +619,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                   <AlertDialogAction onClick={() => handleDeleteItem(item.id)}>Remover</AlertDialogAction>
-                                  </AlertDialogFooter>
+                                </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
                           </div>
