@@ -52,7 +52,10 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
         {hasRelatedItems && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Info className="h-4 w-4 text-muted-foreground ml-2 cursor-help" />
+              {/* Alterado para Button */}
+              <Button variant="ghost" size="icon" className="h-6 w-6 p-0 text-muted-foreground ml-2 cursor-pointer">
+                <Info className="h-4 w-4" />
+              </Button>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
               <p className="font-bold mb-1">Itens Relacionados:</p>

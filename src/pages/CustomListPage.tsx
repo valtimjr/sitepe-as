@@ -13,7 +13,7 @@ import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import CustomListEditor from '@/components/CustomListEditor';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import AfSearchInput from '@/components/AfSearchInput';
 import { Label } from '@/components/ui/label';
@@ -354,9 +354,10 @@ const CustomListPage: React.FC = () => {
                               {item.itens_relacionados && item.itens_relacionados.length > 0 && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <span className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-help">
+                                    {/* Alterado para Button */}
+                                    <Button variant="ghost" size="sm" className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1">
                                       <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                                    </span>
+                                    </Button>
                                   </TooltipTrigger>
                                   <TooltipContent className="max-w-xs">
                                     <p className="font-bold mb-1">Itens Relacionados:</p>
