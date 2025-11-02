@@ -28,6 +28,7 @@ import { localDb } from '@/services/localDbService';
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Importar Sheet
 import ServiceOrderForm from './ServiceOrderForm'; // Importar o formulário
+import { cn } from '@/lib/utils'; // Importar cn
 
 interface ServiceOrderDetails {
   af: string;
@@ -461,9 +462,29 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader className="pb-2">
-        <CardTitle className="text-2xl font-bold">Lista de Ordens de Serviço</CardTitle>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
+          <CardTitle className="text-2xl font-bold mb-2 sm:mb-0">Lista de Ordens de Serviço</CardTitle>
+          {/* Botão "Iniciar Nova Ordem de Serviço" para mobile (acima dos outros botões) */}
+          {isMobile && (
+            <Button 
+              onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
+              className="flex items-center gap-2 w-full sm:w-auto mb-4 sm:mb-0"
+            >
+              <FilePlus className="h-4 w-4" /> Iniciar Nova OS
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <div className="flex flex-wrap justify-end gap-2 p-4 pt-0">
+          {/* Botão "Iniciar Nova Ordem de Serviço" para desktop (à esquerda dos outros botões) */}
+          {!isMobile && (
+            <Button 
+              onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
+              className="flex items-center gap-2 mr-auto" // mr-auto para empurrar para a esquerda
+            >
+              <FilePlus className="h-4 w-4" /> Iniciar Nova OS
+            </Button>
+          )}
           <Button 
             onClick={handleCopyList} 
             disabled={groupedServiceOrders.length === 0 || isLoading} 
@@ -515,7 +536,16 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando sua lista de ordens de serviço...</p>
         ) : groupedServiceOrders.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione itens antes de começar!</p>
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <FilePlus className="h-16 w-16 mb-4 text-primary" />
+            <p className="text-lg mb-4">Nenhuma ordem de serviço adicionada ainda.</p>
+            <Button 
+              onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })}
+              className="flex items-center gap-2"
+            >
+              <PlusCircle className="h-4 w-4" /> Iniciar a Primeira Ordem de Serviço
+            </Button>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -718,8 +748,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           </div>
         )}
       </CardContent>
-      {/* Botão "Adicionar Ordem de Serviço" no final da lista */}
-      {!isLoading && (
+      {/* Botão "Adicionar Ordem de Serviço" no final da lista - REMOVIDO */}
+      {/* {!isLoading && (
         <div className="mt-8 text-center">
           <Button 
             onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} // Inicia uma nova OS
@@ -728,7 +758,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
           </Button>
         </div>
-      )}
+      )} */}
 
       {/* Sheet/Dialog para Adicionar/Editar Peça */}
       {isPartFormOpen && (
