@@ -593,7 +593,7 @@ const TimeTrackingPage: React.FC = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[100px]">Dia</TableHead>
-                    <TableHead className="w-auto min-w-[200px]">Entrada / Saída</TableHead> {/* Rótulo original */}
+                    <TableHead className="w-auto min-w-[200px]">Entrada / Status</TableHead>
                     <TableHead className="w-[100px]">Total</TableHead>
                     <TableHead className="w-[120px] text-right">Ações</TableHead>
                   </TableRow>
@@ -618,7 +618,7 @@ const TimeTrackingPage: React.FC = () => {
                           {format(day, 'dd/MM')} ({dayName})
                         </TableCell>
                         
-                        {/* Coluna de Entrada / Saída / Status */}
+                        {/* Coluna de Entrada / Status */}
                         <TableCell className="space-y-2">
                           {hasStatus ? (
                             <div className={cn(

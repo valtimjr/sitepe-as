@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Adicionada esta importação
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Part, addServiceOrderItem, getParts, getAfsFromService, searchParts as searchPartsService, updatePart, deleteServiceOrderItem, ServiceOrderItem, updateServiceOrderItem, Af } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
@@ -349,7 +349,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             os: initialSoDetails.os,
             hora_inicio: initialSoDetails.hora_inicio || undefined,
             hora_final: initialSoDetails.hora_final || undefined,
-            servico_executado: servicoExecutado,
+            servico_executado: initialSoDetails.servico_executado,
           }, initialSoDetails.createdAt);
           showSuccess('Peça adicionada à Ordem de Serviço!');
         }
@@ -482,31 +482,26 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   </p>
                 )}
               </div>
-              <div className="flex flex-col gap-1"> {/* Adicionado flex-col e gap para o rótulo "Hora" */}
-                <span className="text-sm text-muted-foreground text-center sm:hidden">Hora</span> {/* Visível apenas em mobile */}
-                <div className="flex items-center space-x-2">
-                  <div className="flex-1">
-                    <Label htmlFor="hora_inicio" className="sr-only">Inicial</Label> {/* Rótulo alterado */}
-                    <Input
-                      id="hora_inicio"
-                      type="time"
-                      value={horaInicio}
-                      onChange={(e) => setHoraInicio(e.target.value)}
-                      readOnly={isOsDetailsReadOnly}
-                      placeholder="Inicial" {/* Placeholder adicionado */}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <Label htmlFor="hora_final" className="sr-only">Final</Label> {/* Rótulo alterado */}
-                    <Input
-                      id="hora_final"
-                      type="time"
-                      value={horaFinal}
-                      onChange={(e) => setHoraFinal(e.target.value)}
-                      readOnly={isOsDetailsReadOnly}
-                      placeholder="Final" {/* Placeholder adicionado */}
-                    />
-                  </div>
+              <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
+                <div className="flex-1">
+                  <Label htmlFor="hora_inicio" className="min-h-[2.5rem] flex items-center">Hora de Início (Opcional)</Label>
+                  <Input
+                    id="hora_inicio"
+                    type="time"
+                    value={horaInicio}
+                    onChange={(e) => setHoraInicio(e.target.value)}
+                    readOnly={isOsDetailsReadOnly}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="hora_final" className="min-h-[2.5rem] flex items-center">Hora Final (Opcional)</Label>
+                  <Input
+                    id="hora_final"
+                    type="time"
+                    value={horaFinal}
+                    onChange={(e) => setHoraFinal(e.target.value)}
+                    readOnly={isOsDetailsReadOnly}
+                  />
                 </div>
               </div>
               <div>
