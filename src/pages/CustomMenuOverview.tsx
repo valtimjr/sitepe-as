@@ -9,6 +9,7 @@ import { MenuItem } from '@/types/supabase';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 
 interface MenuItemProps {
   item: MenuItem;
@@ -17,13 +18,23 @@ interface MenuItemProps {
 
 const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
   const [isExpanded, setIsExpanded] = useState(level === 0);
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false); // Estado para controlar o tooltip
   const hasChildren = item.children && item.children.length > 0;
   const isListLink = !!item.list_id;
   const hasRelatedItems = item.itens_relacionados && item.itens_relacionados.length > 0;
 
+  const isMobile = useIsMobile(); // Usar o hook useIsMobile
+
   const toggleExpand = () => {
     if (hasChildren) {
       setIsExpanded(prev => !prev);
+    }
+  };
+
+  const handleTooltipClick = (e: React.MouseEvent) => {
+    if (isMobile) {
+      e.stopPropagation(); // Evita que o clique no botão feche o menu pai
+      setIsTooltipOpen(prev => !prev);
     }
   };
 
@@ -50,20 +61,27 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
           {item.title}
         </span>
         {hasRelatedItems && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {/* Alterado para Button */}
-              <Button variant="ghost" size="icon" className="h-6 w-6 p-0 text-muted-foreground ml-2 cursor-pointer">
-                <Info className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              <p className="font-bold mb-1">Itens Relacionados:</p>
-              <ul className="list-disc list-inside">
-                {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
-              </ul>
-            </TooltipContent>
-          </Tooltip>
+          <div className="flex justify-center w-full sm:w-auto"> {/* Wrapper para centralizar o botão */}
+            <Tooltip open={isTooltipOpen} onOpenChange={setIsTooltipOpen}>
+              <TooltipTrigger asChild>
+                {/* Alterado para Button */}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6 p-0 text-muted-foreground cursor-pointer" // Removido ml-2
+                  onClick={handleTooltipClick}
+                >
+                  <Info className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="font-bold mb-1">Itens Relacionados:</p>
+                <ul className="list-disc list-inside">
+                  {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
+                </ul>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         )}
       </div>
       

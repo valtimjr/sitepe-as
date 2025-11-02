@@ -343,7 +343,7 @@ const CustomListPage: React.FC = () => {
                         </TableCell>
                         <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
                         <TableCell className="w-auto whitespace-normal break-words p-2">
-                            <div className="flex flex-col">
+                            <div className="flex flex-col items-center"> {/* Adicionado items-center aqui */}
                               {item.part_code && (
                                 <span className="font-medium text-sm text-primary">{item.part_code}</span>
                               )}
@@ -352,10 +352,33 @@ const CustomListPage: React.FC = () => {
                                 <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
                               )}
                               {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                                <Tooltip>
+                                <Tooltip open={isMobile ? item.id === itemToEdit?.id && isEditModalOpen : undefined} onOpenChange={(open) => {
+                                  if (isMobile) {
+                                    if (open) {
+                                      setItemToEdit(item);
+                                      setIsEditModalOpen(true);
+                                    } else {
+                                      setItemToEdit(null);
+                                      setIsEditModalOpen(false);
+                                    }
+                                  }
+                                }}>
                                   <TooltipTrigger asChild>
                                     {/* Alterado para Button */}
-                                    <Button variant="ghost" size="sm" className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
+                                      onClick={() => {
+                                        if (isMobile) {
+                                          if (itemToEdit?.id === item.id && isEditModalOpen) {
+                                            handleItemSavedOrClosed(); // Fecha se já estiver aberto
+                                          } else {
+                                            handleEditItemClick(item); // Abre se estiver fechado
+                                          }
+                                        }
+                                      }}
+                                    >
                                       <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
                                     </Button>
                                   </TooltipTrigger>
