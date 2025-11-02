@@ -425,15 +425,21 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                 <Button 
                   onClick={handleExportPdf} 
                   disabled={orderedItems.length === 0} 
-                  variant={isMobile ? "ghost" : "default"} 
-                  size={isMobile ? "icon" : "default"} 
-                  className={isMobile ? "h-10 w-10 p-0 rounded-full" : "flex items-center gap-2"}
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-10 w-10 p-0 rounded-full sm:h-auto sm:w-auto sm:px-4 sm:rounded-md" // Ajuste para mobile
                 >
-                  <Download className="h-4 w-4" /> 
-                  {!isMobile && "Exportar PDF"}
+                  {isMobile ? (
+                    <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-full w-full" />
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" /> 
+                      {"Exportar PDF"}
+                    </>
+                  )}
                 </Button>
               </TooltipTrigger>
-              {isMobile && <TooltipContent>Exportar PDF</TooltipContent>}
+              <TooltipContent>Exportar PDF</TooltipContent>
             </Tooltip>
             <AlertDialog>
               <AlertDialogTrigger asChild>
