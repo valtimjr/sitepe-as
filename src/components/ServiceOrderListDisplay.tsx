@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem } from '@/services/partListService';
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
-import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide } from 'lucide-react';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide, XCircle, Save } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +25,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { localDb } from '@/services/localDbService';
+import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Importar Sheet
+import ServiceOrderForm from './ServiceOrderForm'; // Importar o formulário
 
 interface ServiceOrderDetails {
   af: string;
@@ -89,6 +92,14 @@ const compareTimeStrings = (t1: string | undefined, t2: string | undefined): num
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder, sortOrder, onSortOrderChange }) => {
   const [groupedServiceOrders, setGroupedServiceOrders] = useState<ServiceOrderGroup[]>([]);
   const [draggedGroup, setDraggedGroup] = useState<ServiceOrderGroup | null>(null);
+
+  const isMobile = useIsMobile(); // Hook para detectar mobile
+
+  // Estados para o formulário de adição/edição de peças (via Sheet/Dialog)
+  const [isPartFormOpen, setIsPartFormOpen] = useState(false);
+  const [partToEdit, setPartToEdit] = useState<ServiceOrderItem | null>(null);
+  const [soGroupForPartForm, setSoGroupForPartForm] = useState<ServiceOrderGroup | null>(null);
+  const [partFormMode, setPartFormMode] = useState<'add-part-to-existing-so' | 'edit-part'>('add-part-to-existing-so');
 
   // Função para agrupar e ordenar os itens brutos
   const processListItems = useCallback((items: ServiceOrderItem[], currentSortOrder: SortOrder): ServiceOrderGroup[] => {
@@ -290,7 +301,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         item.id !== id &&
         item.af === currentSOIdentifier.af &&
         (item.os === currentSOIdentifier.os || (item.os === undefined && currentSOIdentifier.os === undefined)) &&
-        (item.hora_inicio === currentSOIdentifier.hora_inicio || (currentSOIdentifier.hora_inicio === undefined && item.hora_inicio === undefined)) &&
+        (item.hora_inicio === currentSOIdentifier.hora_inicio || (item.hora_inicio === undefined && currentSOIdentifier.hora_inicio === undefined)) &&
         (item.hora_final === currentSOIdentifier.hora_final || (currentSOIdentifier.hora_final === undefined && item.hora_final === undefined)) &&
         (item.servico_executado === currentSOIdentifier.servico_executado || (currentSOIdentifier.servico_executado === undefined && item.servico_executado === undefined))
       );
@@ -402,6 +413,28 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     } else { // Se for manual, vai para asc
       onSortOrderChange('asc');
     }
+  };
+
+  // --- Funções para o formulário de peças (inline/sheet) ---
+  const handleOpenAddPartForm = (group: ServiceOrderGroup) => {
+    setSoGroupForPartForm(group);
+    setPartToEdit(null); // Garante que é modo de adição
+    setPartFormMode('add-part-to-existing-so');
+    setIsPartFormOpen(true);
+  };
+
+  const handleOpenEditPartForm = (part: ServiceOrderItem, group: ServiceOrderGroup) => {
+    setPartToEdit(part);
+    setSoGroupForPartForm(group); // Passa o grupo para o formulário saber a qual OS a peça pertence
+    setPartFormMode('edit-part');
+    setIsPartFormOpen(true);
+  };
+
+  const handlePartFormClose = () => {
+    setIsPartFormOpen(false);
+    setPartToEdit(null);
+    setSoGroupForPartForm(null);
+    onListChanged(); // Recarrega a lista após salvar/cancelar
   };
 
   return (
@@ -526,7 +559,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                             <div className="flex flex-col space-y-1 flex-grow">
                               <div className="flex items-center space-x-2">
                                 <span className="text-lg font-bold text-primary">AF: {group.af}</span>
-                                {group.os && <span className="text-lg font-bold text-primary">(OS: {group.os})</span>}
+                                {group.os && <span className="text-lg font-bold text-primary"> (OS: {group.os})</span>}
                               </div>
                               {timeDisplay && (
                                 <span className="text-sm text-muted-foreground flex items-center gap-1">
@@ -553,15 +586,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                 <TooltipContent>Opções da Ordem de Serviço</TooltipContent>
                               </Tooltip>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => onEditServiceOrder({ 
-                                  af: group.af, 
-                                  os: group.os, 
-                                  hora_inicio: group.hora_inicio, 
-                                  hora_final: group.hora_final, 
-                                  servico_executado: group.servico_executado,
-                                  createdAt: group.createdAt,
-                                  mode: 'add_part'
-                                })}>
+                                <DropdownMenuItem onClick={() => handleOpenAddPartForm(group)}>
                                   <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Nova Peça
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => onEditServiceOrder({ 
@@ -616,16 +641,40 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           
                           {/* Célula de Ações para a Peça (alinhada com a coluna Opções) */}
                           <TableCell className="w-[40px] p-2 text-right">
-                            {isEditingThisServiceOrder && editingServiceOrder?.mode === 'edit_details' && (
+                            <div className="flex justify-end items-center gap-1">
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteItem(part.id)} className="h-8 w-8">
-                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  <Button variant="ghost" size="icon" onClick={() => handleOpenEditPartForm(part as ServiceOrderItem, group)} className="h-8 w-8">
+                                    <Pencil className="h-4 w-4" />
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Remover item</TooltipContent>
+                                <TooltipContent>Editar item</TooltipContent>
                               </Tooltip>
-                            )}
+                              <AlertDialog>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Remover item</TooltipContent>
+                                </Tooltip>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta ação irá remover o item "{part.codigo_peca || part.descricao}" da lista. Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteItem(part.id)}>Remover</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -648,6 +697,40 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           </div>
         )}
       </CardContent>
+
+      {/* Sheet/Dialog para Adicionar/Editar Peça */}
+      {isPartFormOpen && (
+        <Sheet open={isPartFormOpen} onOpenChange={setIsPartFormOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>
+                {partFormMode === 'add-part-to-existing-so' ? 'Adicionar Peça' : 'Editar Peça'} à OS {soGroupForPartForm?.af}
+                {soGroupForPartForm?.os && ` (OS: ${soGroupForPartForm.os})`}
+              </SheetTitle>
+            </SheetHeader>
+            <div className="py-4">
+              <ServiceOrderForm
+                mode={partFormMode}
+                onItemAdded={handlePartFormClose}
+                onClose={handlePartFormClose}
+                initialPart={partToEdit}
+                initialSoDetails={soGroupForPartForm ? {
+                  af: soGroupForPartForm.af,
+                  os: soGroupForPartForm.os,
+                  hora_inicio: soGroupForPartForm.hora_inicio,
+                  hora_final: soGroupForPartForm.hora_final,
+                  servico_executado: soGroupForPartForm.servico_executado,
+                  createdAt: soGroupForPartForm.createdAt,
+                  mode: 'add_part', // Este modo é apenas para o ServiceOrderForm entender o contexto da OS
+                } : null}
+                listItems={listItems} // Passa listItems para o formulário
+                setIsCreatingNewOrder={() => {}} // Não é relevante neste contexto
+                onNewServiceOrder={() => {}} // Não é relevante neste contexto
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
     </Card>
   );
 };

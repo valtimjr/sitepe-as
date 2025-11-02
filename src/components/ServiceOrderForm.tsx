@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +7,7 @@ import { Part, addServiceOrderItem, getParts, getAfsFromService, searchParts as 
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save, Plus, FilePlus } from 'lucide-react';
+import { Save, Plus, FilePlus, XCircle, Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -23,15 +23,42 @@ interface ServiceOrderDetails {
   mode: 'add_part' | 'edit_details';
 }
 
+type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
+
 interface ServiceOrderFormProps {
   onItemAdded: () => void;
-  editingServiceOrder: ServiceOrderDetails | null;
+  editingServiceOrder: ServiceOrderDetails | null; // Usado para 'create-new-so' e 'edit-so-details'
   onNewServiceOrder: () => void;
   listItems: ServiceOrderItem[];
   setIsCreatingNewOrder: (isCreating: boolean) => void;
+  // Novas props para modos de edição/adição de peças
+  mode: FormMode;
+  initialPart?: ServiceOrderItem | null; // Para 'edit-part'
+  initialSoDetails?: ServiceOrderGroupDetails | null; // Para 'add-part-to-existing-so'
+  onClose?: () => void; // Para fechar o Sheet/Dialog
 }
 
-const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editingServiceOrder, onNewServiceOrder, listItems, setIsCreatingNewOrder }) => {
+// Interface para detalhes do grupo de OS (para passar para o formulário de peça)
+interface ServiceOrderGroupDetails {
+  af: string;
+  os?: number;
+  hora_inicio?: string;
+  hora_final?: string;
+  servico_executado?: string;
+  createdAt: Date;
+}
+
+const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ 
+  onItemAdded, 
+  editingServiceOrder, 
+  onNewServiceOrder, 
+  listItems, 
+  setIsCreatingNewOrder,
+  mode, // Novo prop
+  initialPart, // Novo prop
+  initialSoDetails, // Novo prop
+  onClose, // Novo prop
+}) => {
   const { checkPageAccess } = useSession(); // Obter checkPageAccess
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
@@ -65,36 +92,50 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
     loadInitialData();
   }, []);
 
+  // Efeito para inicializar o formulário com base no `mode` e `initial` props
   useEffect(() => {
-    if (editingServiceOrder) {
+    resetAllFieldsInternal(); // Limpa tudo primeiro
+
+    if (mode === 'edit-part' && initialPart) {
+      // Modo de edição de peça
+      setAf(initialPart.af);
+      setOs(initialPart.os);
+      setHoraInicio(initialPart.hora_inicio || '');
+      setHoraFinal(initialPart.hora_final || '');
+      setServicoExecutado(initialPart.servico_executado || '');
+      setQuantidade(initialPart.quantidade ?? 1);
+      
+      // Preenche a peça selecionada
+      const partFromInitial = allAvailableParts.find(p => p.codigo === initialPart.codigo_peca);
+      setSelectedPart(partFromInitial || null);
+      setEditedTags(partFromInitial?.tags || '');
+      setSearchQuery(initialPart.codigo_peca || ''); // Para exibir no PartSearchInput
+    } else if (mode === 'add-part-to-existing-so' && initialSoDetails) {
+      // Modo de adicionar peça a uma OS existente
+      setAf(initialSoDetails.af);
+      setOs(initialSoDetails.os);
+      setHoraInicio(initialSoDetails.hora_inicio || '');
+      setHoraFinal(initialSoDetails.hora_final || '');
+      setServicoExecutado(initialSoDetails.servico_executado || '');
+      setQuantidade(1); // Quantidade padrão para nova peça
+      resetPartFields(); // Limpa campos de peça para nova adição
+    } else if (mode === 'edit-so-details' && editingServiceOrder) {
+      // Modo de edição de detalhes da OS
       setAf(editingServiceOrder.af);
       setOs(editingServiceOrder.os);
       setHoraInicio(editingServiceOrder.hora_inicio || '');
       setHoraFinal(editingServiceOrder.hora_final || '');
       setServicoExecutado(editingServiceOrder.servico_executado || '');
-      resetPartFields();
-      setIsOsInvalid(false);
-
-      const blankItem = listItems.find(item =>
-        item.af === editingServiceOrder.af &&
-        (item.os === editingServiceOrder.os || (item.os === undefined && editingServiceOrder.os === undefined)) &&
-        (item.hora_inicio === editingServiceOrder.hora_inicio || (item.hora_inicio === undefined && editingServiceOrder.hora_inicio === undefined)) &&
-        (item.hora_final === editingServiceOrder.hora_final || (item.hora_final === undefined && editingServiceOrder.hora_final === undefined)) &&
-        (item.servico_executado === editingServiceOrder.servico_executado || (item.servico_executado === undefined && editingServiceOrder.servico_executado === undefined)) &&
-        !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
-      );
-
-      if (blankItem) {
-        setCurrentBlankOsItemId(blankItem.id);
-      } else {
-        setCurrentBlankOsItemId(null);
-      }
-
-    } else {
+      resetPartFields(); // Não há peça sendo adicionada/editada neste modo
+    } else if (mode === 'create-new-so' && !editingServiceOrder) {
+      // Modo de criar nova OS (estado inicial)
       resetAllFieldsInternal();
-      setCurrentBlankOsItemId(null);
     }
-  }, [editingServiceOrder, listItems]);
+
+    setIsOsInvalid(false); // Reseta validação da OS
+    setCurrentBlankOsItemId(null); // Reseta item em branco
+  }, [mode, initialPart, initialSoDetails, editingServiceOrder, allAvailableParts]);
+
 
   useEffect(() => {
     const fetchSearchResults = async () => {
@@ -200,7 +241,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
       return;
     }
 
-    if (editingServiceOrder?.mode === 'edit_details') {
+    // Lógica para EDITAR DETALHES DA OS
+    if (mode === 'edit-so-details' && editingServiceOrder) {
       const originalAf = editingServiceOrder.af;
       const originalOs = editingServiceOrder.os;
       const originalHoraInicio = editingServiceOrder.hora_inicio;
@@ -234,6 +276,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
           console.error('Failed to update service order details:', error);
         }
       } else {
+        // Se não houver itens, cria um item "em branco" para representar a OS
         try {
           await addServiceOrderItem({
             af,
@@ -252,177 +295,233 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
         }
       }
       onItemAdded();
-      onNewServiceOrder();
-      setIsCreatingNewOrder(false);
+      onNewServiceOrder(); // Notifica o pai para resetar o estado de edição
+      onClose?.(); // Fecha o modal/sheet
       return;
     }
 
-    if (selectedPart) {
+    // Lógica para ADICIONAR PEÇA A UMA OS EXISTENTE ou EDITAR PEÇA
+    if (mode === 'add-part-to-existing-so' || mode === 'edit-part') {
+      if (!selectedPart) {
+        showError('Por favor, selecione uma peça.');
+        return;
+      }
       if (quantidade <= 0) {
         showError('A quantidade da peça deve ser maior que zero.');
         return;
       }
 
       try {
-        if (currentBlankOsItemId) {
-          await deleteServiceOrderItem(currentBlankOsItemId);
-          setCurrentBlankOsItemId(null);
+        if (mode === 'edit-part' && initialPart) {
+          // Atualiza a peça existente
+          await updateServiceOrderItem({
+            ...initialPart,
+            codigo_peca: selectedPart.codigo,
+            descricao: selectedPart.descricao,
+            quantidade: quantidade,
+            af: af, // AF já vem do initialSoDetails
+            os: os, // OS já vem do initialSoDetails
+            hora_inicio: horaInicio || undefined,
+            hora_final: horaFinal || undefined,
+            servico_executado: servicoExecutado,
+          });
+          showSuccess('Peça atualizada com sucesso!');
+        } else if (mode === 'add-part-to-existing-so' && initialSoDetails) {
+          // Adiciona nova peça à OS existente
+          // Verifica se existe um item "em branco" para esta OS e o remove
+          const blankItem = listItems.find(item =>
+            item.af === initialSoDetails.af &&
+            (item.os === initialSoDetails.os || (item.os === undefined && initialSoDetails.os === undefined)) &&
+            (item.hora_inicio === initialSoDetails.hora_inicio || (item.hora_inicio === undefined && initialSoDetails.hora_inicio === undefined)) &&
+            (item.hora_final === initialSoDetails.hora_final || (item.hora_final === undefined && initialSoDetails.hora_final === undefined)) &&
+            (item.servico_executado === initialSoDetails.servico_executado || (item.servico_executado === undefined && initialSoDetails.servico_executado === undefined)) &&
+            !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
+          );
+          if (blankItem) {
+            await deleteServiceOrderItem(blankItem.id);
+          }
+
+          await addServiceOrderItem({
+            codigo_peca: selectedPart.codigo,
+            descricao: selectedPart.descricao,
+            quantidade: quantidade,
+            af: initialSoDetails.af,
+            os: initialSoDetails.os,
+            hora_inicio: initialSoDetails.hora_inicio || undefined,
+            hora_final: initialSoDetails.hora_final || undefined,
+            servico_executado: initialSoDetails.servico_executado,
+          }, initialSoDetails.createdAt);
+          showSuccess('Peça adicionada à Ordem de Serviço!');
         }
-
-        await addServiceOrderItem({
-          codigo_peca: selectedPart.codigo,
-          descricao: selectedPart.descricao,
-          quantidade: quantidade,
-          af,
-          os: os,
-          hora_inicio: horaInicio || undefined,
-          hora_final: horaFinal || undefined,
-          servico_executado: servicoExecutado,
-        }, editingServiceOrder?.createdAt);
-
-        showSuccess('Item adicionado à lista!');
-        resetPartFields();
-        onItemAdded();
-        const updatedAfs = await getAfsFromService(); // Atualiza a lista de AFs
-        setAllAvailableAfs(updatedAfs);
-        setIsCreatingNewOrder(false);
+        onItemAdded(); // Recarrega a lista no componente pai
+        onClose?.(); // Fecha o modal/sheet
       } catch (error) {
-        showError('Erro ao adicionar item à lista.');
-        console.error('Failed to add item to service order list:', error);
+        showError('Erro ao salvar peça.');
+        console.error('Failed to save part:', error);
       }
-    } else {
-      try {
-        if (editingServiceOrder) {
-          showError('Por favor, selecione uma peça para adicionar à ordem de serviço atual, ou inicie uma nova ordem.');
-          return;
-        }
+      return;
+    }
 
-        const newBlankId = await addServiceOrderItem({
-          af,
-          os: os,
-          hora_inicio: horaInicio || undefined,
-          hora_final: horaFinal || undefined,
-          servico_executado: servicoExecutado,
-          codigo_peca: undefined,
-          descricao: undefined,
-          quantidade: undefined,
-        });
-        showSuccess('Ordem de Serviço criada sem peças. Adicione peças agora!');
-        setCurrentBlankOsItemId(newBlankId);
+    // Lógica para CRIAR NOVA OS (mode === 'create-new-so')
+    if (mode === 'create-new-so') {
+      try {
+        // Se houver uma peça selecionada, adiciona-a diretamente
+        if (selectedPart) {
+          if (quantidade <= 0) {
+            showError('A quantidade da peça deve ser maior que zero.');
+            return;
+          }
+          await addServiceOrderItem({
+            codigo_peca: selectedPart.codigo,
+            descricao: selectedPart.descricao,
+            quantidade: quantidade,
+            af,
+            os: os,
+            hora_inicio: horaInicio || undefined,
+            hora_final: horaFinal || undefined,
+            servico_executado: servicoExecutado,
+          });
+          showSuccess('Ordem de Serviço e peça adicionadas!');
+        } else {
+          // Se não houver peça, cria uma OS "em branco"
+          await addServiceOrderItem({
+            af,
+            os: os,
+            hora_inicio: horaInicio || undefined,
+            hora_final: horaFinal || undefined,
+            servico_executado: servicoExecutado,
+            codigo_peca: undefined,
+            descricao: undefined,
+            quantidade: undefined,
+          });
+          showSuccess('Ordem de Serviço criada sem peças. Adicione peças agora!');
+        }
         onItemAdded();
-        const updatedAfs = await getAfsFromService(); // Atualiza a lista de AFs
-        setAllAvailableAfs(updatedAfs);
+        onNewServiceOrder(); // Notifica o pai para resetar o estado de edição
+        onClose?.(); // Fecha o modal/sheet
         setIsCreatingNewOrder(false);
       } catch (error) {
         showError('Erro ao criar ordem de serviço.');
-        console.error('Failed to create blank service order:', error);
+        console.error('Failed to create service order:', error);
       }
+      return;
     }
   };
 
   // Lógica para desabilitar a edição de tags
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !af || isOsInvalid || (editingServiceOrder?.mode === 'add_part' && !selectedPart);
+  
+  // Desabilita o botão de submit se AF for vazio ou OS inválida
+  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !af || isOsInvalid;
 
-  const isOsDetailsReadOnly = editingServiceOrder?.mode === 'add_part';
-  const isPartDetailsVisible = !editingServiceOrder || editingServiceOrder.mode === 'add_part';
+  // Determina quais seções mostrar
+  const showOsDetails = mode === 'create-new-so' || mode === 'edit-so-details' || mode === 'add-part-to-existing-so';
+  const showPartDetails = mode === 'create-new-so' || mode === 'add-part-to-existing-so' || mode === 'edit-part';
+  const isOsDetailsReadOnly = mode === 'add-part-to-existing-so' || mode === 'edit-part';
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
+    <Card className="w-full max-w-md mx-auto shadow-none border-none">
+      <CardHeader className="p-0 pb-4">
         <CardTitle className="text-xl font-bold">
-          {editingServiceOrder ? (
-            editingServiceOrder.mode === 'edit_details' ? (
-              <>
-                Editando OS: <span className="text-primary dark:text-primary">{editingServiceOrder.af}</span>
-                {editingServiceOrder.os && <span className="text-primary dark:text-primary"> (OS: {editingServiceOrder.os})</span>}
-              </>
-            ) : (
-              <>
-                Adicionar Peça à OS: <span className="text-primary dark:text-primary">{editingServiceOrder.af}</span>
-                {editingServiceOrder.os && <span className="text-primary dark:text-primary"> (OS: {editingServiceOrder.os})</span>}
-              </>
-            )
-          ) : (
-            "Criar Nova Ordem de Serviço"
+          {mode === 'create-new-so' && "Criar Nova Ordem de Serviço"}
+          {mode === 'edit-so-details' && (
+            <>
+              Editar OS: <span className="text-primary dark:text-primary">{editingServiceOrder?.af}</span>
+              {editingServiceOrder?.os && <span className="text-primary dark:text-primary"> (OS: {editingServiceOrder.os})</span>}
+            </>
+          )}
+          {mode === 'add-part-to-existing-so' && (
+            <>
+              Adicionar Peça à OS: <span className="text-primary dark:text-primary">{initialSoDetails?.af}</span>
+              {initialSoDetails?.os && <span className="text-primary dark:text-primary"> (OS: {initialSoDetails.os})</span>}
+            </>
+          )}
+          {mode === 'edit-part' && (
+            <>
+              Editar Peça: <span className="text-primary dark:text-primary">{initialPart?.codigo_peca || initialPart?.descricao}</span>
+            </>
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Campos da Ordem de Serviço */}
-          <div>
-            <Label htmlFor="af">AF (Número de Frota)</Label>
-            {isLoadingAfs ? (
-              <Input value="Carregando AFs..." readOnly className="bg-muted" />
-            ) : (
-              <AfSearchInput
-                value={af}
-                onChange={setAf}
-                availableAfs={allAvailableAfs}
-                onSelectAf={handleSelectAf}
-                readOnly={isOsDetailsReadOnly}
-              />
-            )}
-          </div>
-          <div>
-            <Label htmlFor="os" className={cn(isOsInvalid && 'text-destructive')}>OS (Opcional)</Label>
-            <Input
-              id="os"
-              type="number"
-              value={os === undefined ? '' : os}
-              onChange={handleOsChange}
-              placeholder="Número da Ordem de Serviço"
-              min="0"
-              max="99999"
-              readOnly={isOsDetailsReadOnly}
-              className={cn(isOsInvalid && 'border-destructive focus-visible:ring-destructive')}
-            />
-            {isOsInvalid && (
-              <p className="text-sm text-destructive mt-1">
-                Valor inválido. A OS só pode ser de 0 a 99999.
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
-            <div className="flex-1">
-              <Label htmlFor="hora_inicio" className="min-h-[2.5rem] flex items-center">Hora de Início (Opcional)</Label>
-              <Input
-                id="hora_inicio"
-                type="time"
-                value={horaInicio}
-                onChange={(e) => setHoraInicio(e.target.value)}
-                readOnly={isOsDetailsReadOnly}
-              />
-            </div>
-            <div className="flex-1">
-              <Label htmlFor="hora_final" className="min-h-[2.5rem] flex items-center">Hora Final (Opcional)</Label>
-              <Input
-                id="hora_final"
-                type="time"
-                value={horaFinal}
-                onChange={(e) => setHoraFinal(e.target.value)}
-                readOnly={isOsDetailsReadOnly}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="servico_executado">Serviço Executado (Opcional)</Label>
-            <Textarea
-              id="servico_executado"
-              value={servicoExecutado}
-              onChange={(e) => setServicoExecutado(e.target.value)}
-              placeholder="Descreva o serviço executado"
-              rows={3}
-              readOnly={isOsDetailsReadOnly}
-            />
-          </div>
+          {showOsDetails && (
+            <>
+              <div>
+                <Label htmlFor="af">AF (Número de Frota)</Label>
+                {isLoadingAfs ? (
+                  <Input value="Carregando AFs..." readOnly className="bg-muted" />
+                ) : (
+                  <AfSearchInput
+                    value={af}
+                    onChange={setAf}
+                    availableAfs={allAvailableAfs}
+                    onSelectAf={handleSelectAf}
+                    readOnly={isOsDetailsReadOnly}
+                  />
+                )}
+              </div>
+              <div>
+                <Label htmlFor="os" className={cn(isOsInvalid && 'text-destructive')}>OS (Opcional)</Label>
+                <Input
+                  id="os"
+                  type="number"
+                  value={os === undefined ? '' : os}
+                  onChange={handleOsChange}
+                  placeholder="Número da Ordem de Serviço"
+                  min="0"
+                  max="99999"
+                  readOnly={isOsDetailsReadOnly}
+                  className={cn(isOsInvalid && 'border-destructive focus-visible:ring-destructive')}
+                />
+                {isOsInvalid && (
+                  <p className="text-sm text-destructive mt-1">
+                    Valor inválido. A OS só pode ser de 0 a 99999.
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
+                <div className="flex-1">
+                  <Label htmlFor="hora_inicio" className="min-h-[2.5rem] flex items-center">Hora de Início (Opcional)</Label>
+                  <Input
+                    id="hora_inicio"
+                    type="time"
+                    value={horaInicio}
+                    onChange={(e) => setHoraInicio(e.target.value)}
+                    readOnly={isOsDetailsReadOnly}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="hora_final" className="min-h-[2.5rem] flex items-center">Hora Final (Opcional)</Label>
+                  <Input
+                    id="hora_final"
+                    type="time"
+                    value={horaFinal}
+                    onChange={(e) => setHoraFinal(e.target.value)}
+                    readOnly={isOsDetailsReadOnly}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="servico_executado">Serviço Executado (Opcional)</Label>
+                <Textarea
+                  id="servico_executado"
+                  value={servicoExecutado}
+                  onChange={(e) => setServicoExecutado(e.target.value)}
+                  placeholder="Descreva o serviço executado"
+                  rows={3}
+                  readOnly={isOsDetailsReadOnly}
+                />
+              </div>
+            </>
+          )}
 
-          {isPartDetailsVisible && (
+          {showPartDetails && (
             <>
               <Separator className="my-6" />
-              <h3 className="text-lg font-semibold">Detalhes da Peça (Opcional)</h3>
+              <h3 className="text-lg font-semibold">Detalhes da Peça</h3>
               <div>
                 <Label htmlFor="search-part">Buscar Peça</Label>
                 <PartSearchInput
@@ -505,15 +604,27 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ onItemAdded, editin
               </div>
             </>
           )}
-          <Button type="submit" className="w-full" disabled={isSubmitDisabled}>
-            {editingServiceOrder?.mode === 'edit_details' ? "Salvar Detalhes da Ordem" : (editingServiceOrder ? "Adicionar Peça à Ordem" : "Criar Ordem e Adicionar Peça")}
-          </Button>
+          <div className="flex gap-2 pt-4">
+            {onClose && (
+              <Button type="button" variant="outline" onClick={onClose} className="w-full">
+                <XCircle className="mr-2 h-4 w-4" /> Cancelar
+              </Button>
+            )}
+            <Button type="submit" className="w-full" disabled={isSubmitDisabled}>
+              {mode === 'edit-so-details' ? "Salvar Detalhes da Ordem" : 
+               mode === 'add-part-to-existing-so' ? "Adicionar Peça" : 
+               mode === 'edit-part' ? "Salvar Peça" : 
+               "Criar Ordem e Adicionar Peça"}
+            </Button>
+          </div>
         </form>
-        <div className="flex flex-col space-y-2 mt-4">
-          <Button variant="outline" onClick={onNewServiceOrder} className="w-full flex items-center gap-2">
-            <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
-          </Button>
-        </div>
+        {mode === 'create-new-so' && (
+          <div className="flex flex-col space-y-2 mt-4">
+            <Button variant="outline" onClick={onNewServiceOrder} className="w-full flex items-center gap-2">
+              <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
