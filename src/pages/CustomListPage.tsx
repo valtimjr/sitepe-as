@@ -242,11 +242,11 @@ const CustomListPage: React.FC = () => {
           <CardTitle className="text-xl font-bold text-center pt-2">
             Itens da Lista
           </CardTitle>
-          <div className="flex flex-wrap justify-end gap-2 pt-2">
+          <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2"> {/* Alterado para flex-row e items-center */}
             {selectedItemIds.size > 0 && (
               <Button 
                 onClick={handleExportSelectedToMyList} 
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 flex-1 sm:w-auto" // Adicionado flex-1
                 disabled={isLoadingAfs}
               >
                 <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
@@ -291,13 +291,13 @@ const CustomListPage: React.FC = () => {
                   disabled={items.length === 0} 
                   variant="ghost" 
                   size="icon" 
-                  className="h-10 w-10 p-0 rounded-full sm:h-auto sm:w-auto sm:px-4 sm:rounded-md" // Ajuste para mobile
+                  className="h-10 w-10 p-0 rounded-none sm:h-auto sm:w-auto sm:px-4 sm:rounded-md" // Alterado para rounded-none
                 >
                   {isMobile ? (
                     <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-full w-full" />
                   ) : (
                     <>
-                      <Download className="h-4 w-4" /> 
+                      <FileText className="h-4 w-4" /> 
                       {"Exportar PDF"}
                     </>
                   )}
