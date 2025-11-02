@@ -1,4 +1,3 @@
-/** @jsxImportSource react */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -335,7 +334,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         (item.os === currentSOIdentifier.os || (item.os === undefined && currentSOIdentifier.os === undefined)) &&
         (item.hora_inicio === currentSOIdentifier.hora_inicio || (item.hora_inicio === undefined && currentSOIdentifier.hora_inicio === undefined)) &&
         (item.hora_final === currentSOIdentifier.hora_final || (currentSOIdentifier.hora_final === undefined && item.hora_final === undefined)) &&
-        (item.servico_executado === currentSOIdentifier.servico_executado || (currentSOIdentifier.servico_executado === undefined && item.servico_executado === undefined))
+        (item.servico_executado === currentSOIdentifier.servico_executado || (item.servico_executado === undefined && currentSOIdentifier.servico_executado === undefined))
       );
 
       const hasRealPartsRemaining = remainingItemsForThisSO.some(item => item.codigo_peca || item.descricao || (item.quantidade !== undefined && item.quantidade > 0));
@@ -514,7 +513,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
               className="h-10 w-10 p-0 rounded-full" 
               aria-label="Compartilhar no WhatsApp" 
             >
-              <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-full w-full" />
+              <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
             </Button>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -565,8 +564,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                 </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          </div>
         </div>
-      </CardContent>
       <CardContent>
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando sua lista de ordens de serviço...</p>
@@ -730,10 +729,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                             <div className="flex justify-end items-center gap-1">
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => handleOpenEditPartForm(part as ServiceOrderItem, group)} className="h-8 w-8">
+                                  <Button variant="ghost" size="icon" onClick={() => handleOpenEditPartForm(part as ServiceOrderItem, group)} className="h-8 w-8">
                                     <Pencil className="h-4 w-4" />
                                   </Button>
                                 </TooltipTrigger>

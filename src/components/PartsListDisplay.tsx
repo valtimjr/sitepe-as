@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import PartSearchInput from './PartSearchInput';
@@ -191,7 +192,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     }
   };
 
-  const handleDeleteItem = useCallback(async (id: string) => {
+  const handleDeleteItem = async (id: string) => {
     console.log('PartsListDisplay: handleDeleteItem called with ID:', id); // NOVO LOG
     try {
       await deleteSimplePartItem(id);
@@ -201,7 +202,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showError('Erro ao remover item da lista.');
       console.error('PartsListDisplay: Failed to delete item:', error); // NOVO LOG
     }
-  }, [onListChanged]); // Adicionado onListChanged como dependência
+  };
 
   // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: SimplePartItem) => {
@@ -472,7 +473,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       </CardContent>
       <CardContent>
         {orderedItems.length === 0 && !isAddingInline ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione itens para começar!</p>
+          <p className="text-center text-muted-foreground py-8">Nenhum item na lista. Adicione peças para começar!</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
