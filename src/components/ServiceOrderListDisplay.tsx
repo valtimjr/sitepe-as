@@ -59,6 +59,8 @@ interface ServiceOrderGroup {
   parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
 }
 
+type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
+
 type SortOrder = 'manual' | 'asc' | 'desc';
 
 interface ServiceOrderListDisplayProps {
@@ -560,12 +562,15 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <FilePlus className="h-16 w-16 mb-4 text-primary" />
             <p className="text-lg mb-4">Nenhuma ordem de serviço adicionada ainda.</p>
+            {/* REMOVIDO: O botão "Iniciar a Primeira Ordem de Serviço" não é mais necessário aqui. */}
+            {/*
             <Button 
               onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })}
               className="flex items-center gap-2"
             >
               <PlusCircle className="h-4 w-4" /> Iniciar a Primeira Ordem de Serviço
             </Button>
+            */}
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -62,7 +62,7 @@ const ServiceOrderList: React.FC = () => {
     if (!isLoading && listItems.length > 0 && !isFormOpen) {
       const uniqueServiceOrders: { [key: string]: ServiceOrderItem } = {};
       listItems.forEach(item => {
-        const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}`;
+        const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}-${item.created_at?.getTime() || 'no_created_at'}`;
         if (!uniqueServiceOrders[key] || (item.created_at && uniqueServiceOrders[key].created_at && item.created_at > uniqueServiceOrders[key].created_at!)) {
           uniqueServiceOrders[key] = item;
         }
@@ -138,11 +138,14 @@ const ServiceOrderList: React.FC = () => {
         Lista de Ordens de Serviço
       </h1>
       
+      {/* REMOVIDO: O botão "Iniciar Nova Ordem de Serviço" abaixo do título não é mais necessário. */}
+      {/*
       <div className="w-full max-w-6xl flex flex-wrap justify-center gap-4 mb-8">
         <Button onClick={handleNewServiceOrder} className="flex items-center gap-2">
           <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
         </Button>
       </div>
+      */}
 
       {/* O formulário principal agora é um modal/sheet */}
       <ModalComponent open={isFormOpen} onOpenChange={setIsFormOpen}>
