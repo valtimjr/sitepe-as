@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem } from '@/services/partListService';
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide, XCircle, Save, FilePlus } from 'lucide-react';
+import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide, XCircle, Save, FilePlus, FileDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -522,7 +522,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                 variant="default" // Alterado para variant="default"
                 className="flex items-center gap-2" // Removido size="icon" e classes de tamanho/arredondamento
               >
-                <Download className="h-4 w-4" /> 
+                <FileDown className="h-4 w-4" /> 
                 {"Exportar PDF"}
               </Button>
             </TooltipTrigger>

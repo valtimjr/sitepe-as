@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle, XCircle, FileDown } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
@@ -291,7 +291,7 @@ const CustomListPage: React.FC = () => {
                     variant="default" // Alterado para variant="default"
                     className="flex items-center gap-2" // Removido size="icon" e classes de tamanho/arredondamento
                   >
-                    <FileText className="h-4 w-4" /> 
+                    <FileDown className="h-4 w-4" /> 
                     {"Exportar PDF"}
                   </Button>
                 </TooltipTrigger>

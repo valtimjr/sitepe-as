@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem, updateSimplePartItem, getParts, getAfsFromService, Part, Af, addSimplePartItem } from '@/services/partListService';
 import { generatePartsListPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, GripVertical, MoreHorizontal, Edit, Save, XCircle, Loader2, PlusCircle } from 'lucide-react';
+import { Trash2, Download, Copy, GripVertical, MoreHorizontal, Edit, Save, XCircle, Loader2, PlusCircle, FileDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -427,7 +427,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   variant="default" // Alterado para variant="default"
                   className="flex items-center gap-2" // Removido size="icon" e classes de tamanho/arredondamento
                 >
-                  <Download className="h-4 w-4" /> 
+                  <FileDown className="h-4 w-4" /> 
                   {"Exportar PDF"}
                 </Button>
               </TooltipTrigger>

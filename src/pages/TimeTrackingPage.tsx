@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays, FileDown } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth } from '@/services/partListService';
@@ -576,7 +576,7 @@ const TimeTrackingPage: React.FC = () => {
                     variant="default" // Alterado para variant="default"
                     className="flex items-center gap-2" // Removido size="icon" e classes de tamanho/arredondamento
                   >
-                    <Download className="h-4 w-4" /> 
+                    <FileDown className="h-4 w-4" /> 
                     {"Exportar PDF"}
                   </Button>
                 </TooltipTrigger>
