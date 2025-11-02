@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
@@ -224,6 +224,21 @@ const CustomListPage: React.FC = () => {
                             <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
                             {item.description && (
                               <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
+                            )}
+                            {item.itens_relacionados && item.itens_relacionados.length > 0 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-help">
+                                    <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <p className="font-bold mb-1">Itens Relacionados:</p>
+                                  <ul className="list-disc list-inside">
+                                    {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
+                                  </ul>
+                                </TooltipContent>
+                              </Tooltip>
                             )}
                           </div>
                       </TableCell>

@@ -5,10 +5,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
-import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem } from '@/services/customListService';
+import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, deleteCustomListItem as deleteCustomListItemService } from '@/services/customListService';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +27,7 @@ import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -46,6 +47,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [formPartCode, setFormPartCode] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formQuantity, setFormQuantity] = useState(1);
+  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]); // Novo estado
   
   // Search states for main item form
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,6 +98,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setFormPartCode(editingItem.part_code || '');
         setFormDescription(editingItem.description || '');
         setFormQuantity(editingItem.quantity);
+        setFormItensRelacionados(editingItem.itens_relacionados || []); // Preenche itens relacionados
         setSearchQuery('');
         setSearchResults([]);
 
@@ -143,6 +146,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setFormPartCode('');
     setFormDescription('');
     setFormQuantity(1);
+    setFormItensRelacionados([]); // Limpa itens relacionados
     setSearchQuery('');
     setSearchResults([]);
     setSelectedPartFromSearch(null);
@@ -159,6 +163,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setFormPartCode(item.part_code || '');
     setFormDescription(item.description || '');
     setFormQuantity(item.quantity);
+    setFormItensRelacionados(item.itens_relacionados || []); // Preenche itens relacionados
     setSearchQuery('');
     setSearchResults([]);
     setIsMainItemDialogOpen(true);
@@ -192,12 +197,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
     const finalItemName = trimmedItemName || trimmedDescription;
 
-    const payload: Omit<CustomListItem, 'id' | 'created_at' | 'order_index'> = {
-      list_id: list.id,
+    const payload: Omit<CustomListItem, 'id'> = {
+      list_id: list.id, // list_id é necessário para o serviço
       item_name: finalItemName,
       part_code: trimmedPartCode || null,
       description: trimmedDescription || null,
       quantity: formQuantity,
+      order_index: currentEditItem?.order_index ?? 0, // Mantém a ordem ou define 0 para novo
+      itens_relacionados: formItensRelacionados, // Inclui o novo campo
     };
 
     try {
@@ -220,7 +227,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const handleDelete = async (itemId: string) => {
     try {
-      await deleteCustomListItem(itemId);
+      await deleteCustomListItemService(list.id, itemId); // Passa list.id
       showSuccess('Item excluído com sucesso!');
       loadItems();
       onItemSaved?.(); // Usando encadeamento opcional
@@ -397,6 +404,22 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     } finally {
       dismissToast(loadingToastId);
     }
+  };
+
+  const handleAddRelatedPart = (part: Part) => {
+    if (!formItensRelacionados.includes(part.codigo)) {
+      setFormItensRelacionados(prev => [...prev, part.codigo]);
+      setSearchQuery(''); // Limpa o campo de busca
+      setSearchResults([]); // Limpa os resultados
+      showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
+    } else {
+      showError(`Peça ${part.codigo} já está na lista de itens relacionados.`);
+    }
+  };
+
+  const handleRemoveRelatedPart = (codigo: string) => {
+    setFormItensRelacionados(prev => prev.filter(c => c !== codigo));
+    showSuccess(`Peça ${codigo} removida dos itens relacionados.`);
   };
 
   return (
@@ -658,6 +681,46 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                 min="1"
                 required
               />
+            </div>
+
+            {/* Seção de Itens Relacionados */}
+            <div className="space-y-2 border-t pt-4">
+              <Label className="flex items-center gap-2">
+                <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
+              </Label>
+              <PartSearchInput
+                onSearch={setSearchQuery} // Reutiliza o searchQuery principal para a busca de relacionados
+                searchResults={searchResults}
+                onSelectPart={handleAddRelatedPart}
+                searchQuery={searchQuery}
+                allParts={allAvailableParts}
+                isLoading={isLoadingParts}
+              />
+              <ScrollArea className="h-24 w-full rounded-md border p-2">
+                {formItensRelacionados.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {formItensRelacionados.map(codigo => (
+                      <div key={codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
+                        {codigo}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 p-0 text-destructive"
+                          onClick={() => handleRemoveRelatedPart(codigo)}
+                        >
+                          <XCircle className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+              <p className="text-sm text-muted-foreground">
+                Adicione códigos de peças que estão relacionadas a este item da lista.
+              </p>
             </div>
 
             <DialogFooter>

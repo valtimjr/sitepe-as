@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, Tag, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { MenuItem, CustomList } from '@/types/supabase';
+import { MenuItem, CustomList, Part } from '@/types/supabase';
 import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists } from '@/services/customListService';
+import { getParts, searchParts as searchPartsService } from '@/services/partListService';
 import {
   Select,
   SelectContent,
@@ -29,6 +30,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import PartSearchInput from './PartSearchInput'; // Para o campo de itens relacionados
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface MenuStructureEditorProps {
   onMenuUpdated: () => void;
@@ -40,7 +43,7 @@ const buildMenuHierarchy = (items: MenuItem[]): MenuItem[] => {
   const roots: MenuItem[] = [];
 
   items.forEach(item => {
-    map[item.id] = { ...item, children: [] };
+    map[item.id] = { ...item, children: [], itens_relacionados: item.itens_relacionados || [] };
   });
 
   items.forEach(item => {
@@ -76,23 +79,33 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   const [formParentId, setFormParentId] = useState<string | null>(null);
   const [formListId, setFormListId] = useState<string | null>(null);
   const [formOrderIndex, setFormOrderIndex] = useState(0);
+  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]); // Novo estado
+  
+  // Estados para o PartSearchInput dentro do modal
+  const [searchQueryRelated, setSearchQueryRelated] = useState('');
+  const [searchResultsRelated, setSearchResultsRelated] = useState<Part[]>([]);
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
+  const [isLoadingParts, setIsLoadingParts] = useState(true);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [fetchedFlatItems, fetchedLists] = await Promise.all([
+      const [fetchedFlatItems, fetchedLists, fetchedAllParts] = await Promise.all([
         getAllMenuItemsFlat(),
         user ? getCustomLists(user.id) : Promise.resolve([]),
+        getParts(), // Carrega todas as peças para o PartSearchInput
       ]);
       
       setFlatMenuItems(fetchedFlatItems);
       setMenuHierarchy(buildMenuHierarchy(fetchedFlatItems));
       setCustomLists(fetchedLists);
+      setAllAvailableParts(fetchedAllParts);
     } catch (error) {
       showError('Erro ao carregar dados do menu.');
       console.error('Failed to load menu data:', error);
     } finally {
       setIsLoading(false);
+      setIsLoadingParts(false);
     }
   }, [user]);
 
@@ -100,12 +113,33 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     loadData();
   }, [loadData]);
 
+  // Efeito para a busca de peças relacionadas
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (searchQueryRelated.length > 1) {
+        setIsLoadingParts(true);
+        const results = await searchPartsService(searchQueryRelated);
+        setSearchResultsRelated(results);
+        setIsLoadingParts(false);
+      } else {
+        setSearchResultsRelated([]);
+      }
+    };
+    const handler = setTimeout(() => {
+      fetchSearchResults();
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQueryRelated]);
+
   const handleAddMenuItem = (parentId: string | null = null) => {
     setCurrentMenuItem(null);
     setFormTitle('');
     setFormParentId(parentId);
     setFormListId(null);
     setFormOrderIndex(flatMenuItems.length); // Define a ordem como o último
+    setFormItensRelacionados([]); // Limpa itens relacionados
+    setSearchQueryRelated(''); // Limpa a busca de relacionados
+    setSearchResultsRelated([]);
     setIsDialogOpen(true);
   };
 
@@ -115,12 +149,15 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     setFormParentId(item.parent_id);
     setFormListId(item.list_id);
     setFormOrderIndex(item.order_index);
+    setFormItensRelacionados(item.itens_relacionados || []); // Preenche itens relacionados
+    setSearchQueryRelated(''); // Limpa a busca de relacionados
+    setSearchResultsRelated([]);
     setIsDialogOpen(true);
   };
 
   const handleDeleteMenuItem = async (id: string) => {
     try {
-      await deleteMenuItem(id);
+      await deleteMenuItem(list.id, id); // list.id é o ID da lista, itemId é o ID do item
       showSuccess('Item de menu excluído com sucesso!');
       await loadData();
       onMenuUpdated();
@@ -143,6 +180,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
         parent_id: formParentId,
         list_id: formListId,
         order_index: formOrderIndex,
+        itens_relacionados: formItensRelacionados, // Inclui o novo campo
       };
 
       if (currentMenuItem) {
@@ -195,6 +233,22 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     } finally {
       dismissToast(loadingToastId);
     }
+  };
+
+  const handleAddRelatedPart = (part: Part) => {
+    if (!formItensRelacionados.includes(part.codigo)) {
+      setFormItensRelacionados(prev => [...prev, part.codigo]);
+      setSearchQueryRelated(''); // Limpa o campo de busca
+      setSearchResultsRelated([]); // Limpa os resultados
+      showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
+    } else {
+      showError(`Peça ${part.codigo} já está na lista de itens relacionados.`);
+    }
+  };
+
+  const handleRemoveRelatedPart = (codigo: string) => {
+    setFormItensRelacionados(prev => prev.filter(c => c !== codigo));
+    showSuccess(`Peça ${codigo} removida dos itens relacionados.`);
   };
 
   const renderMenuItem = (item: MenuItem, level: number, siblings: MenuItem[]) => {
@@ -317,7 +371,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       </CardContent>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{currentMenuItem ? 'Editar Item de Menu' : 'Adicionar Novo Item de Menu'}</DialogTitle>
           </DialogHeader>
@@ -384,6 +438,46 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
                 value={formOrderIndex}
                 onChange={(e) => setFormOrderIndex(parseInt(e.target.value) || 0)}
               />
+            </div>
+
+            {/* Seção de Itens Relacionados */}
+            <div className="space-y-2 border-t pt-4">
+              <Label className="flex items-center gap-2">
+                <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
+              </Label>
+              <PartSearchInput
+                onSearch={setSearchQueryRelated}
+                searchResults={searchResultsRelated}
+                onSelectPart={handleAddRelatedPart}
+                searchQuery={searchQueryRelated}
+                allParts={allAvailableParts}
+                isLoading={isLoadingParts}
+              />
+              <ScrollArea className="h-24 w-full rounded-md border p-2">
+                {formItensRelacionados.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {formItensRelacionados.map(codigo => (
+                      <div key={codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
+                        {codigo}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 p-0 text-destructive"
+                          onClick={() => handleRemoveRelatedPart(codigo)}
+                        >
+                          <XCircle className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+              <p className="text-sm text-muted-foreground">
+                Adicione códigos de peças que estão relacionadas a este item de menu/submenu.
+              </p>
             </div>
 
             <DialogFooter>

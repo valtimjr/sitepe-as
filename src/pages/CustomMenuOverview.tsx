@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Menu, List as ListIcon, ChevronRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, Menu, List as ListIcon, ChevronRight, Loader2, Tag, Info } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { getMenuStructure } from '@/services/customListService';
 import { MenuItem } from '@/types/supabase';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MenuItemProps {
   item: MenuItem;
@@ -18,6 +19,7 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
   const [isExpanded, setIsExpanded] = useState(level === 0);
   const hasChildren = item.children && item.children.length > 0;
   const isListLink = !!item.list_id;
+  const hasRelatedItems = item.itens_relacionados && item.itens_relacionados.length > 0;
 
   const toggleExpand = () => {
     if (hasChildren) {
@@ -47,6 +49,19 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
         <span className={cn("font-medium truncate", isListLink && 'text-primary')}>
           {item.title}
         </span>
+        {hasRelatedItems && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-4 w-4 text-muted-foreground ml-2 cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p className="font-bold mb-1">Itens Relacionados:</p>
+              <ul className="list-disc list-inside">
+                {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
+              </ul>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
       
       {isListLink && (

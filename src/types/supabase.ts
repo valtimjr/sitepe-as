@@ -41,38 +41,27 @@ export interface CustomList {
   user_id: string;
   title: string;
   created_at?: Date;
+  items_data?: CustomListItem[]; // NOVO: Armazena os itens da lista como JSONB
 }
 
 export interface CustomListItem {
-  id: string;
-  list_id: string;
+  id: string; // UUID gerado no frontend
   item_name: string;
   part_code: string | null;
   description: string | null;
   quantity: number;
-  order_index: number; // Adicionado order_index
-  created_at?: Date;
-  list_title?: string; // Adicionado para hover card de itens relacionados
+  order_index: number;
+  itens_relacionados: string[]; // NOVO: Array de códigos de peças relacionadas
 }
 
-export interface CustomListItemRelation {
-  id: string;
-  custom_list_item_id: string;
-  part_id: string;
-  quantity: number;
-  created_at?: Date;
-  // Campos adicionais para exibição (não do DB diretamente, mas join)
-  part_codigo?: string;
-  part_name?: string;
-  part_descricao?: string;
-}
+// REMOVIDO: CustomListItemRelation não é mais uma tabela separada
 
 export interface MenuItem {
-  id: string;
+  id: string; // UUID gerado no frontend
   parent_id: string | null;
   title: string;
   order_index: number;
   list_id: string | null; // Se for um item final que aponta para uma lista
-  created_at?: Date;
+  itens_relacionados: string[]; // NOVO: Array de códigos de peças relacionadas
   children?: MenuItem[]; // Para a estrutura hierárquica
 }
