@@ -1,4 +1,3 @@
-/** @jsxImportSource react */
 import React, { useState, useEffect, useCallback } from 'react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import ServiceOrderForm from '@/components/ServiceOrderForm';
@@ -87,8 +86,7 @@ const ServiceOrderList = () => {
             createdAt: latestOrder.created_at,
             mode: 'add_part',
           });
-          // Removido showSuccess para evitar loop de renderização
-          // showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
+          showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
         }
       } else {
         setEditingServiceOrder(null);
@@ -96,7 +94,7 @@ const ServiceOrderList = () => {
     } else {
       setEditingServiceOrder(null);
     }
-  }, [listItems, editingServiceOrder, setEditingServiceOrder, showError, isCreatingNewOrder]); // showSuccess removido das dependências
+  }, [listItems, editingServiceOrder, setEditingServiceOrder, showSuccess, showError, isCreatingNewOrder]);
 
   const handleEditServiceOrder = useCallback((details: ServiceOrderDetails) => {
     setIsCreatingNewOrder(false);
@@ -139,10 +137,6 @@ const ServiceOrderList = () => {
           onNewServiceOrder={handleNewServiceOrder}
           listItems={listItems}
           setIsCreatingNewOrder={setIsCreatingNewOrder}
-          mode={isCreatingNewOrder ? 'create-new-so' : (editingServiceOrder?.mode || 'add-part-to-existing-so')}
-          initialPart={null}
-          initialSoDetails={null}
-          onClose={null}
         />
         <ServiceOrderListDisplay 
           listItems={listItems} 
@@ -152,7 +146,6 @@ const ServiceOrderList = () => {
           isLoading={isLoading} 
           sortOrder={sortOrder}
           onSortOrderChange={handleSortChange}
-          onNewServiceOrder={handleNewServiceOrder} {/* Passando a função aqui */}
         />
       </div>
       <MadeWithDyad />

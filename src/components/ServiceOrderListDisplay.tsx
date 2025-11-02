@@ -60,7 +60,6 @@ interface ServiceOrderListDisplayProps {
   editingServiceOrder: ServiceOrderDetails | null;
   sortOrder: SortOrder;
   onSortOrderChange: (order: SortOrder) => void;
-  onNewServiceOrder: () => void; // Adicionando a nova prop
 }
 
 const timeToEffectiveMinutes = (timeString: string | undefined): number | null => {
@@ -90,7 +89,7 @@ const compareTimeStrings = (t1: string | undefined, t2: string | undefined): num
   return effectiveMinutes1 - effectiveMinutes2;
 };
 
-const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder, sortOrder, onSortOrderChange, onNewServiceOrder }) => {
+const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder, sortOrder, onSortOrderChange }) => {
   const [groupedServiceOrders, setGroupedServiceOrders] = useState<ServiceOrderGroup[]>([]);
   const [draggedGroup, setDraggedGroup] = useState<ServiceOrderGroup | null>(null);
 
@@ -608,6 +607,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                 <TooltipContent>Opções da Ordem de Serviço</TooltipContent>
                               </Tooltip>
                               <DropdownMenuContent align="end">
+                                {/* REMOVIDO: Botão "Adicionar Nova Peça" foi movido para fora do dropdown */}
                                 <DropdownMenuItem onClick={() => onEditServiceOrder({ 
                                   af: group.af, 
                                   os: group.os, 
@@ -697,18 +697,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           </TableCell>
                         </TableRow>
                       ))}
-                      {/* Se não houver peças, mas houver um item em branco (para manter a OS), exibe uma linha de aviso */}
-                      {group.parts.filter(p => p.codigo_peca || p.descricao).length === 0 && (
-                        <TableRow className="text-muted-foreground italic">
-                          <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar */}
-                          <TableCell className="w-[60px] p-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
-                          <TableCell colSpan={2} className="text-center p-2"> {/* colSpan ajustado para 2 */}
-                            Nenhuma peça adicionada a esta OS.
-                          </TableCell>
-                          <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar com Opções */}
-                        </TableRow>
-                      )}
-                      {/* Botão "Adicionar Peça" abaixo da última peça (ou aviso) */}
+                      {/* Botão "Adicionar Peça" abaixo da última peça (ou se não houver peças) */}
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-2">
                           <Button 
@@ -729,11 +718,11 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           </div>
         )}
       </CardContent>
-      {/* Botão "Iniciar Nova Ordem de Serviço" no final da lista */}
+      {/* Botão "Adicionar Ordem de Serviço" no final da lista */}
       {!isLoading && (
         <div className="mt-8 text-center">
           <Button 
-            onClick={onNewServiceOrder} {/* Chamando a prop onNewServiceOrder */}
+            onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'add_part' })} // Inicia uma nova OS
             className="flex items-center gap-2 mx-auto"
           >
             <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
