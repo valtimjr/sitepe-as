@@ -209,7 +209,7 @@ const CustomListPage: React.FC = () => {
                   <TableRow>
                     <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                     <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                    <TableHead className="w-[40px] p-2 text-right">Ações</TableHead> {/* Nova coluna de ações */}
+                    {/* Coluna de Ações removida */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -242,16 +242,7 @@ const CustomListPage: React.FC = () => {
                             )}
                           </div>
                       </TableCell>
-                      <TableCell className="w-[40px] p-2 text-right">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Editar Item</TooltipContent>
-                        </Tooltip>
-                      </TableCell>
+                      {/* Célula de Ações removida */}
                     </TableRow>
                   ))}
                 </TableBody>
