@@ -58,6 +58,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null);
 
+  // NOVO: Search states for related items form
+  const [relatedSearchQuery, setRelatedSearchQuery] = useState('');
+  const [relatedSearchResults, setRelatedSearchResults] = useState<Part[]>([]);
+
   // Bulk add related items state
   const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
 
@@ -107,6 +111,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setSearchQuery('');
         setSearchResults([]);
         setBulkRelatedPartsInput(''); // Limpa o campo de bulk
+        setRelatedSearchQuery(''); // Limpa a query de busca relacionada
+        setRelatedSearchResults([]); // Limpa os resultados de busca relacionada
 
         if (editingItem.part_code) {
           const parts = await getParts(editingItem.part_code); 
@@ -146,6 +152,25 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
+  // NOVO: Efeito para a busca de peças relacionadas
+  useEffect(() => {
+    const fetchRelatedSearchResults = async () => {
+      if (relatedSearchQuery.length > 1) {
+        setIsLoadingParts(true);
+        const results = await searchPartsService(relatedSearchQuery);
+        setRelatedSearchResults(results);
+        setIsLoadingParts(false);
+      } else {
+        setRelatedSearchResults([]);
+      }
+    };
+    const handler = setTimeout(() => {
+      fetchRelatedSearchResults();
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [relatedSearchQuery]);
+
+
   const resetForm = () => {
     setCurrentEditItem(null);
     setFormItemName('');
@@ -157,6 +182,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setSearchResults([]);
     setSelectedPartFromSearch(null);
     setBulkRelatedPartsInput(''); // Limpa o campo de bulk
+    setRelatedSearchQuery(''); // Limpa a query de busca relacionada
+    setRelatedSearchResults([]); // Limpa os resultados de busca relacionada
   };
 
   const handleAdd = () => {
@@ -174,6 +201,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setSearchQuery('');
     setSearchResults([]);
     setBulkRelatedPartsInput(''); // Limpa o campo de bulk
+    setRelatedSearchQuery(''); // Limpa a query de busca relacionada
+    setRelatedSearchResults([]); // Limpa os resultados de busca relacionada
     setIsSheetOpen(true);
   };
 
@@ -417,8 +446,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const handleAddRelatedPart = (part: Part) => {
     if (!formItensRelacionados.includes(part.codigo)) {
       setFormItensRelacionados(prev => [...prev, part.codigo]);
-      setSearchQuery(''); // Limpa o campo de busca
-      setSearchResults([]); // Limpa os resultados
+      setRelatedSearchQuery(''); // Limpa o campo de busca relacionada
+      setRelatedSearchResults([]); // Limpa os resultados relacionados
       showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
     } else {
       showError(`Peça ${part.codigo} já está na lista de itens relacionados.`);
@@ -714,10 +743,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                 <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
               </Label>
               <PartSearchInput
-                onSearch={setSearchQueryRelated}
-                searchResults={searchResultsRelated}
+                onSearch={setRelatedSearchQuery}
+                searchResults={relatedSearchResults}
                 onSelectPart={handleAddRelatedPart}
-                searchQuery={searchQueryRelated}
+                searchQuery={relatedSearchQuery}
                 allParts={allAvailableParts}
                 isLoading={isLoadingParts}
               />
