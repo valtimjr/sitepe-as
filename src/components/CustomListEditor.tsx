@@ -626,7 +626,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   placeholder="Ex: Kit de Reparo do Motor"
                   className="flex-1"
                 />
-                {formPartCode && selectedPartFromSearch && (
+                {formPartCode && ( {/* Alterado: O botão agora é visível se houver um formPartCode */}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -635,7 +635,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                         size="icon"
                         onClick={handleSaveGlobalPartName}
                         disabled={
-                          !selectedPartFromSearch ||
+                          !selectedPartFromSearch || // Desabilita se não houver um objeto de peça real
                           formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim() ||
                           !formItemName.trim()
                         }
@@ -644,7 +644,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      Salvar este nome como o nome global da peça "{selectedPartFromSearch.codigo}"
+                      Salvar este nome como o nome global da peça "{selectedPartFromSearch?.codigo || 'N/A'}"
                     </TooltipContent>
                   </Tooltip>
                 )}
