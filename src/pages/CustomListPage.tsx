@@ -204,7 +204,7 @@ const CustomListPage: React.FC = () => {
       setIsExportSheetOpen(false);
       setAfForExport('');
     } catch (error) {
-      showError('Erro ao exportar itens para 'Minha Lista de Peças'.');
+      showError(`Erro ao exportar itens para 'Minha Lista de Peças'.`);
       console.error('Failed to export items to simple parts list:', error);
     } finally {
       dismissToast(loadingToastId);
