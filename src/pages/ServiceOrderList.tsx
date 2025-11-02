@@ -150,52 +150,51 @@ const ServiceOrderList: React.FC = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
-        {/* O formulário principal agora é um modal/sheet */}
-        <ModalComponent open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <ModalContentComponent 
-            side="right" // Sempre da direita para a esquerda
-            className={isMobile ? "w-full sm:max-w-lg overflow-y-auto" : "sm:max-w-lg overflow-y-auto"} // Ajuste de largura para desktop
-          >
-            <ModalHeaderComponent>
-              <ModalTitleComponent>
-                {editingServiceOrder?.mode === 'edit_details' ? 'Editar Detalhes da Ordem de Serviço' :
-                 editingServiceOrder?.mode === 'add_part' ? 'Adicionar Peça à Ordem de Serviço' :
-                 'Criar Nova Ordem de Serviço'}
-              </ModalTitleComponent>
-            </ModalHeaderComponent>
-            <div className="py-4">
-              <ServiceOrderForm 
-                onItemAdded={handleFormClose} 
-                editingServiceOrder={editingServiceOrder}
-                onNewServiceOrder={handleNewServiceOrder} // Passa para o formulário poder iniciar uma nova OS
-                listItems={listItems}
-                setIsCreatingNewOrder={() => {}} // Não é mais usado diretamente aqui
-                mode={editingServiceOrder?.mode || 'create-new-so'} // Garante um modo padrão
-                initialSoDetails={editingServiceOrder?.mode === 'add_part' || editingServiceOrder?.mode === 'edit_details' ? {
-                  af: editingServiceOrder.af,
-                  os: editingServiceOrder.os,
-                  hora_inicio: editingServiceOrder.hora_inicio,
-                  hora_final: editingServiceOrder.hora_final,
-                  servico_executado: editingServiceOrder.servico_executado,
-                  createdAt: editingServiceOrder.createdAt || new Date(),
-                } : null}
-                onClose={handleFormClose}
-              />
-            </div>
-          </ModalContentComponent>
-        </ModalComponent>
+      {/* O formulário principal agora é um modal/sheet */}
+      <ModalComponent open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <ModalContentComponent 
+          side="right" // Sempre da direita para a esquerda
+          className={isMobile ? "w-full sm:max-w-lg overflow-y-auto" : "sm:max-w-lg overflow-y-auto"} // Ajuste de largura para desktop
+        >
+          <ModalHeaderComponent>
+            <ModalTitleComponent>
+              {editingServiceOrder?.mode === 'edit_details' ? 'Editar Detalhes da Ordem de Serviço' :
+               editingServiceOrder?.mode === 'add_part' ? 'Adicionar Peça à Ordem de Serviço' :
+               'Criar Nova Ordem de Serviço'}
+            </ModalTitleComponent>
+          </ModalHeaderComponent>
+          <div className="py-4">
+            <ServiceOrderForm 
+              onItemAdded={handleFormClose} 
+              editingServiceOrder={editingServiceOrder}
+              onNewServiceOrder={handleNewServiceOrder} // Passa para o formulário poder iniciar uma nova OS
+              listItems={listItems}
+              setIsCreatingNewOrder={() => {}} // Não é mais usado diretamente aqui
+              mode={editingServiceOrder?.mode || 'create-new-so'} // Garante um modo padrão
+              initialSoDetails={editingServiceOrder?.mode === 'add_part' || editingServiceOrder?.mode === 'edit_details' ? {
+                af: editingServiceOrder.af,
+                os: editingServiceOrder.os,
+                hora_inicio: editingServiceOrder.hora_inicio,
+                hora_final: editingServiceOrder.hora_final,
+                servico_executado: editingServiceOrder.servico_executado,
+                createdAt: editingServiceOrder.createdAt || new Date(),
+              } : null}
+              onClose={handleFormClose}
+            />
+          </div>
+        </ModalContentComponent>
+      </ModalComponent>
 
-        <ServiceOrderListDisplay 
-          listItems={listItems} 
-          onListChanged={loadListItems} 
-          onEditServiceOrder={handleEditServiceOrder}
-          editingServiceOrder={editingServiceOrder}
-          isLoading={isLoading} 
-          sortOrder={sortOrder}
-          onSortOrderChange={handleSortChange}
-        />
-      </div>
+      {/* ServiceOrderListDisplay - Agora é um filho direto do container principal */}
+      <ServiceOrderListDisplay 
+        listItems={listItems} 
+        onListChanged={loadListItems} 
+        onEditServiceOrder={handleEditServiceOrder}
+        editingServiceOrder={editingServiceOrder}
+        isLoading={isLoading} 
+        sortOrder={sortOrder}
+        onSortOrderChange={handleSortChange}
+      />
       <MadeWithDyad />
     </div>
   );
