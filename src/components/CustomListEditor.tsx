@@ -640,7 +640,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   placeholder="Ex: Kit de Reparo do Motor"
                   className="flex-1"
                 />
-                {formPartCode && ( {/* Renderiza o botão se houver um part_code */}
+                {formPartCode.trim() && ( {/* Renderiza o botão se houver um part_code */}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -649,18 +649,23 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                         size="icon"
                         onClick={handleSaveGlobalPartName}
                         disabled={
+                          !formPartCode.trim() || // Desabilita se o código da peça estiver vazio
                           !selectedPartFromSearch || // Desabilita se não houver peça global correspondente
-                          formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim() ||
-                          !formItemName.trim()
+                          !formItemName.trim() || // Desabilita se o nome personalizado estiver vazio
+                          (selectedPartFromSearch && formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim()) // Desabilita se o nome personalizado for igual ao nome/descrição global
                         }
                       >
                         <Save className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {selectedPartFromSearch ?
-                        `Salvar este nome como o nome global da peça "${selectedPartFromSearch.codigo}"` :
-                        `Nenhuma peça global encontrada para o código "${formPartCode}". Não é possível salvar o nome global.`
+                      {!formPartCode.trim() ?
+                        "Insira um Código da Peça para salvar o nome global." :
+                        !selectedPartFromSearch ?
+                          `Nenhuma peça global encontrada para o código "${formPartCode}". Não é possível salvar o nome global.` :
+                          !formItemName.trim() ?
+                            "O nome personalizado não pode estar vazio para ser salvo globalmente." :
+                            `Salvar este nome como o nome global da peça "${selectedPartFromSearch.codigo}"`
                       }
                     </TooltipContent>
                   </Tooltip>
