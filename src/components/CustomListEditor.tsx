@@ -55,6 +55,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null);
 
+  // Search states for related items
+  const [searchQueryRelated, setSearchQueryRelated] = useState('');
+  const [searchResultsRelated, setSearchResultsRelated] = useState<Part[]>([]);
+
   // Drag and Drop states
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
 
@@ -122,11 +126,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   }, [editingItem, allAvailableParts]);
 
 
+  // Efeito para a busca de peças relacionadas
   useEffect(() => {
     const fetchSearchResults = async () => {
-      if (searchQuery.length > 1) {
+      if (searchQueryRelated.length > 1) { // Usar searchQueryRelated aqui
         setIsLoadingParts(true);
-        const results = await searchPartsService(searchQuery);
+        const results = await searchPartsService(searchQueryRelated); // Usar searchQueryRelated aqui
         setSearchResultsRelated(results);
         setIsLoadingParts(false);
       } else {
@@ -137,7 +142,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQuery]);
+  }, [searchQueryRelated]); // Dependência de searchQueryRelated
 
   const resetForm = () => {
     setCurrentEditItem(null);
