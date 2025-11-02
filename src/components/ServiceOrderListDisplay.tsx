@@ -359,7 +359,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         }
       }
 
-      onEditServiceOrder({ ...currentSOIdentifier, mode: 'add_part' }); // Passa o modo correto
+      onEditServiceOrder({ ...currentSOIdentifier, mode: 'add-part-to-existing-so' }); // Passa o modo correto
       onListChanged();
 
     } catch (error) {
@@ -499,7 +499,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         </div>
       </CardHeader>
       <div className="flex flex-wrap justify-end gap-2 p-4 pt-0">
-          {/* Botão "Iniciar Nova Ordem de Serviço" para desktop (à esquerda dos outros botões) */}
+          {/* REMOVIDO: Botão "Iniciar Nova Ordem de Serviço" para desktop */}
+          {/*
           {!isMobile && (
             <Button 
               onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
@@ -508,6 +509,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
               <FilePlus className="h-4 w-4" /> Iniciar Nova OS
             </Button>
           )}
+          */}
           <Button 
             onClick={handleCopyList} 
             disabled={groupedServiceOrders.length === 0 || isLoading} 
@@ -562,15 +564,13 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <FilePlus className="h-16 w-16 mb-4 text-primary" />
             <p className="text-lg mb-4">Nenhuma ordem de serviço adicionada ainda.</p>
-            {/* REMOVIDO: O botão "Iniciar a Primeira Ordem de Serviço" não é mais necessário aqui. */}
-            {/*
+            {/* MANTIDO: O botão "Iniciar a Primeira Ordem de Serviço" */}
             <Button 
               onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })}
               className="flex items-center gap-2"
             >
               <PlusCircle className="h-4 w-4" /> Iniciar a Primeira Ordem de Serviço
             </Button>
-            */}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -774,8 +774,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           </div>
         )}
       </CardContent>
-      {/* Botão "Adicionar Ordem de Serviço" no final da lista - REMOVIDO */}
-      {/* {!isLoading && (
+      {/* Botão "Adicionar Ordem de Serviço" no final da lista - MANTIDO */}
+      {!isLoading && groupedServiceOrders.length > 0 && (
         <div className="mt-8 text-center">
           <Button 
             onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} // Inicia uma nova OS
@@ -784,7 +784,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
           </Button>
         </div>
-      )} */}
+      )}
 
       {/* Sheet/Dialog para Adicionar/Editar Peça */}
       {isPartFormOpen && (
@@ -805,7 +805,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                 initialSoData={soGroupForPartForm} // Passa os detalhes da OS para a qual a peça pertence
                 onNewServiceOrder={() => {}} // Não é relevante neste contexto
                 listItems={listItems} // Passa listItems para o formulário
-                setIsCreatingNewOrder={() => {}} // Não é relevante neste contexto
               />
             </div>
           </SheetContent>

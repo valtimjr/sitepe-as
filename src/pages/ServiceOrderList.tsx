@@ -138,14 +138,15 @@ const ServiceOrderList: React.FC = () => {
         Lista de Ordens de Serviço
       </h1>
       
-      {/* REMOVIDO: O botão "Iniciar Nova Ordem de Serviço" abaixo do título não é mais necessário. */}
-      {/*
-      <div className="w-full max-w-6xl flex flex-wrap justify-center gap-4 mb-8">
-        <Button onClick={handleNewServiceOrder} className="flex items-center gap-2">
-          <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
+      {/* Botão "Iniciar Nova Ordem de Serviço" para mobile (acima dos outros botões) */}
+      {isMobile && (
+        <Button 
+          onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
+          className="flex items-center gap-2 w-full sm:w-auto mb-4 sm:mb-0"
+        >
+          <FilePlus className="h-4 w-4" /> Iniciar Nova OS
         </Button>
-      </div>
-      */}
+      )}
 
       {/* O formulário principal agora é um modal/sheet */}
       <ModalComponent open={isFormOpen} onOpenChange={setIsFormOpen}>
@@ -155,8 +156,8 @@ const ServiceOrderList: React.FC = () => {
         >
           <ModalHeaderComponent>
             <ModalTitleComponent>
-              {editingServiceOrder?.mode === 'edit_details' ? 'Editar Detalhes da Ordem de Serviço' :
-               editingServiceOrder?.mode === 'add_part' ? 'Adicionar Peça à Ordem de Serviço' :
+              {editingServiceOrder?.mode === 'edit-so-details' ? 'Editar Detalhes da Ordem de Serviço' :
+               editingServiceOrder?.mode === 'add-part-to-existing-so' ? 'Adicionar Peça à Ordem de Serviço' :
                'Criar Nova Ordem de Serviço'}
             </ModalTitleComponent>
           </ModalHeaderComponent>
