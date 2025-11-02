@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import PartSearchInput from './PartSearchInput';
 import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
-import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
+import { exportDataAsCsv, exportDataAsJson } => '@/services/partListService';
 import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
@@ -551,12 +551,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[30px] p-2"> {/* Ajustado para 30px */}
+                  <TableHead className="w-[30px] px-1 py-1"> {/* Ajustado para 30px */}
                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                   </TableHead>
-                  <TableHead className="w-[3rem] p-2">Qtd</TableHead> {/* Ajustado para 3rem */}
-                  <TableHead className="w-[calc(100%-148px)] sm:w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead> {/* Ajustado para mobile */}
-                  <TableHead className="w-[70px] p-2 text-right">Ações</TableHead> {/* Ajustado para 70px */}
+                  <TableHead className="w-[40px] px-1 py-1 text-center">Qtd</TableHead> {/* Ajustado para 40px */}
+                  <TableHead className="px-1 py-1 text-left">Item / Código / Descrição</TableHead> {/* Removido w-auto */}
+                  <TableHead className="w-[70px] px-1 py-1 text-right">Ações</TableHead> {/* Ajustado para 70px */}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -571,23 +571,23 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                     onDragEnd={handleDragEnd}
                     data-id={item.id}
                     className="relative"
-                  ><TableCell className="w-[30px] p-2 cursor-grab"> {/* Ajustado para 30px */}
+                  ><TableCell className="w-[30px] px-1 py-1 cursor-grab"> {/* Ajustado para 30px */}
                       <GripVertical className="h-4 w-4 text-muted-foreground" />
                     </TableCell>
-                    <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                    <TableCell className="w-[calc(100%-148px)] sm:w-auto whitespace-normal break-words p-2"> {/* Ajustado para mobile */}
-                        <div className="flex flex-col items-start">
+                    <TableCell className="font-medium px-1 py-1 text-center">{item.quantity}</TableCell>
+                    <TableCell className="px-1 py-1 text-left"> {/* Removido w-auto */}
+                        <div className="flex flex-col items-start min-w-0"> {/* Adicionado min-w-0 */}
                           {item.part_code && (
-                            <span className="font-medium text-sm text-primary">{item.part_code}</span>
+                            <span className="font-medium text-sm text-primary break-all">{item.part_code}</span> {/* Adicionado break-all */}
                           )}
-                          <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
+                          <span className={cn("text-sm break-all", !item.part_code && 'font-medium')}>{item.item_name}</span> {/* Adicionado break-all */}
                           {item.description && (
-                            <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
+                            <span className="text-xs text-muted-foreground italic break-all">{item.description}</span> {/* Adicionado break-all */}
                           )}
                           {item.itens_relacionados && item.itens_relacionados.length > 0 && (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-help">
+                                <span className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-help break-all"> {/* Adicionado break-all */}
                                   <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
                                 </span>
                               </TooltipTrigger>
@@ -601,7 +601,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                           )}
                         </div>
                     </TableCell>
-                    <TableCell className="w-[70px] p-2 text-right"> {/* Ajustado para 70px */}
+                    <TableCell className="w-[70px] px-1 py-1 text-right"> {/* Ajustado para 70px */}
                       <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1"> {/* Empilha verticalmente em mobile */}
                         <Tooltip>
                           <TooltipTrigger asChild>
