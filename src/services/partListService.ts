@@ -812,31 +812,3 @@ export const cleanupEmptyParts = async (): Promise<number> => {
 
   return deletedCount;
 };
-
-// NOVA FUNÇÃO: Busca peças relacionadas diretamente da tabela 'parts'
-export const getRelatedPartsByCode = async (
-  partCode: string | null,
-  excludePartId: string // ID da peça atual para excluir dos resultados
-): Promise<Part[]> => {
-  console.log('getRelatedPartsByCode: Called with:', { partCode, excludePartId });
-
-  if (!partCode) {
-    console.log('getRelatedPartsByCode: No partCode, returning empty array.');
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('parts')
-    .select('*')
-    .eq('codigo', partCode)
-    .neq('id', excludePartId) // Exclui a peça atual
-    .limit(5); // Limita o número de resultados
-
-  if (error) {
-    console.error('getRelatedPartsByCode: Error fetching related parts:', error);
-    return [];
-  }
-
-  console.log('getRelatedPartsByCode: Raw data from Supabase:', data);
-  return data as Part[];
-};
