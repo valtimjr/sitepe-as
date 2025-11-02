@@ -191,7 +191,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     }
   };
 
-  const handleDeleteItem = async (id: string) => {
+  const handleDeleteItem = useCallback(async (id: string) => {
     console.log('PartsListDisplay: handleDeleteItem called with ID:', id); // NOVO LOG
     try {
       await deleteSimplePartItem(id);
@@ -201,7 +201,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showError('Erro ao remover item da lista.');
       console.error('PartsListDisplay: Failed to delete item:', error); // NOVO LOG
     }
-  }, []);
+  }, [onListChanged]); // Adicionado onListChanged como dependência
 
   // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: SimplePartItem) => {
