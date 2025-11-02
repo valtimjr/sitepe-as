@@ -653,54 +653,31 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         </TableCell>
                         {/* Célula vazia para a coluna de quantidade */}
                         <TableCell className="w-[3rem] px-1 py-2"></TableCell>
-                        {/* Nova Célula para os Botões de Ação da OS */}
+                        {/* Célula de Ações da OS (com DropdownMenu) */}
                         <TableCell className="w-[70px] px-1 py-2 text-right">
-                          <div className="flex items-center justify-end gap-1 shrink-0">
+                          <DropdownMenu>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  onClick={() => onEditServiceOrder({ 
-                                    af: group.af, 
-                                    os: group.os, 
-                                    hora_inicio: group.hora_inicio, 
-                                    hora_final: group.hora_final, 
-                                    servico_executado: group.servico_executado,
-                                    createdAt: group.createdAt,
-                                    mode: 'edit-so-details'
-                                  })}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
                               </TooltipTrigger>
-                              <TooltipContent>Editar Detalhes da OS</TooltipContent>
+                              <TooltipContent>Opções da OS</TooltipContent>
                             </Tooltip>
-                            <AlertDialog>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-destructive">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                </TooltipTrigger>
-                                <TooltipContent>Excluir Ordem de Serviço</TooltipContent>
-                              </Tooltip>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta ação irá remover TODOS os itens da Ordem de Serviço AF: {group.af}{group.os ? `, OS: ${group.os}` : ''}. Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteServiceOrder(group)}>Excluir OS</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => onEditServiceOrder({ ...group, mode: 'edit-so-details' })}>
+                                <Pencil className="h-4 w-4 mr-2" /> Editar Detalhes da OS
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem className="text-destructive">
+                                  <Trash2 className="h-4 w-4 mr-2" /> Excluir Ordem de Serviço
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
 
