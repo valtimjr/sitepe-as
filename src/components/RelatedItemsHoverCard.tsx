@@ -88,7 +88,7 @@ const RelatedItemsHoverCard: React.FC<RelatedItemsHoverCardProps> = ({
               </div>
             ) : relatedItems.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
-                Nenhum item relacionado encontrado em outras listas.
+                Nenhum item relacionado encontrado.
               </p>
             ) : (
               <div className="space-y-2">

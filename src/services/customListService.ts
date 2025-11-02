@@ -116,9 +116,11 @@ export const getRelatedCustomListItems = async (
     console.log('getRelatedCustomListItems: No source part_id found for partCode:', partCode);
   }
 
+  console.log('getRelatedCustomListItems: partCodesToSearchInCustomListItems before final query:', partCodesToSearchInCustomListItems);
+
   // Step 3: Build the main query for custom_list_items based on collected part codes.
   if (partCodesToSearchInCustomListItems.length === 0) {
-    console.log('getRelatedCustomListItems: No part codes to search in custom_list_items.');
+    console.log('getRelatedCustomListItems: No part codes to search in custom_list_items, returning empty.');
     return [];
   }
 
@@ -134,7 +136,7 @@ export const getRelatedCustomListItems = async (
     return [];
   }
 
-  console.log('getRelatedCustomListItems: Raw data from Supabase:', data);
+  console.log('getRelatedCustomListItems: Raw data from Supabase for custom_list_items:', data);
 
   // Deduplicate results if any item was matched by multiple conditions
   const uniqueItemsMap = new Map<string, CustomListItem>();
@@ -143,7 +145,9 @@ export const getRelatedCustomListItems = async (
     list_title: item.custom_lists?.title || 'Lista Desconhecida'
   }));
 
-  return Array.from(uniqueItemsMap.values());
+  const finalRelatedItems = Array.from(uniqueItemsMap.values());
+  console.log('getRelatedCustomListItems: Final processed related items:', finalRelatedItems);
+  return finalRelatedItems;
 };
 
 
