@@ -163,7 +163,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       });
     } else { // 'manual' or initial load, default to createdAt ascending
       result.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-    });
+    }
 
     return result;
   }, []); // Dependencies: none, as it's a pure function of its arguments.
@@ -633,7 +633,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           {/* Conteúdo vazio, pois o botão de ordenação está no TableHead */}
                         </TableCell>
                         {/* Célula para os detalhes da OS */}
-                        <TableCell className="font-semibold py-2 align-top" colSpan={2}> {/* colSpan ajustado para 2 */}
+                        <TableCell className="font-semibold py-2 align-top"> {/* Removido colSpan */}
                           <div className="flex flex-col space-y-1 flex-grow">
                             <div className="flex items-center space-x-2">
                               <span className="text-lg font-bold text-primary">AF: {group.af}</span>
@@ -651,6 +651,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                             )}
                           </div>
                         </TableCell>
+                        {/* Célula vazia para a coluna de quantidade */}
+                        <TableCell className="w-[3rem] px-1 py-2"></TableCell>
                         {/* Nova Célula para os Botões de Ação da OS */}
                         <TableCell className="w-[70px] px-1 py-2 text-right">
                           <div className="flex items-center justify-end gap-1 shrink-0">
