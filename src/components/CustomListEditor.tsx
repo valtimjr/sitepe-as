@@ -112,7 +112,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setSearchResults([]);
         setBulkRelatedPartsInput(''); // Limpa o campo de bulk
         setRelatedSearchQuery(''); // Limpa a query de busca relacionada
-        setRelatedSearchResults([]); // Limpa os resultados de busca relacionada
+        setSearchResultsRelated([]); // Limpa os resultados de busca relacionada
 
         if (editingItem.part_code) {
           const parts = await getParts(editingItem.part_code); 
@@ -161,7 +161,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setSearchResultsRelated(results);
         setIsLoadingParts(false);
       } else {
-        setRelatedSearchResults([]);
+        setSearchResultsRelated([]);
       }
     };
     const handler = setTimeout(() => {
@@ -183,7 +183,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setSelectedPartFromSearch(null);
     setBulkRelatedPartsInput(''); // Limpa o campo de bulk
     setRelatedSearchQuery(''); // Limpa a query de busca relacionada
-    setRelatedSearchResults([]); // Limpa os resultados de busca relacionada
+    setSearchResultsRelated([]); // Limpa os resultados de busca relacionada
   };
 
   const handleAdd = () => {
@@ -202,7 +202,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setSearchResults([]);
     setBulkRelatedPartsInput(''); // Limpa o campo de bulk
     setRelatedSearchQuery(''); // Limpa a query de busca relacionada
-    setRelatedSearchResults([]); // Limpa os resultados de busca relacionada
+    setSearchResultsRelated([]); // Limpa os resultados de busca relacionada
     setIsSheetOpen(true);
   };
 
@@ -447,7 +447,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     if (!formItensRelacionados.includes(part.codigo)) {
       setFormItensRelacionados(prev => [...prev, part.codigo]);
       setRelatedSearchQuery(''); // Limpa o campo de busca relacionada
-      setRelatedSearchResults([]); // Limpa os resultados relacionados
+      setSearchResultsRelated([]); // Limpa os resultados relacionados
       showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
     } else {
       showError(`Peça ${part.codigo} já está na lista de itens relacionados.`);
