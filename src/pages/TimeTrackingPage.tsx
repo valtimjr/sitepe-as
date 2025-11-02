@@ -552,8 +552,8 @@ const TimeTrackingPage: React.FC = () => {
               </Button>
             </div>
             
-            <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2"> {/* Alterado para flex-row e items-center */}
-              <Button onClick={handleCopyText} className="flex items-center gap-2 flex-1 sm:w-auto"> {/* Adicionado flex-1 */}
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
+              <Button onClick={handleCopyText} className="flex items-center gap-2">
                 <Copy className="h-4 w-4" /> Copiar Texto
               </Button>
               <Button 
@@ -571,7 +571,7 @@ const TimeTrackingPage: React.FC = () => {
                     disabled={apontamentos.length === 0} 
                     variant="ghost" 
                     size="icon" 
-                    className="h-10 w-10 p-0 rounded-md sm:h-auto sm:w-auto sm:px-4 sm:rounded-md" // Alterado para rounded-md
+                    className="h-10 w-10 p-0 rounded-full sm:h-auto sm:w-auto sm:px-4 sm:rounded-md" // Ajuste para mobile
                   >
                     {isMobile ? (
                       <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-full w-full" />
