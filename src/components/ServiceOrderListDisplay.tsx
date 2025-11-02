@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } => '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem } from '@/services/partListService';
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
