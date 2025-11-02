@@ -295,8 +295,14 @@ const CustomListPage: React.FC = () => {
                       isMobile ? "h-10 w-10 p-0" : "" // Tamanho para mobile
                     )}
                   >
-                    <FileDown className={cn("h-4 w-4", isMobile ? "h-6 w-6" : "")} /> {/* Ajusta o tamanho do ícone */}
-                    {!isMobile && "Exportar PDF"} {/* Texto apenas no desktop */}
+                    {isMobile ? (
+                      <FileDown className="h-6 w-6" /> // Usar FileDown da Lucide para mobile também
+                    ) : (
+                      <>
+                        <FileDown className="h-4 w-4" /> 
+                        {"Exportar PDF"}
+                      </>
+                    )}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Exportar PDF</TooltipContent>
