@@ -41,6 +41,7 @@ export interface CustomList {
   user_id: string;
   title: string;
   created_at?: Date;
+  updated_at?: string; // Adicionado o campo updated_at
   items_data?: CustomListItem[]; // NOVO: Armazena os itens da lista como JSONB
 }
 

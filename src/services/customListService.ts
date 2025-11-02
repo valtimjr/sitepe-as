@@ -209,7 +209,7 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
           // Salva a lista com os itens migrados no novo formato
           await supabase
             .from('custom_lists')
-            .update({ items_data: migratedItems, updated_at: new Date().toISOString() })
+            .update({ items_data: migratedItems, updated_at: new Date().toISOString() }) // Inclui updated_at
             .eq('id', list.id);
           console.log(`Custom_list_items migration complete for list ${list.id}.`);
           return { ...list, items_data: migratedItems };
@@ -267,7 +267,7 @@ export const createCustomList = async (title: string, userId: string): Promise<C
 export const updateCustomList = async (list: CustomList): Promise<void> => {
   const { error } = await supabase
     .from('custom_lists')
-    .update({ title: list.title, items_data: list.items_data, updated_at: new Date().toISOString() })
+    .update({ title: list.title, items_data: list.items_data, updated_at: new Date().toISOString() }) // Inclui updated_at
     .eq('id', list.id);
 
   if (error) {
