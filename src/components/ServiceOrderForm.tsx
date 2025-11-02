@@ -596,6 +596,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             </Button>
           </div>
         </form>
+        {/* REMOVIDO: O botão "Iniciar Nova Ordem de Serviço" foi removido daqui. */}
+        {/*
         {mode === 'create-new-so' && (
           <div className="flex flex-col space-y-2 mt-4">
             <Button variant="outline" onClick={onNewServiceOrder} className="w-full flex items-center gap-2">
@@ -603,6 +605,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             </Button>
           </div>
         )}
+        */}
       </CardContent>
     </Card>
   );
