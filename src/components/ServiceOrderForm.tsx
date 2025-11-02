@@ -483,24 +483,27 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                 )}
               </div>
               <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
+                <span className="text-sm text-muted-foreground text-center sm:hidden">Hora</span> {/* Visível apenas em mobile */}
                 <div className="flex-1">
-                  <Label htmlFor="hora_inicio" className="min-h-[2.5rem] flex items-center">Hora de Início (Opcional)</Label>
+                  <Label htmlFor="hora_inicio" className="sr-only">Inicial</Label> {/* Rótulo alterado */}
                   <Input
                     id="hora_inicio"
                     type="time"
                     value={horaInicio}
                     onChange={(e) => setHoraInicio(e.target.value)}
                     readOnly={isOsDetailsReadOnly}
+                    placeholder="Inicial" {/* Placeholder adicionado */}
                   />
                 </div>
                 <div className="flex-1">
-                  <Label htmlFor="hora_final" className="min-h-[2.5rem] flex items-center">Hora Final (Opcional)</Label>
+                  <Label htmlFor="hora_final" className="sr-only">Final</Label> {/* Rótulo alterado */}
                   <Input
                     id="hora_final"
                     type="time"
                     value={horaFinal}
                     onChange={(e) => setHoraFinal(e.target.value)}
                     readOnly={isOsDetailsReadOnly}
+                    placeholder="Final" {/* Placeholder adicionado */}
                   />
                 </div>
               </div>
