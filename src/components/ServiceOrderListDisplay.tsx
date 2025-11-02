@@ -515,9 +515,21 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           >
             <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
           </Button>
-          <Button onClick={handleExportPdf} disabled={groupedServiceOrders.length === 0 || isLoading} className="flex items-center gap-2">
-            <Download className="h-4 w-4" /> Exportar PDF
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={handleExportPdf} 
+                disabled={groupedServiceOrders.length === 0 || isLoading} 
+                variant={isMobile ? "ghost" : "default"} 
+                size={isMobile ? "icon" : "default"} 
+                className={isMobile ? "h-10 w-10 p-0 rounded-full" : "flex items-center gap-2"}
+              >
+                <Download className="h-4 w-4" /> 
+                {!isMobile && "Exportar PDF"}
+              </Button>
+            </TooltipTrigger>
+            {isMobile && <TooltipContent>Exportar PDF</TooltipContent>}
+          </Tooltip>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button 

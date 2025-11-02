@@ -7,7 +7,7 @@ import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info,
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
-import { CustomList, CustomListItem } from '@/types/supabase';
+import { CustomList, CustomListItem, Part } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af } from '@/services/partListService';
 import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -18,6 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import AfSearchInput from '@/components/AfSearchInput';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -33,6 +34,8 @@ const CustomListPage: React.FC = () => {
   const [afForExport, setAfForExport] = useState('');
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
+
+  const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
   const loadList = useCallback(async () => {
     if (!listId) return;
@@ -283,11 +286,18 @@ const CustomListPage: React.FC = () => {
             
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" /> Exportar PDF
+                <Button 
+                  onClick={handleExportPdf} 
+                  disabled={items.length === 0} 
+                  variant={isMobile ? "ghost" : "default"} 
+                  size={isMobile ? "icon" : "default"} 
+                  className={isMobile ? "h-10 w-10 p-0 rounded-full" : "flex items-center gap-2"}
+                >
+                  <FileText className="h-4 w-4" /> 
+                  {!isMobile && "Exportar PDF"}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Exportar PDF</TooltipContent>
+              {isMobile && <TooltipContent>Exportar PDF</TooltipContent>}
             </Tooltip>
           </div>
         </CardHeader>

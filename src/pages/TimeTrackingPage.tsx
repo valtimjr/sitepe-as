@@ -38,6 +38,7 @@ import {
 import { Link } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
+import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 
 // Mapeamento de Status para Ícone e Estilo
 const STATUS_MAP = {
@@ -78,6 +79,8 @@ const TimeTrackingPage: React.FC = () => {
   const [dayForOtherStatus, setDayForOtherStatus] = useState<Date | null>(null);
   const [selectedTurn, setSelectedTurn] = useState<ShiftTurn | undefined>(undefined);
   const [isGeneratingSchedule, setIsGeneratingSchedule] = useState(false);
+
+  const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
   useEffect(() => {
     document.title = "Apontamento de Horas - AutoBoard";
@@ -561,9 +564,21 @@ const TimeTrackingPage: React.FC = () => {
               >
                 <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-full w-full" />
               </Button>
-              <Button onClick={handleExportPdf} className="flex items-center gap-2">
-                <Download className="h-4 w-4" /> Exportar PDF
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleExportPdf} 
+                    disabled={apontamentos.length === 0} 
+                    variant={isMobile ? "ghost" : "default"} 
+                    size={isMobile ? "icon" : "default"} 
+                    className={isMobile ? "h-10 w-10 p-0 rounded-full" : "flex items-center gap-2"}
+                  >
+                    <Download className="h-4 w-4" /> 
+                    {!isMobile && "Exportar PDF"}
+                  </Button>
+                </TooltipTrigger>
+                {isMobile && <TooltipContent>Exportar PDF</TooltipContent>}
+              </Tooltip>
             </div>
           </CardHeader>
           <CardContent>
