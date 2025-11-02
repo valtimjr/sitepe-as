@@ -772,7 +772,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           </div>
         )}
       </CardContent>
-      {/* Botão "Adicionar Ordem de Serviço" no final da lista - MANTIDO */}
+      {/* Botão "Adicionar Ordem de Serviço" no final da lista - REMOVIDO */}
+      {/*
       {!isLoading && groupedServiceOrders.length > 0 && (
         <div className="mt-8 text-center">
           <Button 
@@ -783,6 +784,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           </Button>
         </div>
       )}
+      */}
 
       {/* Sheet/Dialog para Adicionar/Editar Peça */}
       {isPartFormOpen && (
