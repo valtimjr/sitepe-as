@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -626,7 +627,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   placeholder="Ex: Kit de Reparo do Motor"
                   className="flex-1"
                 />
-                {formPartCode && ( {/* Alterado: O botão agora é visível se houver um formPartCode */}
+                {formPartCode && ( // O botão agora é visível se houver um formPartCode
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
