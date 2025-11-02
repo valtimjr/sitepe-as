@@ -91,6 +91,9 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   // Bulk add related items state
   const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
 
+  // NOVO: Estado para controlar a expansão dos itens do menu
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -274,11 +277,26 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     showSuccess(`${newCodes.length} código(s) adicionado(s) aos itens relacionados.`);
   };
 
+  // NOVO: Função para alternar o estado de expansão de um item
+  const toggleItemExpansion = (itemId: string) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
   const renderMenuItem = (item: MenuItem, level: number, siblings: MenuItem[]) => {
     const isListLink = !!item.list_id;
     const hasChildren = item.children && item.children.length > 0;
     const isFirst = siblings.findIndex(i => i.id === item.id) === 0;
     const isLast = siblings.findIndex(i => i.id === item.id) === siblings.length - 1;
+    // NOVO: Verifica se o item está expandido
+    const isExpanded = expandedItems.has(item.id);
 
     return (
       <div key={item.id} className={cn("border-b last:border-b-0", level > 0 && 'ml-4')}>
@@ -288,9 +306,16 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
         )}>
           <div className="flex-1 flex items-center gap-2" style={{ paddingLeft: `${level * 10}px` }}>
             {hasChildren ? (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => toggleItemExpansion(item.id)} // NOVO: Usa a função de toggle
+                className="h-6 w-6 p-0 text-muted-foreground shrink-0"
+              >
+                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </Button>
             ) : (
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <ListIcon className="h-4 w-4 text-primary shrink-0" />
             )}
             <span className={cn("font-medium", isListLink && 'text-primary')}>
               {item.title}
@@ -364,7 +389,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
             </AlertDialog>
           </div>
         </div>
-        {hasChildren && isExpanded && (
+        {hasChildren && isExpanded && ( // NOVO: Usa isExpanded aqui
           <div className="w-full">
             {item.children!.map(child => renderMenuItem(child, level + 1, item.children!))}
           </div>
