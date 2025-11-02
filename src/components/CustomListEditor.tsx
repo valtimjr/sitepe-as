@@ -553,7 +553,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   <TableHead className="w-[30px] px-1 py-1"> {/* Ajustado para 30px */}
                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                   </TableHead>
-                  <TableHead className="w-[40px] px-1 py-1 text-center">Qtd</TableHead> {/* Ajustado para 40px */}
+                  <TableHead className="w-[3rem] px-1 py-1 text-center">Qtd</TableHead> {/* Ajustado para 3rem */}
                   <TableHead className="px-1 py-1 text-left">Item / Código / Descrição</TableHead> {/* Removido w-auto */}
                   <TableHead className="w-[70px] px-1 py-1 text-right">Ações</TableHead> {/* Ajustado para 70px */}
                 </TableRow>
