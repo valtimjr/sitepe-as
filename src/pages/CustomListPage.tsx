@@ -401,7 +401,7 @@ const CustomListPage: React.FC = () => {
             <SheetDescription>
               Selecione um AF (Número de Frota) para aplicar a todos os {selectedItemIds.size} itens selecionados antes de exportar para "Minha Lista de Peças".
             </SheetDescription>
-          </SheetHeader>
+          </SheetDescription>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="af-for-export">AF (Número de Frota)</Label>
