@@ -1,10 +1,11 @@
+"use client";
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { PlusCircle, Edit, Trash2, Save, XCircle, List as ListIcon, FileText } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { CustomList } from '@/types/supabase';
@@ -21,13 +22,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import CustomListEditor from './CustomListEditor'; // Será criado na próxima etapa
+import CustomListEditor from './CustomListEditor';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
 
 const CustomListManager: React.FC = () => {
   const { user } = useSession();
   const [lists, setLists] = useState<CustomList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
   const [currentList, setCurrentList] = useState<CustomList | null>(null);
   const [formTitle, setFormTitle] = useState('');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -54,13 +56,13 @@ const CustomListManager: React.FC = () => {
   const handleAddList = () => {
     setCurrentList(null);
     setFormTitle('');
-    setIsDialogOpen(true);
+    setIsSheetOpen(true); // Abre o Sheet
   };
 
   const handleEditListTitle = (list: CustomList) => {
     setCurrentList(list);
     setFormTitle(list.title);
-    setIsDialogOpen(true);
+    setIsSheetOpen(true); // Abre o Sheet
   };
 
   const handleOpenEditor = (list: CustomList) => {
@@ -95,7 +97,7 @@ const CustomListManager: React.FC = () => {
         showSuccess('Lista criada com sucesso!');
       }
       
-      setIsDialogOpen(false);
+      setIsSheetOpen(false); // Fecha o Sheet
       loadLists();
     } catch (error) {
       showError('Erro ao salvar lista.');
@@ -146,7 +148,7 @@ const CustomListManager: React.FC = () => {
                     <TableCell className="font-medium">{list.title}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => handleOpenEditor(list)} className="mr-2">
-                        <FileText className="h-4 w-4" />
+                        <FileText className="h-4 w-4" /> Visualizar Itens
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleEditListTitle(list)} className="mr-2">
                         <Edit className="h-4 w-4" />
@@ -179,11 +181,12 @@ const CustomListManager: React.FC = () => {
         )}
       </CardContent>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>{currentList ? 'Editar Título da Lista' : 'Criar Nova Lista'}</DialogTitle>
-          </DialogHeader>
+      {/* Sheet de Edição/Adição */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-md"> {/* SheetContent com side="right" */}
+          <SheetHeader>
+            <SheetTitle>{currentList ? 'Editar Título da Lista' : 'Criar Nova Lista'}</SheetTitle>
+          </SheetHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="title">Título</Label>
@@ -194,17 +197,17 @@ const CustomListManager: React.FC = () => {
                 required
               />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <SheetFooter> {/* SheetFooter para botões */}
+              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
               <Button type="submit">
                 <Save className="h-4 w-4 mr-2" /> Salvar
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 };

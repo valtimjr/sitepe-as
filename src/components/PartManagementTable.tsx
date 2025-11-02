@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal, FileText } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
@@ -36,8 +35,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
-import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
+import { useSession } from '@/components/SessionContextProvider';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
 
 // Função auxiliar para obter valor de uma linha, ignorando case e variações
 const getRowValue = (row: any, keys: string[]): string | undefined => {
@@ -56,17 +56,17 @@ const getRowValue = (row: any, keys: string[]): string | undefined => {
 };
 
 const PartManagementTable: React.FC = () => {
-  const { checkPageAccess } = useSession(); // Obter checkPageAccess
+  const { checkPageAccess } = useSession();
   const [parts, setParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
   const [currentPart, setCurrentPart] = useState<Part | null>(null);
   const [formCodigo, setFormCodigo] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
-  const [formName, setFormName] = useState(''); // Novo estado para o nome
+  const [formName, setFormName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set()); // Linha corrigida
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set());
 
   // Novos estados para importação
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
@@ -124,8 +124,8 @@ const PartManagementTable: React.FC = () => {
     setFormCodigo('');
     setFormDescricao('');
     setFormTags('');
-    setFormName(''); // Limpa o nome
-    setIsDialogOpen(true);
+    setFormName('');
+    setIsSheetOpen(true); // Abre o Sheet
   };
 
   const handleEditPart = (part: Part) => {
@@ -133,8 +133,8 @@ const PartManagementTable: React.FC = () => {
     setFormCodigo(part.codigo);
     setFormDescricao(part.descricao);
     setFormTags(part.tags || '');
-    setFormName(part.name || ''); // Preenche o nome
-    setIsDialogOpen(true);
+    setFormName(part.name || '');
+    setIsSheetOpen(true); // Abre o Sheet
   };
 
   const handleDeletePart = async (id: string) => {
@@ -156,9 +156,8 @@ const PartManagementTable: React.FC = () => {
       return;
     }
 
-    // Se o usuário não pode editar tags, garante que as tags não sejam alteradas
     if (!canEditTags && currentPart) {
-      setFormTags(currentPart.tags || ''); // Reverte para as tags originais
+      setFormTags(currentPart.tags || '');
     }
 
     try {
@@ -167,8 +166,8 @@ const PartManagementTable: React.FC = () => {
           ...currentPart,
           codigo: formCodigo,
           descricao: formDescricao,
-          tags: formTags, // Usa formTags (que pode ter sido revertido se !canEditTags)
-          name: formName, // Inclui o novo campo 'name'
+          tags: formTags,
+          name: formName,
         });
         showSuccess('Peça atualizada com sucesso!');
       } else {
@@ -176,11 +175,11 @@ const PartManagementTable: React.FC = () => {
           codigo: formCodigo,
           descricao: formDescricao,
           tags: formTags,
-          name: formName, // Inclui o novo campo 'name'
+          name: formName,
         });
         showSuccess('Peça adicionada com sucesso!');
       }
-      setIsDialogOpen(false);
+      setIsSheetOpen(false); // Fecha o Sheet
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao salvar peça.');
@@ -291,10 +290,10 @@ const PartManagementTable: React.FC = () => {
             const codigo = getRowValue(row, ['codigo', 'código', 'code']);
             const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']);
             const tags = getRowValue(row, ['tags', 'tag']) || '';
-            const name = getRowValue(row, ['name', 'nome']) || ''; // Novo campo 'name'
+            const name = getRowValue(row, ['name', 'nome']) || '';
             
             if (!codigo || !descricao) {
-              return null; // Linha inválida se faltar código ou descrição
+              return null;
             }
 
             return {
@@ -302,7 +301,7 @@ const PartManagementTable: React.FC = () => {
               codigo: codigo,
               descricao: descricao,
               tags: tags,
-              name: name, // Inclui o novo campo 'name'
+              name: name,
             };
           }).filter((part): part is Part => part !== null);
 
@@ -321,7 +320,6 @@ const PartManagementTable: React.FC = () => {
             `Linhas válidas encontradas: ${newParts.length}`,
             `Peças únicas prontas para importação: ${deduplicatedParts.length}`
           ]);
-          // Adiciona um pequeno atraso antes de abrir o AlertDialog
           setTimeout(() => setIsImportConfirmOpen(true), 100); 
 
         },
@@ -349,7 +347,6 @@ const PartManagementTable: React.FC = () => {
 
     reader.readAsText(file);
 
-    // Limpa o input para permitir a importação do mesmo arquivo novamente
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -399,11 +396,11 @@ const PartManagementTable: React.FC = () => {
         showSuccess(`${dataToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
       } else {
         dataToExport = await getAllPartsForExport();
-        if (dataToToExport.length === 0) {
+        if (dataToExport.length === 0) {
           showError('Nenhuma peça para exportar.');
           return;
         }
-        exportDataAsCsv(dataToToToExport, 'todas_pecas.csv');
+        exportDataAsCsv(dataToExport, 'todas_pecas.csv');
         showSuccess('Todos as peças exportadas para CSV com sucesso!');
       }
     } catch (error) {
@@ -429,11 +426,11 @@ const PartManagementTable: React.FC = () => {
         showSuccess(`${dataToExport.length} peças selecionadas exportadas para JSON com sucesso!`);
       } else {
         dataToExport = await getAllPartsForExport();
-        if (dataToToExport.length === 0) {
+        if (dataToExport.length === 0) {
           showError('Nenhuma peça para exportar.');
           return;
         }
-        exportDataAsJson(dataToToToExport, 'todas_pecas.json');
+        exportDataAsJson(dataToExport, 'todas_pecas.json');
         showSuccess('Todas as peças exportadas para JSON com sucesso!');
       }
     } catch (error) {
@@ -463,7 +460,6 @@ const PartManagementTable: React.FC = () => {
     }
   };
 
-  // Lógica para desabilitar a edição de tags
   const canEditTags = checkPageAccess('/manage-tags');
 
   const isAllSelected = parts.length > 0 && selectedPartIds.size === parts.length;
@@ -481,7 +477,7 @@ const PartManagementTable: React.FC = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleImportCsv(); }}> {/* Previne o fechamento padrão */}
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleImportCsv(); }}>
                 <Upload className="h-4 w-4 mr-2" /> Importar CSV
               </DropdownMenuItem>
               <DropdownMenuSub>
@@ -609,7 +605,7 @@ const PartManagementTable: React.FC = () => {
                     />
                   </TableHead>
                   <TableHead>Código</TableHead>
-                  <TableHead>Nome</TableHead> {/* Nova coluna para o nome */}
+                  <TableHead>Nome</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Tags</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -626,7 +622,7 @@ const PartManagementTable: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell className="font-medium">{part.codigo}</TableCell>
-                    <TableCell>{part.name || 'N/A'}</TableCell> {/* Exibe o nome */}
+                    <TableCell>{part.name || 'N/A'}</TableCell>
                     <TableCell>{part.descricao}</TableCell>
                     <TableCell>{part.tags || ''}</TableCell>
                     <TableCell className="text-right">
@@ -645,11 +641,12 @@ const PartManagementTable: React.FC = () => {
         )}
       </CardContent>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>{currentPart ? 'Editar Peça' : 'Adicionar Nova Peça'}</DialogTitle>
-          </DialogHeader>
+      {/* Sheet de Edição/Adição */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-md"> {/* SheetContent com side="right" */}
+          <SheetHeader>
+            <SheetTitle>{currentPart ? 'Editar Peça' : 'Adicionar Nova Peça'}</SheetTitle>
+          </SheetHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="codigo" className="text-right">
@@ -700,17 +697,17 @@ const PartManagementTable: React.FC = () => {
                 disabled={!canEditTags}
               />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <SheetFooter> {/* SheetFooter para botões */}
+              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
               <Button type="submit">
                 <Save className="h-4 w-4 mr-2" /> Salvar
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* AlertDialog de Confirmação de Importação */}
       <AlertDialog open={isImportConfirmOpen} onOpenChange={setIsImportConfirmOpen}>

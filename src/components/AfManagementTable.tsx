@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download, MoreHorizontal, FileText } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson, getAllAfsForExport } from '@/services/partListService';
@@ -37,6 +36,7 @@ import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
 
 // Função auxiliar para obter valor de uma linha, ignorando case e variações
 const getRowValue = (row: any, keys: string[]): string | undefined => {
@@ -57,12 +57,12 @@ const getRowValue = (row: any, keys: string[]): string | undefined => {
 const AfManagementTable: React.FC = () => {
   const [afs, setAfs] = useState<Af[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(new Set());
+  const [selectedAfIds, setSelectedAfIds] = new Set());
   
   // Novos estados para importação
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
@@ -98,14 +98,14 @@ const AfManagementTable: React.FC = () => {
     setCurrentAf(null);
     setFormAfNumber('');
     setFormDescricao('');
-    setIsDialogOpen(true);
+    setIsSheetOpen(true); // Abre o Sheet
   };
 
   const handleEditAf = (af: Af) => {
     setCurrentAf(af);
     setFormAfNumber(af.af_number);
     setFormDescricao(af.descricao || '');
-    setIsDialogOpen(true);
+    setIsSheetOpen(true); // Abre o Sheet
   };
 
   const handleDeleteAf = async (id: string) => {
@@ -143,7 +143,7 @@ const AfManagementTable: React.FC = () => {
         await addAf(payload);
         showSuccess('AF adicionado com sucesso!');
       }
-      setIsDialogOpen(false);
+      setIsSheetOpen(false); // Fecha o Sheet
       loadAfs();
     } catch (error) {
       showError('Erro ao salvar AF.');
@@ -484,12 +484,12 @@ const AfManagementTable: React.FC = () => {
         )}
       </CardContent>
 
-      {/* Dialog de Edição/Adição */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>{currentAf ? 'Editar AF' : 'Adicionar Novo AF'}</DialogTitle>
-          </DialogHeader>
+      {/* Sheet de Edição/Adição */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-md"> {/* SheetContent com side="right" */}
+          <SheetHeader>
+            <SheetTitle>{currentAf ? 'Editar AF' : 'Adicionar Novo AF'}</SheetTitle>
+          </SheetHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="af_number" className="text-right">
@@ -515,17 +515,17 @@ const AfManagementTable: React.FC = () => {
                 className="col-span-3"
               />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <SheetFooter> {/* SheetFooter para botões */}
+              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
               <Button type="submit">
                 <Save className="h-4 w-4 mr-2" /> Salvar
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* AlertDialog de Confirmação de Importação */}
       <AlertDialog open={isImportConfirmOpen} onOpenChange={setIsImportConfirmOpen}>

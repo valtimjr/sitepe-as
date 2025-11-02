@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, Tag, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { MenuItem, CustomList, Part } from '@/types/supabase';
@@ -30,9 +29,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import PartSearchInput from './PartSearchInput'; // Para o campo de itens relacionados
+import PartSearchInput from './PartSearchInput';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea'; // Importar Textarea
+import { Textarea } from '@/components/ui/textarea';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
 
 interface MenuStructureEditorProps {
   onMenuUpdated: () => void;
@@ -74,13 +74,13 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   const [menuHierarchy, setMenuHierarchy] = useState<MenuItem[]>([]);
   const [customLists, setCustomLists] = useState<CustomList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
   const [currentMenuItem, setCurrentMenuItem] = useState<MenuItem | null>(null);
   const [formTitle, setFormTitle] = useState('');
   const [formParentId, setFormParentId] = useState<string | null>(null);
   const [formListId, setFormListId] = useState<string | null>(null);
   const [formOrderIndex, setFormOrderIndex] = useState(0);
-  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]); // Novo estado
+  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]);
   
   // Estados para o PartSearchInput dentro do modal
   const [searchQueryRelated, setSearchQueryRelated] = useState('');
@@ -100,7 +100,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       const [fetchedFlatItems, fetchedLists, fetchedAllParts] = await Promise.all([
         getAllMenuItemsFlat(),
         user ? getCustomLists(user.id) : Promise.resolve([]),
-        getParts(), // Carrega todas as peças para o PartSearchInput
+        getParts(),
       ]);
       
       setFlatMenuItems(fetchedFlatItems);
@@ -143,12 +143,12 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     setFormTitle('');
     setFormParentId(parentId);
     setFormListId(null);
-    setFormOrderIndex(flatMenuItems.length); // Define a ordem como o último
-    setFormItensRelacionados([]); // Limpa itens relacionados
-    setSearchQueryRelated(''); // Limpa a busca de relacionados
+    setFormOrderIndex(flatMenuItems.length);
+    setFormItensRelacionados([]);
+    setSearchQueryRelated('');
     setSearchResultsRelated([]);
-    setBulkRelatedPartsInput(''); // Limpa o campo de bulk
-    setIsDialogOpen(true);
+    setBulkRelatedPartsInput('');
+    setIsSheetOpen(true); // Abre o Sheet
   };
 
   const handleEditMenuItem = (item: MenuItem) => {
@@ -157,16 +157,16 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     setFormParentId(item.parent_id);
     setFormListId(item.list_id);
     setFormOrderIndex(item.order_index);
-    setFormItensRelacionados(item.itens_relacionados || []); // Preenche itens relacionados
-    setSearchQueryRelated(''); // Limpa a busca de relacionados
+    setFormItensRelacionados(item.itens_relacionados || []);
+    setSearchQueryRelated('');
     setSearchResultsRelated([]);
-    setBulkRelatedPartsInput(''); // Limpa o campo de bulk
-    setIsDialogOpen(true);
+    setBulkRelatedPartsInput('');
+    setIsSheetOpen(true); // Abre o Sheet
   };
 
   const handleDeleteMenuItem = async (id: string) => {
     try {
-      await deleteMenuItem(id); // list.id é o ID da lista, itemId é o ID do item
+      await deleteMenuItem(id);
       showSuccess('Item de menu excluído com sucesso!');
       await loadData();
       onMenuUpdated();
@@ -189,7 +189,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
         parent_id: formParentId,
         list_id: formListId,
         order_index: formOrderIndex,
-        itens_relacionados: formItensRelacionados, // Inclui o novo campo
+        itens_relacionados: formItensRelacionados,
       };
 
       if (currentMenuItem) {
@@ -200,7 +200,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
         showSuccess('Item de menu criado com sucesso!');
       }
       
-      setIsDialogOpen(false);
+      setIsSheetOpen(false); // Fecha o Sheet
       await loadData();
       onMenuUpdated();
     } catch (error) {
@@ -227,7 +227,6 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     const loadingToastId = showLoading('Reordenando itens...');
 
     try {
-      // Troca os índices de ordem
       await Promise.all([
         updateMenuItem({ ...currentItem, order_index: targetItem.order_index }),
         updateMenuItem({ ...targetItem, order_index: currentItem.order_index }),
@@ -238,7 +237,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       onMenuUpdated();
     } catch (error) {
       showError('Erro ao reordenar itens.');
-      console.error('Failed to reorder menu items:', error);
+      console.error('Failed to reorder items:', error);
     } finally {
       dismissToast(loadingToastId);
     }
@@ -247,8 +246,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   const handleAddRelatedPart = (part: Part) => {
     if (!formItensRelacionados.includes(part.codigo)) {
       setFormItensRelacionados(prev => [...prev, part.codigo]);
-      setSearchQueryRelated(''); // Limpa o campo de busca
-      setSearchResultsRelated([]); // Limpa os resultados
+      setSearchQueryRelated('');
+      setSearchResultsRelated([]);
       showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
     } else {
       showError(`Peça ${part.codigo} já está na lista de itens relacionados.`);
@@ -277,7 +276,6 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     showSuccess(`${newCodes.length} código(s) adicionado(s) aos itens relacionados.`);
   };
 
-  // NOVO: Função para alternar o estado de expansão de um item
   const toggleItemExpansion = (itemId: string) => {
     setExpandedItems(prev => {
       const newSet = new Set(prev);
@@ -295,7 +293,6 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     const hasChildren = item.children && item.children.length > 0;
     const isFirst = siblings.findIndex(i => i.id === item.id) === 0;
     const isLast = siblings.findIndex(i => i.id === item.id) === siblings.length - 1;
-    // NOVO: Verifica se o item está expandido
     const isExpanded = expandedItems.has(item.id);
 
     return (
@@ -309,7 +306,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={() => toggleItemExpansion(item.id)} // NOVO: Usa a função de toggle
+                onClick={() => toggleItemExpansion(item.id)}
                 className="h-6 w-6 p-0 text-muted-foreground shrink-0"
               >
                 {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -389,7 +386,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
             </AlertDialog>
           </div>
         </div>
-        {hasChildren && isExpanded && ( // NOVO: Usa isExpanded aqui
+        {hasChildren && isExpanded && (
           <div className="w-full">
             {item.children!.map(child => renderMenuItem(child, level + 1, item.children!))}
           </div>
@@ -398,7 +395,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     );
   };
 
-  const availableParents = flatMenuItems.filter(item => !item.list_id); // Apenas itens que não são links de lista podem ser pais
+  const availableParents = flatMenuItems.filter(item => !item.list_id);
 
   return (
     <Card className="w-full">
@@ -422,11 +419,12 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
         )}
       </CardContent>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{currentMenuItem ? 'Editar Item de Menu' : 'Adicionar Novo Item de Menu'}</DialogTitle>
-          </DialogHeader>
+      {/* Sheet de Edição/Adição */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto"> {/* SheetContent com side="right" */}
+          <SheetHeader>
+            <SheetTitle>{currentMenuItem ? 'Editar Item de Menu' : 'Adicionar Novo Item de Menu'}</SheetTitle>
+          </SheetHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="title">Título do Menu/Submenu</Label>
@@ -441,14 +439,14 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
             <div className="space-y-2">
               <Label htmlFor="parent_id">Item Pai (Submenu de)</Label>
               <Select
-                value={formParentId || 'root'} // Usando 'root' para representar null
+                value={formParentId || 'root'}
                 onValueChange={(value) => setFormParentId(value === 'root' ? null : value)}
               >
                 <SelectTrigger id="parent_id">
                   <SelectValue placeholder="Nível Raiz" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="root">Nível Raiz</SelectItem> {/* Usando 'root' */}
+                  <SelectItem value="root">Nível Raiz</SelectItem>
                   {availableParents.map(item => (
                     <SelectItem key={item.id} value={item.id} disabled={item.id === currentMenuItem?.id}>
                       {item.title}
@@ -461,7 +459,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
             <div className="space-y-2">
               <Label htmlFor="list_id">Link para Lista de Peças (Opcional)</Label>
               <Select
-                value={formListId || 'none'} // Usando 'none' para representar null
+                value={formListId || 'none'}
                 onValueChange={(value) => setFormListId(value === 'none' ? null : value)}
                 disabled={hasChildren(currentMenuItem)}
               >
@@ -469,7 +467,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
                   <SelectValue placeholder="Nenhum (É um Submenu)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Nenhum (É um Submenu)</SelectItem> {/* Usando 'none' */}
+                  <SelectItem value="none">Nenhum (É um Submenu)</SelectItem>
                   {customLists.map(list => (
                     <SelectItem key={list.id} value={list.id}>
                       {list.title}
@@ -557,25 +555,23 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
               </p>
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <SheetFooter> {/* SheetFooter para botões */}
+              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
               <Button type="submit">
                 <Save className="h-4 w-4 mr-2" /> Salvar
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 };
 
-// Helper para verificar se um item tem filhos (usado para desabilitar link de lista)
 const hasChildren = (item: MenuItem | null) => {
   if (!item) return false;
-  // Esta é uma verificação heurística baseada no estado atual da hierarquia
   return item.children && item.children.length > 0;
 };
 

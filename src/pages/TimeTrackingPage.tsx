@@ -20,12 +20,10 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { ALL_TURNS, generateMonthlyApontamentos, ShiftTurn } from '@/services/shiftService'; // Importar serviço de turno
+import { ALL_TURNS, generateMonthlyApontamentos, ShiftTurn } from '@/services/shiftService';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { localDb } from '@/services/localDbService';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,7 +36,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Link } from 'react-router-dom';
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; // Adicionado
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
 
 // Mapeamento de Status para Ícone e Estilo
 const STATUS_MAP = {
@@ -74,10 +73,9 @@ const TimeTrackingPage: React.FC = () => {
   const [apontamentos, setApontamentos] = useState<Apontamento[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
   const [otherStatusText, setOtherStatusText] = useState('');
   const [dayForOtherStatus, setDayForOtherStatus] = useState<Date | null>(null);
-  // Alterado para ShiftTurn | undefined
   const [selectedTurn, setSelectedTurn] = useState<ShiftTurn | undefined>(undefined);
   const [isGeneratingSchedule, setIsGeneratingSchedule] = useState(false);
 
@@ -87,13 +85,11 @@ const TimeTrackingPage: React.FC = () => {
 
   const userId = user?.id;
 
-  // Carrega o turno salvo localmente na inicialização
   useEffect(() => {
     const savedTurn = localStorage.getItem('selectedShiftTurn') as ShiftTurn;
     if (savedTurn && ALL_TURNS.includes(savedTurn)) {
       setSelectedTurn(savedTurn);
     } else {
-      // Define o primeiro turno como padrão se nenhum estiver salvo
       setSelectedTurn(ALL_TURNS[0]);
     }
   }, []);
@@ -120,7 +116,6 @@ const TimeTrackingPage: React.FC = () => {
   const currentMonthEnd = endOfMonth(currentDate);
   const daysInMonth = useMemo(() => eachDayOfInterval({ start: currentMonthStart, end: currentMonthEnd }), [currentMonthStart, currentMonthEnd]);
 
-  // Função auxiliar para obter o apontamento mais recente (usa o estado atual)
   const getApontamentoForDay = (day: Date): Apontamento | undefined => {
     const dateString = format(day, 'yyyy-MM-dd');
     return apontamentos.find(a => a.date === dateString);
@@ -156,7 +151,7 @@ const TimeTrackingPage: React.FC = () => {
     const newValue = value.trim() === '' ? undefined : value;
 
     const newApontamento: Apontamento = existingApontamento
-      ? { ...existingApontamento, [field]: newValue, status: undefined } // Limpa o status ao inserir tempo
+      ? { ...existingApontamento, [field]: newValue, status: undefined }
       : {
           id: uuidv4(),
           user_id: userId,
@@ -166,7 +161,6 @@ const TimeTrackingPage: React.FC = () => {
           created_at: new Date(),
         };
 
-    // Se ambos os campos de tempo e status estiverem vazios, deletamos o apontamento (se existir)
     if (!newApontamento.entry_time && !newApontamento.exit_time && !newApontamento.status && existingApontamento) {
       await handleDeleteApontamento(existingApontamento.id);
       return;
@@ -189,7 +183,6 @@ const TimeTrackingPage: React.FC = () => {
     const existingApontamento = getApontamentoForDay(day);
     if (!existingApontamento) return;
 
-    // Se não houver tempo, deleta o registro. Se houver, apenas limpa o status.
     if (!existingApontamento.entry_time && !existingApontamento.exit_time) {
       await handleDeleteApontamento(existingApontamento.id);
     } else {
@@ -217,7 +210,7 @@ const TimeTrackingPage: React.FC = () => {
     const existingApontamento = getApontamentoForDay(day);
 
     const newApontamento: Apontamento = existingApontamento
-      ? { ...existingApontamento, status, entry_time: undefined, exit_time: undefined } // Limpa o tempo ao definir status
+      ? { ...existingApontamento, status, entry_time: undefined, exit_time: undefined }
       : {
           id: uuidv4(),
           user_id: userId,
@@ -245,14 +238,14 @@ const TimeTrackingPage: React.FC = () => {
     const currentStatus = existing?.status || '';
     const match = currentStatus.match(/^Outros: (.*)/);
     setOtherStatusText(match ? match[1] : '');
-    setIsDialogOpen(true);
+    setIsSheetOpen(true); // Abre o Sheet
   };
 
   const handleSaveOtherStatus = async () => {
     if (!dayForOtherStatus) return;
     const status = otherStatusText.trim() === '' ? 'Outros' : `Outros: ${otherStatusText.trim()}`;
     await handleStatusChange(dayForOtherStatus, status);
-    setIsDialogOpen(false);
+    setIsSheetOpen(false); // Fecha o Sheet
     setOtherStatusText('');
     setDayForOtherStatus(null);
   };
@@ -272,7 +265,6 @@ const TimeTrackingPage: React.FC = () => {
       let entryTime = setHours(setMinutes(new Date(), entryM), entryH);
       let exitTime = setHours(setMinutes(new Date(), exitM), exitH);
 
-      // Se a hora de saída for anterior à de entrada, assume que passou da meia-noite
       if (exitTime.getTime() < entryTime.getTime()) {
         exitTime = addDays(exitTime, 1);
       }
@@ -302,12 +294,6 @@ const TimeTrackingPage: React.FC = () => {
   }, [currentDate]);
 
   const formatListText = () => {
-    // Novo formato desejado:
-    // Linha 1: Outubro
-    // Linha 2: 15042 - Valter Rogerio Paulino Mortagua Junior
-    // Linha 3: 01/10 23:00 - 07:00
-    // Linha 4: 04/10 Folga
-    
     const monthName = format(currentDate, 'MMMM', { locale: ptBR });
     
     let text = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)}\n`;
@@ -326,12 +312,10 @@ const TimeTrackingPage: React.FC = () => {
       let line = `${day} `;
 
       if (a.status) {
-        // Se tem status, usa o nome do status (ex: Folga, Falta, Suspensao, Outros: Férias)
         line += a.status.split(':')[0];
       } else {
-        // Se não tem status, usa o formato de horas condensado
-        const entry = a.entry_time ? a.entry_time.substring(0, 5) : ''; // Remove segundos
-        const exit = a.exit_time ? a.exit_time.substring(0, 5) : ''; // Remove segundos
+        const entry = a.entry_time ? a.entry_time.substring(0, 5) : '';
+        const exit = a.exit_time ? a.exit_time.substring(0, 5) : '';
         
         if (entry && exit) {
           line += `${entry} - ${exit}`;
@@ -340,7 +324,6 @@ const TimeTrackingPage: React.FC = () => {
         } else if (exit) {
           line += ` - ${exit}`;
         } else {
-          // Se não há status e nem horas, pula a linha (embora o filtro de apontamentos deva evitar isso)
           return;
         }
       }
@@ -374,7 +357,6 @@ const TimeTrackingPage: React.FC = () => {
   const handleExportPdf = () => {
     const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
     
-    // O título para o PDF mantém o formato mais detalhado para o cabeçalho do documento
     const pdfTitle = `Apontamento de Horas - ${monthYearTitle}\n${employeeHeader}`;
 
     const currentMonthApontamentos = apontamentos
@@ -410,7 +392,6 @@ const TimeTrackingPage: React.FC = () => {
     try {
       const generatedApontamentos = generateMonthlyApontamentos(currentDate, selectedTurn, userId);
       
-      // Filtra apenas os dias que não têm um apontamento manual (com status ou tempo)
       const existingDates = new Set(apontamentos.map(a => a.date));
       const newApontamentosToSave = generatedApontamentos.filter(genA => !existingDates.has(genA.date));
 
@@ -419,12 +400,11 @@ const TimeTrackingPage: React.FC = () => {
         return;
       }
 
-      // Salva no IndexedDB e sincroniza com o Supabase
       const syncPromises = newApontamentosToSave.map(a => updateApontamento(a));
       await Promise.all(syncPromises);
 
       showSuccess(`${newApontamentosToSave.length} dias da escala do ${selectedTurn} foram preenchidos!`);
-      loadApontamentos(); // Recarrega todos os dados para atualizar a UI
+      loadApontamentos();
     } catch (error) {
       showError('Erro ao gerar a escala de horários.');
       console.error('Failed to generate schedule:', error);
@@ -450,7 +430,7 @@ const TimeTrackingPage: React.FC = () => {
         showSuccess('Nenhum apontamento encontrado para limpar neste mês.');
       }
       
-      loadApontamentos(); // Recarrega os dados
+      loadApontamentos();
     } catch (error) {
       showError('Erro ao limpar apontamentos do mês.');
       console.error('Failed to clear month entries:', error);
@@ -569,7 +549,6 @@ const TimeTrackingPage: React.FC = () => {
               </Button>
             </div>
             
-            {/* NOVO LOCAL PARA OS BOTÕES DE AÇÃO - FORMATO ALINHADO À DIREITA */}
             <div className="flex flex-wrap justify-end gap-2 pt-2">
               <Button onClick={handleCopyText} className="flex items-center gap-2">
                 <Copy className="h-4 w-4" /> Copiar Texto
@@ -618,7 +597,6 @@ const TimeTrackingPage: React.FC = () => {
                           {format(day, 'dd/MM')} ({dayName})
                         </TableCell>
                         
-                        {/* Coluna de Entrada / Status */}
                         <TableCell className="space-y-2">
                           {hasStatus ? (
                             <div className={cn(
@@ -663,12 +641,10 @@ const TimeTrackingPage: React.FC = () => {
                           )}
                         </TableCell>
 
-                        {/* Coluna Total */}
                         <TableCell className="font-semibold text-sm">
                           {hasStatus ? statusDisplayName : calculateTotalHours(apontamento?.entry_time, apontamento?.exit_time)}
                         </TableCell>
 
-                        {/* Coluna Ações */}
                         <TableCell className="text-right">
                           <div className="flex justify-end items-center gap-1">
                             {hasStatus ? (
@@ -730,12 +706,12 @@ const TimeTrackingPage: React.FC = () => {
       </div>
       <MadeWithDyad />
 
-      {/* Dialog para Outros Status */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Marcar Outro Status</DialogTitle>
-          </DialogHeader>
+      {/* Sheet para Outros Status */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-md"> {/* SheetContent com side="right" */}
+          <SheetHeader>
+            <SheetTitle>Marcar Outro Status</SheetTitle>
+          </SheetHeader>
           <div className="grid gap-4 py-4">
             <Label htmlFor="other-status">Descrição (Ex: Férias, Atestado)</Label>
             <Textarea
@@ -746,16 +722,16 @@ const TimeTrackingPage: React.FC = () => {
               rows={3}
             />
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+          <SheetFooter> {/* SheetFooter para botões */}
+            <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
               <X className="h-4 w-4 mr-2" /> Cancelar
             </Button>
             <Button type="button" onClick={handleSaveOtherStatus} disabled={isSaving}>
               <Save className="h-4 w-4 mr-2" /> Salvar Status
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

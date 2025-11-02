@@ -9,13 +9,11 @@ import { showSuccess, showError } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomListItem } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
-import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importar nova função
+import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
-import CustomListEditor from '@/components/CustomListEditor'; // Importar o editor
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Para o modal de edição
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Para o modal de edição em mobile
-import { useIsMobile } from '@/hooks/use-mobile'; // Para detectar mobile
+import CustomListEditor from '@/components/CustomListEditor';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Usar Sheet diretamente
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -25,13 +23,12 @@ const CustomListPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<CustomListItem | null>(null);
 
-  const isMobile = useIsMobile(); // Detecta se é mobile
+  // Removido: const isMobile = useIsMobile(); // Não é mais necessário para a escolha do componente modal
 
   const loadList = useCallback(async () => {
     if (!listId) return;
     setIsLoading(true);
     try {
-      // 1. Buscar o título da lista
       const listData = await getCustomListById(listId);
       if (listData) {
         setListTitle(listData.title);
@@ -42,7 +39,6 @@ const CustomListPage: React.FC = () => {
         return;
       }
 
-      // 2. Buscar os itens da lista
       const fetchedItems = await getCustomListItems(listId);
       setItems(fetchedItems);
     } catch (error) {
@@ -73,7 +69,6 @@ const CustomListPage: React.FC = () => {
       const codigo = item.part_code ? ` (Cód: ${item.part_code})` : '';
       const descricao = item.description || '';
       
-      // Formato: [QUANTIDADE] - [NOME PERSONALIZADO] [DESCRIÇÃO] (Cód: [CÓDIGO])
       formattedText += `${quantidade} - ${nome} ${descricao}${codigo}`.trim() + '\n';
     });
 
@@ -123,13 +118,11 @@ const CustomListPage: React.FC = () => {
   const handleItemSavedOrClosed = () => {
     setIsEditModalOpen(false);
     setItemToEdit(null);
-    loadList(); // Recarrega a lista para refletir as alterações
+    loadList();
   };
 
-  const ModalComponent = isMobile ? Sheet : Dialog;
-  const ModalContentComponent = isMobile ? SheetContent : DialogContent;
-  const ModalHeaderComponent = isMobile ? SheetHeader : DialogHeader;
-  const ModalTitleComponent = isMobile ? SheetTitle : DialogTitle;
+  // Removido: ModalComponent, ModalContentComponent, ModalHeaderComponent, ModalTitleComponent
+  // Agora usamos Sheet diretamente
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -152,7 +145,6 @@ const CustomListPage: React.FC = () => {
             Itens da Lista
           </CardTitle>
           <div className="flex flex-wrap justify-end gap-2 pt-2">
-            {/* Copiar Lista */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
@@ -169,7 +161,6 @@ const CustomListPage: React.FC = () => {
               <TooltipContent>Copiar Lista</TooltipContent>
             </Tooltip>
             
-            {/* Exportar CSV */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
@@ -186,7 +177,6 @@ const CustomListPage: React.FC = () => {
               <TooltipContent>Exportar CSV</TooltipContent>
             </Tooltip>
             
-            {/* Exportar PDF */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
@@ -209,7 +199,6 @@ const CustomListPage: React.FC = () => {
                   <TableRow>
                     <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                     <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                    {/* Coluna de Ações removida */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -242,7 +231,6 @@ const CustomListPage: React.FC = () => {
                             )}
                           </div>
                       </TableCell>
-                      {/* Célula de Ações removida */}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -253,22 +241,22 @@ const CustomListPage: React.FC = () => {
       </Card>
       <MadeWithDyad />
 
-      {/* Modal de Edição (Dialog para desktop, Sheet para mobile) */}
-      <ModalComponent open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <ModalContentComponent className={isMobile ? "w-full sm:max-w-lg overflow-y-auto" : "sm:max-w-[425px]"}>
-          <ModalHeaderComponent>
-            <ModalTitleComponent>Editar Item da Lista</ModalTitleComponent>
-          </ModalHeaderComponent>
+      {/* Sheet de Edição */}
+      <Sheet open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Editar Item da Lista</SheetTitle>
+          </SheetHeader>
           {itemToEdit && listId && (
             <CustomListEditor
-              list={{ id: listId, title: listTitle, user_id: '' }} // Passa um objeto CustomList mínimo
+              list={{ id: listId, title: listTitle, user_id: '' }}
               onClose={handleItemSavedOrClosed}
               editingItem={itemToEdit}
               onItemSaved={handleItemSavedOrClosed}
             />
           )}
-        </ModalContentComponent>
-      </ModalComponent>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
