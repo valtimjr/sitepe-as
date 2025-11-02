@@ -304,7 +304,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             (item.os === initialSoData.os || (item.os === undefined && initialSoData.os === undefined)) &&
             (item.hora_inicio === initialSoData.hora_inicio || (item.hora_inicio === undefined && initialSoData.hora_inicio === undefined)) &&
             (item.hora_final === initialSoData.hora_final || (initialSoData.hora_final === undefined && item.hora_final === undefined)) &&
-            (item.servico_executado === initialSoData.servico_executado || (item.servico_executado === undefined && initialSoData.servico_executado === undefined)) &&
+            (item.servico_executado === initialSoData.servico_executado || (initialSoData.servico_executado === undefined && item.servico_executado === undefined)) &&
             !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
           );
           if (blankItem) {
@@ -455,7 +455,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
               {/* Horários: Lado a lado no mobile, com label "Hora" acima */}
               <div className="space-y-2">
                 {isMobile && <Label className="text-base font-semibold">Hora (Opcional)</Label>}
-                <div className="flex flex-row space-x-2">
+                <div className="flex flex-col md:flex-row md:space-x-2 space-y-2 md:space-y-0"> {/* Adicionado md:flex-row e md:space-x-2 */}
                   <div className="flex-1">
                     <Label htmlFor="hora_inicio" className="min-h-[2.5rem] flex items-center">
                       {isMobile ? 'Inicial' : 'Hora de Início (Opcional)'}
@@ -511,38 +511,53 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   isLoading={isLoadingParts}
                 />
               </div>
-              <div>
-                <Label htmlFor="codigo_peca">Código da Peça</Label>
-                <Input
-                  id="codigo_peca"
-                  type="text"
-                  value={selectedPart?.codigo || ''}
-                  placeholder="Código da peça selecionada"
-                  readOnly
-                  className="bg-muted"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Agrupado para layout lado a lado */}
+                <div className="space-y-2">
+                  <Label htmlFor="codigo_peca">Código da Peça</Label>
+                  <Input
+                    id="codigo_peca"
+                    type="text"
+                    value={selectedPart?.codigo || ''}
+                    placeholder="Código da peça selecionada"
+                    readOnly
+                    className="bg-muted"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome da Peça</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    value={selectedPart?.name || ''}
+                    placeholder="Nome da peça selecionada"
+                    readOnly
+                    className="bg-muted"
+                  />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="name">Nome da Peça</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  value={selectedPart?.name || ''}
-                  placeholder="Nome da peça selecionada"
-                  readOnly
-                  className="bg-muted"
-                />
-              </div>
-              <div>
-                <Label htmlFor="descricao">Descrição</Label>
-                <Input
-                  id="descricao"
-                  type="text"
-                  value={selectedPart?.descricao || ''}
-                  placeholder="Descrição da peça selecionada"
-                  readOnly
-                  className="bg-muted"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Agrupado para layout lado a lado */}
+                <div className="space-y-2">
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Input
+                    id="descricao"
+                    type="text"
+                    value={selectedPart?.descricao || ''}
+                    placeholder="Descrição da peça selecionada"
+                    readOnly
+                    className="bg-muted"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="quantidade">Quantidade</Label>
+                  <Input
+                    id="quantidade"
+                    type="number"
+                    value={quantidade}
+                    onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
+                    min="1"
+                    required={!!selectedPart}
+                  />
+                </div>
               </div>
               {selectedPart && (
                 <div>
@@ -569,17 +584,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   </div>
                 </div>
               )}
-              <div>
-                <Label htmlFor="quantidade">Quantidade</Label>
-                <Input
-                  id="quantidade"
-                  type="number"
-                  value={quantidade}
-                  onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
-                  min="1"
-                  required={!!selectedPart}
-                />
-              </div>
             </>
           )}
           <div className="flex gap-2 pt-4">

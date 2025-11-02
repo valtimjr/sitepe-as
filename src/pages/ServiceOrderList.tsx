@@ -152,7 +152,7 @@ const ServiceOrderList: React.FC = () => {
       <ModalComponent open={isFormOpen} onOpenChange={setIsFormOpen}>
         <ModalContentComponent 
           side="right" // Sempre da direita para a esquerda
-          className={isMobile ? "w-full sm:max-w-lg overflow-y-auto" : "sm:max-w-lg overflow-y-auto"} // Ajuste de largura para desktop
+          className={isMobile ? "w-full sm:max-w-lg overflow-y-auto" : "sm:max-w-lg md:max-w-xl overflow-y-auto"} // Ajuste de largura para desktop
         >
           <ModalHeaderComponent>
             <ModalTitleComponent>
