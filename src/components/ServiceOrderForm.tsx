@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
+import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
 
 interface ServiceOrderDetails {
   af: string;
@@ -60,6 +61,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   onClose, // Novo prop
 }) => {
   const { checkPageAccess } = useSession(); // Obter checkPageAccess
+  const isMobile = useIsMobile(); // Usar o hook useIsMobile
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -482,26 +484,34 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   </p>
                 )}
               </div>
-              <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
-                <div className="flex-1">
-                  <Label htmlFor="hora_inicio" className="min-h-[2.5rem] flex items-center">Hora de Início (Opcional)</Label>
-                  <Input
-                    id="hora_inicio"
-                    type="time"
-                    value={horaInicio}
-                    onChange={(e) => setHoraInicio(e.target.value)}
-                    readOnly={isOsDetailsReadOnly}
-                  />
-                </div>
-                <div className="flex-1">
-                  <Label htmlFor="hora_final" className="min-h-[2.5rem] flex items-center">Hora Final (Opcional)</Label>
-                  <Input
-                    id="hora_final"
-                    type="time"
-                    value={horaFinal}
-                    onChange={(e) => setHoraFinal(e.target.value)}
-                    readOnly={isOsDetailsReadOnly}
-                  />
+              {/* Horários: Lado a lado no mobile, com label "Hora" acima */}
+              <div className="space-y-2">
+                {isMobile && <Label className="text-base font-semibold">Hora</Label>}
+                <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
+                  <div className="flex-1">
+                    <Label htmlFor="hora_inicio" className="min-h-[2.5rem] flex items-center">
+                      {isMobile ? 'Inicial' : 'Hora de Início (Opcional)'}
+                    </Label>
+                    <Input
+                      id="hora_inicio"
+                      type="time"
+                      value={horaInicio}
+                      onChange={(e) => setHoraInicio(e.target.value)}
+                      readOnly={isOsDetailsReadOnly}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Label htmlFor="hora_final" className="min-h-[2.5rem] flex items-center">
+                      {isMobile ? 'Final' : 'Hora Final (Opcional)'}
+                    </Label>
+                    <Input
+                      id="hora_final"
+                      type="time"
+                      value={horaFinal}
+                      onChange={(e) => setHoraFinal(e.target.value)}
+                      readOnly={isOsDetailsReadOnly}
+                    />
+                  </div>
                 </div>
               </div>
               <div>
