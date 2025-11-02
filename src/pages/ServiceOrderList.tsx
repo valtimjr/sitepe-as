@@ -9,7 +9,8 @@ import { ArrowLeft, FilePlus, ClipboardList, Clock, ArrowUpNarrowWide, ArrowDown
 import { showSuccess, showError } from '@/utils/toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Importar Sheet
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Importar Dialog
+// Dialog não será mais usado para o formulário principal
+// import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; 
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
 
 interface ServiceOrderDetails {
@@ -24,7 +25,7 @@ interface ServiceOrderDetails {
 
 type SortOrder = 'manual' | 'asc' | 'desc';
 
-const ServiceOrderList = () => {
+const ServiceOrderList: React.FC = () => {
   const [listItems, setListItems] = useState<ServiceOrderItem[]>([]); // Agora usa ServiceOrderItem
   const [isLoading, setIsLoading] = useState(true);
   const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
@@ -130,10 +131,11 @@ const ServiceOrderList = () => {
     setSortOrder(order);
   }, []);
 
-  const ModalComponent = isMobile ? Sheet : Dialog;
-  const ModalContentComponent = isMobile ? SheetContent : DialogContent;
-  const ModalHeaderComponent = isMobile ? SheetHeader : DialogHeader;
-  const ModalTitleComponent = isMobile ? SheetTitle : DialogTitle;
+  // Usar Sheet para ambos mobile e desktop
+  const ModalComponent = Sheet;
+  const ModalContentComponent = SheetContent;
+  const ModalHeaderComponent = SheetHeader;
+  const ModalTitleComponent = SheetTitle;
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -151,7 +153,10 @@ const ServiceOrderList = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
         {/* O formulário principal agora é um modal/sheet */}
         <ModalComponent open={isFormOpen} onOpenChange={setIsFormOpen}>
-          <ModalContentComponent className={isMobile ? "w-full sm:max-w-lg overflow-y-auto" : "sm:max-w-[425px]"}>
+          <ModalContentComponent 
+            side="right" // Sempre da direita para a esquerda
+            className={isMobile ? "w-full sm:max-w-lg overflow-y-auto" : "sm:max-w-lg overflow-y-auto"} // Ajuste de largura para desktop
+          >
             <ModalHeaderComponent>
               <ModalTitleComponent>
                 {editingServiceOrder?.mode === 'edit_details' ? 'Editar Detalhes da Ordem de Serviço' :
