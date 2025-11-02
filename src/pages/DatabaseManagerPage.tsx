@@ -8,6 +8,7 @@ import PartManagementTable from '@/components/PartManagementTable';
 import AfManagementTable from '@/components/AfManagementTable';
 import InviteManager from '@/components/InviteManager';
 import MenuManagerPage from '@/pages/MenuManagerPage'; // Importar a página como componente
+import CustomListManager from '@/components/CustomListManager'; // Importar CustomListManager
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
@@ -29,7 +30,7 @@ const DatabaseManagerPage: React.FC = () => {
   // Define quais abas serão visíveis
   const visibleTabs = [
     ...(isAdmin ? ['parts', 'afs', 'invites'] : []),
-    ...(canAccessMenuManager ? ['menu'] : []),
+    ...(canAccessMenuManager ? ['menu', 'custom-lists'] : []), // Adicionado 'custom-lists'
   ];
 
   // Define o valor padrão da aba para a primeira aba visível
@@ -93,11 +94,18 @@ const DatabaseManagerPage: React.FC = () => {
           {isAdmin && <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>}
           {isAdmin && <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>}
           {canAccessMenuManager && (
-            <TabsTrigger value="menu">
-              <div className="flex items-center justify-center gap-2">
-                <Menu className="h-4 w-4" /> Menus & Listas
-              </div>
-            </TabsTrigger>
+            <>
+              <TabsTrigger value="menu">
+                <div className="flex items-center justify-center gap-2">
+                  <Menu className="h-4 w-4" /> Menus
+                </div>
+              </TabsTrigger>
+              <TabsTrigger value="custom-lists">
+                <div className="flex items-center justify-center gap-2">
+                  <ListIcon className="h-4 w-4" /> Listas
+                </div>
+              </TabsTrigger>
+            </>
           )}
         </TabsList>
         
@@ -116,9 +124,14 @@ const DatabaseManagerPage: React.FC = () => {
         )}
 
         {canAccessMenuManager && (
-          <TabsContent value="menu">
-            <MenuManagerPage isEmbedded={true} />
-          </TabsContent>
+          <>
+            <TabsContent value="menu">
+              <MenuManagerPage isEmbedded={true} />
+            </TabsContent>
+            <TabsContent value="custom-lists"> {/* Conteúdo correto para Listas Personalizadas */}
+              <CustomListManager />
+            </TabsContent>
+          </>
         )}
       </Tabs>
       <MadeWithDyad />
