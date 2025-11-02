@@ -139,41 +139,39 @@ const CustomListManager: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Título da Lista</TableHead>
-                  <TableHead className="text-right w-[120px]">Ações</TableHead> {/* Largura fixa para ações */}
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {lists.map((list) => (
                   <TableRow key={list.id}>
                     <TableCell className="font-medium">{list.title}</TableCell>
-                    <TableCell className="text-right w-[120px]"> {/* Largura fixa para ações */}
-                      <div className="flex justify-end items-center gap-1"> {/* Flex para alinhar botões */}
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenEditor(list)}>
-                          <FileText className="h-4 w-4" /> 
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleEditListTitle(list)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Esta ação irá remover a lista "{list.title}" e todos os seus itens. Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteList(list.id)}>Excluir</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenEditor(list)} className="mr-2">
+                        <FileText className="h-4 w-4" /> 
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleEditListTitle(list)} className="mr-2">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta ação irá remover a lista "{list.title}" e todos os seus itens. Esta ação não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteList(list.id)}>Excluir</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))}
