@@ -150,29 +150,50 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         if (endComparison !== 0) return endComparison;
         return b.createdAt.getTime() - a.createdAt.getTime();
       });
-    } else {
-      // 'manual' - a ordem é mantida pelo estado `groupedServiceOrders`
-      // Se `listItems` mudou, mas a ordem é manual, tentamos preservar a ordem existente
-      if (groupedServiceOrders.length > 0) {
-        const existingOrderMap = new Map(groupedServiceOrders.map((group, index) => [group.id, index]));
-        result.sort((a, b) => {
-          const indexA = existingOrderMap.has(a.id) ? existingOrderMap.get(a.id)! : Infinity;
-          const indexB = existingOrderMap.has(b.id) ? existingOrderMap.get(b.id)! : Infinity;
-          return indexA - indexB;
-        });
-      } else {
-        // Se não há ordem manual prévia, ordena por data de criação (mais antigo primeiro)
-        result.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-      }
+    } else { // 'manual' or initial load, default to createdAt ascending
+      result.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     }
 
     return result;
-  }, [groupedServiceOrders]); // Depende de groupedServiceOrders para a ordenação manual
+  }, []); // Dependencies: none, as it's a pure function of its arguments.
 
   // Efeito para processar os itens da lista e aplicar a ordenação
   useEffect(() => {
-    setGroupedServiceOrders(processListItems(listItems, sortOrder));
-  }, [listItems, sortOrder, processListItems]);
+    const newGroupedOrders = processListItems(listItems, sortOrder);
+
+    if (sortOrder === 'manual') {
+      // When in manual mode, and listItems change, we need to merge new/updated groups
+      // into the existing manual order, preserving the manual order of existing groups.
+      const existingGroupMap = new Map(groupedServiceOrders.map(g => [g.id, g]));
+      const newGroupMap = new Map(newGroupedOrders.map(g => [g.id, g]));
+
+      const updatedAndExistingInOrder: ServiceOrderGroup[] = [];
+      const newGroupsToAdd: ServiceOrderGroup[] = [];
+
+      // Iterate through the current manual order to update existing groups and collect new ones
+      groupedServiceOrders.forEach(existingGroup => {
+        if (newGroupMap.has(existingGroup.id)) {
+          // If the group still exists, use its updated content from newGroupMap
+          updatedAndExistingInOrder.push(newGroupMap.get(existingGroup.id)!);
+        }
+        // If it doesn't exist in newGroupMap, it was deleted, so we don't add it.
+      });
+
+      // Add any entirely new groups (not present in the old groupedServiceOrders)
+      newGroupedOrders.forEach(newGroup => {
+        if (!existingGroupMap.has(newGroup.id)) {
+          newGroupsToAdd.push(newGroup);
+        }
+      });
+
+      // Combine, new groups are added at the end.
+      setGroupedServiceOrders([...updatedAndExistingInOrder, ...newGroupsToAdd]);
+
+    } else {
+      // If not manual, just apply the sorted list directly
+      setGroupedServiceOrders(newGroupedOrders);
+    }
+  }, [listItems, sortOrder, processListItems]); // Dependencies: listItems, sortOrder, processListItems
 
   const formatServiceOrderTextForClipboard = useCallback(() => {
     if (groupedServiceOrders.length === 0) return '';
@@ -382,7 +403,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   const handleDrop = (e: React.DragEvent<HTMLTableRowElement>, targetGroup: ServiceOrderGroup) => {
     e.preventDefault();
-    e.currentTarget.classList.remove('border-t-2', 'border-primary');
+    e.currentTarget.classList.remove('opacity-50');
 
     if (draggedGroup && draggedGroup.id !== targetGroup.id) {
       const newOrderedGroups = [...groupedServiceOrders];
@@ -678,17 +699,19 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           </TableCell>
                         </TableRow>
                       ))}
-                      {/* Se não houver peças, mas houver um item em branco (para manter a OS), exibe uma linha de aviso */}
-                      {group.parts.filter(p => p.codigo_peca || p.descricao).length === 0 && (
-                        <TableRow className="text-muted-foreground italic">
-                          <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar */}
-                          <TableCell className="w-[60px] p-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
-                          <TableCell colSpan={2} className="text-center p-2"> {/* colSpan ajustado para 2 */}
-                            Nenhuma peça adicionada a esta OS.
-                          </TableCell>
-                          <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar com Opções */}
-                        </TableRow>
-                      )}
+                      {/* Botão "Adicionar Peça" abaixo da última peça (ou se não houver peças) */}
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleOpenAddPartForm(group)}
+                            className="flex items-center gap-2 mx-auto"
+                          >
+                            <PlusCircle className="h-4 w-4" /> Adicionar Peça
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     </React.Fragment>
                   );
                 })}
@@ -697,6 +720,17 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           </div>
         )}
       </CardContent>
+      {/* Botão "Adicionar Ordem de Serviço" no final da lista */}
+      {!isLoading && (
+        <div className="mt-8 text-center">
+          <Button 
+            onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'add_part' })} // Inicia uma nova OS
+            className="flex items-center gap-2 mx-auto"
+          >
+            <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
+          </Button>
+        </div>
+      )}
 
       {/* Sheet/Dialog para Adicionar/Editar Peça */}
       {isPartFormOpen && (
@@ -721,7 +755,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                   hora_final: soGroupForPartForm.hora_final,
                   servico_executado: soGroupForPartForm.servico_executado,
                   createdAt: soGroupForPartForm.createdAt,
-                  mode: 'add_part', // Este modo é apenas para o ServiceOrderForm entender o contexto da OS
                 } : null}
                 listItems={listItems} // Passa listItems para o formulário
                 setIsCreatingNewOrder={() => {}} // Não é relevante neste contexto
