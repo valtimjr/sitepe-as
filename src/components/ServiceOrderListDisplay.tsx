@@ -493,18 +493,18 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           {/* Botão "Iniciar Nova Ordem de Serviço" */}
           <Button 
             onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
-            className="flex items-center gap-2 w-full sm:w-auto sm:mr-auto" // w-full para mobile, sm:mr-auto para desktop
+            className="flex items-center gap-2 w-full sm:w-auto sm:mr-auto mb-2 sm:mb-0" // Adicionado mb-2 sm:mb-0 para espaçamento no mobile
           >
             <FilePlus className="h-4 w-4" /> Iniciar Nova OS
           </Button>
           <Button 
             onClick={handleCopyList} 
             disabled={groupedServiceOrders.length === 0 || isLoading} 
-            size="icon"
-            className="sm:w-auto sm:px-4"
+            size="sm" // Alterado para size="sm"
+            className="w-full sm:w-auto" // w-full para mobile
           >
-            <Copy className="h-4 w-4" /> 
-            <span className="hidden sm:inline ml-2">Copiar Lista</span>
+            <Copy className="h-4 w-4 mr-2" /> 
+            <span>Copiar Lista</span>
           </Button>
           <Button 
             onClick={handleShareOnWhatsApp} 
@@ -515,19 +515,19 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           >
             <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
           </Button>
-          <Button onClick={handleExportPdf} disabled={groupedServiceOrders.length === 0 || isLoading} className="flex items-center gap-2">
-            <Download className="h-4 w-4" /> Exportar PDF
+          <Button onClick={handleExportPdf} disabled={groupedServiceOrders.length === 0 || isLoading} className="flex items-center gap-2" size="sm"> {/* Alterado para size="sm" */}
+            <Download className="h-4 w-4 mr-2" /> <span>Exportar PDF</span>
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button 
                 variant="destructive" 
                 disabled={groupedServiceOrders.length === 0 || isLoading} 
-                size="icon"
-                className="sm:w-auto sm:px-4"
+                size="sm" // Alterado para size="sm"
+                className="w-full sm:w-auto" // w-full para mobile
               >
-                <Trash2 className="h-4 w-4" /> 
-                <span className="hidden sm:inline ml-2">Limpar Lista</span>
+                <Trash2 className="h-4 w-4 mr-2" /> 
+                <span>Limpar Lista</span>
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
