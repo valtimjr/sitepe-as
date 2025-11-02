@@ -499,9 +499,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         </div>
       </CardHeader>
       <div className="flex flex-wrap justify-end gap-2 p-4 pt-0">
-          {/* REMOVIDO: Botão "Iniciar Nova Ordem de Serviço" para desktop */}
-          {/*
-          {!isMobile && (
+          {/* NOVO: Botão "Iniciar Nova Ordem de Serviço" para desktop, visível apenas se houver ordens */}
+          {!isMobile && groupedServiceOrders.length > 0 && (
             <Button 
               onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
               className="flex items-center gap-2 mr-auto" // mr-auto para empurrar para a esquerda
@@ -509,7 +508,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
               <FilePlus className="h-4 w-4" /> Iniciar Nova OS
             </Button>
           )}
-          */}
           <Button 
             onClick={handleCopyList} 
             disabled={groupedServiceOrders.length === 0 || isLoading} 
@@ -774,8 +772,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           </div>
         )}
       </CardContent>
-      {/* Botão "Adicionar Ordem de Serviço" no final da lista - MANTIDO */}
-      {!isLoading && groupedServiceOrders.length > 0 && (
+      {/* Botão "Adicionar Ordem de Serviço" no final da lista - REMOVIDO */}
+      {/* {!isLoading && groupedServiceOrders.length > 0 && (
         <div className="mt-8 text-center">
           <Button 
             onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} // Inicia uma nova OS
@@ -784,7 +782,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
           </Button>
         </div>
-      )}
+      )} */}
 
       {/* Sheet/Dialog para Adicionar/Editar Peça */}
       {isPartFormOpen && (
