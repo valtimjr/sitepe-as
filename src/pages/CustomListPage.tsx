@@ -8,7 +8,8 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomList, CustomListItem } from '@/types/supabase';
-import { exportDataAsCsv, exportDataAsJson, generateCustomListPdf, addSimplePartItem, getAfsFromService, Af } from '@/services/partListService';
+import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af } from '@/services/partListService';
+import { generateCustomListPdf } from '@/lib/pdfGenerator'; // Importação corrigida
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import CustomListEditor from '@/components/CustomListEditor';
