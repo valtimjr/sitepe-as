@@ -99,14 +99,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   }, []);
 
   const loadItemRelations = useCallback(async (itemId: string) => {
-    console.log('CustomListEditor: Calling loadItemRelations for itemId:', itemId); // DEBUG
     try {
       const relations = await getCustomListItemRelations(itemId);
-      console.log('CustomListEditor: Fetched item relations:', relations); // DEBUG
       setItemRelations(relations);
     } catch (error) {
       showError('Erro ao carregar relações do item.');
-      console.error('CustomListEditor: Failed to load item relations:', error); // DEBUG
+      console.error('CustomListEditor: Failed to load item relations:', error);
       setItemRelations([]);
     }
   }, []);
@@ -119,12 +117,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   // Efeito para preencher o formulário e carregar relações quando `editingItem` muda
   useEffect(() => {
     const initializeFormForEdit = async () => {
-      console.log('CustomListEditor: useEffect for editingItem triggered. editingItem:', editingItem); // DEBUG
       if (editingItem) {
         setCurrentEditItem(editingItem);
         setFormItemName(editingItem.item_name);
         setFormPartCode(editingItem.part_code || '');
-        setFormDescription(editingItem.description || '');
+        setFormDescription(editing.description || '');
         setFormQuantity(editingItem.quantity);
         setSearchQuery('');
         setSearchResults([]);

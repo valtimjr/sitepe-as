@@ -56,10 +56,7 @@ export const getRelatedCustomListItems = async (
   excludeItemId: string,
   excludeListId: string
 ): Promise<CustomListItem[]> => {
-  console.log('getRelatedCustomListItems: Called with:', { partCode, itemName, excludeItemId, excludeListId }); // DEBUG
-
   if (!partCode) {
-    console.log('getRelatedCustomListItems: partCode is null, returning empty array.'); // DEBUG
     return [];
   }
 
@@ -74,10 +71,9 @@ export const getRelatedCustomListItems = async (
     .limit(1);
 
   if (partError && partError.code !== 'PGRST116') {
-    console.error('getRelatedCustomListItems: Error fetching part ID for partCode:', partError); // DEBUG
+    console.error('getRelatedCustomListItems: Error fetching part ID for partCode:', partError);
   } else if (partData && partData.length > 0) {
     partIdsToSearch.push(partData[0].id);
-    console.log('getRelatedCustomListItems: Found part_id for partCode:', partData[0].id); // DEBUG
   }
 
   // Step 2: If we have part_ids, find custom_list_item_ids from custom_list_item_relations
@@ -88,10 +84,9 @@ export const getRelatedCustomListItems = async (
       .in('part_id', partIdsToSearch);
 
     if (relationsError) {
-      console.error('getRelatedCustomListItems: Error fetching custom_list_item_ids from relations:', relationsError); // DEBUG
+      console.error('getRelatedCustomListItems: Error fetching custom_list_item_ids from relations:', relationsError);
     } else if (relationsData && relationsData.length > 0) {
       relatedItemIdsFromRelations = relationsData.map(r => r.custom_list_item_id);
-      console.log('getRelatedCustomListItems: Found related custom_list_item_ids from relations:', relatedItemIdsFromRelations); // DEBUG
     }
   }
 
@@ -107,12 +102,10 @@ export const getRelatedCustomListItems = async (
   }
 
   if (queryConditions.length === 0) {
-    console.log('getRelatedCustomListItems: No valid search criteria after all steps, returning empty array.'); // DEBUG
     return [];
   }
 
   const finalQueryOrString = queryConditions.join(',');
-  console.log('getRelatedCustomListItems: Final Supabase .or() query string:', finalQueryOrString); // DEBUG
 
   const { data, error } = await supabase
     .from('custom_list_items')
@@ -123,11 +116,9 @@ export const getRelatedCustomListItems = async (
     .limit(5); // Limit the number of results
 
   if (error) {
-    console.error('getRelatedCustomListItems: Error fetching final related custom list items:', error); // DEBUG
+    console.error('getRelatedCustomListItems: Error fetching final related custom list items:', error);
     return [];
   }
-
-  console.log('getRelatedCustomListItems: Raw data from Supabase:', data); // DEBUG
 
   // Deduplicate results if any item was matched by multiple conditions
   const uniqueItemsMap = new Map<string, CustomListItem>();
@@ -245,7 +236,6 @@ export const deleteCustomListItem = async (itemId: string): Promise<void> => {
 // --- Custom List Item Relations Management ---
 
 export const getCustomListItemRelations = async (customListItemId: string): Promise<CustomListItemRelation[]> => {
-  console.log('getCustomListItemRelations: Fetching relations for customListItemId:', customListItemId); // DEBUG
   const { data, error } = await supabase
     .from('custom_list_item_relations')
     .select(`
@@ -264,11 +254,9 @@ export const getCustomListItemRelations = async (customListItemId: string): Prom
     .order('created_at', { ascending: true });
 
   if (error) {
-    console.error('getCustomListItemRelations: Error fetching custom list item relations:', error); // DEBUG
+    console.error('getCustomListItemRelations: Error fetching custom list item relations:', error);
     throw new Error(`Erro ao buscar relações do item da lista: ${error.message}`);
   }
-
-  console.log('getCustomListItemRelations: Raw relations data from Supabase:', data); // DEBUG
 
   return data.map(relation => ({
     id: relation.id,
