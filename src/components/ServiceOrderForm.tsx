@@ -351,7 +351,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             os: initialSoDetails.os,
             hora_inicio: initialSoDetails.hora_inicio || undefined,
             hora_final: initialSoDetails.hora_final || undefined,
-            servico_executado: servicoExecutado,
+            servico_executado: initialSoDetails.servico_executado,
           }, initialSoDetails.createdAt);
           showSuccess('Peça adicionada à Ordem de Serviço!');
         }
@@ -486,7 +486,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
               </div>
               {/* Horários: Lado a lado no mobile, com label "Hora" acima */}
               <div className="space-y-2">
-                {isMobile && <Label className="text-base font-semibold">Hora</Label>}
+                {isMobile && <Label className="text-base font-semibold">Hora (Opcional)</Label>}
                 <div className="flex flex-row space-x-2"> {/* Alterado para flex-row e space-x-2 */}
                   <div className="flex-1">
                     <Label htmlFor="hora_inicio" className="min-h-[2.5rem] flex items-center">
