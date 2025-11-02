@@ -579,7 +579,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                     <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle header */}
                   </TableHead>
                   {/* Coluna Hora com botão de ordenação (movida para a esquerda) */}
-                  <TableHead className="w-[70px] p-2 text-left"> {/* Alinhado à esquerda para o ícone */}
+                  <TableHead className="w-[60px] p-2 text-left"> {/* Alinhado à esquerda para o ícone */}
                     <Button 
                       variant="ghost" 
                       size="icon" // Alterado para size="icon"
@@ -596,7 +596,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                   {/* Coluna Qtd com largura fixa */}
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                   {/* Coluna Opções (alinhada à direita) */}
-                  <TableHead className="w-[100px] p-2 text-right">Opções</TableHead>
+                  <TableHead className="w-[80px] p-2 text-right">Opções</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -713,7 +713,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           <TableCell className="w-[4rem] p-2">{part.quantidade ?? ''}</TableCell>
                           
                           {/* Célula de Ações para a Peça (alinhada com a coluna Opções) */}
-                          <TableCell className="w-[100px] p-2 text-right">
+                          <TableCell className="w-[80px] p-2 text-right">
                             <div className="flex justify-end items-center gap-1">
                               <Tooltip>
                                 <TooltipTrigger asChild>
