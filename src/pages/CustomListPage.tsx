@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -339,7 +340,7 @@ const CustomListPage: React.FC = () => {
                               )}
                               <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
                               {item.description && (
-                                <span className="text-xs text-muted-foreground italic max-w-full">{item.description}</span> {/* Removido truncate */}
+                                <span className="text-xs text-muted-foreground italic max-w-full">{item.description}</span>
                               )}
                               {item.itens_relacionados && item.itens_relacionados.length > 0 && (
                                 <Popover open={isRelatedItemsPopoverOpen === item.id} onOpenChange={(open) => setIsRelatedItemsPopoverOpen(open ? item.id : null)}>
