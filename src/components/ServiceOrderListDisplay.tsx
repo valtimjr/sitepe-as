@@ -23,7 +23,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator, // Adicionado aqui
 } from "@/components/ui/dropdown-menu";
 import { localDb } from '@/services/localDbService';
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
@@ -625,58 +624,78 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                         onDragLeave={handleDragLeave}
                         onDragEnd={handleDragEnd}
                         data-id={group.id}
-                      >
-                        <TableCell className="w-[30px] px-1 py-2 cursor-grab">
+                      ><TableCell className="w-[30px] px-1 py-2 cursor-grab">
                           <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </TableCell>
-                        {/* Célula para o botão de ordenação de tempo */}
-                        <TableCell className="w-[50px] px-1 py-2 text-center">
-                          {/* Conteúdo vazio, pois o botão de ordenação está no TableHead */}
-                        </TableCell>
-                        {/* Célula para os detalhes da OS */}
-                        <TableCell className="font-semibold py-2 align-top" colSpan={2}> {/* colSpan ajustado para 2 */}
-                          <div className="flex flex-col space-y-1 flex-grow">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-lg font-bold text-primary">AF: {group.af}</span>
-                              {group.os && <span className="text-lg font-bold text-primary"> (OS: {group.os})</span>}
+                        {/* Célula única que abrange as colunas do botão de ordenação, Peça e Qtd */}
+                        <TableCell colSpan={4} className="font-semibold py-2 align-top"> {/* colSpan ajustado para 4 */}
+                          <div className="flex justify-between items-start">
+                            {/* Detalhes da OS (Lado Esquerdo) */}
+                            <div className="flex flex-col space-y-1 flex-grow">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-lg font-bold text-primary">AF: {group.af}</span>
+                                {group.os && <span className="text-lg font-bold text-primary"> (OS: {group.os})</span>}
+                              </div>
+                              {timeDisplay && (
+                                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                  <Clock className="h-3 w-3" /> {timeDisplay}
+                                </span>
+                              )}
+                              {group.servico_executado && (
+                                <p className="text-sm text-foreground/70 whitespace-normal break-words pt-1">
+                                  Serviço: {group.servico_executado}
+                                </p>
+                              )}
                             </div>
-                            {timeDisplay && (
-                              <span className="text-sm text-muted-foreground flex items-center gap-1">
-                                <Clock className="h-3 w-3" /> {timeDisplay}
-                              </span>
-                            )}
-                            {group.servico_executado && (
-                              <p className="text-sm text-foreground/70 whitespace-normal break-words pt-1">
-                                Serviço: {group.servico_executado}
-                              </p>
-                            )}
-                          </div>
-                        </TableCell>
-                        {/* Célula de Ações da OS (com DropdownMenu) */}
-                        <TableCell className="w-[70px] px-1 py-2 text-right">
-                          <DropdownMenu>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon">
-                                    <MoreVertical className="h-4 w-4" />
+                            
+                            {/* Botões de Ação (Lado Direito, alinhado com a coluna Opções) */}
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => onEditServiceOrder({ 
+                                      af: group.af, 
+                                      os: group.os, 
+                                      hora_inicio: group.hora_inicio, 
+                                      hora_final: group.hora_final, 
+                                      servico_executado: group.servico_executado,
+                                      createdAt: group.createdAt,
+                                      mode: 'edit-so-details'
+                                    })}
+                                  >
+                                    <Pencil className="h-4 w-4" />
                                   </Button>
-                                </DropdownMenuTrigger>
-                              </TooltipTrigger>
-                              <TooltipContent>Opções da OS</TooltipContent>
-                            </Tooltip>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => onEditServiceOrder({ ...group, mode: 'edit-so-details' })}>
-                                <Pencil className="h-4 w-4 mr-2" /> Editar Detalhes da OS
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem className="text-destructive">
-                                  <Trash2 className="h-4 w-4 mr-2" /> Excluir Ordem de Serviço
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                </TooltipTrigger>
+                                <TooltipContent>Editar Detalhes da OS</TooltipContent>
+                              </Tooltip>
+                              <AlertDialog>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="text-destructive">
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Excluir Ordem de Serviço</TooltipContent>
+                                </Tooltip>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta ação irá remover TODOS os itens da Ordem de Serviço AF: {group.af}{group.os ? `, OS: ${group.os}` : ''}. Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteServiceOrder(group)}>Excluir OS</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </div>
                         </TableCell>
                       </TableRow>
 
