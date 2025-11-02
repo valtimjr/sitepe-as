@@ -519,18 +519,11 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
               <Button 
                 onClick={handleExportPdf} 
                 disabled={groupedServiceOrders.length === 0 || isLoading} 
-                variant="ghost" 
-                size="icon" 
-                className="h-10 w-10 p-0 rounded-none sm:h-auto sm:w-auto sm:px-4 sm:rounded-md" // Alterado para rounded-none
+                variant="default" // Alterado para variant="default"
+                className="flex items-center gap-2" // Removido size="icon" e classes de tamanho/arredondamento
               >
-                {isMobile ? (
-                  <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-full w-full" />
-                ) : (
-                  <>
-                    <Download className="h-4 w-4" /> 
-                    {"Exportar PDF"}
-                  </>
-                )}
+                <Download className="h-4 w-4" /> 
+                {"Exportar PDF"}
               </Button>
             </TooltipTrigger>
             <TooltipContent>Exportar PDF</TooltipContent>

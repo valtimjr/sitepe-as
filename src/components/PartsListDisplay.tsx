@@ -424,18 +424,11 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                 <Button 
                   onClick={handleExportPdf} 
                   disabled={orderedItems.length === 0} 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-10 w-10 p-0 rounded-none sm:h-auto sm:w-auto sm:px-4 sm:rounded-md" // Alterado para rounded-none
+                  variant="default" // Alterado para variant="default"
+                  className="flex items-center gap-2" // Removido size="icon" e classes de tamanho/arredondamento
                 >
-                  {isMobile ? (
-                    <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-full w-full" />
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" /> 
-                      {"Exportar PDF"}
-                    </>
-                  )}
+                  <Download className="h-4 w-4" /> 
+                  {"Exportar PDF"}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Exportar PDF</TooltipContent>
@@ -513,29 +506,29 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                               isLoading={isLoadingParts}
                             />
                             <div className="grid grid-cols-3 gap-2"> {/* Layout para Código e Descrição */}
-                              <div className="col-span-1"> {/* Código da Peça: menor */}
-                                <Label htmlFor={`edit-part-code-${item.id}`} className="sr-only">Código da Peça</Label>
-                                <Input
-                                  id={`edit-part-code-${item.id}`}
-                                  type="text"
-                                  value={formPartCode} // Exibe o código da peça selecionada
-                                  readOnly // Somente leitura
-                                  placeholder="Código da peça"
-                                  className="text-xs bg-muted"
-                                />
-                              </div>
-                              <div className="col-span-2"> {/* Descrição: maior */}
-                                <Label htmlFor={`edit-description-${item.id}`} className="sr-only">Descrição</Label>
-                                <Input
-                                  id={`edit-description-${item.id}`}
-                                  type="text"
-                                  value={formDescription} // Exibe a descrição da peça selecionada
-                                  readOnly // Somente leitura
-                                  placeholder="Descrição da peça"
-                                  className="text-xs bg-muted"
-                                />
-                              </div>
-                            </div>
+                          <div className="col-span-1"> {/* Código da Peça: menor */}
+                            <Label htmlFor={`edit-part-code-${item.id}`} className="sr-only">Código da Peça</Label>
+                            <Input
+                              id={`edit-part-code-${item.id}`}
+                              type="text"
+                              value={formPartCode} // Exibe o código da peça selecionada
+                              readOnly // Somente leitura
+                              placeholder="Código da peça"
+                              className="text-xs bg-muted"
+                            />
+                          </div>
+                          <div className="col-span-2"> {/* Descrição: maior */}
+                            <Label htmlFor={`edit-description-${item.id}`} className="sr-only">Descrição</Label>
+                            <Input
+                              id={`edit-description-${item.id}`}
+                              type="text"
+                              value={formDescription} // Exibe a descrição da peça selecionada
+                              readOnly // Somente leitura
+                              placeholder="Descrição da peça"
+                              className="text-xs bg-muted"
+                            />
+                          </div>
+                        </div>
                             <Label htmlFor={`edit-af-${item.id}`} className="sr-only">AF</Label>
                             <AfSearchInput
                               value={formAf}
