@@ -401,12 +401,12 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
             className="w-full"
           />
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex flex-row flex-wrap items-center justify-end gap-2"> {/* Alterado para flex-row e items-center */}
             <Button 
               onClick={handleCopyList} 
               disabled={orderedItems.length === 0} 
               size="icon"
-              className="sm:w-auto sm:px-4"
+              className="flex-1 sm:w-auto sm:px-4" // Adicionado flex-1
             >
               <Copy className="h-4 w-4" /> 
               <span className="hidden sm:inline ml-2">Copiar Lista</span>
@@ -418,7 +418,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               className="h-10 w-10 p-0 rounded-full" 
               aria-label="Compartilhar no WhatsApp" 
             >
-              <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
+              <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-full w-full" />
             </Button>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -427,7 +427,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   disabled={orderedItems.length === 0} 
                   variant="ghost" 
                   size="icon" 
-                  className="h-10 w-10 p-0 rounded-full sm:h-auto sm:w-auto sm:px-4 sm:rounded-md" // Ajuste para mobile
+                  className="h-10 w-10 p-0 rounded-md sm:h-auto sm:w-auto sm:px-4 sm:rounded-md" // Alterado para rounded-md
                 >
                   {isMobile ? (
                     <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-full w-full" />
@@ -447,7 +447,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   variant="destructive" 
                   disabled={orderedItems.length === 0} 
                   size="icon"
-                  className="sm:w-auto sm:px-4"
+                  className="flex-1 sm:w-auto sm:px-4" // Adicionado flex-1
                 >
                   <Trash2 className="h-4 w-4" /> 
                   <span className="hidden sm:inline ml-2">Limpar Lista</span>
