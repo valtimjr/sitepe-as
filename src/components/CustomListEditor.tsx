@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet'; // Importar Sheet e SheetDescription
 import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
@@ -41,7 +41,7 @@ interface CustomListEditorProps {
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved }) => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isMainItemDialogOpen, setIsMainItemDialogOpen] = useState(false); // Renomeado para clareza
+  const [isSheetOpen, setIsSheetOpen] = useState(false); // Renomeado para clareza
   const [currentEditItem, setCurrentEditItem] = useState<CustomListItem | null>(null);
   
   // Form states for main item
@@ -118,7 +118,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         } else {
           setSelectedPartFromSearch(null);
         }
-        setIsMainItemDialogOpen(true);
+        setIsSheetOpen(true);
       } else {
         resetForm();
         setSelectedPartFromSearch(null);
@@ -161,7 +161,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const handleAdd = () => {
     resetForm();
-    setIsMainItemDialogOpen(true);
+    setIsSheetOpen(true);
   };
 
   const handleEdit = (item: CustomListItem) => {
@@ -174,7 +174,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setSearchQuery('');
     setSearchResults([]);
     setBulkRelatedPartsInput(''); // Limpa o campo de bulk
-    setIsMainItemDialogOpen(true);
+    setIsSheetOpen(true);
   };
 
   const handleSelectPart = (part: Part) => {
@@ -224,7 +224,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         showSuccess('Item adicionado com sucesso!');
       }
       
-      setIsMainItemDialogOpen(false);
+      setIsSheetOpen(false);
       loadItems();
       onItemSaved?.(); // Usando encadeamento opcional
     } catch (error) {
@@ -619,15 +619,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         )}
       </CardContent>
 
-      {/* Modal Principal para Adicionar/Editar Item */}
-      <Dialog open={isMainItemDialogOpen} onOpenChange={setIsMainItemDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{currentEditItem ? 'Editar Item' : 'Adicionar Novo Item'}</DialogTitle>
-            <DialogDescription>
+      {/* Sheet Principal para Adicionar/Editar Item */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{currentEditItem ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
+            <SheetDescription>
               {currentEditItem ? 'Edite os detalhes do item da lista.' : 'Adicione um novo item à lista personalizada.'}
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
@@ -714,10 +714,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                 <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
               </Label>
               <PartSearchInput
-                onSearch={setSearchQuery} // Reutiliza o searchQuery principal para a busca de relacionados
-                searchResults={searchResults}
+                onSearch={setSearchQueryRelated}
+                searchResults={searchResultsRelated}
                 onSelectPart={handleAddRelatedPart}
-                searchQuery={searchQuery}
+                searchQuery={searchQueryRelated}
                 allParts={allAvailableParts}
                 isLoading={isLoadingParts}
               />
@@ -773,17 +773,17 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               </p>
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsMainItemDialogOpen(false)}>
+            <SheetFooter>
+              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
               <Button type="submit">
                 <Save className="h-4 w-4 mr-2" /> Salvar
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 };
