@@ -29,6 +29,7 @@ import {
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
+import { cn } from '@/lib/utils'; // Importar cn
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
