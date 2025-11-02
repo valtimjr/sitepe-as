@@ -58,7 +58,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null);
 
-  // NOVO: Search states for related items form
+  // Search states for related items form
   const [relatedSearchQuery, setRelatedSearchQuery] = useState('');
   const [relatedSearchResults, setRelatedSearchResults] = useState<Part[]>([]);
 
@@ -152,7 +152,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // NOVO: Efeito para a busca de peças relacionadas
+  // Efeito para a busca de peças relacionadas
   useEffect(() => {
     const fetchRelatedSearchResults = async () => {
       if (relatedSearchQuery.length > 1) {
@@ -670,72 +670,76 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="item-name">Nome Personalizado (Opcional)</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="item-name"
-                  value={formItemName}
-                  onChange={(e) => setFormItemName(e.target.value)}
-                  placeholder="Ex: Kit de Reparo do Motor"
-                  className="flex-1"
-                />
-                {formPartCode && ( 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleSaveGlobalPartName}
-                        disabled={
-                          !selectedPartFromSearch || 
-                          formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim() ||
-                          !formItemName.trim()
-                        }
-                      >
-                        <Save className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Salvar este nome como o nome global da peça "{selectedPartFromSearch?.codigo || 'N/A'}"
-                    </TooltipContent>
-                  </Tooltip>
-                )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="item-name">Nome Personalizado (Opcional)</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="item-name"
+                    value={formItemName}
+                    onChange={(e) => setFormItemName(e.target.value)}
+                    placeholder="Ex: Kit de Reparo do Motor"
+                    className="flex-1"
+                  />
+                  {formPartCode && ( 
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleSaveGlobalPartName}
+                          disabled={
+                            !selectedPartFromSearch || 
+                            formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim() ||
+                            !formItemName.trim()
+                          }
+                        >
+                          <Save className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Salvar este nome como o nome global da peça "{selectedPartFromSearch?.codigo || 'N/A'}"
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
               </div>
-            </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="part-code">Código da Peça (Opcional)</Label>
+                <Input
+                  id="part-code"
+                  value={formPartCode}
+                  onChange={(e) => setFormPartCode(e.target.value)}
+                  placeholder="Código da peça"
+                />
+              </div>
+            </div> {/* End grid-cols-2 for name/part-code */}
             
-            <div className="space-y-2">
-              <Label htmlFor="part-code">Código da Peça (Opcional)</Label>
-              <Input
-                id="part-code"
-                value={formPartCode}
-                onChange={(e) => setFormPartCode(e.target.value)}
-                placeholder="Código da peça"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Descrição (Opcional)</Label>
-              <Input
-                id="description"
-                value={formDescription}
-                onChange={(e) => setFormDescription(e.target.value)}
-                placeholder="Descrição da peça"
-              />
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="description">Descrição (Opcional)</Label>
+                <Input
+                  id="description"
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  placeholder="Descrição da peça"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="quantity">Quantidade</Label>
-              <Input
-                id="quantity"
-                type="number"
-                value={formQuantity}
-                onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
-                min="1"
-                required
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="quantity">Quantidade</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  value={formQuantity}
+                  onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
+                  min="1"
+                  required
+                />
+              </div>
+            </div> {/* End grid-cols-3 for description/quantity */}
 
             {/* Seção de Itens Relacionados */}
             <div className="space-y-2 border-t pt-4">
