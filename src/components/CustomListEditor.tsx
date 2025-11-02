@@ -650,7 +650,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
       {/* Sheet Principal para Adicionar/Editar Item */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <SheetContent side="right" className="sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{currentEditItem ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
             <SheetDescription>
@@ -713,9 +713,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   value={formPartCode}
                   onChange={(e) => setFormPartCode(e.target.value)}
                   placeholder="Código da peça"
+                  className="w-full"
                 />
               </div>
-            </div> {/* End grid-cols-2 for name/part-code */}
+            </div> {/* End grid-cols-1 md:grid-cols-2 for name/part-code */}
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2 md:col-span-2">
@@ -725,6 +726,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   placeholder="Descrição da peça"
+                  className="w-full"
                 />
               </div>
 
@@ -737,9 +739,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
                   min="1"
                   required
+                  className="w-full"
                 />
               </div>
-            </div> {/* End grid-cols-3 for description/quantity */}
+            </div> {/* End grid-cols-1 md:grid-cols-3 for description/quantity */}
 
             {/* Seção de Itens Relacionados */}
             <div className="space-y-2 border-t pt-4">
