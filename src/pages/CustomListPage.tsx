@@ -13,7 +13,7 @@ import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import CustomListEditor from '@/components/CustomListEditor';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import AfSearchInput from '@/components/AfSearchInput';
 import { Label } from '@/components/ui/label';
@@ -30,7 +30,7 @@ const CustomListPage: React.FC = () => {
   const [itemToEdit, setItemToEdit] = useState<CustomListItem | null>(null);
 
   // Estados para seleção e exportação
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [selectedItemIds, setSelectedItemIds] = new useState<Set<string>>(new Set());
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [afForExport, setAfForExport] = useState('');
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
@@ -262,7 +262,9 @@ const CustomListPage: React.FC = () => {
                   <Button 
                     onClick={handleCopyList} 
                     disabled={items.length === 0} 
-                    className="sm:w-auto sm:px-4 bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground" // Adicionado estilos
+                    variant="secondary" 
+                    size="icon"
+                    className="sm:w-auto sm:px-4"
                   >
                     <Copy className="h-4 w-4" /> 
                     <span className="hidden sm:inline ml-2">Copiar Lista</span>
@@ -289,24 +291,8 @@ const CustomListPage: React.FC = () => {
               
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    onClick={handleExportPdf} 
-                    disabled={items.length === 0} 
-                    variant={isMobile ? "ghost" : "default"} // Ghost para mobile, default para desktop
-                    size={isMobile ? "icon" : undefined} // Icon size para mobile, undefined para desktop
-                    className={cn(
-                      "flex items-center gap-2",
-                      isMobile ? "h-10 w-10 p-0" : "" // Tamanho para mobile
-                    )}
-                  >
-                    {isMobile ? (
-                      <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-10 w-10" />
-                    ) : (
-                      <>
-                        <FileDown className="h-4 w-4" /> 
-                        {"Exportar PDF"}
-                      </>
-                    )}
+                  <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" /> Exportar PDF
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Exportar PDF</TooltipContent>
@@ -331,8 +317,8 @@ const CustomListPage: React.FC = () => {
                           aria-label="Selecionar todos os itens"
                         />
                       </TableHead>
-                      <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                      <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                      <TableHead className="w-[4rem] p-2">Qtd</TableHead> {/* Ajustado para 3rem */}
+                      <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead> {/* Ajustado para mobile */}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -353,7 +339,7 @@ const CustomListPage: React.FC = () => {
                               )}
                               <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
                               {item.description && (
-                                <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
+                                <span className="text-xs text-muted-foreground italic max-w-full">{item.description}</span> {/* Removido truncate */}
                               )}
                               {item.itens_relacionados && item.itens_relacionados.length > 0 && (
                                 <Popover open={isRelatedItemsPopoverOpen === item.id} onOpenChange={(open) => setIsRelatedItemsPopoverOpen(open ? item.id : null)}>

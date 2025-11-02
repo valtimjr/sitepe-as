@@ -1,4 +1,5 @@
-/** @jsxImportSource react */
+"use client";
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -555,7 +556,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                   </TableHead>
                   <TableHead className="w-[3rem] p-2">Qtd</TableHead> {/* Ajustado para 3rem */}
-                  <TableHead className="w-[calc(100%-148px)] sm:w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead> {/* Ajustado para mobile */}
+                  <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead> {/* Ajustado para mobile */}
                   <TableHead className="w-[70px] p-2 text-right">Ações</TableHead> {/* Ajustado para 70px */}
                 </TableRow>
               </TableHeader>
@@ -575,14 +576,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                       <GripVertical className="h-4 w-4 text-muted-foreground" />
                     </TableCell>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                    <TableCell className="w-[calc(100%-148px)] sm:w-auto whitespace-normal break-words p-2"> {/* Ajustado para mobile */}
+                    <TableCell className="w-auto whitespace-normal break-words p-2"> {/* Ajustado para mobile */}
                         <div className="flex flex-col items-start">
                           {item.part_code && (
                             <span className="font-medium text-sm text-primary">{item.part_code}</span>
                           )}
                           <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
                           {item.description && (
-                            <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
+                            <span className="text-xs text-muted-foreground italic max-w-full">{item.description}</span> {/* Removido truncate */}
                           )}
                           {item.itens_relacionados && item.itens_relacionados.length > 0 && (
                             <Tooltip>
