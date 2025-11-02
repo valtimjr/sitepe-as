@@ -3,17 +3,19 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import { showSuccess, showError } from '@/utils/toast';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
-import { CustomListItem } from '@/types/supabase';
-import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
-import { generateCustomListPdf } from '@/lib/pdfGenerator';
+import { CustomList, CustomListItem } from '@/types/supabase';
+import { exportDataAsCsv, exportDataAsJson, generateCustomListPdf, addSimplePartItem, getAfsFromService, Af } from '@/services/partListService';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import CustomListEditor from '@/components/CustomListEditor';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Usar Sheet diretamente
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet'; // Usar Sheet diretamente
+import { Checkbox } from '@/components/ui/checkbox';
+import AfSearchInput from '@/components/AfSearchInput';
+import { Label } from '@/components/ui/label';
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -23,7 +25,12 @@ const CustomListPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<CustomListItem | null>(null);
 
-  // Removido: const isMobile = useIsMobile(); // Não é mais necessário para a escolha do componente modal
+  // Estados para seleção e exportação
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
+  const [afForExport, setAfForExport] = useState('');
+  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
+  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
 
   const loadList = useCallback(async () => {
     if (!listId) return;
@@ -50,9 +57,22 @@ const CustomListPage: React.FC = () => {
     }
   }, [listId]);
 
+  const loadAfs = useCallback(async () => {
+    setIsLoadingAfs(true);
+    try {
+      const afs = await getAfsFromService();
+      setAllAvailableAfs(afs);
+    } catch (error) {
+      console.error('Failed to load AFs:', error);
+    } finally {
+      setIsLoadingAfs(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadList();
-  }, [loadList]);
+    loadAfs();
+  }, [loadList, loadAfs]);
 
   useEffect(() => {
     document.title = `${listTitle} - AutoBoard`;
@@ -69,6 +89,7 @@ const CustomListPage: React.FC = () => {
       const codigo = item.part_code ? ` (Cód: ${item.part_code})` : '';
       const descricao = item.description || '';
       
+      // Formato: [QUANTIDADE] - [NOME PERSONALIZADO] [DESCRIÇÃO] (Cód: [CÓDIGO])
       formattedText += `${quantidade} - ${nome} ${descricao}${codigo}`.trim() + '\n';
     });
 
@@ -121,8 +142,74 @@ const CustomListPage: React.FC = () => {
     loadList();
   };
 
-  // Removido: ModalComponent, ModalContentComponent, ModalHeaderComponent, ModalTitleComponent
-  // Agora usamos Sheet diretamente
+  // --- Seleção de Itens ---
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allVisibleItemIds = new Set(items.map(item => item.id));
+      setSelectedItemIds(allVisibleItemIds);
+    } else {
+      setSelectedItemIds(new Set());
+    }
+  };
+
+  const handleSelectItem = (id: string, checked: boolean) => {
+    setSelectedItemIds(prev => {
+      const newSelection = new Set(prev);
+      if (checked) {
+        newSelection.add(id);
+      } else {
+        newSelection.delete(id);
+      }
+      return newSelection;
+    });
+  };
+
+  const isAllSelected = items.length > 0 && selectedItemIds.size === items.length;
+  const isIndeterminate = selectedItemIds.size > 0 && selectedItemIds.size < items.length;
+
+  // --- Exportar Selecionados para Minha Lista ---
+  const handleExportSelectedToMyList = () => {
+    if (selectedItemIds.size === 0) {
+      showError('Nenhum item selecionado para exportar.');
+      return;
+    }
+    setAfForExport(''); // Limpa o AF anterior
+    setIsExportSheetOpen(true);
+  };
+
+  const handleConfirmExport = async () => {
+    if (!afForExport.trim()) {
+      showError('Por favor, selecione um AF para os itens exportados.');
+      return;
+    }
+
+    const itemsToExport = items.filter(item => selectedItemIds.has(item.id));
+    if (itemsToExport.length === 0) {
+      showError('Nenhum item selecionado para exportar.');
+      return;
+    }
+
+    const loadingToastId = showLoading(`Exportando ${itemsToExport.length} itens...`);
+    try {
+      for (const item of itemsToExport) {
+        await addSimplePartItem({
+          codigo_peca: item.part_code || '',
+          descricao: item.description || item.item_name,
+          quantidade: item.quantity,
+          af: afForExport.trim(),
+        });
+      }
+      showSuccess(`${itemsToExport.length} itens exportados para 'Minha Lista de Peças' com sucesso!`);
+      setSelectedItemIds(new Set());
+      setIsExportSheetOpen(false);
+      setAfForExport('');
+    } catch (error) {
+      showError('Erro ao exportar itens para 'Minha Lista de Peças'.');
+      console.error('Failed to export items to simple parts list:', error);
+    } finally {
+      dismissToast(loadingToastId);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -145,6 +232,15 @@ const CustomListPage: React.FC = () => {
             Itens da Lista
           </CardTitle>
           <div className="flex flex-wrap justify-end gap-2 pt-2">
+            {selectedItemIds.size > 0 && (
+              <Button 
+                onClick={handleExportSelectedToMyList} 
+                className="flex items-center gap-2"
+                disabled={isLoadingAfs}
+              >
+                <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
+              </Button>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
@@ -197,6 +293,14 @@ const CustomListPage: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[40px] p-2">
+                      <Checkbox
+                        checked={isAllSelected}
+                        indeterminate={isIndeterminate ? true : undefined}
+                        onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                        aria-label="Selecionar todos os itens"
+                      />
+                    </TableHead>
                     <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                     <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
                   </TableRow>
@@ -204,6 +308,13 @@ const CustomListPage: React.FC = () => {
                 <TableBody>
                   {items.map((item) => (
                     <TableRow key={item.id}>
+                      <TableCell className="w-[40px] p-2">
+                        <Checkbox
+                          checked={selectedItemIds.has(item.id)}
+                          onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
+                          aria-label={`Selecionar item ${item.item_name}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
                       <TableCell className="w-auto whitespace-normal break-words p-2">
                           <div className="flex flex-col">
@@ -255,6 +366,41 @@ const CustomListPage: React.FC = () => {
               onItemSaved={handleItemSavedOrClosed}
             />
           )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Sheet para Exportar Selecionados com AF */}
+      <Sheet open={isExportSheetOpen} onOpenChange={setIsExportSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Exportar Itens para Minha Lista</SheetTitle>
+            <SheetDescription>
+              Selecione um AF (Número de Frota) para aplicar a todos os {selectedItemIds.size} itens selecionados antes de exportar para "Minha Lista de Peças".
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="af-for-export">AF (Número de Frota)</Label>
+              {isLoadingAfs ? (
+                <Input value="Carregando AFs..." readOnly className="bg-muted" />
+              ) : (
+                <AfSearchInput
+                  value={afForExport}
+                  onChange={setAfForExport}
+                  availableAfs={allAvailableAfs}
+                  onSelectAf={setAfForExport}
+                />
+              )}
+            </div>
+          </div>
+          <SheetFooter>
+            <Button type="button" variant="outline" onClick={() => setIsExportSheetOpen(false)}>
+              <XCircle className="h-4 w-4 mr-2" /> Cancelar
+            </Button>
+            <Button type="button" onClick={handleConfirmExport} disabled={!afForExport.trim() || isLoadingAfs}>
+              <Check className="h-4 w-4 mr-2" /> Confirmar Exportação
+            </Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
     </div>
