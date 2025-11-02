@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescrip
 import { Checkbox } from '@/components/ui/checkbox';
 import AfSearchInput from '@/components/AfSearchInput';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input'; // Adicionando a importação do Input
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
