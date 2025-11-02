@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle, XCircle } from 'lucide-react'; // XCircle adicionado aqui
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle, XCircle } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
@@ -219,6 +219,12 @@ const CustomListPage: React.FC = () => {
         <Link to="/custom-menu-view">
           <Button variant="outline" className="flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" /> Voltar ao Catálogo
+          </Button>
+        </Link>
+        {/* NOVO BOTÃO: Minha Lista de Peças */}
+        <Link to="/parts-list">
+          <Button variant="outline" className="flex items-center gap-2">
+            <ListIcon className="h-4 w-4" /> Minha Lista de Peças
           </Button>
         </Link>
       </div>
