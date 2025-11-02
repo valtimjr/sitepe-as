@@ -131,14 +131,14 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    generatePartsListPdf(orderedItems, listTitle);
+    generatePartsListPdf(orderedItems, listTitle); // Usa listTitle como título principal
     showSuccess('PDF gerado com sucesso!');
   };
 
   const formatListText = () => {
     if (orderedItems.length === 0) return '';
 
-    let formattedText = `${listTitle}\n\n`;
+    let formattedText = `${listTitle}\n\n`; // Adiciona o título da lista aqui
 
     orderedItems.forEach(item => {
       const quantidade = item.quantidade ?? 1;
@@ -164,7 +164,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       await navigator.clipboard.writeText(textToCopy);
       showSuccess('Lista de peças copiada para a área de transferência!');
     } catch (err) {
-      showError('Erro ao copiar a lista. Por favor, tente novamente.');
+      showError('Falha ao copiar o link.');
       console.error('Failed to copy list items:', err);
     }
   };

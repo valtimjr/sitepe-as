@@ -60,7 +60,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   // Search states for related items form
   const [relatedSearchQuery, setRelatedSearchQuery] = useState('');
-  const [relatedSearchResults, setRelatedSearchResults] = useState<Part[]>([]);
+  const [relatedSearchResults, setSearchResultsRelated] = useState<Part[]>([]);
 
   // Bulk add related items state
   const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
@@ -308,7 +308,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const formatListText = () => {
     if (items.length === 0) return '';
 
-    let formattedText = `${list.title}\n\n`;
+    let formattedText = `${list.title}\n\n`; // Adiciona o título da lista aqui
 
     items.forEach(item => {
       const quantidade = item.quantity;
