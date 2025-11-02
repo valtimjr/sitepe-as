@@ -579,7 +579,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                     <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle header */}
                   </TableHead>
                   {/* Coluna Hora com botão de ordenação (movida para a esquerda) */}
-                  <TableHead className="w-[50px] px-1 py-2 text-left"> {/* Alinhado à esquerda para o ícone */}
+                  <TableHead className="w-[50px] px-1 py-2 text-center"> {/* Alinhado ao centro */}
                     <Button 
                       variant="ghost" 
                       size="icon" // Alterado para size="icon"
@@ -594,7 +594,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                   {/* Coluna Peça (ocupa a maior parte do espaço) */}
                   <TableHead className="w-auto whitespace-normal break-words px-1 py-2">Peça</TableHead>
                   {/* Coluna Qtd com largura fixa */}
-                  <TableHead className="w-[3rem] px-1 py-2">Qtd</TableHead>
+                  <TableHead className="w-[3rem] px-1 py-2 text-center">Qtd</TableHead> {/* Alinhado ao centro */}
                   {/* Coluna Opções (alinhada à direita) */}
                   <TableHead className="w-[70px] px-1 py-2 text-right">Opções</TableHead>
                 </TableRow>
@@ -710,7 +710,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                 : part.codigo_peca || part.descricao || 'Item sem descrição'}
                             </span>
                           </TableCell>
-                          <TableCell className="w-[3rem] px-1 py-2">{part.quantidade ?? ''}</TableCell>
+                          <TableCell className="w-[3rem] px-1 py-2 text-center">{part.quantidade ?? ''}</TableCell> {/* Alinhado ao centro */}
                           
                           {/* Célula de Ações para a Peça (alinhada com a coluna Opções) */}
                           <TableCell className="w-[70px] px-1 py-2 text-right">
