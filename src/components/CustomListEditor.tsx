@@ -29,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea'; // Importar Textarea
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -56,6 +57,9 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null);
+
+  // Bulk add related items state
+  const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
 
   // Drag and Drop states
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
@@ -102,6 +106,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setFormItensRelacionados(editingItem.itens_relacionados || []); // Preenche itens relacionados
         setSearchQuery('');
         setSearchResults([]);
+        setBulkRelatedPartsInput(''); // Limpa o campo de bulk
 
         if (editingItem.part_code) {
           const parts = await getParts(editingItem.part_code); 
@@ -151,6 +156,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setSearchQuery('');
     setSearchResults([]);
     setSelectedPartFromSearch(null);
+    setBulkRelatedPartsInput(''); // Limpa o campo de bulk
   };
 
   const handleAdd = () => {
@@ -167,6 +173,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setFormItensRelacionados(item.itens_relacionados || []); // Preenche itens relacionados
     setSearchQuery('');
     setSearchResults([]);
+    setBulkRelatedPartsInput(''); // Limpa o campo de bulk
     setIsMainItemDialogOpen(true);
   };
 
@@ -342,7 +349,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, targetItem: CustomListItem) => {
     e.preventDefault();
-    e.currentTarget.classList.remove('border-t-2', 'border-primary');
+    e.currentTarget.classList.remove('opacity-50');
 
     if (draggedItem && draggedItem.id !== targetItem.id) {
       const newOrderedItems = [...items];
@@ -421,6 +428,23 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const handleRemoveRelatedPart = (codigo: string) => {
     setFormItensRelacionados(prev => prev.filter(c => c !== codigo));
     showSuccess(`Peça ${codigo} removida dos itens relacionados.`);
+  };
+
+  const handleBulkAddRelatedParts = () => {
+    const newCodes = bulkRelatedPartsInput
+      .split(';')
+      .map(code => code.trim())
+      .filter(code => code.length > 0);
+
+    if (newCodes.length === 0) {
+      showError('Nenhum código válido encontrado para adicionar.');
+      return;
+    }
+
+    const uniqueNewCodes = Array.from(new Set([...formItensRelacionados, ...newCodes]));
+    setFormItensRelacionados(uniqueNewCodes);
+    setBulkRelatedPartsInput('');
+    showSuccess(`${newCodes.length} código(s) adicionado(s) aos itens relacionados.`);
   };
 
   return (
@@ -627,7 +651,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   placeholder="Ex: Kit de Reparo do Motor"
                   className="flex-1"
                 />
-                {formPartCode && ( // O botão agora é visível se houver um formPartCode
+                {formPartCode && ( 
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -636,7 +660,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                         size="icon"
                         onClick={handleSaveGlobalPartName}
                         disabled={
-                          !selectedPartFromSearch || // Desabilita se não houver um objeto de peça real
+                          !selectedPartFromSearch || 
                           formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim() ||
                           !formItemName.trim()
                         }
@@ -697,6 +721,31 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                 allParts={allAvailableParts}
                 isLoading={isLoadingParts}
               />
+              <div className="space-y-2">
+                <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
+                  Adicionar múltiplos códigos (separados por ';')
+                </Label>
+                <div className="flex gap-2">
+                  <Textarea
+                    id="bulk-related-parts"
+                    value={bulkRelatedPartsInput}
+                    onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
+                    placeholder="Ex: COD1; COD2; COD3"
+                    rows={2}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleBulkAddRelatedParts}
+                    disabled={bulkRelatedPartsInput.trim().length === 0}
+                    variant="outline"
+                    size="icon"
+                    aria-label="Adicionar em massa"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
               <ScrollArea className="h-24 w-full rounded-md border p-2">
                 {formItensRelacionados.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>

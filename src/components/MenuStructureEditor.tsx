@@ -32,6 +32,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import PartSearchInput from './PartSearchInput'; // Para o campo de itens relacionados
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea'; // Importar Textarea
 
 interface MenuStructureEditorProps {
   onMenuUpdated: () => void;
@@ -87,6 +88,9 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
 
+  // Bulk add related items state
+  const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
+
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -140,6 +144,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     setFormItensRelacionados([]); // Limpa itens relacionados
     setSearchQueryRelated(''); // Limpa a busca de relacionados
     setSearchResultsRelated([]);
+    setBulkRelatedPartsInput(''); // Limpa o campo de bulk
     setIsDialogOpen(true);
   };
 
@@ -152,12 +157,13 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     setFormItensRelacionados(item.itens_relacionados || []); // Preenche itens relacionados
     setSearchQueryRelated(''); // Limpa a busca de relacionados
     setSearchResultsRelated([]);
+    setBulkRelatedPartsInput(''); // Limpa o campo de bulk
     setIsDialogOpen(true);
   };
 
   const handleDeleteMenuItem = async (id: string) => {
     try {
-      await deleteMenuItem(list.id, id); // list.id é o ID da lista, itemId é o ID do item
+      await deleteMenuItem(id); // list.id é o ID da lista, itemId é o ID do item
       showSuccess('Item de menu excluído com sucesso!');
       await loadData();
       onMenuUpdated();
@@ -251,6 +257,23 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     showSuccess(`Peça ${codigo} removida dos itens relacionados.`);
   };
 
+  const handleBulkAddRelatedParts = () => {
+    const newCodes = bulkRelatedPartsInput
+      .split(';')
+      .map(code => code.trim())
+      .filter(code => code.length > 0);
+
+    if (newCodes.length === 0) {
+      showError('Nenhum código válido encontrado para adicionar.');
+      return;
+    }
+
+    const uniqueNewCodes = Array.from(new Set([...formItensRelacionados, ...newCodes]));
+    setFormItensRelacionados(uniqueNewCodes);
+    setBulkRelatedPartsInput('');
+    showSuccess(`${newCodes.length} código(s) adicionado(s) aos itens relacionados.`);
+  };
+
   const renderMenuItem = (item: MenuItem, level: number, siblings: MenuItem[]) => {
     const isListLink = !!item.list_id;
     const hasChildren = item.children && item.children.length > 0;
@@ -341,7 +364,11 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
             </AlertDialog>
           </div>
         </div>
-        {hasChildren && item.children!.map(child => renderMenuItem(child, level + 1, item.children!))}
+        {hasChildren && isExpanded && (
+          <div className="w-full">
+            {item.children!.map(child => renderMenuItem(child, level + 1, item.children!))}
+          </div>
+        )}
       </div>
     );
   };
@@ -453,6 +480,31 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
                 allParts={allAvailableParts}
                 isLoading={isLoadingParts}
               />
+              <div className="space-y-2">
+                <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
+                  Adicionar múltiplos códigos (separados por ';')
+                </Label>
+                <div className="flex gap-2">
+                  <Textarea
+                    id="bulk-related-parts"
+                    value={bulkRelatedPartsInput}
+                    onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
+                    placeholder="Ex: COD1; COD2; COD3"
+                    rows={2}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleBulkAddRelatedParts}
+                    disabled={bulkRelatedPartsInput.trim().length === 0}
+                    variant="outline"
+                    size="icon"
+                    aria-label="Adicionar em massa"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
               <ScrollArea className="h-24 w-full rounded-md border p-2">
                 {formItensRelacionados.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
