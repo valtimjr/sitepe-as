@@ -20,7 +20,7 @@ interface ServiceOrderDetails {
   hora_final?: string;
   servico_executado?: string;
   createdAt?: Date;
-  mode: 'add_part' | 'edit_details';
+  mode: 'add_part' | 'edit_details' | 'create-new-so'; // Adicionado 'create-new-so'
 }
 
 type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
@@ -236,7 +236,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       return;
     }
 
-    if (!af) {
+    if (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) {
       showError('Por favor, insira o AF (Número de Frota).');
       return;
     }
@@ -254,7 +254,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         item.af === originalAf &&
         (item.os === originalOs || (item.os === undefined && originalOs === undefined)) &&
         (item.hora_inicio === originalHoraInicio || (item.hora_inicio === undefined && originalHoraInicio === undefined)) &&
-        (item.hora_final === originalHoraFinal || (item.hora_final === undefined && originalHoraFinal === undefined)) &&
+        (item.hora_final === originalHoraFinal || (originalHoraFinal === undefined && item.hora_final === undefined)) &&
         (item.servico_executado === originalServicoExecutado || (item.servico_executado === undefined && originalServicoExecutado === undefined))
       );
 
@@ -333,7 +333,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             item.af === initialSoDetails.af &&
             (item.os === initialSoDetails.os || (item.os === undefined && initialSoDetails.os === undefined)) &&
             (item.hora_inicio === initialSoDetails.hora_inicio || (item.hora_inicio === undefined && initialSoDetails.hora_inicio === undefined)) &&
-            (item.hora_final === initialSoDetails.hora_final || (item.hora_final === undefined && initialSoDetails.hora_final === undefined)) &&
+            (item.hora_final === initialSoDetails.hora_final || (initialSoDetails.hora_final === undefined && item.hora_final === undefined)) &&
             (item.servico_executado === initialSoDetails.servico_executado || (item.servico_executado === undefined && initialSoDetails.servico_executado === undefined)) &&
             !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
           );
@@ -413,10 +413,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
   
   // Desabilita o botão de submit se AF for vazio ou OS inválida
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !af || isOsInvalid;
+  const isSubmitDisabled = isLoadingParts || isLoadingAfs || (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) || isOsInvalid;
 
   // Determina quais seções mostrar
-  const showOsDetails = mode === 'create-new-so' || mode === 'edit-so-details' || mode === 'add-part-to-existing-so';
+  const showOsDetails = mode === 'create-new-so' || mode === 'edit-so-details';
   const showPartDetails = mode === 'create-new-so' || mode === 'add-part-to-existing-so' || mode === 'edit-part';
   const isOsDetailsReadOnly = mode === 'add-part-to-existing-so' || mode === 'edit-part';
 
@@ -520,7 +520,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
 
           {showPartDetails && (
             <>
-              <Separator className="my-6" />
+              {showOsDetails && <Separator className="my-6" />} {/* Separador apenas se ambos estiverem visíveis */}
               <h3 className="text-lg font-semibold">Detalhes da Peça</h3>
               <div>
                 <Label htmlFor="search-part">Buscar Peça</Label>
