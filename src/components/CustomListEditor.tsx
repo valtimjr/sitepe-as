@@ -553,6 +553,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   </TableHead>
                   <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                   <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                  <TableHead className="text-right w-[120px] p-2">Ações</TableHead> {/* Adicionado TableHead para Ações */}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -568,11 +569,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                     data-id={item.id}
                     className="relative"
                   ><TableCell className="w-[40px] p-2 cursor-grab">
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
+                      <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle */}
                     </TableCell>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                    <TableCell className="w-auto whitespace-normal break-words p-2">
-                        <div className="flex flex-col">
+                    <TableCell className="w-auto whitespace-normal break-words p-2 text-left"> {/* Alinhado à esquerda */}
+                        <div className="flex flex-col items-start"> {/* Removido items-center para alinhar à esquerda */}
                           {item.part_code && (
                             <span className="font-medium text-sm text-primary">{item.part_code}</span>
                           )}
@@ -581,23 +582,27 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                             <span className="text-xs text-muted-foreground italic truncate max-w-full">{item.description}</span>
                           )}
                           {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-help">
+                            <Popover open={isRelatedItemsPopoverOpen === item.id} onOpenChange={(open) => setIsRelatedItemsPopoverOpen(open ? item.id : null)}>
+                              <PopoverTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
+                                >
                                   <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p className="font-bold mb-1">Itens Relacionados:</p>
-                                <ul className="list-disc list-inside">
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto max-w-xs p-2">
+                                <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                                <ul className="list-disc list-inside text-xs text-muted-foreground">
                                   {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
                                 </ul>
-                              </TooltipContent>
-                            </Tooltip>
+                              </PopoverContent>
+                            </Popover>
                           )}
                         </div>
                     </TableCell>
-                    <TableCell className="w-[120px] p-2 text-right">
+                    <TableCell className="w-[120px] p-2 text-right"> {/* Largura fixa para ações */}
                       <div className="flex justify-end items-center gap-1">
                         <Tooltip>
                           <TooltipTrigger asChild>
