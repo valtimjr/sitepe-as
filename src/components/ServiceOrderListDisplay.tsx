@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem } from '@/services/partListService';
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide, XCircle, Save } from 'lucide-react';
+import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide, XCircle, Save, FilePlus } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -324,7 +324,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         (item.os === currentSOIdentifier.os || (item.os === undefined && currentSOIdentifier.os === undefined)) &&
         (item.hora_inicio === currentSOIdentifier.hora_inicio || (item.hora_inicio === undefined && currentSOIdentifier.hora_inicio === undefined)) &&
         (item.hora_final === currentSOIdentifier.hora_final || (currentSOIdentifier.hora_final === undefined && item.hora_final === undefined)) &&
-        (item.servico_executado === currentSOIdentifier.servico_executado || (currentSOIdentifier.servico_executado === undefined && item.servico_executado === undefined))
+        (item.servico_executado === currentSOIdentifier.servico_executado || (item.servico_executado === undefined && currentSOIdentifier.servico_executado === undefined))
       );
 
       const hasRealPartsRemaining = remainingItemsForThisSO.some(item => item.codigo_peca || item.descricao || (item.quantidade !== undefined && item.quantidade > 0));
@@ -699,19 +699,17 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           </TableCell>
                         </TableRow>
                       ))}
-                      {/* Botão "Adicionar Peça" abaixo da última peça (ou se não houver peças) */}
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleOpenAddPartForm(group)}
-                            className="flex items-center gap-2 mx-auto"
-                          >
-                            <PlusCircle className="h-4 w-4" /> Adicionar Peça
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                      {/* Se não houver peças, mas houver um item em branco (para manter a OS), exibe uma linha de aviso */}
+                      {group.parts.filter(p => p.codigo_peca || p.descricao).length === 0 && (
+                        <TableRow className="text-muted-foreground italic">
+                          <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar */}
+                          <TableCell className="w-[60px] p-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
+                          <TableCell colSpan={2} className="text-center p-2"> {/* colSpan ajustado para 2 */}
+                            Nenhuma peça adicionada a esta OS.
+                          </TableCell>
+                          <TableCell className="w-[40px] p-2"></TableCell> {/* Célula vazia para alinhar com Opções */}
+                        </TableRow>
+                      )}
                     </React.Fragment>
                   );
                 })}
