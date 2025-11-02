@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } => '@/components/ui/table';
 import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem } from '@/services/partListService';
 import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
@@ -500,7 +500,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           <Button 
             onClick={handleCopyList} 
             disabled={groupedServiceOrders.length === 0 || isLoading} 
-            className="flex-1 sm:w-auto sm:px-4 bg-white text-primary hover:bg-primary hover:text-primary-foreground md:hover:bg-gray-100 md:hover:text-primary" // Adicionado flex-1 e estilos
+            className="flex-1 sm:w-auto sm:px-4 bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground" // Adicionado flex-1 e estilos
           >
             <Copy className="h-4 w-4" /> 
             <span className="hidden sm:inline ml-2">Copiar Lista</span>
