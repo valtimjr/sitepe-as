@@ -300,7 +300,7 @@ export const addCustomListItem = async (listId: string, item: Omit<CustomListIte
     order_index: currentItems.length > 0 ? Math.max(...currentItems.map(i => i.order_index)) + 1 : 0,
     itens_relacionados: item.itens_relacionados || [], // Garante o campo
   };
-  const updatedItems = [...currentItems, newItem].sort((a, b) => a.order_index - b.order_index);
+  const updatedItems = [...currentItems, newItem]; // Removido .sort()
   
   await updateCustomList({ ...currentList, items_data: updatedItems });
   return newItem;
@@ -312,7 +312,7 @@ export const updateCustomListItem = async (listId: string, item: CustomListItem)
 
   const updatedItems = (currentList.items_data || []).map(existingItem =>
     existingItem.id === item.id ? { ...item, list_id: listId, itens_relacionados: item.itens_relacionados || [] } : existingItem
-  ).sort((a, b) => a.order_index - b.order_index); // Reordena para garantir consistência
+  ); // Removido .sort()
 
   await updateCustomList({ ...currentList, items_data: updatedItems });
 };
