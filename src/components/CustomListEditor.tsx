@@ -5,10 +5,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Link as LinkIcon, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { CustomList, CustomListItem, Part, CustomListItemRelation } from '@/types/supabase';
-import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, getCustomListItemRelations, addCustomListItemRelation, deleteCustomListItemRelation } from '@/services/customListService';
+import { CustomList, CustomListItem, Part } from '@/types/supabase';
+import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem } from '@/services/customListService';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,15 +35,6 @@ interface CustomListEditorProps {
   onItemSaved?: () => void; // Tornada opcional
 }
 
-interface PartRelationFormState {
-  id: string; // Usado para identificar a linha no formulário
-  selectedPart: Part | null;
-  searchQuery: string;
-  searchResults: Part[];
-  quantity: number;
-  isLoadingSearch: boolean;
-}
-
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved }) => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,12 +53,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null);
-
-  // Item Relations states (agora dentro do contexto do modal principal)
-  const [itemRelations, setItemRelations] = useState<CustomListItemRelation[]>([]);
-  const [isRelationModalOpen, setIsRelationModalOpen] = useState(false); // Modal aninhado
-  const [partsForNewRelation, setPartsForNewRelation] = useState<PartRelationFormState[]>([]);
-  const [isSavingRelations, setIsSavingRelations] = useState(false);
 
   // Drag and Drop states
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
@@ -97,23 +82,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     }
   }, []);
 
-  const loadItemRelations = useCallback(async (itemId: string) => {
-    try {
-      const relations = await getCustomListItemRelations(itemId);
-      setItemRelations(relations);
-    } catch (error) {
-      showError('Erro ao carregar relações do item.');
-      console.error('CustomListEditor: Failed to load item relations:', error);
-      setItemRelations([]);
-    }
-  }, []);
-
   useEffect(() => {
     loadItems();
     loadParts();
   }, [loadItems, loadParts]);
 
-  // Efeito para preencher o formulário e carregar relações quando `editingItem` muda
+  // Efeito para preencher o formulário quando `editingItem` muda
   useEffect(() => {
     const initializeFormForEdit = async () => {
       if (editingItem) {
@@ -136,16 +110,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           setSelectedPartFromSearch(null);
         }
         setIsMainItemDialogOpen(true);
-        loadItemRelations(editingItem.id); // Carrega as relações para o item em edição
       } else {
         resetForm();
         setSelectedPartFromSearch(null);
-        setItemRelations([]); // Limpa as relações se for um novo item
       }
     };
 
     initializeFormForEdit();
-  }, [editingItem, allAvailableParts, loadItemRelations]);
+  }, [editingItem, allAvailableParts]);
 
 
   useEffect(() => {
@@ -190,7 +162,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setSearchQuery('');
     setSearchResults([]);
     setIsMainItemDialogOpen(true);
-    loadItemRelations(item.id); // Carrega as relações para o item em edição
   };
 
   const handleSelectPart = (part: Part) => {
@@ -425,95 +396,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       console.error('Failed to update global part name:', error);
     } finally {
       dismissToast(loadingToastId);
-    }
-  };
-
-  // --- Item Relations Handlers ---
-  const handleAddRelationClick = () => {
-    if (!currentEditItem) {
-      showError('Selecione ou crie um item primeiro para adicionar relações.');
-      return;
-    }
-    setPartsForNewRelation([{ id: uuidv4(), selectedPart: null, searchQuery: '', searchResults: [], quantity: 1, isLoadingSearch: false }]);
-    setIsRelationModalOpen(true);
-  };
-
-  const handleAddPartFieldToRelation = () => {
-    setPartsForNewRelation(prev => [...prev, { id: uuidv4(), selectedPart: null, searchQuery: '', searchResults: [], quantity: 1, isLoadingSearch: false }]);
-  };
-
-  const handleRemovePartFieldFromRelation = (id: string) => {
-    setPartsForNewRelation(prev => prev.filter(p => p.id !== id));
-  };
-
-  const handleRelationPartSearch = (fieldId: string, query: string) => {
-    setPartsForNewRelation(prev => prev.map(field => field.id === fieldId ? { ...field, searchQuery: query, isLoadingSearch: true } : field));
-    
-    const handler = setTimeout(async () => {
-      const results = await searchPartsService(query);
-      setPartsForNewRelation(prev => prev.map(field => field.id === fieldId ? { ...field, searchResults: results, isLoadingSearch: false } : field));
-    }, 300);
-    return () => clearTimeout(handler);
-  };
-
-  const handleRelationPartSelect = (fieldId: string, part: Part) => {
-    setPartsForNewRelation(prev => prev.map(field => field.id === fieldId ? { ...field, selectedPart: part, searchQuery: '', searchResults: [] } : field));
-  };
-
-  const handleRelationQuantityChange = (fieldId: string, quantity: number) => {
-    setPartsForNewRelation(prev => prev.map(field => field.id === fieldId ? { ...field, quantity: quantity } : field));
-  };
-
-  const handleSaveRelations = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentEditItem) {
-      showError('Nenhum item selecionado para adicionar relações.');
-      return;
-    }
-
-    const relationsToAdd = partsForNewRelation.filter(p => p.selectedPart && p.quantity > 0);
-
-    if (relationsToAdd.length === 0) {
-      showError('Nenhuma peça válida selecionada para adicionar como relação.');
-      return;
-    }
-
-    setIsSavingRelations(true);
-    const loadingToastId = showLoading('Adicionando relações...');
-
-    try {
-      const promises = relationsToAdd.map(async (rel) => {
-        if (rel.selectedPart) {
-          await addCustomListItemRelation({
-            custom_list_item_id: currentEditItem.id,
-            part_id: rel.selectedPart.id,
-            quantity: rel.quantity,
-          });
-        }
-      });
-      await Promise.all(promises);
-      showSuccess(`${relationsToAdd.length} relação(ões) adicionada(s) com sucesso!`);
-      setIsRelationModalOpen(false);
-      loadItemRelations(currentEditItem.id); // Recarrega as relações para o item atual
-    } catch (error) {
-      showError('Erro ao salvar relações.');
-      console.error('Failed to save relations:', error);
-    } finally {
-      dismissToast(loadingToastId);
-      setIsSavingRelations(false);
-    }
-  };
-
-  const handleDeleteRelation = async (relationId: string) => {
-    try {
-      await deleteCustomListItemRelation(relationId);
-      showSuccess('Relação excluída com sucesso!');
-      if (currentEditItem) {
-        loadItemRelations(currentEditItem.id);
-      }
-    } catch (error) {
-      showError('Erro ao excluir relação.');
-      console.error('Failed to delete relation:', error);
     }
   };
 
@@ -784,144 +666,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               </Button>
               <Button type="submit">
                 <Save className="h-4 w-4 mr-2" /> Salvar
-              </Button>
-            </DialogFooter>
-          </form>
-
-          {/* Seção de Relações de Itens (visível apenas ao editar um item existente) */}
-          {currentEditItem && (
-            <div className="mt-6 border-t pt-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <LinkIcon className="h-5 w-5" /> Relações de Peças
-                </h3>
-                <Button onClick={handleAddRelationClick} className="flex items-center gap-2" size="sm">
-                  <PlusCircle className="h-4 w-4" /> Adicionar
-                </Button>
-              </div>
-              
-              {itemRelations.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-2">Nenhuma relação adicionada a este item.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[4rem]">Qtd</TableHead>
-                        <TableHead>Peça Relacionada</TableHead>
-                        <TableHead className="w-[80px] text-right">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {itemRelations.map(relation => (
-                        <TableRow key={relation.id}>
-                          <TableCell className="font-medium">{relation.quantity}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className="font-medium text-sm text-primary">{relation.part_codigo}</span>
-                              <span className="text-xs text-muted-foreground">{relation.part_name || relation.part_descricao || 'N/A'}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta ação irá remover a relação com a peça "{relation.part_codigo}". Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteRelation(relation.id)}>Excluir</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal Aninhado para Adicionar Múltiplas Relações */}
-      <Dialog open={isRelationModalOpen} onOpenChange={setIsRelationModalOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Adicionar Relações ao Item</DialogTitle>
-            <DialogDescription>
-              Selecione as peças que estão relacionadas a este item da lista.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSaveRelations} className="grid gap-4 py-4">
-            {partsForNewRelation.map((field, index) => (
-              <div key={field.id} className="flex items-end gap-2 border-b pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor={`relation-search-${field.id}`} className="sr-only">Buscar Peça</Label>
-                  <PartSearchInput
-                    onSearch={(query) => handleRelationPartSearch(field.id, query)}
-                    searchResults={field.searchResults}
-                    onSelectPart={(part) => handleRelationPartSelect(field.id, part)}
-                    searchQuery={field.searchQuery}
-                    allParts={allAvailableParts}
-                    isLoading={field.isLoadingSearch}
-                  />
-                  {field.selectedPart && (
-                    <div className="text-sm text-muted-foreground">
-                      Cód: {field.selectedPart.codigo} - Nome: {field.selectedPart.name || field.selectedPart.descricao}
-                    </div>
-                  )}
-                </div>
-                <div className="w-24 space-y-2">
-                  <Label htmlFor={`relation-quantity-${field.id}`}>Qtd</Label>
-                  <Input
-                    id={`relation-quantity-${field.id}`}
-                    type="number"
-                    value={field.quantity}
-                    onChange={(e) => handleRelationQuantityChange(field.id, parseInt(e.target.value) || 1)}
-                    min="1"
-                    className="w-full"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleRemovePartFieldFromRelation(field.id)}
-                  className="text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" onClick={handleAddPartFieldToRelation} className="w-full">
-              <PlusCircle className="h-4 w-4 mr-2" /> Adicionar Outra Peça
-            </Button>
-            <DialogFooter className="mt-4">
-              <Button type="button" variant="outline" onClick={() => setIsRelationModalOpen(false)}>
-                <XCircle className="h-4 w-4 mr-2" /> Cancelar
-              </Button>
-              <Button type="submit" disabled={isSavingRelations}>
-                {isSavingRelations ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" /> Salvar Relações
-                  </>
-                )}
               </Button>
             </DialogFooter>
           </form>
