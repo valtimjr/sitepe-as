@@ -500,8 +500,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           <Button 
             onClick={handleCopyList} 
             disabled={groupedServiceOrders.length === 0 || isLoading} 
-            size="icon"
-            className="flex-1 sm:w-auto sm:px-4" // Adicionado flex-1
+            className="flex-1 sm:w-auto sm:px-4 bg-white text-primary hover:bg-gray-100" // Adicionado flex-1 e estilos
           >
             <Copy className="h-4 w-4" /> 
             <span className="hidden sm:inline ml-2">Copiar Lista</span>
