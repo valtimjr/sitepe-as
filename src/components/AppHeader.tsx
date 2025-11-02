@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom'; // Importar useLocation
+import { Link, useNavigate } from 'react-router-dom';
 import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -25,7 +25,6 @@ import { MenuItem } from '@/types/supabase';
 const AppHeader: React.FC = () => {
   const { session, user, profile, isLoading, checkPageAccess } = useSession();
   const navigate = useNavigate();
-  const location = useLocation(); // Usar useLocation para obter a rota atual
   const [rootMenuItems, setRootMenuItems] = useState<MenuItem[]>([]);
 
   const loadDynamicMenu = useCallback(async () => {
@@ -144,9 +143,6 @@ const AppHeader: React.FC = () => {
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
   const canAccessMenuManager = checkPageAccess('/menu-manager');
 
-  // Verifica se a rota atual é uma página de lista personalizada
-  const isCustomListPage = location.pathname.startsWith('/custom-list/');
-
   // Itens de navegação padrão (sempre no dropdown)
   const standardDropdownItems = [
     { path: "/search-parts", title: "Pesquisar Peças", icon: Search },
@@ -257,32 +253,30 @@ const AppHeader: React.FC = () => {
                 </Tooltip>
               </Link>
 
-              {/* Menu de Ações do Perfil (Três Pontos) - Ocultado em páginas de lista personalizada */}
-              {!isCustomListPage && (
-                <DropdownMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>Opções do Perfil</TooltipContent>
-                  </Tooltip>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem asChild>
-                      <Link to="/settings">
-                        <Settings className="h-4 w-4 mr-2" /> Configurações
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout} className="text-destructive">
-                      <LogOut className="h-4 w-4 mr-2" /> Sair
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+              {/* Menu de Ações do Perfil (Três Pontos) */}
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Opções do Perfil</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">
+                      <Settings className="h-4 w-4 mr-2" /> Configurações
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                    <LogOut className="h-4 w-4 mr-2" /> Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           ) : (
             <Link to="/login">
