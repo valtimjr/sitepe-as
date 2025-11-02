@@ -555,7 +555,7 @@ const TimeTrackingPage: React.FC = () => {
             <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2"> {/* Alterado para flex-row e items-center */}
               <Button 
                 onClick={handleCopyText} 
-                className="flex items-center gap-2 flex-1 sm:w-auto bg-white text-primary hover:bg-gray-100" // Adicionado flex-1 e estilos
+                className="flex items-center gap-2 flex-1 sm:w-auto bg-white text-primary hover:bg-primary hover:text-primary-foreground md:hover:bg-gray-100 md:hover:text-primary" // Adicionado flex-1 e estilos
               >
                 <Copy className="h-4 w-4" /> Copiar Texto
               </Button>

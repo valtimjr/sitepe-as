@@ -258,7 +258,7 @@ const CustomListPage: React.FC = () => {
                   <Button 
                     onClick={handleCopyList} 
                     disabled={items.length === 0} 
-                    className="sm:w-auto sm:px-4 bg-white text-primary hover:bg-gray-100" // Adicionado estilos
+                    className="sm:w-auto sm:px-4 bg-white text-primary hover:bg-primary hover:text-primary-foreground md:hover:bg-gray-100 md:hover:text-primary" // Adicionado estilos
                   >
                     <Copy className="h-4 w-4" /> 
                     <span className="hidden sm:inline ml-2">Copiar Lista</span>
