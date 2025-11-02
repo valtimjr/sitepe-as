@@ -23,7 +23,7 @@ const buildMenuHierarchy = (items: MenuItem[]): MenuItem[] => {
   items.forEach(item => {
     if (item.parent_id && map[item.parent_id]) {
       map[item.parent_id].children!.push(map[item.id]);
-    } else {
+    } else if (!item.parent_id) {
       roots.push(map[item.id]);
     }
   });
@@ -288,14 +288,15 @@ export const deleteCustomList = async (listId: string): Promise<void> => {
   }
 };
 
-export const addCustomListItem = async (item: Omit<CustomListItem, 'id'>): Promise<CustomListItem> => {
-  const currentList = await getCustomListById(item.list_id);
+export const addCustomListItem = async (listId: string, item: Omit<CustomListItem, 'id' | 'list_id'>): Promise<CustomListItem> => {
+  const currentList = await getCustomListById(listId);
   if (!currentList) throw new Error('Lista personalizada não encontrada.');
 
   const currentItems = currentList.items_data || [];
   const newItem: CustomListItem = { 
     ...item, 
     id: uuidv4(), 
+    list_id: listId, // Adiciona list_id ao item
     order_index: currentItems.length > 0 ? Math.max(...currentItems.map(i => i.order_index)) + 1 : 0,
     itens_relacionados: item.itens_relacionados || [], // Garante o campo
   };
@@ -305,12 +306,12 @@ export const addCustomListItem = async (item: Omit<CustomListItem, 'id'>): Promi
   return newItem;
 };
 
-export const updateCustomListItem = async (item: CustomListItem): Promise<void> => {
-  const currentList = await getCustomListById(item.list_id);
+export const updateCustomListItem = async (listId: string, item: CustomListItem): Promise<void> => {
+  const currentList = await getCustomListById(listId);
   if (!currentList) throw new Error('Lista personalizada não encontrada.');
 
   const updatedItems = (currentList.items_data || []).map(existingItem =>
-    existingItem.id === item.id ? { ...item, itens_relacionados: item.itens_relacionados || [] } : existingItem
+    existingItem.id === item.id ? { ...item, list_id: listId, itens_relacionados: item.itens_relacionados || [] } : existingItem
   ).sort((a, b) => a.order_index - b.order_index); // Reordena para garantir consistência
 
   await updateCustomList({ ...currentList, items_data: updatedItems });

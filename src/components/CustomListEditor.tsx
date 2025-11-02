@@ -238,8 +238,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
     const finalItemName = trimmedItemName || trimmedDescription;
 
-    const payload: Omit<CustomListItem, 'id'> = {
-      list_id: list.id, // list_id é necessário para o serviço
+    const payload: Omit<CustomListItem, 'id' | 'list_id'> = { // Removido list_id do Omit
       item_name: finalItemName,
       part_code: trimmedPartCode || null,
       description: trimmedDescription || null,
@@ -250,10 +249,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
     try {
       if (currentEditItem) {
-        await updateCustomListItem({ ...currentEditItem, ...payload });
+        await updateCustomListItem(list.id, { ...currentEditItem, ...payload }); // Passa list.id
         showSuccess('Item atualizado com sucesso!');
       } else {
-        await addCustomListItem(payload);
+        await addCustomListItem(list.id, payload); // Passa list.id
         showSuccess('Item adicionado com sucesso!');
       }
       
@@ -294,8 +293,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
     try {
       await Promise.all([
-        updateCustomListItem({ ...currentItem, order_index: targetItem.order_index }),
-        updateCustomListItem({ ...targetItem, order_index: currentItem.order_index }),
+        updateCustomListItem(list.id, { ...currentItem, order_index: targetItem.order_index }), // Passa list.id
+        updateCustomListItem(list.id, { ...targetItem, order_index: currentItem.order_index }), // Passa list.id
       ]);
 
       showSuccess('Ordem atualizada!');
@@ -398,7 +397,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         const loadingToastId = showLoading('Reordenando itens...');
         try {
           const updatePromises = newOrderedItems.map((item, index) => 
-            updateCustomListItem({ ...item, order_index: index })
+            updateCustomListItem(list.id, { ...item, order_index: index }) // Passa list.id
           );
           await Promise.all(updatePromises);
           showSuccess('Ordem atualizada com sucesso!');
