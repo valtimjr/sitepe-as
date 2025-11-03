@@ -39,6 +39,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { MonthlyApontamento } from '@/types/supabase'; // Importar MonthlyApontamento
+import { v4 as uuidv4 } from 'uuid'; // Importar uuidv4
 
 // Mapeamento de Status para Ícone e Estilo
 const STATUS_MAP = {
