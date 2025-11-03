@@ -638,10 +638,14 @@ const TimeTrackingPage: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[60px] sm:w-[80px]">Dia</TableHead> {/* Largura ajustada */}
-                    <TableHead className="w-auto min-w-[150px] sm:min-w-[200px]">Entrada / Status</TableHead>
-                    <TableHead className="w-[60px] sm:w-[100px]">Total</TableHead>
-                    <TableHead className="w-[50px] sm:w-[120px] text-right">Ações</TableHead>
+                    <TableHead className="w-[60px]">Dia</TableHead> {/* Largura ajustada para mobile */}
+                    <TableHead className="w-auto min-w-[150px]">
+                      {isMobile ? "Entrada" : "Entrada / Status"}
+                    </TableHead> {/* Cabeçalho dinâmico */}
+                    <TableHead className="w-[60px]">
+                      {isMobile ? "Total" : "Total / Status"}
+                    </TableHead> {/* Cabeçalho dinâmico */}
+                    <TableHead className="w-[50px] text-right">Ações</TableHead> {/* Largura ajustada para mobile */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -660,7 +664,7 @@ const TimeTrackingPage: React.FC = () => {
 
                     return (
                       <TableRow key={dateString} className={isWeekend ? 'bg-muted/50' : ''}>
-                        <TableCell className="font-medium w-[60px] sm:w-[80px]"> {/* Largura ajustada */}
+                        <TableCell className="font-medium w-[60px]"> {/* Largura ajustada */}
                           {format(day, 'dd/MM')} ({dayName.substring(0, 3)}) {/* Dia da semana com 3 letras */}
                         </TableCell>
                         
@@ -708,7 +712,7 @@ const TimeTrackingPage: React.FC = () => {
                           )}
                         </TableCell>
 
-                        <TableCell className="font-semibold text-sm w-[60px] sm:w-[100px]"> {/* Largura ajustada */}
+                        <TableCell className="font-semibold text-sm w-[60px]"> {/* Largura ajustada */}
                           {hasStatus ? statusDisplayName : calculateTotalHours(apontamento?.entry_time, apontamento?.exit_time)}
                         </TableCell>
 
