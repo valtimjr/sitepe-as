@@ -638,10 +638,10 @@ const TimeTrackingPage: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[100px]">Dia</TableHead>
-                    <TableHead className="w-auto min-w-[200px]">Entrada / Status</TableHead>
-                    <TableHead className="w-[100px]">Total</TableHead>
-                    <TableHead className="w-[120px] text-right">Ações</TableHead>
+                    <TableHead className="w-[80px] sm:w-[100px]">Dia</TableHead> {/* Ajustado para mobile */}
+                    <TableHead className="w-auto min-w-[150px] sm:min-w-[200px]">Entrada / Status</TableHead> {/* Ajustado para mobile */}
+                    <TableHead className="w-[60px] sm:w-[100px]">Total</TableHead> {/* Ajustado para mobile */}
+                    <TableHead className="w-[50px] sm:w-[120px] text-right">Ações</TableHead> {/* Ajustado para mobile */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -683,8 +683,8 @@ const TimeTrackingPage: React.FC = () => {
                               )}
                             </div>
                           ) : (
-                            <div className="flex items-center space-x-2">
-                              <div className="flex-1">
+                            <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2"> {/* Empilha em mobile, lado a lado em sm+ */}
+                              <div className="flex-1 w-full">
                                 <Label htmlFor={`entry-${dateString}`} className="sr-only">Entrada</Label>
                                 <Input
                                   id={`entry-${dateString}`}
@@ -694,7 +694,7 @@ const TimeTrackingPage: React.FC = () => {
                                   disabled={isSaving}
                                 />
                               </div>
-                              <div className="flex-1">
+                              <div className="flex-1 w-full">
                                 <Label htmlFor={`exit-${dateString}`} className="sr-only">Saída</Label>
                                 <Input
                                   id={`exit-${dateString}`}
@@ -725,12 +725,13 @@ const TimeTrackingPage: React.FC = () => {
                                 <Clock3 className="h-4 w-4 text-primary" />
                               </Button>
                             ) : (
+                              // Oculta o botão "Folga" em mobile, mantém no desktop
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleStatusChange(day, 'Folga')}
                                 disabled={isSaving}
-                                className="text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50"
+                                className="text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50 hidden sm:inline-flex"
                               >
                                 Folga
                               </Button>
@@ -738,7 +739,7 @@ const TimeTrackingPage: React.FC = () => {
                             
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" disabled={isSaving}>
+                                <Button variant="ghost" size="icon" disabled={isSaving} aria-label="Mais ações">
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -752,6 +753,12 @@ const TimeTrackingPage: React.FC = () => {
                                 <DropdownMenuItem onClick={() => handleStatusChange(day, 'Suspensao')} disabled={hasStatus}>
                                   Suspensão
                                 </DropdownMenuItem>
+                                {/* Adiciona a opção Folga no dropdown para mobile */}
+                                {isMobile && (
+                                  <DropdownMenuItem onClick={() => handleStatusChange(day, 'Folga')} disabled={hasStatus}>
+                                    Folga
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem onClick={() => handleOpenOtherStatusDialog(day)} disabled={hasStatus}>
                                   Outros...
                                 </DropdownMenuItem>
