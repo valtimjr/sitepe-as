@@ -5,18 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Menu, List as ListIcon, ChevronRight, Loader2, Tag, Info } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { getMenuStructure } from '@/services/customListService';
-import { MenuItem } from '@/types/supabase';
+import { MenuItem, Part } from '@/types/supabase';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
+import { getParts } from '@/services/partListService'; // Importar getParts
 
 interface MenuItemProps {
   item: MenuItem;
   level: number;
+  allAvailableParts: Part[]; // Adicionado para resolver descrições
 }
 
-const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
+const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailableParts }) => {
   const [isExpanded, setIsExpanded] = useState(level === 0);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false); // Estado para controlar o tooltip
   const hasChildren = item.children && item.children.length > 0;
@@ -36,6 +38,12 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
       e.stopPropagation(); // Evita que o clique no botão feche o menu pai
       setIsTooltipOpen(prev => !prev);
     }
+  };
+
+  // Helper function to get part description for display
+  const getPartDescription = (partCode: string): string => {
+    const part = allAvailableParts.find(p => p.codigo === partCode);
+    return part ? `${part.codigo} - ${part.descricao}` : partCode;
   };
 
   const content = (
@@ -77,7 +85,7 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
               <TooltipContent className="max-w-xs">
                 <p className="font-bold mb-1">Itens Relacionados:</p>
                 <ul className="list-disc list-inside">
-                  {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
+                  {item.itens_relacionados.map(rel => <li key={rel}>{getPartDescription(rel)}</li>)}
                 </ul>
               </TooltipContent>
             </Tooltip>
@@ -108,7 +116,7 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
       {hasChildren && isExpanded && (
         <div className="w-full">
           {item.children!.map(child => (
-            <MenuItemDisplay key={child.id} item={child} level={level + 1} />
+            <MenuItemDisplay key={child.id} item={child} level={level + 1} allAvailableParts={allAvailableParts} />
           ))}
         </div>
       )}
@@ -119,6 +127,8 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
 const CustomMenuOverview: React.FC = () => {
   const [menuHierarchy, setMenuHierarchy] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para resolver descrições
+  const [isLoadingAllParts, setIsLoadingAllParts] = useState(true); // Loading state for all parts
 
   useEffect(() => {
     document.title = "Catálogo de Peças - AutoBoard";
@@ -137,9 +147,22 @@ const CustomMenuOverview: React.FC = () => {
     }
   }, []);
 
+  const loadAllParts = useCallback(async () => {
+    setIsLoadingAllParts(true);
+    try {
+      const parts = await getParts();
+      setAllAvailableParts(parts);
+    } catch (error) {
+      // console.error("Error loading all parts:", error);
+    } finally {
+      setIsLoadingAllParts(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadMenu();
-  }, [loadMenu]);
+    loadAllParts(); // Load all parts on component mount
+  }, [loadMenu, loadAllParts]);
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -161,7 +184,7 @@ const CustomMenuOverview: React.FC = () => {
           <CardTitle className="text-xl">Estrutura de Listas</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading ? (
+          {isLoading || isLoadingAllParts ? (
             <div className="text-center text-muted-foreground py-8 flex items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando catálogo...
             </div>
@@ -170,7 +193,7 @@ const CustomMenuOverview: React.FC = () => {
           ) : (
             <div className="border rounded-lg overflow-hidden">
               {menuHierarchy.map(item => (
-                <MenuItemDisplay key={item.id} item={item} level={0} />
+                <MenuItemDisplay key={item.id} item={item} level={0} allAvailableParts={allAvailableParts} />
               ))}
             </div>
           )}

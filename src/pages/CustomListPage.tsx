@@ -10,7 +10,7 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
-import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af } from '@/services/partListService';
+import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts } from '@/services/partListService';
 import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
@@ -37,6 +37,8 @@ const CustomListPage: React.FC = () => {
   const [afForExport, setAfForExport] = useState('');
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para resolver descrições
+  const [isLoadingAllParts, setIsLoadingAllParts] = useState(true); // Loading state for all parts
 
   // Estado para controlar o Popover de itens relacionados
   const [isRelatedItemsPopoverOpen, setIsRelatedItemsPopoverOpen] = useState<string | null>(null);
@@ -78,10 +80,23 @@ const CustomListPage: React.FC = () => {
     }
   }, []);
 
+  const loadAllParts = useCallback(async () => {
+    setIsLoadingAllParts(true);
+    try {
+      const parts = await getParts();
+      setAllAvailableParts(parts);
+    } catch (error) {
+      // console.error("Error loading all parts:", error);
+    } finally {
+      setIsLoadingAllParts(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadList();
     loadAfs();
-  }, [loadList, loadAfs]);
+    loadAllParts(); // Load all parts on component mount
+  }, [loadList, loadAfs, loadAllParts]);
 
   useEffect(() => {
     document.title = `${listTitle} - AutoBoard`;
@@ -218,6 +233,12 @@ const CustomListPage: React.FC = () => {
     }
   };
 
+  // Helper function to get part description for display
+  const getPartDescription = (partCode: string): string => {
+    const part = allAvailableParts.find(p => p.codigo === partCode);
+    return part ? `${part.codigo} - ${part.descricao}` : partCode;
+  };
+
   return (
     <React.Fragment>
       <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -250,7 +271,7 @@ const CustomListPage: React.FC = () => {
                 <Button 
                   onClick={handleExportSelectedToMyList} 
                   className="flex items-center gap-2 flex-1 sm:w-auto" // Adicionado flex-1
-                  disabled={isLoadingAfs}
+                  disabled={isLoadingAfs || isLoadingAllParts}
                 >
                   <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
                 </Button>
@@ -298,7 +319,7 @@ const CustomListPage: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {isLoading || isLoadingAllParts ? (
               <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
             ) : items.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
@@ -353,7 +374,7 @@ const CustomListPage: React.FC = () => {
                                   <PopoverContent className="w-auto max-w-xs p-2">
                                     <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
                                     <ul className="list-disc list-inside text-xs text-muted-foreground">
-                                      {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
+                                      {item.itens_relacionados.map(rel => <li key={rel}>{getPartDescription(rel)}</li>)}
                                     </ul>
                                   </PopoverContent>
                                 </Popover>
@@ -385,6 +406,7 @@ const CustomListPage: React.FC = () => {
                 onClose={handleItemSavedOrClosed}
                 editingItem={itemToEdit}
                 onItemSaved={handleItemSavedOrClosed}
+                allAvailableParts={allAvailableParts} // Pass all available parts
               />
             )}
           </SheetContent>

@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet'; // Importar Sheet e SheetDescription
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet'; // Sheet is imported but will not be used directly in this component's return
 import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
@@ -38,12 +37,12 @@ interface CustomListEditorProps {
   onClose: () => void;
   editingItem?: CustomListItem | null;
   onItemSaved?: () => void; // Tornada opcional
+  allAvailableParts: Part[]; // Adicionado para resolver descrições
 }
 
-const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved }) => {
+const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved, allAvailableParts }) => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSheetOpen, setIsSheetOpen] = useState(false); // Renomeado para clareza
   const [currentEditItem, setCurrentEditItem] = useState<CustomListItem | null>(null);
   
   // Form states for main item
@@ -56,8 +55,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   // Search states for main item form
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(true);
+  const [isLoadingParts, setIsLoadingParts] = useState(true); // This now refers to search loading
   const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null);
 
   // Search states for related items form
@@ -85,21 +83,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     }
   }, [list.id]);
 
-  const loadParts = useCallback(async () => {
-    setIsLoadingParts(true);
-    try {
-      const parts = await getParts();
-      setAllAvailableParts(parts);
-    } catch (error) {
-    } finally {
-      setIsLoadingParts(false);
-    }
-  }, []);
+  // Removed loadParts from here, as allAvailableParts is now passed as a prop.
+  // The isLoadingParts state will now only reflect the search operation.
 
   useEffect(() => {
     loadItems();
-    loadParts();
-  }, [loadItems, loadParts]);
+  }, [loadItems]);
 
   // Efeito para preencher o formulário quando `editingItem` muda
   useEffect(() => {
@@ -118,16 +107,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setSearchResultsRelated([]); // Limpa os resultados de busca relacionada
 
         if (editingItem.part_code) {
-          const parts = await getParts(editingItem.part_code); 
-          if (parts.length === 1 && parts[0].codigo === editingItem.part_code) {
-            setSelectedPartFromSearch(parts[0]);
-          } else {
-            setSelectedPartFromSearch(null);
-          }
+          const part = allAvailableParts.find(p => p.codigo === editingItem.part_code);
+          setSelectedPartFromSearch(part || null);
         } else {
           setSelectedPartFromSearch(null);
         }
-        setIsSheetOpen(true);
       } else {
         resetForm();
         setSelectedPartFromSearch(null);
@@ -141,10 +125,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQuery.length > 1) {
-        setIsLoadingParts(true);
+        setIsLoadingParts(true); // Set loading for search
         const results = await searchPartsService(searchQuery);
         setSearchResults(results);
-        setIsLoadingParts(false);
+        setIsLoadingParts(false); // Unset loading for search
       } else {
         setSearchResults([]);
       }
@@ -159,10 +143,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   useEffect(() => {
     const fetchRelatedSearchResults = async () => {
       if (relatedSearchQuery.length > 1) {
-        setIsLoadingParts(true);
+        // setIsLoadingParts(true); // This loading state is shared, be careful
         const results = await searchPartsService(relatedSearchQuery);
         setSearchResultsRelated(results);
-        setIsLoadingParts(false);
+        // setIsLoadingParts(false);
       } else {
         setSearchResultsRelated([]);
       }
@@ -191,7 +175,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const handleAdd = () => {
     resetForm();
-    setIsSheetOpen(true);
+    onClose(); // Signal to parent to open sheet for new item
   };
 
   const handleEdit = (item: CustomListItem) => {
@@ -206,7 +190,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setBulkRelatedPartsInput(''); // Limpa o campo de bulk
     setRelatedSearchQuery(''); // Limpa a query de busca relacionada
     setSearchResultsRelated([]); // Limpa os resultados de busca relacionada
-    setIsSheetOpen(true);
   };
 
   const handleSelectPart = (part: Part) => {
@@ -255,7 +238,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         showSuccess('Item adicionado com sucesso!');
       }
       
-      setIsSheetOpen(false);
+      onClose(); // Signal to parent to close sheet
       loadItems();
       onItemSaved?.(); // Usando encadeamento opcional
     } catch (error) {
@@ -447,7 +430,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     try {
       await updatePart({ ...selectedPartFromSearch, name: formItemName.trim() });
       showSuccess('Nome global da peça atualizado com sucesso!');
-      await loadParts();
+      // No need to reload all parts here, just update the selectedPartFromSearch state
+      // to reflect the change if it's still the same part.
       setSelectedPartFromSearch(prev => prev ? { ...prev, name: formItemName.trim() } : null);
     } catch (error) {
       showError('Erro ao atualizar nome global da peça.');
@@ -487,6 +471,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setFormItensRelacionados(uniqueNewCodes);
     setBulkRelatedPartsInput('');
     showSuccess(`${newCodes.length} código(s) adicionado(s) aos itens relacionados.`);
+  };
+
+  // Helper function to get part description for display
+  const getPartDescription = (partCode: string): string => {
+    const part = allAvailableParts.find(p => p.codigo === partCode);
+    return part ? `${part.codigo} - ${part.descricao}` : partCode;
   };
 
   return (
@@ -585,7 +575,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                       <GripVertical className="h-4 w-4 text-muted-foreground" />
                     </TableCell>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                    <TableCell className="w-auto whitespace-normal break-words p-2"> {/* Ajustado para mobile */}
+                    <TableCell className="w-auto whitespace-normal break-words p-2 text-left"> {/* Ajustado para mobile */}
                         <div className="flex flex-col items-start">
                           {item.part_code && (
                             <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
@@ -597,14 +587,18 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                           {item.itens_relacionados && item.itens_relacionados.length > 0 && (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-help">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
+                                >
                                   <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                                </span>
+                                </Button>
                               </TooltipTrigger>
                               <TooltipContent className="max-w-xs">
                                 <p className="font-bold mb-1">Itens Relacionados:</p>
                                 <ul className="list-disc list-inside">
-                                  {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
+                                  {item.itens_relacionados.map(rel => <li key={rel}>{getPartDescription(rel)}</li>)}
                                 </ul>
                               </TooltipContent>
                             </Tooltip>
@@ -677,177 +671,174 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       </CardContent>
 
       {/* Sheet Principal para Adicionar/Editar Item */}
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{currentEditItem ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
-            <SheetDescription>
-              {currentEditItem ? 'Edite os detalhes do item da lista.' : 'Adicione um novo item à lista personalizada.'}
-            </SheetDescription>
-          </SheetHeader>
-          <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
-              <PartSearchInput
-                onSearch={setSearchQuery}
-                searchResults={searchResults}
-                onSelectPart={handleSelectPart}
-                searchQuery={searchQuery}
-                allParts={allAvailableParts}
-                isLoading={isLoadingParts}
+      {/* This Sheet is now managed by the parent component (CustomListPage) */}
+      <SheetHeader>
+        <SheetTitle>{currentEditItem ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
+        <SheetDescription>
+          {currentEditItem ? 'Edite os detalhes do item da lista.' : 'Adicione um novo item à lista personalizada.'}
+        </SheetDescription>
+      </SheetHeader>
+      <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+        <div className="space-y-2">
+          <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
+          <PartSearchInput
+            onSearch={setSearchQuery}
+            searchResults={searchResults}
+            onSelectPart={handleSelectPart}
+            searchQuery={searchQuery}
+            allParts={allAvailableParts}
+            isLoading={isLoadingParts}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+          <div className="space-y-2 md:col-span-2"> {/* Nome Personalizado: maior */}
+            <Label htmlFor="item-name">Nome Personalizado</Label> {/* Rótulo encurtado */}
+            <div className="flex items-center gap-2">
+              <Input
+                id="item-name"
+                value={formItemName}
+                onChange={(e) => setFormItemName(e.target.value)}
+                placeholder="Ex: Kit de Reparo do Motor"
+                className="flex-1"
               />
+              {formPartCode && ( 
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleSaveGlobalPartName}
+                      disabled={
+                        !selectedPartFromSearch || 
+                        formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim() ||
+                        !formItemName.trim()
+                      }
+                    >
+                      <Save className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Salvar este nome como o nome global da peça "{selectedPartFromSearch?.codigo || 'N/A'}"
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
+          </div>
+          
+          <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
+            <Label htmlFor="part-code">Cód. Peça (Opcional)</Label> {/* Rótulo encurtado */}
+            <Input
+              id="part-code"
+              value={formPartCode}
+              onChange={(e) => setFormPartCode(e.target.value)}
+              placeholder="Código da peça"
+              className="w-full"
+            />
+          </div>
+        </div> {/* End grid-cols-1 md:grid-cols-3 for name/part-code */}
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+          <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
+            <Label htmlFor="description">Descrição (Opcional)</Label>
+            <Input
+              id="description"
+              value={formDescription}
+              onChange={(e) => setFormDescription(e.target.value)}
+              placeholder="Descrição da peça"
+              className="w-full"
+            />
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-              <div className="space-y-2 md:col-span-2"> {/* Nome Personalizado: maior */}
-                <Label htmlFor="item-name">Nome Personalizado</Label> {/* Rótulo encurtado */}
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="item-name"
-                    value={formItemName}
-                    onChange={(e) => setFormItemName(e.target.value)}
-                    placeholder="Ex: Kit de Reparo do Motor"
-                    className="flex-1"
-                  />
-                  {formPartCode && ( 
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleSaveGlobalPartName}
-                          disabled={
-                            !selectedPartFromSearch || 
-                            formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim() ||
-                            !formItemName.trim()
-                          }
-                        >
-                          <Save className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Salvar este nome como o nome global da peça "{selectedPartFromSearch?.codigo || 'N/A'}"
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
-              </div>
-              
-              <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
-                <Label htmlFor="part-code">Cód. Peça (Opcional)</Label> {/* Rótulo encurtado */}
-                <Input
-                  id="part-code"
-                  value={formPartCode}
-                  onChange={(e) => setFormPartCode(e.target.value)}
-                  placeholder="Código da peça"
-                  className="w-full"
-                />
-              </div>
-            </div> {/* End grid-cols-1 md:grid-cols-3 for name/part-code */}
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-              <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
-                <Label htmlFor="description">Descrição (Opcional)</Label>
-                <Input
-                  id="description"
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="Descrição da peça"
-                  className="w-full"
-                />
-              </div>
+          <div className="space-y-2 md:col-span-1"> {/* Quantidade: menor */}
+            <Label htmlFor="quantity">Quantidade</Label>
+            <Input
+              id="quantity"
+              type="number"
+              value={formQuantity}
+              onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
+              min="1"
+              required
+              className="w-full"
+            />
+          </div>
+        </div> {/* End grid-cols-1 md:grid-cols-3 for description/quantity */}
 
-              <div className="space-y-2 md:col-span-1"> {/* Quantidade: menor */}
-                <Label htmlFor="quantity">Quantidade</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  value={formQuantity}
-                  onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
-                  min="1"
-                  required
-                  className="w-full"
-                />
-              </div>
-            </div> {/* End grid-cols-1 md:grid-cols-3 for description/quantity */}
-
-            {/* Seção de Itens Relacionados */}
-            <div className="space-y-2 border-t pt-4">
-              <Label className="flex items-center gap-2">
-                <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
-              </Label>
-              <PartSearchInput
-                onSearch={setRelatedSearchQuery}
-                searchResults={relatedSearchResults}
-                onSelectPart={handleAddRelatedPart}
-                searchQuery={relatedSearchQuery}
-                allParts={allAvailableParts}
-                isLoading={isLoadingParts}
+        {/* Seção de Itens Relacionados */}
+        <div className="space-y-2 border-t pt-4">
+          <Label className="flex items-center gap-2">
+            <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
+          </Label>
+          <PartSearchInput
+            onSearch={setRelatedSearchQuery}
+            searchResults={relatedSearchResults}
+            onSelectPart={handleAddRelatedPart}
+            searchQuery={relatedSearchQuery}
+            allParts={allAvailableParts}
+            isLoading={isLoadingParts}
+          />
+          <div className="space-y-2">
+            <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
+              Adicionar múltiplos códigos (separados por ';')
+            </Label>
+            <div className="flex gap-2">
+              <Textarea
+                id="bulk-related-parts"
+                value={bulkRelatedPartsInput}
+                onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
+                placeholder="Ex: COD1; COD2; COD3"
+                rows={2}
+                className="flex-1"
               />
-              <div className="space-y-2">
-                <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
-                  Adicionar múltiplos códigos (separados por ';')
-                </Label>
-                <div className="flex gap-2">
-                  <Textarea
-                    id="bulk-related-parts"
-                    value={bulkRelatedPartsInput}
-                    onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
-                    placeholder="Ex: COD1; COD2; COD3"
-                    rows={2}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleBulkAddRelatedParts}
-                    disabled={bulkRelatedPartsInput.trim().length === 0}
-                    variant="outline"
-                    size="icon"
-                    aria-label="Adicionar em massa"
-                  >
-                    <PlusCircle className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <ScrollArea className="h-24 w-full rounded-md border p-2">
-                {formItensRelacionados.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {formItensRelacionados.map(codigo => (
-                      <div key={codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
-                        {codigo}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-4 w-4 p-0 text-destructive"
-                          onClick={() => handleRemoveRelatedPart(codigo)}
-                        >
-                          <XCircle className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
+              <Button
+                type="button"
+                onClick={handleBulkAddRelatedParts}
+                disabled={bulkRelatedPartsInput.trim().length === 0}
+                variant="outline"
+                size="icon"
+                aria-label="Adicionar em massa"
+              >
+                <PlusCircle className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <ScrollArea className="h-24 w-full rounded-md border p-2">
+            {formItensRelacionados.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {formItensRelacionados.map(codigo => (
+                  <div key={codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
+                    {getPartDescription(codigo)}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 p-0 text-destructive"
+                      onClick={() => handleRemoveRelatedPart(codigo)}
+                    >
+                      <XCircle className="h-3 w-3" />
+                    </Button>
                   </div>
-                )}
-              </ScrollArea>
-              <p className="text-sm text-muted-foreground">
-                Adicione códigos de peças que estão relacionadas a este item da lista.
-              </p>
-            </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+          <p className="text-sm text-muted-foreground">
+            Adicione códigos de peças que estão relacionadas a este item da lista.
+          </p>
+        </div>
 
-            <SheetFooter>
-              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
-                <XCircle className="h-4 w-4 mr-2" /> Cancelar
-              </Button>
-              <Button type="submit">
-                <Save className="h-4 w-4 mr-2" /> Salvar
-              </Button>
-            </SheetFooter>
-          </form>
-        </SheetContent>
-      </Sheet>
+        <SheetFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            <XCircle className="h-4 w-4 mr-2" /> Cancelar
+          </Button>
+          <Button type="submit">
+            <Save className="h-4 w-4 mr-2" /> Salvar
+          </Button>
+        </SheetFooter>
+      </form>
     </Card>
   );
 };
