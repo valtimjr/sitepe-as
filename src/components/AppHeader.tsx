@@ -69,7 +69,7 @@ const AppHeader: React.FC = () => {
           <DropdownMenuSub key={item.id}>
             <DropdownMenuSubTrigger>
               {item.title}
-            </DropdownMenuSubSubTrigger>
+            </DropdownMenuSubTrigger>
             <DropdownMenuSubContent sideOffset={2} alignOffset={-5}>
               {renderDynamicMenu(item.children)}
             </DropdownMenuSubContent>
