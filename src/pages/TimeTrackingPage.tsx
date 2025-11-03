@@ -400,28 +400,20 @@ const TimeTrackingPage: React.FC = () => {
   };
 
   const handleGenerateSchedule = async () => {
-    console.log('handleGenerateSchedule: Botão "Gerar Escala" clicado.');
-    console.log('handleGenerateSchedule: userId:', userId);
-    console.log('handleGenerateSchedule: selectedTurn:', selectedTurn);
-
     if (!userId || !selectedTurn) {
       showError('Selecione um turno e faça login.');
-      console.error('handleGenerateSchedule: userId ou selectedTurn ausentes.');
       return;
     }
 
     setIsGeneratingSchedule(true);
     const loadingToastId = showLoading('Gerando escala e sincronizando...');
-    console.log('handleGenerateSchedule: Iniciando geração da escala...');
 
     try {
       const generatedDailyApontamentos = generateMonthlyApontamentos(currentDate, selectedTurn, userId);
       const monthYear = format(currentDate, 'yyyy-MM');
-      console.log('handleGenerateSchedule: Apontamentos diários gerados:', generatedDailyApontamentos);
 
       if (generatedDailyApontamentos.length === 0) {
         showSuccess('Nenhum apontamento gerado para este mês com o turno selecionado.');
-        console.warn('handleGenerateSchedule: Nenhum apontamento gerado.');
         return;
       }
 
@@ -439,19 +431,16 @@ const TimeTrackingPage: React.FC = () => {
       };
 
       // 3. Sincroniza o objeto MonthlyApontamento completo UMA VEZ
-      console.log('handleGenerateSchedule: Sincronizando MonthlyApontamento completo com Supabase...');
       await syncMonthlyApontamentoToSupabase(newMonthlyApontamento);
       
       showSuccess(`${generatedDailyApontamentos.length} dias da escala do ${selectedTurn} foram preenchidos/atualizados!`);
       loadApontamentos(); // Recarrega os apontamentos para refletir as mudanças
-      console.log('handleGenerateSchedule: Escala gerada e sincronizada com sucesso.');
     } catch (error) {
       showError('Erro ao gerar a escala de horários.');
-      console.error('handleGenerateSchedule: Erro durante a geração ou sincronização da escala:', error);
+      console.error('Erro durante a geração ou sincronização da escala:', error);
     } finally {
       dismissToast(loadingToastId);
       setIsGeneratingSchedule(false);
-      console.log('handleGenerateSchedule: Finalizado.');
     }
   };
 
