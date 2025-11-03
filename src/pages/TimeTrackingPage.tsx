@@ -407,19 +407,13 @@ const TimeTrackingPage: React.FC = () => {
       const generatedApontamentos = generateMonthlyApontamentos(currentDate, selectedTurn, userId);
       const monthYear = format(currentDate, 'yyyy-MM');
 
-      // Removido o filtro `newApontamentosToSave`
-      // A função `updateApontamento` agora lida com a lógica de sobrescrever/adicionar
-      if (generatedApontamentos.length === 0) {
-        showSuccess('Nenhum apontamento gerado para este mês com o turno selecionado.');
-        return;
-      }
-
-      // Atualiza todos os apontamentos gerados, `updateApontamento` cuidará da lógica de sobrescrita
+      // Itera sobre TODOS os apontamentos gerados e chama updateApontamento para cada um.
+      // A função updateApontamento agora lida com a lógica de sobrescrever ou adicionar.
       const syncPromises = generatedApontamentos.map(a => updateApontamento(userId, monthYear, a));
       await Promise.all(syncPromises);
 
       showSuccess(`${generatedApontamentos.length} dias da escala do ${selectedTurn} foram preenchidos/atualizados!`);
-      loadApontamentos();
+      loadApontamentos(); // Recarrega os apontamentos para refletir as mudanças
     } catch (error) {
       showError('Erro ao gerar a escala de horários.');
       console.error('Failed to generate schedule:', error);
