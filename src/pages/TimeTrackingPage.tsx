@@ -743,14 +743,14 @@ const TimeTrackingPage: React.FC = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleStatusChange(day, 'Atestado')} disabled={hasStatus}>
+                                  Atestado
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleStatusChange(day, 'Falta')} disabled={hasStatus}>
                                   Falta
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleStatusChange(day, 'Suspensao')} disabled={hasStatus}>
                                   Suspensão
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleStatusChange(day, 'Atestado')} disabled={hasStatus}>
-                                  Atestado
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleOpenOtherStatusDialog(day)} disabled={hasStatus}>
                                   Outros...
