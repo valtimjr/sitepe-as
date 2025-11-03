@@ -269,7 +269,6 @@ export const createCustomList = async (title: string, userId: string): Promise<C
  * @param list O objeto CustomList completo com os dados atualizados.
  */
 export const updateCustomList = async (list: CustomList): Promise<void> => {
-  console.log('customListService: updateCustomList - Saving list ID:', list.id, 'with items_data:', list.items_data); // LOG
   const { error } = await supabase
     .from('custom_lists')
     .update({ title: list.title, items_data: list.items_data, updated_at: new Date().toISOString() }) // Inclui updated_at
@@ -347,6 +346,17 @@ export const addCustomListItem = async (listId: string, item: Omit<CustomListIte
   
   await updateCustomList({ ...currentList, items_data: updatedItems });
   return newItem;
+};
+
+export const updateCustomListItem = async (listId: string, item: CustomListItem): Promise<void> => {
+  const currentList = await getCustomListById(listId);
+  if (!currentList) throw new Error('Lista personalizada não encontrada.');
+
+  const updatedItems = (currentList.items_data || []).map(existingItem =>
+    existingItem.id === item.id ? { ...item, list_id: listId, itens_relacionados: item.itens_relacionados || [] } : existingItem
+  );
+
+  await updateCustomList({ ...currentList, items_data: updatedItems });
 };
 
 export const deleteCustomListItem = async (listId: string, itemId: string): Promise<void> => {
