@@ -181,17 +181,17 @@ const seedAfs = async (): Promise<void> => {
         .upsert(parsedAfs, { onConflict: 'af_number' }); // ALTERADO: Usando af_number como chave de conflito
 
       if (upsertError) {
-        console.error('[seedAfs] Falha ao upsert AFs no Supabase:', upsertError);
+        console.error('seedAfs: Failed to upsert AFs to Supabase:', upsertError);
         throw upsertError;
       }
 
       await bulkPutLocalAfs(parsedAfs);
       console.log(`[seedAfs] ${parsedAfs.length} AFs upserted no Supabase e IndexedDB.`);
     } catch (dbError) {
-      console.error("[seedAfs] Falha ao popular Supabase/IndexedDB com AFs:", dbError);
+      console.error("seedAfs: Failed to seed Supabase/IndexedDB with AFs:", dbError);
     }
   } else {
-    console.warn('[seedAfs] Nenhum AF encontrado em JSON ou CSV para popular.');
+    console.warn('seedAfs: No AFs found in JSON or CSV to seed.');
   }
 };
 
@@ -199,38 +199,44 @@ export const getParts = async (query?: string): Promise<Part[]> => {
   console.log(`[getParts] Iniciando busca de peças. Query: "${query || 'Nenhuma'}"`);
   await seedPartsFromJson(); // Garante que o Supabase esteja populado
 
-  let queryBuilder = supabase
-    .from('parts')
-    .select('*');
-    // REMOVIDO: limit(1000) para garantir que todos os itens sejam carregados quando não há query específica.
-
   if (query) {
-    const lowerCaseQuery = query.toLowerCase().trim();
-    const searchPattern = lowerCaseQuery.split(/\s+/).filter(Boolean).join('%');
-    queryBuilder = queryBuilder.or(
-      `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
-    ).limit(1000); // Mantém o limite para buscas interativas
-    console.log(`[getParts] Supabase query pattern (com limite): "%${searchPattern}%"`);
+    // Busca interativa: prioriza local, depois remoto limitado
+    console.log(`[getParts] Query fornecida. Tentando busca local primeiro para a query: "${query}"`);
+    const localResults = await searchLocalParts(query);
+    if (localResults.length > 0) {
+      console.log(`[getParts] Resultados locais encontrados para a query "${query}": ${localResults.length} itens. Retornando resultados locais.`);
+      return localResults;
+    }
+    console.log(`[getParts] Nenhum resultado local para a query "${query}". Recorrendo à busca remota.`);
+    // Recorre à busca remota (que tem um limite de 1000 para busca interativa)
+    return searchParts(query); // Isso chama a função searchParts existente
   } else {
-    console.log('[getParts] Buscando TODAS as peças do Supabase (sem limite).');
-  }
+    // Obter TODAS as peças: prioriza cache local, depois busca remota paginada
+    console.log('[getParts] Nenhuma query fornecida. Tentando obter TODAS as peças.');
 
-  const { data, error } = await queryBuilder;
-
-  if (error) {
-    console.error('[getParts] Erro ao buscar peças do Supabase:', error);
-    console.log('[getParts] Tentando fallback para IndexedDB...');
+    // 1. Tenta IndexedDB primeiro
     const localParts = await getLocalParts();
-    console.log(`[getParts] Peças retornadas do IndexedDB: ${localParts.length}`);
-    return localParts;
-  }
+    if (localParts.length > 0) {
+      console.log(`[getParts] Encontradas ${localParts.length} peças no IndexedDB. Retornando cache local.`);
+      return localParts;
+    }
 
-  console.log(`[getParts] Peças retornadas do Supabase: ${data?.length}`);
-  // Atualiza o cache local com os dados do Supabase
-  await localDb.parts.clear();
-  await bulkPutLocalParts(data as Part[]);
-  console.log('[getParts] Cache local de peças atualizado.');
-  return data as Part[];
+    // 2. Se o cache local estiver vazio, busca todas do Supabase com paginação
+    console.log('[getParts] IndexedDB está vazio. Buscando TODAS as peças do Supabase com paginação...');
+    try {
+      const allRemoteParts = await getAllPartsForExport(); // Esta função já lida com paginação
+      console.log(`[getParts] Buscadas ${allRemoteParts.length} peças do Supabase via paginação.`);
+      
+      // Atualiza o cache local
+      await localDb.parts.clear();
+      await bulkPutLocalParts(allRemoteParts);
+      console.log('[getParts] Cache local atualizado com todas as peças remotas.');
+      return allRemoteParts;
+    } catch (error) {
+      console.error('[getParts] Erro ao buscar TODAS as peças do Supabase:', error);
+      throw new Error(`Erro ao buscar todas as peças do Supabase: ${error.message}`);
+    }
+  }
 };
 
 export const getAllPartsForExport = async (): Promise<Part[]> => {
@@ -878,36 +884,31 @@ export const syncPendingApontamentos = async (userId: string): Promise<number> =
 // --- Funções de Importação e Exportação (mantidas) ---
 
 export const importParts = async (parts: Part[]): Promise<void> => {
-  console.log(`[importParts] Iniciando importação de ${parts.length} peças.`);
   const { error: supabaseError } = await supabase
     .from('parts')
     .upsert(parts, { onConflict: 'id' });
 
   if (supabaseError) {
-    console.error('[importParts] Erro ao importar peças para o Supabase:', supabaseError);
+    console.error('Error importing parts to Supabase:', supabaseError);
     throw new Error(`Erro ao importar peças para o Supabase: ${supabaseError.message}`);
   }
   await bulkPutLocalParts(parts);
-  console.log('[importParts] Peças importadas com sucesso no Supabase e IndexedDB.');
 };
 
 export const importAfs = async (afs: Af[]): Promise<void> => {
-  console.log(`[importAfs] Iniciando importação de ${afs.length} AFs.`);
   // CHAVE DE CONFLITO ALTERADA PARA 'af_number'
   const { error: supabaseError } = await supabase
     .from('afs')
     .upsert(afs, { onConflict: 'af_number' });
 
   if (supabaseError) {
-    console.error('[importAfs] Erro ao importar AFs para o Supabase:', supabaseError);
+    console.error('Error importing AFs to Supabase:', supabaseError);
     throw new Error(`Erro ao importar AFs para o Supabase: ${supabaseError.message}`);
   }
   await bulkPutLocalAfs(afs);
-  console.log('[importAfs] AFs importados com sucesso no Supabase e IndexedDB.');
 };
 
 export const exportDataAsCsv = (data: any[], filename: string): void => {
-  console.log(`[exportDataAsCsv] Exportando ${data.length} itens para CSV: ${filename}`);
   const csv = Papa.unparse(data);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
@@ -920,11 +921,9 @@ export const exportDataAsCsv = (data: any[], filename: string): void => {
     link.click();
     document.body.removeChild(link);
   }
-  console.log('[exportDataAsCsv] Exportação CSV concluída.');
 };
 
 export const exportDataAsJson = (data: any[], filename: string): void => {
-  console.log(`[exportDataAsJson] Exportando ${data.length} itens para JSON: ${filename}`);
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
   const link = document.createElement('a');
@@ -937,11 +936,9 @@ export const exportDataAsJson = (data: any[], filename: string): void => {
     link.click();
     document.body.removeChild(link);
   }
-  console.log('[exportDataAsJson] Exportação JSON concluída.');
 };
 
 export const cleanupEmptyParts = async (): Promise<number> => {
-  console.log('[cleanupEmptyParts] Iniciando limpeza de peças vazias.');
   let deletedCount = 0;
   const fetchPageSize = 1000; // Quantas peças buscar de uma vez
   const deleteBatchSize = 500; // Quantos IDs excluir em uma chamada do Supabase
@@ -950,14 +947,13 @@ export const cleanupEmptyParts = async (): Promise<number> => {
   let allIdsToDelete: string[] = [];
 
   while (hasMoreToFetch) {
-    console.log(`[cleanupEmptyParts] Buscando lote de peças (offset: ${offset})...`);
     const { data, error } = await supabase
       .from('parts')
-      .select('id, codigo, descricao, name') // Inclui 'name' na seleção
+      .select('id, codigo, descricao')
       .range(offset, offset + fetchPageSize - 1);
 
     if (error) {
-      console.error('[cleanupEmptyParts] Erro ao buscar peças para limpeza do Supabase (paginado):', error);
+      console.error('Error fetching parts for cleanup from Supabase (paginated):', error);
       throw new Error(`Erro ao buscar peças para limpeza: ${error.message}`);
     }
 
@@ -971,38 +967,30 @@ export const cleanupEmptyParts = async (): Promise<number> => {
         .map(part => part.id);
       allIdsToDelete = allIdsToDelete.concat(emptyPartsIds);
       offset += fetchPageSize;
-      console.log(`[cleanupEmptyParts] Lote processado. ${emptyPartsIds.length} peças vazias encontradas. Total para deletar: ${allIdsToDelete.length}`);
     } else {
       hasMoreToFetch = false;
-      console.log('[cleanupEmptyParts] Nenhuma peça adicional para buscar.');
     }
   }
 
   if (allIdsToDelete.length > 0) {
-    console.log(`[cleanupEmptyParts] Total de ${allIdsToDelete.length} peças vazias para deletar. Iniciando exclusão em lotes.`);
     // Realiza as exclusões em lotes
     for (let i = 0; i < allIdsToDelete.length; i += deleteBatchSize) {
       const batchIds = allIdsToDelete.slice(i, i + deleteBatchSize);
-      console.log(`[cleanupEmptyParts] Deletando lote de ${batchIds.length} IDs do Supabase.`);
       const { error: deleteError } = await supabase
         .from('parts')
         .delete()
         .in('id', batchIds);
 
       if (deleteError) {
-        console.error('[cleanupEmptyParts] Erro ao deletar lote de peças vazias do Supabase:', deleteError);
+        console.error('Error deleting empty parts batch from Supabase:', deleteError);
         throw new Error(`Erro ao excluir peças vazias do Supabase (lote): ${deleteError.message}`);
       }
       deletedCount += batchIds.length;
-      console.log(`[cleanupEmptyParts] Lote de ${batchIds.length} IDs deletado do Supabase.`);
     }
 
     // Deleta do IndexedDB em massa após todas as exclusões do Supabase
-    console.log(`[cleanupEmptyParts] Deletando ${allIdsToDelete.length} IDs do IndexedDB.`);
     await localDb.parts.bulkDelete(allIdsToDelete);
-    console.log('[cleanupEmptyParts] Peças vazias deletadas do IndexedDB.');
   }
 
-  console.log(`[cleanupEmptyParts] Limpeza de peças vazias concluída. ${deletedCount} peças removidas.`);
   return deletedCount;
 };
