@@ -548,6 +548,7 @@ const isOnline = async () => {
 
 // Sincroniza dados do Supabase para o IndexedDB
 export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string): Promise<MonthlyApontamento | undefined> => {
+  console.log(`[syncMonthlyApontamentosFromSupabase] Fetching for user: ${userId}, month: ${monthYear}`);
   const { data, error } = await supabase
     .from('monthly_apontamentos')
     .select('*')
@@ -556,11 +557,12 @@ export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthY
     .single();
 
   if (error && error.code !== 'PGRST116') { // PGRST116 means "no rows found"
-    console.error('Error fetching monthly apontamentos from Supabase:', error);
+    console.error(`[syncMonthlyApontamentosFromSupabase] Error fetching monthly apontamentos from Supabase for ${monthYear}:`, error);
     return undefined;
   }
 
   if (data) {
+    console.log(`[syncMonthlyApontamentosFromSupabase] Received data from Supabase for ${monthYear}:`, data);
     const monthlyApontamento: MonthlyApontamento = {
       ...data,
       data: (data.data as DailyApontamento[]).map(cleanDailyApontamento), // Limpa IDs e user_id ao buscar
@@ -568,8 +570,10 @@ export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthY
       updated_at: data.updated_at,
     };
     await putLocalMonthlyApontamento(monthlyApontamento);
+    console.log(`[syncMonthlyApontamentosFromSupabase] Stored in local DB for ${monthYear}:`, monthlyApontamento);
     return monthlyApontamento;
   }
+  console.log(`[syncMonthlyApontamentosFromSupabase] No data found in Supabase for ${monthYear}.`);
   return undefined;
 };
 
@@ -589,6 +593,8 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
     updated_at: new Date().toISOString(),
   };
 
+  console.log(`[syncMonthlyApontamentoToSupabase] Sending payload to Supabase for ${month_year}:`, payload);
+
   const { data: upsertedData, error } = await supabase
     .from('monthly_apontamentos')
     .upsert(payload, { onConflict: 'user_id,month_year' }) // Conflito em user_id e month_year
@@ -596,9 +602,11 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
     .single();
 
   if (error) {
-    console.error('Error upserting monthly apontamento to Supabase:', error);
+    console.error(`[syncMonthlyApontamentoToSupabase] Error upserting monthly apontamento to Supabase for ${month_year}:`, error);
     throw new Error(`Erro ao sincronizar apontamento mensal: ${error.message}`);
   }
+
+  console.log(`[syncMonthlyApontamentoToSupabase] Received upserted data from Supabase for ${month_year}:`, upsertedData);
 
   const syncedMonthlyApontamento: MonthlyApontamento = {
     ...upsertedData,
@@ -606,6 +614,7 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
   };
 
   await putLocalMonthlyApontamento(syncedMonthlyApontamento);
+  console.log(`[syncMonthlyApontamentoToSupabase] Stored in local DB after sync for ${month_year}:`, syncedMonthlyApontamento);
   
   return syncedMonthlyApontamento;
 };
@@ -620,6 +629,7 @@ export const getApontamentos = async (userId: string, monthYear: string): Promis
     monthlyApontamento = await syncMonthlyApontamentosFromSupabase(userId, monthYear);
   } else {
     // Se offline, tenta do cache local
+    console.log(`[getApontamentos] Offline. Fetching from local DB for user: ${userId}, month: ${monthYear}`);
     monthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
   }
 
@@ -634,10 +644,12 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
   if (!currentMonthlyApontamento) {
     // Se não existe localmente, tenta buscar do Supabase (se online)
     if (online) {
+      console.log(`[updateApontamento] No local data. Fetching from Supabase for user: ${userId}, month: ${monthYear}`);
       currentMonthlyApontamento = await syncMonthlyApontamentosFromSupabase(userId, monthYear);
     }
     if (!currentMonthlyApontamento) {
       // Se ainda não existe, cria um novo registro mensal
+      console.log(`[updateApontamento] Creating new MonthlyApontamento object for user: ${userId}, month: ${monthYear}`);
       currentMonthlyApontamento = {
         id: uuidv4(), // ID para o registro mensal
         user_id: userId,
@@ -660,10 +672,12 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
 
   if (existingIndexByDate !== -1) {
     // Se um apontamento para a mesma data existe, atualiza-o
+    console.log(`[updateApontamento] Updating existing daily apontamento for date: ${dailyApontamento.date}`);
     newDailyApontamentoToReturn = { ...cleanedDailyApontamento, updated_at: new Date().toISOString() };
     updatedDailyApontamentos[existingIndexByDate] = newDailyApontamentoToReturn;
   } else {
     // Caso contrário, adiciona como uma nova entrada.
+    console.log(`[updateApontamento] Adding new daily apontamento for date: ${dailyApontamento.date}`);
     newDailyApontamentoToReturn = { ...cleanedDailyApontamento, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     updatedDailyApontamentos.push(newDailyApontamentoToReturn);
   }
@@ -674,13 +688,15 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
     updated_at: new Date().toISOString(),
   };
 
+  console.log(`[updateApontamento] Storing updated MonthlyApontamento locally for ${monthYear}:`, updatedMonthlyApontamento);
   await putLocalMonthlyApontamento(updatedMonthlyApontamento);
 
   if (online) {
     try {
+      console.log(`[updateApontamento] Online. Attempting to sync to Supabase for ${monthYear}.`);
       await syncMonthlyApontamentoToSupabase(updatedMonthlyApontamento);
     } catch (e) {
-      console.warn("Immediate Supabase sync of monthly apontamento failed, data remains local.", e);
+      console.warn(`[updateApontamento] Immediate Supabase sync of monthly apontamento for ${monthYear} failed, data remains local.`, e);
       // Não relança o erro, pois o dado já está salvo localmente.
     }
   }
@@ -695,11 +711,13 @@ export const deleteApontamento = async (userId: string, monthYear: string, daily
 
   if (!currentMonthlyApontamento) {
     // Se não existe localmente, não há o que deletar
+    console.log(`[deleteApontamento] No local MonthlyApontamento found for ${monthYear}. Nothing to delete.`);
     return;
   }
 
   // Filtra o apontamento pela data
   const updatedDailyApontamentos = currentMonthlyApontamento.data.filter(a => a.date !== dailyApontamentoDate);
+  console.log(`[deleteApontamento] Deleting daily apontamento for date: ${dailyApontamentoDate}. Remaining daily entries:`, updatedDailyApontamentos);
 
   const updatedMonthlyApontamento: MonthlyApontamento = {
     ...currentMonthlyApontamento,
@@ -707,13 +725,15 @@ export const deleteApontamento = async (userId: string, monthYear: string, daily
     updated_at: new Date().toISOString(),
   };
 
+  console.log(`[deleteApontamento] Storing updated MonthlyApontamento locally after deletion for ${monthYear}:`, updatedMonthlyApontamento);
   await putLocalMonthlyApontamento(updatedMonthlyApontamento);
 
   if (online) {
     try {
+      console.log(`[deleteApontamento] Online. Attempting to sync deletion to Supabase for ${monthYear}.`);
       await syncMonthlyApontamentoToSupabase(updatedMonthlyApontamento);
     } catch (e) {
-      console.warn("Immediate Supabase sync of monthly apontamento deletion failed, data remains local.", e);
+      console.warn(`[deleteApontamento] Immediate Supabase sync of monthly apontamento deletion for ${monthYear} failed, data remains local.`, e);
       // Não relança o erro, pois a exclusão já está salva localmente.
     }
   }
@@ -723,10 +743,12 @@ export const deleteApontamento = async (userId: string, monthYear: string, daily
 export const deleteApontamentosByMonth = async (userId: string, monthYear: string): Promise<number> => {
   const online = await isOnline();
   
+  console.log(`[deleteApontamentosByMonth] Deleting local MonthlyApontamento for user: ${userId}, month: ${monthYear}`);
   // Deleta no IndexedDB
   await deleteLocalMonthlyApontamento(userId, monthYear);
 
   if (online) {
+    console.log(`[deleteApontamentosByMonth] Online. Deleting from Supabase for user: ${userId}, month: ${monthYear}`);
     // Deleta no Supabase
     const { error: supabaseError, count } = await supabase
       .from('monthly_apontamentos')
@@ -735,12 +757,14 @@ export const deleteApontamentosByMonth = async (userId: string, monthYear: strin
       .eq('month_year', monthYear);
 
     if (supabaseError) {
-      console.error('Error deleting monthly apontamentos from Supabase:', supabaseError);
+      console.error(`[deleteApontamentosByMonth] Error deleting monthly apontamentos from Supabase for ${monthYear}:`, supabaseError);
       throw new Error(`Erro ao excluir apontamentos mensais do Supabase: ${supabaseError.message}`);
     }
+    console.log(`[deleteApontamentosByMonth] Deleted ${count || 0} records from Supabase for ${monthYear}.`);
     return count || 0;
   }
 
+  console.log(`[deleteApontamentosByMonth] Offline. Only local deletion performed for ${monthYear}.`);
   return 0; // Se offline, apenas a exclusão local é feita.
 };
 
