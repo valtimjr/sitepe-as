@@ -638,9 +638,9 @@ const TimeTrackingPage: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[60px]">Dia</TableHead> {/* Largura ajustada para mobile */}
-                    <TableHead className="w-auto min-w-[150px]">Entrada</TableHead> {/* Cabeçalho dinâmico */}
-                    <TableHead className="w-[60px]">Total</TableHead> {/* Cabeçalho dinâmico */}
+                    <TableHead className="w-[60px] sm:w-[80px]">Dia</TableHead> {/* Largura ajustada para mobile */}
+                    <TableHead className="w-auto min-w-[150px] sm:min-w-[200px]">Entrada</TableHead> {/* Cabeçalho dinâmico */}
+                    <TableHead className="w-[60px] sm:w-[100px]">Total</TableHead> {/* Cabeçalho dinâmico */}
                     <TableHead className="w-[50px] text-right">Ações</TableHead> {/* Largura ajustada para mobile */}
                   </TableRow>
                 </TableHeader>
@@ -660,11 +660,18 @@ const TimeTrackingPage: React.FC = () => {
 
                     return (
                       <TableRow key={dateString} className={isWeekend ? 'bg-muted/50' : ''}>
-                        <TableCell className="font-medium w-[60px]"> {/* Largura ajustada */}
-                          {format(day, 'dd/MM')} ({dayName.substring(0, 3)}) {/* Dia da semana com 3 letras */}
+                        <TableCell className="font-medium w-[60px] sm:w-[80px]"> {/* Largura ajustada */}
+                          <div className="flex flex-col items-start">
+                            <span>{format(day, 'dd/MM')} ({dayName.substring(0, 3)})</span>
+                            {isMobile && (
+                              <span className="text-xs text-muted-foreground mt-0.5">
+                                {hasStatus ? statusDisplayName : calculateTotalHours(apontamento?.entry_time, apontamento?.exit_time)}
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         
-                        <TableCell className="space-y-2">
+                        <TableCell className={cn("space-y-2", hasStatus && isMobile && "col-span-2")}> {/* Add col-span-2 for mobile status */}
                           {hasStatus ? (
                             <div className={cn(
                               "flex flex-col items-center justify-center p-2 rounded-md",
@@ -708,34 +715,35 @@ const TimeTrackingPage: React.FC = () => {
                           )}
                         </TableCell>
 
-                        <TableCell className="font-semibold text-sm w-[60px]"> {/* Largura ajustada */}
-                          {hasStatus ? (isMobile ? '' : statusDisplayName) : calculateTotalHours(apontamento?.entry_time, apontamento?.exit_time)}
+                        <TableCell className="font-semibold text-sm w-[60px] sm:w-[100px]"> {/* Largura ajustada */}
+                          {!isMobile && (hasStatus ? statusDisplayName : calculateTotalHours(apontamento?.entry_time, apontamento?.exit_time))}
                         </TableCell>
 
                         <TableCell className="text-right">
                           <div className="flex justify-end items-center gap-1">
-                            {/* Botão "Reverter para Horas" oculto em mobile */}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleClearStatus(day)}
-                              disabled={isSaving}
-                              aria-label="Reverter para Horas"
-                              className="hidden sm:inline-flex" // Oculta em mobile, mostra em sm+
-                            >
-                              <Clock3 className="h-4 w-4 text-primary" />
-                            </Button>
-                            
-                            {/* Botão "Folga" direto oculto em mobile */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleStatusChange(day, 'Folga')}
-                              disabled={isSaving}
-                              className="text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50 hidden sm:inline-flex"
-                            >
-                              Folga
-                            </Button>
+                            {hasStatus ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleClearStatus(day)}
+                                disabled={isSaving}
+                                aria-label="Reverter para Horas"
+                                className="hidden sm:inline-flex" // Oculta em mobile, mostra em sm+
+                              >
+                                <Clock3 className="h-4 w-4 text-primary" />
+                              </Button>
+                            ) : (
+                              // Oculta o botão "Folga" em mobile, mantém no desktop
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleStatusChange(day, 'Folga')}
+                                disabled={isSaving}
+                                className="text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50 hidden sm:inline-flex"
+                              >
+                                Folga
+                              </Button>
+                            )}
                             
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
