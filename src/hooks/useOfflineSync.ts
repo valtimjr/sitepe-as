@@ -5,8 +5,16 @@ import { BackgroundTask } from '@capawesome/capacitor-background-task';
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError } from '@/utils/toast';
 import { Capacitor } from '@capacitor/core'; // Importar Capacitor
-import { getLocalMonthlyApontamento, putLocalMonthlyApontamento, MonthlyApontamento } from '@/services/localDbService';
-import { syncMonthlyApontamentoToSupabase } from '@/services/partListService';
+import { 
+  getLocalMonthlyApontamento, 
+  putLocalMonthlyApontamento, 
+  MonthlyApontamento,
+  bulkPutLocalMonthlyApontamentos, // Adicionado para bulkPut
+} from '@/services/localDbService';
+import { 
+  syncMonthlyApontamentoToSupabase, 
+  syncMonthlyApontamentosFromSupabase,
+} from '@/services/partListService';
 import { format } from 'date-fns';
 
 const SYNC_INTERVAL_MS = 60000; // Tenta sincronizar a cada 60 segundos se estiver online
@@ -15,41 +23,104 @@ export function useOfflineSync() {
   const { user, isLoading: isSessionLoading } = useSession();
   const isNative = Capacitor.isNative; // Verifica se é ambiente nativo
 
-  const syncOperations = useCallback(async () => {
+  const syncOperations = useCallback(async (forceSync: boolean = false) => {
     if (!user) return 0;
 
     try {
       const status = await Network.getStatus();
       if (!status.connected) {
-        // console.log('OfflineSync: Sem conexão. Pulando sincronização.');
+        console.log('OfflineSync: Sem conexão. Pulando sincronização.');
         return 0;
       }
 
-      // console.log('OfflineSync: Tentando sincronizar operações pendentes...');
+      console.log('OfflineSync: Iniciando sincronização de apontamentos mensais...');
       
-      // Para o novo modelo, a sincronização é mais complexa.
-      // Precisaríamos de um mecanismo para detectar quais MonthlyApontamentos locais
-      // foram modificados e não sincronizados.
-      // Por simplicidade, esta implementação assume que `updateApontamento` já tenta
-      // sincronizar imediatamente quando online.
-      // Uma solução mais robusta envolveria um campo `synced_at` no MonthlyApontamento
-      // local e comparar com o `updated_at` do Supabase.
+      const userId = user.id;
+      const localMonthlyApontamentos = await localDb.monthlyApontamentos.where('user_id').equals(userId).toArray();
+      
+      // Busca apenas os metadados (id, month_year, updated_at) dos apontamentos remotos
+      const { data: remoteMonthlyApontamentosMeta, error: remoteError } = await supabase
+        .from('monthly_apontamentos')
+        .select('id, month_year, updated_at')
+        .eq('user_id', userId);
 
-      // Por enquanto, vamos apenas tentar sincronizar o mês atual se houver dados locais.
-      const currentMonthYear = format(new Date(), 'yyyy-MM');
-      const localMonthlyApontamento = await getLocalMonthlyApontamento(user.id, currentMonthYear);
-
-      if (localMonthlyApontamento && localMonthlyApontamento.data.length > 0) {
-        // Poderíamos adicionar uma lógica para verificar se o local `updated_at` é mais recente que o remoto
-        // Para esta tarefa, vamos apenas tentar sincronizar se houver dados locais.
-        await syncMonthlyApontamentoToSupabase(localMonthlyApontamento);
-        showSuccess(`Sincronização concluída para o mês ${currentMonthYear}.`);
-        return 1; // 1 MonthlyApontamento sincronizado
+      if (remoteError) {
+        console.error('OfflineSync: Erro ao buscar metadados remotos:', remoteError);
+        throw remoteError;
       }
-      
-      return 0;
+
+      const localMap = new Map<string, MonthlyApontamento>(localMonthlyApontamentos.map(ap => [ap.month_year, ap]));
+      const remoteMap = new Map<string, { id: string; month_year: string; updated_at: string }>(remoteMonthlyApontamentosMeta.map(ap => [ap.month_year, ap]));
+
+      const toPush: MonthlyApontamento[] = [];
+      const toPull: { id: string; month_year: string; updated_at: string }[] = [];
+
+      // Compara local com remoto
+      for (const [monthYear, localAp] of localMap.entries()) {
+        const remoteApMeta = remoteMap.get(monthYear);
+
+        if (remoteApMeta) {
+          // Ambos existem, compara timestamps
+          const localUpdatedAt = new Date(localAp.updated_at || 0);
+          const remoteUpdatedAt = new Date(remoteApMeta.updated_at || 0);
+
+          if (localUpdatedAt > remoteUpdatedAt) {
+            console.log(`OfflineSync: Local mais recente para ${monthYear}. Adicionando à fila de push.`);
+            toPush.push(localAp);
+          } else if (remoteUpdatedAt > localUpdatedAt) {
+            console.log(`OfflineSync: Remoto mais recente para ${monthYear}. Adicionando à fila de pull.`);
+            toPull.push(remoteApMeta);
+          } else {
+            console.log(`OfflineSync: Local e remoto em sync para ${monthYear}.`);
+          }
+        } else {
+          // Existe localmente, mas não remotamente (novo registro offline)
+          console.log(`OfflineSync: Novo registro local para ${monthYear}. Adicionando à fila de push.`);
+          toPush.push(localAp);
+        }
+      }
+
+      // Identifica registros remotos que não existem localmente
+      for (const [monthYear, remoteApMeta] of remoteMap.entries()) {
+        if (!localMap.has(monthYear)) {
+          console.log(`OfflineSync: Novo registro remoto para ${monthYear}. Adicionando à fila de pull.`);
+          toPull.push(remoteApMeta);
+        }
+      }
+
+      let syncCount = 0;
+
+      // Executa pushes
+      for (const ap of toPush) {
+        try {
+          await syncMonthlyApontamentoToSupabase(ap, forceSync);
+          syncCount++;
+        } catch (e) {
+          console.error(`OfflineSync: Falha ao enviar ${ap.month_year} para Supabase:`, e);
+        }
+      }
+
+      // Executa pulls
+      for (const apMeta of toPull) {
+        try {
+          // Para pull, precisamos buscar o objeto completo
+          await syncMonthlyApontamentosFromSupabase(userId, apMeta.month_year, forceSync);
+          syncCount++;
+        } catch (e) {
+          console.error(`OfflineSync: Falha ao puxar ${apMeta.month_year} do Supabase:`, e);
+        }
+      }
+
+      if (syncCount > 0) {
+        showSuccess(`Sincronização de ${syncCount} apontamento(s) mensal(is) concluída.`);
+      } else {
+        console.log('OfflineSync: Nenhuma alteração detectada para sincronizar.');
+      }
+      return syncCount;
+
     } catch (error) {
-      showError('Erro ao sincronizar dados offline. Tente novamente mais tarde.');
+      showError('Erro ao sincronizar dados offline. Verifique sua conexão e tente novamente.');
+      console.error('OfflineSync: Erro geral na sincronização:', error);
     }
     return 0;
   }, [user]);
@@ -65,7 +136,7 @@ export function useOfflineSync() {
       } else {
         // Se for para o background, inicia a tarefa em background
         const taskId = await BackgroundTask.beforeExit(async () => {
-          // console.log('OfflineSync: Executando tarefa em background...');
+          console.log('OfflineSync: Executando tarefa em background...');
           await syncOperations();
           BackgroundTask.finish({ taskId });
         });
@@ -85,7 +156,7 @@ export function useOfflineSync() {
 
     const handleNetworkChange = async (status: { connected: boolean }) => {
       if (status.connected) {
-        // console.log('OfflineSync: Conexão restaurada. Iniciando sincronização.');
+        console.log('OfflineSync: Conexão restaurada. Iniciando sincronização.');
         await syncOperations();
       }
     };
