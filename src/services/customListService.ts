@@ -215,7 +215,7 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
           return { ...list, items_data: migratedItems };
         }
       } catch (e) {
-        console.warn(`Old custom_list_items table not found or error during migration attempt for list ${list.id}:`, e);
+        console.warn('Old custom_list_items table not found or error during migration attempt:', e);
       }
     }
     return list;
@@ -346,17 +346,6 @@ export const addCustomListItem = async (listId: string, item: Omit<CustomListIte
   
   await updateCustomList({ ...currentList, items_data: updatedItems });
   return newItem;
-};
-
-export const updateCustomListItem = async (listId: string, item: CustomListItem): Promise<void> => {
-  const currentList = await getCustomListById(listId);
-  if (!currentList) throw new Error('Lista personalizada não encontrada.');
-
-  const updatedItems = (currentList.items_data || []).map(existingItem =>
-    existingItem.id === item.id ? { ...item, list_id: listId, itens_relacionados: item.itens_relacionados || [] } : existingItem
-  );
-
-  await updateCustomList({ ...currentList, items_data: updatedItems });
 };
 
 export const deleteCustomListItem = async (listId: string, itemId: string): Promise<void> => {
