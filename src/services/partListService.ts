@@ -617,7 +617,7 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
   console.log(`[syncMonthlyApontamentoToSupabase] Cleaned and processed data for local DB after sync for ${month_year}:`, JSON.stringify(syncedMonthlyApontamento.data, null, 2)); // NEW LOG: JSON.stringify
 
   await putLocalMonthlyApontamento(syncedMonthlyApontamento);
-  console.log(`[syncMonthlyApontamentoToSupabase] Stored in local DB after sync for ${month_year}:`, JSON.stringify(synchedMonthlyApontamento, null, 2)); // NEW LOG: JSON.stringify
+  console.log(`[syncMonthlyApontamentoToSupabase] Stored in local DB after sync for ${month_year}:`, JSON.stringify(syncedMonthlyApontamento, null, 2)); // NEW LOG: JSON.stringify
   
   return syncedMonthlyApontamento;
 };
