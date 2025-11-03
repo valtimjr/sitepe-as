@@ -42,8 +42,14 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
 
   // Helper function to get part description for display
   const getPartDescription = (partCode: string): string => {
+    console.log(`[MenuItemDisplay] getPartDescription: Buscando descrição para o código: "${partCode}"`);
     const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
-    return part ? `${part.codigo} - ${part.descricao}` : partCode;
+    if (part) {
+      console.log(`[MenuItemDisplay] getPartDescription: Encontrada peça: ${part.codigo} - ${part.descricao}`);
+      return `${part.codigo} - ${part.descricao}`;
+    }
+    console.log(`[MenuItemDisplay] getPartDescription: Peça não encontrada para o código: "${partCode}"`);
+    return partCode;
   };
 
   const content = (
@@ -135,11 +141,14 @@ const CustomMenuOverview: React.FC = () => {
   }, []);
 
   const loadMenu = useCallback(async () => {
+    console.log('[CustomMenuOverview] loadMenu: Carregando estrutura do menu.');
     setIsLoading(true);
     try {
       const structure = await getMenuStructure();
       setMenuHierarchy(structure);
+      console.log('[CustomMenuOverview] loadMenu: Estrutura do menu carregada:', structure.length, 'itens raiz.');
     } catch (error) {
+      console.error('[CustomMenuOverview] loadMenu: Erro ao carregar o catálogo de peças:', error);
       showError('Erro ao carregar o catálogo de peças.');
       setMenuHierarchy([]);
     } finally {
@@ -148,12 +157,14 @@ const CustomMenuOverview: React.FC = () => {
   }, []);
 
   const loadAllParts = useCallback(async () => {
+    console.log('[CustomMenuOverview] loadAllParts: Carregando todas as peças.');
     setIsLoadingAllParts(true);
     try {
       const parts = await getParts();
       setAllAvailableParts(parts);
+      console.log('[CustomMenuOverview] loadAllParts: Todas as peças carregadas:', parts.length);
     } catch (error) {
-      // console.error("Error loading all parts:", error);
+      console.error("[CustomMenuOverview] loadAllParts: Erro ao carregar todas as peças:", error);
     } finally {
       setIsLoadingAllParts(false);
     }

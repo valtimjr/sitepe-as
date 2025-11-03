@@ -46,22 +46,30 @@ const CustomListPage: React.FC = () => {
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
   const loadList = useCallback(async () => {
-    if (!listId) return; // Adicionado para evitar chamadas desnecessárias
+    console.log('[CustomListPage] loadList: Carregando lista ID:', listId);
+    if (!listId) {
+      console.warn('[CustomListPage] loadList: listId é nulo ou indefinido. Abortando.');
+      return; // Adicionado para evitar chamadas desnecessárias
+    }
     setIsLoading(true);
     try {
       const listData = await getCustomListById(listId);
       if (listData) {
         setListTitle(listData.title);
+        console.log('[CustomListPage] loadList: Título da lista:', listData.title);
       } else {
         setListTitle('Lista Não Encontrada');
         showError('Lista não encontrada ou você não tem permissão para acessá-la.');
         setIsLoading(false);
+        console.error('[CustomListPage] loadList: Lista não encontrada para ID:', listId);
         return;
       }
 
       const fetchedItems = await getCustomListItems(listId);
       setItems(fetchedItems);
+      console.log('[CustomListPage] loadList: Itens carregados:', fetchedItems.length);
     } catch (error) {
+      console.error('[CustomListPage] loadList: Erro ao carregar a lista personalizada:', error);
       showError('Erro ao carregar a lista personalizada.');
       setItems([]);
     } finally {
@@ -70,23 +78,28 @@ const CustomListPage: React.FC = () => {
   }, [listId]);
 
   const loadAfs = useCallback(async () => {
+    console.log('[CustomListPage] loadAfs: Carregando AFs.');
     setIsLoadingAfs(true);
     try {
       const afs = await getAfsFromService();
       setAllAvailableAfs(afs);
+      console.log('[CustomListPage] loadAfs: AFs carregados:', afs.length);
     } catch (error) {
+      console.error('[CustomListPage] loadAfs: Erro ao carregar AFs:', error);
     } finally {
       setIsLoadingAfs(false);
     }
   }, []);
 
   const loadAllParts = useCallback(async () => {
+    console.log('[CustomListPage] loadAllParts: Carregando todas as peças.');
     setIsLoadingAllParts(true);
     try {
       const parts = await getParts();
       setAllAvailableParts(parts);
+      console.log('[CustomListPage] loadAllParts: Todas as peças carregadas:', parts.length);
     } catch (error) {
-      // console.error("Error loading all parts:", error);
+      console.error("[CustomListPage] loadAllParts: Erro ao carregar todas as peças:", error);
     } finally {
       setIsLoadingAllParts(false);
     }
@@ -121,6 +134,7 @@ const CustomListPage: React.FC = () => {
   };
 
   const handleCopyList = async () => {
+    console.log('[CustomListPage] handleCopyList: Copiando lista.');
     if (items.length === 0) {
       showError('A lista está vazia. Adicione itens antes de copiar.');
       return;
@@ -131,35 +145,43 @@ const CustomListPage: React.FC = () => {
     try {
       await navigator.clipboard.writeText(textToCopy);
       showSuccess('Lista de peças copiada para a área de transferência!');
+      console.log('[CustomListPage] handleCopyList: Lista copiada com sucesso.');
     } catch (err) {
+      console.error('[CustomListPage] handleCopyList: Erro ao copiar a lista:', err);
       showError('Erro ao copiar a lista. Por favor, tente novamente.');
     }
   };
 
   const handleExportCsv = () => {
+    console.log('[CustomListPage] handleExportCsv: Exportando lista para CSV.');
     if (items.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
     exportDataAsCsv(items, `${listTitle.replace(/\s/g, '_')}_itens.csv`);
     showSuccess('Lista exportada para CSV com sucesso!');
+    console.log('[CustomListPage] handleExportCsv: Lista exportada para CSV.');
   };
 
   const handleExportPdf = () => {
+    console.log('[CustomListPage] handleExportPdf: Exportando lista para PDF.');
     if (items.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
     generateCustomListPdf(items, listTitle);
     showSuccess('PDF gerado com sucesso!');
+    console.log('[CustomListPage] handleExportPdf: Lista exportada para PDF.');
   };
 
   const handleEditItemClick = (item: CustomListItem) => {
+    console.log('[CustomListPage] handleEditItemClick: Abrindo modal de edição para item:', item.id);
     setItemToEdit(item);
     setIsEditModalOpen(true);
   };
 
   const handleItemSavedOrClosed = () => {
+    console.log('[CustomListPage] handleItemSavedOrClosed: Modal de edição fechado ou item salvo.');
     setIsEditModalOpen(false);
     setItemToEdit(null);
     loadList();
@@ -167,6 +189,7 @@ const CustomListPage: React.FC = () => {
 
   // --- Seleção de Itens ---
   const handleSelectAll = (checked: boolean) => {
+    console.log('[CustomListPage] handleSelectAll: Selecionar todos:', checked);
     if (checked) {
       const allVisibleItemIds = new Set(items.map(item => item.id));
       setSelectedItemIds(allVisibleItemIds);
@@ -176,6 +199,7 @@ const CustomListPage: React.FC = () => {
   };
 
   const handleSelectItem = (id: string, checked: boolean) => {
+    console.log(`[CustomListPage] handleSelectItem: Item ${id} selecionado:`, checked);
     setSelectedItemIds(prev => {
       const newSelection = new Set(prev);
       if (checked) {
@@ -192,6 +216,7 @@ const CustomListPage: React.FC = () => {
 
   // --- Exportar Selecionados para Minha Lista ---
   const handleExportSelectedToMyList = () => {
+    console.log('[CustomListPage] handleExportSelectedToMyList: Exportando selecionados para Minha Lista.');
     if (selectedItemIds.size === 0) {
       showError('Nenhum item selecionado para exportar.');
       return;
@@ -201,6 +226,7 @@ const CustomListPage: React.FC = () => {
   };
 
   const handleConfirmExport = async () => {
+    console.log('[CustomListPage] handleConfirmExport: Confirmando exportação.');
     if (!afForExport.trim()) {
       showError('Por favor, selecione um AF para os itens exportados.');
       return;
@@ -226,7 +252,9 @@ const CustomListPage: React.FC = () => {
       setSelectedItemIds(new Set());
       setIsExportSheetOpen(false);
       setAfForExport('');
+      console.log('[CustomListPage] handleConfirmExport: Itens exportados com sucesso.');
     } catch (error) {
+      console.error('[CustomListPage] handleConfirmExport: Erro ao exportar itens:', error);
       showError(`Erro ao exportar itens para 'Minha Lista de Peças'.`);
     } finally {
       dismissToast(loadingToastId);
@@ -235,8 +263,14 @@ const CustomListPage: React.FC = () => {
 
   // Helper function to get part description for display
   const getPartDescription = (partCode: string): string => {
+    console.log(`[CustomListPage] getPartDescription: Buscando descrição para o código: "${partCode}"`);
     const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
-    return part ? `${part.codigo} - ${part.descricao}` : partCode;
+    if (part) {
+      console.log(`[CustomListPage] getPartDescription: Encontrada peça: ${part.codigo} - ${part.descricao}`);
+      return `${part.codigo} - ${part.descricao}`;
+    }
+    console.log(`[CustomListPage] getPartDescription: Peça não encontrada para o código: "${partCode}"`);
+    return partCode;
   };
 
   return (
@@ -373,7 +407,7 @@ const CustomListPage: React.FC = () => {
                                   </PopoverTrigger>
                                   <PopoverContent className="w-auto max-w-xs p-2">
                                     <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                                    <ul className="list-disc list-inside text-xs text-muted-foreground">
+                                    <ul className="list-disc list-inside">
                                       {item.itens_relacionados.map(rel => <li key={rel}>{getPartDescription(rel)}</li>)}
                                     </ul>
                                   </PopoverContent>

@@ -180,6 +180,7 @@ const seedAfs = async (): Promise<void> => {
 };
 
 export const getParts = async (query?: string): Promise<Part[]> => {
+  console.log('[getParts] Iniciando busca de peças. Query:', query || 'Nenhuma');
   await seedPartsFromJson(); // Garante que o Supabase esteja populado
 
   let queryBuilder = supabase
@@ -193,19 +194,24 @@ export const getParts = async (query?: string): Promise<Part[]> => {
     queryBuilder = queryBuilder.or(
       `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
     );
+    console.log('[getParts] Supabase query pattern:', `%${searchPattern}%`);
   }
 
   const { data, error } = await queryBuilder;
 
   if (error) {
-    console.error('Error fetching parts from Supabase:', error);
-    // Fallback para IndexedDB se Supabase falhar
-    return getLocalParts();
+    console.error('[getParts] Erro ao buscar peças do Supabase:', error);
+    console.log('[getParts] Tentando fallback para IndexedDB...');
+    const localParts = await getLocalParts();
+    console.log('[getParts] Peças retornadas do IndexedDB:', localParts.length);
+    return localParts;
   }
 
+  console.log('[getParts] Peças retornadas do Supabase:', data?.length);
   // Atualiza o cache local com os dados do Supabase
   await localDb.parts.clear();
   await bulkPutLocalParts(data as Part[]);
+  console.log('[getParts] Cache local de peças atualizado.');
   return data as Part[];
 };
 
@@ -254,6 +260,7 @@ export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
+  console.log('[searchParts] Iniciando busca de peças. Query:', query);
   await seedPartsFromJson(); // Garante que o Supabase esteja populado
 
   const lowerCaseQuery = query.toLowerCase().trim();
@@ -271,17 +278,21 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     queryBuilder = queryBuilder.or(
       `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
     );
+    console.log('[searchParts] Supabase query pattern:', `%${searchPattern}%`);
   }
 
   const { data, error } = await queryBuilder;
 
   if (error) {
-    console.error('Error searching parts in Supabase:', error);
-    // Fallback para IndexedDB se Supabase falhar
-    return searchLocalParts(query); // Passa a query original para a busca local
+    console.error('[searchParts] Erro ao buscar peças no Supabase:', error);
+    console.log('[searchParts] Tentando fallback para IndexedDB...');
+    const localResults = await searchLocalParts(query); // Passa a query original para a busca local
+    console.log('[searchParts] Peças retornadas do IndexedDB:', localResults.length);
+    return localResults;
   }
 
   let results = data as Part[];
+  console.log('[searchParts] Peças retornadas do Supabase (antes da ordenação):', results.length);
 
   // Helper para determinar a qualidade da correspondência em um campo
   const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
@@ -327,6 +338,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
 
       return 0;
     });
+    console.log('[searchParts] Peças ordenadas por relevância.');
   }
 
   return results;
