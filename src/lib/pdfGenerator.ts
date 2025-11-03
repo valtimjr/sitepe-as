@@ -33,11 +33,12 @@ const calculateTotalHours = (entry?: string, exit?: string): string => {
   if (!entry || !exit) return '';
   
   try {
+    const baseDate = new Date(2000, 0, 1); // Usar uma data base arbitrária
     const [entryH, entryM] = entry.split(':').map(Number);
     const [exitH, exitM] = exit.split(':').map(Number);
 
-    let entryTime = setHours(setMinutes(new Date(), entryM), entryH);
-    let exitTime = setHours(setMinutes(new Date(), exitM), exitH);
+    let entryTime = setHours(setMinutes(baseDate, entryM), entryH);
+    let exitTime = setHours(setMinutes(baseDate, exitM), exitH);
 
     // Se a hora de saída for anterior à de entrada, assume que passou da meia-noite
     if (exitTime.getTime() < entryTime.getTime()) {

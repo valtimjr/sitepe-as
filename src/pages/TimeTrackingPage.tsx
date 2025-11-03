@@ -271,11 +271,12 @@ const TimeTrackingPage: React.FC = () => {
     if (!entry || !exit) return '';
     
     try {
+      const baseDate = new Date(2000, 0, 1); // Usar uma data base arbitrária
       const [entryH, entryM] = entry.split(':').map(Number);
       const [exitH, exitM] = exit.split(':').map(Number);
 
-      let entryTime = setHours(setMinutes(new Date(), entryM), new Date().getDate(), new Date().getMonth(), new Date().getFullYear());
-      let exitTime = setHours(setMinutes(new Date(), exitM), new Date().getDate(), new Date().getMonth(), new Date().getFullYear());
+      let entryTime = setHours(setMinutes(baseDate, entryM), entryH);
+      let exitTime = setHours(setMinutes(baseDate, exitM), exitH);
 
       if (exitTime.getTime() < entryTime.getTime()) {
         exitTime = addDays(exitTime, 1);
