@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays, FileDown } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays, FileDown, Syringe } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth, getLocalMonthlyApontamento, syncMonthlyApontamentoToSupabase } from '@/services/partListService'; // Importar getLocalMonthlyApontamento e syncMonthlyApontamentoToSupabase
@@ -59,6 +59,12 @@ const STATUS_MAP = {
     color: 'text-yellow-600 dark:text-yellow-400',
     bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
     displayName: 'Suspensão',
+  },
+  Atestado: { // NOVO STATUS
+    icon: Syringe, // Ícone de seringa
+    color: 'text-blue-600 dark:text-blue-400', // Cor azul
+    bgColor: 'bg-blue-50 dark:bg-blue-900/20', // Fundo azul claro
+    displayName: 'Atestado',
   },
   Outros: {
     icon: Info,
@@ -646,7 +652,7 @@ const TimeTrackingPage: React.FC = () => {
                     const isWeekend = getDay(day) === 0 || getDay(day) === 6;
                     const hasStatus = !!apontamento?.status;
                     
-                    const statusKey = hasStatus ? (apontamento.status.includes('Outros') ? 'Outros' : apontamento.status) : null;
+                    const statusKey = hasStatus ? (apontamento.status.includes('Outros') ? 'Outros' : apontamento.status.includes('Atestado') ? 'Atestado' : apontamento.status) : null;
                     const statusInfo = statusKey ? STATUS_MAP[statusKey as keyof typeof STATUS_MAP] : null;
                     const StatusIcon = statusInfo?.icon;
                     const statusDisplayName = statusInfo?.displayName || 'Status';
@@ -742,6 +748,9 @@ const TimeTrackingPage: React.FC = () => {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleStatusChange(day, 'Suspensao')} disabled={hasStatus}>
                                   Suspensão
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleStatusChange(day, 'Atestado')} disabled={hasStatus}>
+                                  Atestado
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleOpenOtherStatusDialog(day)} disabled={hasStatus}>
                                   Outros...

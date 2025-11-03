@@ -22,6 +22,10 @@ const PDF_STATUS_COLORS = {
     text: [255, 255, 255], // Branco
     fill: [202, 138, 4], // Amarelo/Ouro (similar ao yellow-600)
   },
+  Atestado: { // NOVO STATUS
+    text: [255, 255, 255], // Branco
+    fill: [37, 99, 235], // Azul (similar ao blue-600)
+  },
   Outros: {
     text: [255, 255, 255], // Branco
     fill: [37, 99, 235], // Azul (similar ao blue-600)
@@ -293,7 +297,7 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
       const hasStatus = !!rowData?.status;
       
       if (hasStatus) {
-        const statusKey = rowData.status.includes('Outros') ? 'Outros' : rowData.status.split(':')[0];
+        const statusKey = rowData.status.includes('Outros') ? 'Outros' : rowData.status.includes('Atestado') ? 'Atestado' : rowData.status.split(':')[0];
         const statusColors = PDF_STATUS_COLORS[statusKey as keyof typeof PDF_STATUS_COLORS];
 
         // A célula mesclada é a segunda célula (index 1) na linha do body
