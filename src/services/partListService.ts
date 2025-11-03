@@ -200,41 +200,65 @@ export const getParts = async (query?: string): Promise<Part[]> => {
   await seedPartsFromJson(); // Garante que o Supabase esteja populado
 
   if (query) {
-    // Busca interativa: prioriza local, depois remoto limitado
+    // --- Lógica para busca interativa (com query) ---
     console.log(`[getParts] Query fornecida. Tentando busca local primeiro para a query: "${query}"`);
     const localResults = await searchLocalParts(query);
     if (localResults.length > 0) {
       console.log(`[getParts] Resultados locais encontrados para a query "${query}": ${localResults.length} itens. Retornando resultados locais.`);
       return localResults;
     }
-    console.log(`[getParts] Nenhum resultado local para a query "${query}". Recorrendo à busca remota.`);
+    console.log(`[getParts] Nenhum resultado local para a query "${query}". Recorrendo à busca remota (limitada).`);
     // Recorre à busca remota (que tem um limite de 1000 para busca interativa)
     return searchParts(query); // Isso chama a função searchParts existente
   } else {
-    // Obter TODAS as peças: prioriza cache local, depois busca remota paginada
-    console.log('[getParts] Nenhuma query fornecida. Tentando obter TODAS as peças.');
+    // --- Lógica para obter TODAS as peças (sem query) com verificação de atualização ---
+    console.log('[getParts] Nenhuma query fornecida. Tentando obter TODAS as peças com verificação de atualização.');
 
-    // 1. Tenta IndexedDB primeiro
     const localParts = await getLocalParts();
-    if (localParts.length > 0) {
-      console.log(`[getParts] Encontradas ${localParts.length} peças no IndexedDB. Retornando cache local.`);
-      return localParts;
+    let needsUpdate = false;
+
+    if (localParts.length === 0) {
+      console.log('[getParts] Cache local de peças está vazio. Necessita atualização completa.');
+      needsUpdate = true;
+    } else {
+      // Verifica a contagem remota para decidir se precisa atualizar
+      try {
+        const { count: remoteCount, error: countError } = await supabase
+          .from('parts')
+          .select('*', { count: 'exact' });
+
+        if (countError) {
+          console.warn('[getParts] Erro ao obter contagem remota de peças. Assumindo que o cache local está bom:', countError.message);
+          // Em caso de erro na contagem remota, assume que o cache local é válido para evitar falha total.
+        } else if (remoteCount !== null && localParts.length !== remoteCount) {
+          console.log(`[getParts] Contagem local (${localParts.length}) difere da remota (${remoteCount}). Necessita atualização.`);
+          needsUpdate = true;
+        } else {
+          console.log(`[getParts] Contagem local (${localParts.length}) e remota (${remoteCount}) são iguais. Cache local parece atualizado.`);
+        }
+      } catch (e) {
+        console.warn('[getParts] Erro inesperado ao verificar contagem remota. Assumindo que o cache local está bom:', e);
+      }
     }
 
-    // 2. Se o cache local estiver vazio, busca todas do Supabase com paginação
-    console.log('[getParts] IndexedDB está vazio. Buscando TODAS as peças do Supabase com paginação...');
-    try {
-      const allRemoteParts = await getAllPartsForExport(); // Esta função já lida com paginação
-      console.log(`[getParts] Buscadas ${allRemoteParts.length} peças do Supabase via paginação.`);
-      
-      // Atualiza o cache local
-      await localDb.parts.clear();
-      await bulkPutLocalParts(allRemoteParts);
-      console.log('[getParts] Cache local atualizado com todas as peças remotas.');
-      return allRemoteParts;
-    } catch (error) {
-      console.error('[getParts] Erro ao buscar TODAS as peças do Supabase:', error);
-      throw new Error(`Erro ao buscar todas as peças do Supabase: ${error.message}`);
+    if (needsUpdate) {
+      console.log('[getParts] Iniciando busca de TODAS as peças do Supabase com paginação para atualizar o cache local...');
+      try {
+        const allRemoteParts = await getAllPartsForExport(); // Esta função já lida com paginação
+        console.log(`[getParts] Buscadas ${allRemoteParts.length} peças do Supabase via paginação.`);
+        
+        // Atualiza o cache local
+        await localDb.parts.clear();
+        await bulkPutLocalParts(allRemoteParts);
+        console.log('[getParts] Cache local atualizado com todas as peças remotas.');
+        return allRemoteParts;
+      } catch (error) {
+        console.error('[getParts] Erro ao buscar TODAS as peças do Supabase para atualização:', error);
+        throw new Error(`Erro ao buscar todas as peças do Supabase: ${error.message}`);
+      }
+    } else {
+      console.log('[getParts] Retornando peças do cache local (já atualizado ou não necessita atualização).');
+      return localParts;
     }
   }
 };
