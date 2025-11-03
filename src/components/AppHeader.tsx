@@ -148,7 +148,8 @@ const AppHeader: React.FC = () => {
     { path: "/search-parts", title: "Pesquisar Peças", icon: Search },
     { path: "/parts-list", title: "Minha Lista de Peças", icon: List },
     { path: "/service-orders", title: "Ordens de Serviço", icon: ClipboardList },
-    { path: "/schedule-view", title: "Escala Anual", icon: CalendarDays },
+    // CORRIGIDO: Escala Anual agora é um link externo
+    { path: "https://escala.eletricarpm.com.br", title: "Escala Anual", icon: CalendarDays, external: true },
   ];
 
   const authDropdownItems = [
@@ -193,11 +194,19 @@ const AppHeader: React.FC = () => {
             <DropdownMenuContent align="start" className="w-52 sm:w-64"> {/* Ajuste de largura para mobile */}
               {/* Navegação Padrão */}
               {standardDropdownItems.map(item => (
-                <Link to={item.path} key={item.path}>
-                  <DropdownMenuItem>
-                    <item.icon className="h-4 w-4 mr-2" /> {item.title}
-                  </DropdownMenuItem>
-                </Link>
+                item.external ? (
+                  <a href={item.path} target="_blank" rel="noopener noreferrer" key={item.path}>
+                    <DropdownMenuItem>
+                      <item.icon className="h-4 w-4 mr-2" /> {item.title}
+                    </DropdownMenuItem>
+                  </a>
+                ) : (
+                  <Link to={item.path} key={item.path}>
+                    <DropdownMenuItem>
+                      <item.icon className="h-4 w-4 mr-2" /> {item.title}
+                    </DropdownMenuItem>
+                  </Link>
+                )
               ))}
               
               {/* Itens Dinâmicos (dentro do dropdown para mobile/fallback) */}
