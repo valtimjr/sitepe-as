@@ -51,7 +51,6 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
       setConfirmPassword('');
       onPasswordReset(); // Chama o callback para redirecionar
     } catch (error: any) {
-      console.error('Erro ao redefinir senha:', error);
       // Adiciona uma verificação específica para o erro de senha igual à antiga
       if (error.message.includes('New password should be different from the old password')) {
         setPasswordError('A nova senha não pode ser igual à senha anterior.');

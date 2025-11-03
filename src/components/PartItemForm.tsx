@@ -56,6 +56,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
         setAf('');
         setEditedTags('');
         setSearchQuery('');
+        setSearchResults([]);
       }
     };
 
@@ -130,7 +131,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
       showError('Erro ao atualizar as tags da peça.');
-      console.error('Failed to update part tags:', error);
     }
   };
 
@@ -173,7 +173,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
       onItemAdded(); // Notifica o pai que a lista foi alterada
     } catch (error) {
       showError('Erro ao salvar item na lista.');
-      console.error('Failed to save item to list:', error);
     }
   };
 

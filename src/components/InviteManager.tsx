@@ -53,7 +53,6 @@ const InviteManager: React.FC = () => {
       setInvites(data as Invite[]);
     } catch (error: any) {
       showError('Erro ao carregar convites: ' + error.message);
-      console.error('Failed to load invites:', error);
     } finally {
       setIsLoadingInvites(false);
     }
@@ -84,7 +83,6 @@ const InviteManager: React.FC = () => {
       loadInvites();
     } catch (error: any) {
       showError('Erro ao gerar link de convite: ' + error.message);
-      console.error('Failed to generate invite:', error);
     } finally {
       setIsGenerating(false);
     }
@@ -98,7 +96,6 @@ const InviteManager: React.FC = () => {
       setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
       showError('Falha ao copiar o link.');
-      console.error('Failed to copy link:', err);
     }
   };
 
@@ -121,7 +118,6 @@ const InviteManager: React.FC = () => {
       loadInvites();
     } catch (error: any) {
       showError('Erro ao excluir convite: ' + error.message);
-      console.error('Failed to delete invite:', error);
     }
   };
 

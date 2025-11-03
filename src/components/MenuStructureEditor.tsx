@@ -55,6 +55,7 @@ const buildMenuHierarchy = (items: MenuItem[]): MenuItem[] => {
     }
   });
 
+  // Ordena os filhos e as raízes
   const sortChildren = (menuItems: MenuItem[]) => {
     menuItems.sort((a, b) => a.order_index - b.order_index);
     menuItems.forEach(item => {
@@ -92,7 +93,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
 
   // NOVO: Estado para controlar a expansão dos itens do menu
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [expandedItems, setExpandedItems] = new useState<Set<string>>(new Set());
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -109,7 +110,6 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       setAllAvailableParts(fetchedAllParts);
     } catch (error) {
       showError('Erro ao carregar dados do menu.');
-      console.error('Failed to load menu data:', error);
     } finally {
       setIsLoading(false);
       setIsLoadingParts(false);
@@ -172,7 +172,6 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       onMenuUpdated();
     } catch (error) {
       showError('Erro ao excluir item de menu.');
-      console.error('Failed to delete menu item:', error);
     }
   };
 
@@ -205,7 +204,6 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       onMenuUpdated();
     } catch (error) {
       showError('Erro ao salvar item de menu.');
-      console.error('Failed to save menu item:', error);
     }
   };
 
@@ -237,7 +235,6 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       onMenuUpdated();
     } catch (error) {
       showError('Erro ao reordenar itens.');
-      console.error('Failed to reorder items:', error);
     } finally {
       dismissToast(loadingToastId);
     }

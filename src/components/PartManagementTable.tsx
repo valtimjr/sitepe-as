@@ -83,7 +83,6 @@ const PartManagementTable: React.FC = () => {
         setParts(fetchedParts);
       } catch (error) {
         showError('Erro ao carregar peças.');
-        console.error('Failed to load parts:', error);
       } finally {
         setIsLoading(false);
       }
@@ -103,7 +102,6 @@ const PartManagementTable: React.FC = () => {
         setSelectedPartIds(new Set());
       } catch (error) {
         showError('Erro ao buscar peças.');
-        console.error('Failed to search parts:', error);
         setParts([]);
       } finally {
         setIsLoading(false);
@@ -145,7 +143,6 @@ const PartManagementTable: React.FC = () => {
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao excluir peça.');
-      console.error('Failed to delete part:', error);
     }
   };
 
@@ -183,7 +180,6 @@ const PartManagementTable: React.FC = () => {
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao salvar peça.');
-      console.error('Failed to save part:', error);
     }
   };
 
@@ -230,7 +226,6 @@ const PartManagementTable: React.FC = () => {
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao excluir peças selecionadas.');
-      console.error('Failed to bulk delete parts:', error);
     }
   };
 
@@ -246,7 +241,6 @@ const PartManagementTable: React.FC = () => {
       loadPartsAfterAction();
     } catch (error) {
       showError('Erro ao limpar tags das peças selecionadas.');
-      console.error('Failed to bulk clear tags:', error);
     }
   };
 
@@ -373,7 +367,6 @@ const PartManagementTable: React.FC = () => {
     } catch (error) {
       setImportLog(prev => [...prev, 'ERRO: Falha na importação para o Supabase.']);
       showError('Erro ao importar peças do CSV. Verifique o log.');
-      console.error('Failed to import parts from CSV:', error);
     } finally {
       dismissToast(loadingToastId);
       setIsImportConfirmOpen(false);
@@ -405,7 +398,6 @@ const PartManagementTable: React.FC = () => {
       }
     } catch (error) {
       showError('Erro ao exportar peças.');
-      console.error('Failed to export parts:', error);
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
     }
@@ -435,7 +427,6 @@ const PartManagementTable: React.FC = () => {
       }
     } catch (error) {
       showError('Erro ao exportar peças.');
-      console.error('Failed to export parts:', error);
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
     }
@@ -454,7 +445,6 @@ const PartManagementTable: React.FC = () => {
       }
     } catch (error: any) {
       showError(`Erro ao limpar peças vazias: ${error.message || 'Detalhes desconhecidos.'}`);
-      console.error('Failed to cleanup empty parts:', error);
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
     }

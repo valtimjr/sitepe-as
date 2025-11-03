@@ -46,7 +46,6 @@ const SignupPage: React.FC = () => {
           showError('Convite inválido ou já utilizado.');
         }
       } catch (error: any) {
-        console.error('Erro ao verificar convite:', error);
         setIsValidInvite(false);
         showError(`Erro ao verificar convite: ${error.message}`);
       } finally {

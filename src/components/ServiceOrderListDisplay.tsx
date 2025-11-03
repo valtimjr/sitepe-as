@@ -277,7 +277,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       showSuccess('Lista de ordens de serviço copiada para a área de transferência!');
     } catch (err) {
       showError('Erro ao copiar a lista. Por favor, tente novamente.');
-      console.error('Failed to copy service order items:', err);
     }
   };
 
@@ -302,7 +301,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       showSuccess('Lista limpa com sucesso!');
     } catch (error) {
       showError('Erro ao limpar a lista.');
-      console.error('Failed to clear service order list:', error);
     }
   };
 
@@ -364,31 +362,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
     } catch (error) {
       showError('Erro ao remover item da lista.');
-      console.error('Failed to delete item:', error);
-    }
-  };
-
-  const handleDeleteServiceOrder = async (group: ServiceOrderGroup) => {
-    try {
-      const itemsToDelete = listItems.filter(item =>
-        item.af === group.af &&
-        (item.os === group.os || (item.os === undefined && group.os === undefined)) &&
-        (item.hora_inicio === group.hora_inicio || (item.hora_inicio === undefined && group.hora_inicio === undefined)) &&
-        (item.hora_final === group.hora_final || (item.hora_final === undefined && group.hora_final === undefined)) &&
-        (item.servico_executado === group.servico_executado || (item.servico_executado === undefined && group.servico_executado === undefined))
-      );
-
-      if (itemsToDelete.length > 0) {
-        const idsToDelete = itemsToDelete.map(item => item.id);
-        await localDb.serviceOrderItems.bulkDelete(idsToDelete);
-        showSuccess(`Ordem de Serviço AF: ${group.af}${group.os ? `, OS: ${group.os}` : ''} e seus itens foram excluídos.`);
-        onListChanged();
-      } else {
-        showError('Nenhum item encontrado para esta Ordem de Serviço.');
-      }
-    } catch (error) {
-      showError('Erro ao excluir a Ordem de Serviço.');
-      console.error('Failed to delete service order:', error);
     }
   };
 

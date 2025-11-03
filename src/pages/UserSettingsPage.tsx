@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
 import ChangePasswordForm from '@/components/ChangePasswordForm';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsHeader, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserProfile } from '@/types/supabase';
 
@@ -72,7 +72,6 @@ const UserSettingsPage: React.FC = () => {
 
       showSuccess('Perfil atualizado com sucesso!');
     } catch (error: any) {
-      console.error('UserSettingsPage: Error updating profile:', error);
       showError(`Erro ao atualizar perfil: ${error.message}`);
     } finally {
       setIsSavingProfile(false);
@@ -80,7 +79,7 @@ const UserSettingsPage: React.FC = () => {
   };
 
   const handlePasswordChanged = () => {
-    console.log('UserSettingsPage: Password changed callback triggered.');
+    // console.log('UserSettingsPage: Password changed callback triggered.');
   };
 
   // The main loading state for the page

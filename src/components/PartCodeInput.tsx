@@ -45,7 +45,6 @@ const PartCodeInput: React.FC<PartCodeInputProps> = ({ value, onChange, onSelect
             onSelectPart(null); // Nenhuma peça exata ou múltiplas encontradas
           }
         } catch (error) {
-          console.error("Error during part search:", error);
           onSelectPart(null);
         } finally {
           setIsSearchingInternal(false);

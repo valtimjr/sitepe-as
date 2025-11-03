@@ -32,7 +32,6 @@ const CustomLoginForm: React.FC = () => {
       showSuccess('Login realizado com sucesso!');
       // A navegação para /admin é tratada pelo SessionContextProvider
     } catch (error: any) {
-      console.error('Erro de login:', error);
       showError(`Erro ao fazer login: ${error.message}`);
     } finally {
       setIsLoading(false);

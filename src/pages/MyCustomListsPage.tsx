@@ -30,7 +30,6 @@ const MyCustomListsPage: React.FC = () => {
       setLists(fetchedLists);
     } catch (error) {
       showError('Erro ao carregar suas listas personalizadas.');
-      console.error('Failed to load custom lists:', error);
     } finally {
       setIsLoading(false);
     }

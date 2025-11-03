@@ -32,8 +32,6 @@ const PartsList = () => {
       setListItems(items);
     } catch (error) {
       showError('Erro ao carregar a lista de peças.');
-      console.error('Failed to load simple parts list items:', error);
-      setListItems([]);
     } finally {
       setIsLoading(false);
     }

@@ -60,7 +60,6 @@ const CustomListPage: React.FC = () => {
       setItems(fetchedItems);
     } catch (error) {
       showError('Erro ao carregar a lista personalizada.');
-      console.error('Failed to load custom list:', error);
       setItems([]);
     } finally {
       setIsLoading(false);
@@ -73,7 +72,6 @@ const CustomListPage: React.FC = () => {
       const afs = await getAfsFromService();
       setAllAvailableAfs(afs);
     } catch (error) {
-      console.error('Failed to load AFs:', error);
     } finally {
       setIsLoadingAfs(false);
     }
@@ -119,7 +117,6 @@ const CustomListPage: React.FC = () => {
       showSuccess('Lista de peças copiada para a área de transferência!');
     } catch (err) {
       showError('Erro ao copiar a lista. Por favor, tente novamente.');
-      console.error('Failed to copy list items:', err);
     }
   };
 
@@ -215,7 +212,6 @@ const CustomListPage: React.FC = () => {
       setAfForExport('');
     } catch (error) {
       showError(`Erro ao exportar itens para 'Minha Lista de Peças'.`);
-      console.error('Failed to export items to simple parts list:', error);
     } finally {
       dismissToast(loadingToastId);
     }

@@ -26,6 +26,17 @@ type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edi
 
 type SortOrder = 'manual' | 'asc' | 'desc';
 
+interface ServiceOrderListProps {
+  onItemAdded: () => void;
+  onNewServiceOrder: () => void;
+  listItems: ServiceOrderItem[]; // Ainda necessário para a lógica de item em branco
+  onClose?: () => void; // Para fechar o Sheet/Dialog
+  
+  mode: FormMode; // Modo explícito do formulário
+  initialSoData?: ServiceOrderDetails | null; // Dados da OS (para criar nova, editar detalhes, adicionar peça)
+  initialPartData?: ServiceOrderItem | null; // Dados da peça (apenas para editar peça)
+}
+
 const ServiceOrderList: React.FC = () => {
   const [listItems, setListItems] = useState<ServiceOrderItem[]>([]); // Agora usa ServiceOrderItem
   const [isLoading, setIsLoading] = useState(true);
@@ -46,8 +57,6 @@ const ServiceOrderList: React.FC = () => {
       setListItems(items);
     } catch (error) {
       showError('Erro ao carregar a lista de ordens de serviço.');
-      console.error('Failed to load service order items:', error);
-      setListItems([]);
     } finally {
       setIsLoading(false);
     }
@@ -63,7 +72,7 @@ const ServiceOrderList: React.FC = () => {
       const uniqueServiceOrders: { [key: string]: ServiceOrderItem } = {};
       listItems.forEach(item => {
         const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}-${item.created_at?.getTime() || 'no_created_at'}`;
-        if (!uniqueServiceOrders[key] || (item.created_at && uniqueUniqueOrders[key].created_at && item.created_at > uniqueUniqueOrders[key].created_at!)) {
+        if (!uniqueServiceOrders[key] || (item.created_at && uniqueServiceOrders[key].created_at && item.created_at > uniqueServiceOrders[key].created_at!)) {
           uniqueServiceOrders[key] = item;
         }
       });

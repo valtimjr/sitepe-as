@@ -131,7 +131,6 @@ const CustomMenuOverview: React.FC = () => {
       setMenuHierarchy(structure);
     } catch (error) {
       showError('Erro ao carregar o catálogo de peças.');
-      console.error('Failed to load menu structure:', error);
       setMenuHierarchy([]);
     } finally {
       setIsLoading(false);

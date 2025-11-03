@@ -82,7 +82,6 @@ const AfManagementTable: React.FC = () => {
       setAfs(fetchedAfs);
     } catch (error) {
       showError('Erro ao carregar AFs.');
-      console.error('Failed to load AFs:', error);
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +115,6 @@ const AfManagementTable: React.FC = () => {
       loadAfs();
     } catch (error) {
       showError('Erro ao excluir AF.');
-      console.error('Failed to delete AF:', error);
     }
   };
 
@@ -147,7 +145,6 @@ const AfManagementTable: React.FC = () => {
       loadAfs();
     } catch (error) {
       showError('Erro ao salvar AF.');
-      console.error('Failed to save AF:', error);
     }
   };
 
@@ -184,7 +181,6 @@ const AfManagementTable: React.FC = () => {
       loadAfs();
     } catch (error) {
       showError('Erro ao excluir AFs selecionados.');
-      console.error('Failed to bulk delete AFs:', error);
     }
   };
 
@@ -196,12 +192,9 @@ const AfManagementTable: React.FC = () => {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     
-    console.log('handleFileChange called.');
     if (!file) {
-      console.log('No file selected.');
       return;
     }
-    console.log('File selected:', file.name);
 
     const reader = new FileReader();
     
@@ -253,14 +246,12 @@ const AfManagementTable: React.FC = () => {
         },
         error: (error: any) => {
           showError('Erro ao analisar o arquivo CSV.');
-          console.error('CSV parsing error:', error);
         }
       });
     };
 
     reader.onerror = () => {
       showError('Erro ao ler o arquivo.');
-      console.error('FileReader error:', reader.error);
     };
 
     reader.readAsText(file);
@@ -284,7 +275,6 @@ const AfManagementTable: React.FC = () => {
     } catch (error) {
       setImportLog(prev => [...prev, 'ERRO: Falha na importação para o Supabase.']);
       showError('Erro ao importar AFs do CSV. Verifique o log.');
-      console.error('Failed to import AFs from CSV:', error);
     } finally {
       dismissToast(loadingToastId);
       setIsImportConfirmOpen(false);
@@ -316,7 +306,6 @@ const AfManagementTable: React.FC = () => {
       }
     } catch (error) {
       showError('Erro ao exportar AFs.');
-      console.error('Failed to export AFs:', error);
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
     }
@@ -346,7 +335,6 @@ const AfManagementTable: React.FC = () => {
       }
     } catch (error) {
       showError('Erro ao exportar AFs.');
-      console.error('Failed to export AFs:', error);
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
     }

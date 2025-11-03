@@ -21,11 +21,11 @@ export function useOfflineSync() {
     try {
       const status = await Network.getStatus();
       if (!status.connected) {
-        console.log('OfflineSync: Sem conexão. Pulando sincronização.');
+        // console.log('OfflineSync: Sem conexão. Pulando sincronização.');
         return 0;
       }
 
-      console.log('OfflineSync: Tentando sincronizar operações pendentes...');
+      // console.log('OfflineSync: Tentando sincronizar operações pendentes...');
       
       // Para o novo modelo, a sincronização é mais complexa.
       // Precisaríamos de um mecanismo para detectar quais MonthlyApontamentos locais
@@ -49,10 +49,9 @@ export function useOfflineSync() {
       
       return 0;
     } catch (error) {
-      console.error('OfflineSync: Erro durante a sincronização:', error);
       showError('Erro ao sincronizar dados offline. Tente novamente mais tarde.');
-      return 0;
     }
+    return 0;
   }, [user]);
 
   // 1. Sincronização em Background (App State Change) - APENAS EM NATIVO
@@ -66,7 +65,7 @@ export function useOfflineSync() {
       } else {
         // Se for para o background, inicia a tarefa em background
         const taskId = await BackgroundTask.beforeExit(async () => {
-          console.log('OfflineSync: Executando tarefa em background...');
+          // console.log('OfflineSync: Executando tarefa em background...');
           await syncOperations();
           BackgroundTask.finish({ taskId });
         });
@@ -86,7 +85,7 @@ export function useOfflineSync() {
 
     const handleNetworkChange = async (status: { connected: boolean }) => {
       if (status.connected) {
-        console.log('OfflineSync: Conexão restaurada. Iniciando sincronização.');
+        // console.log('OfflineSync: Conexão restaurada. Iniciando sincronização.');
         await syncOperations();
       }
     };

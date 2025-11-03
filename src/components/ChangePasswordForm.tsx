@@ -80,7 +80,6 @@ const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onPasswordChang
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
-      console.error('Erro ao atualizar senha:', error);
       showError(`Erro ao atualizar senha: ${error.message}`);
     } finally {
       setIsLoading(false); // Garante que o botão seja reativado

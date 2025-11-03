@@ -163,7 +163,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showSuccess('Lista de peças copiada para a área de transferência!');
     } catch (err) {
       showError('Falha ao copiar o link.');
-      console.error('Failed to copy list items:', err);
     }
   };
 
@@ -188,19 +187,16 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showSuccess('Lista de peças simples limpa com sucesso!');
     } catch (error) {
       showError('Erro ao limpar a lista de peças simples.');
-      console.error('Failed to clear simple parts list:', error);
     }
   };
 
   const handleDeleteItem = async (id: string) => {
-    console.log('PartsListDisplay: handleDeleteItem called with ID:', id); // NOVO LOG
     try {
       await deleteSimplePartItem(id);
       onListChanged();
       showSuccess('Item removido da lista.');
     } catch (error) {
       showError('Erro ao remover item da lista.');
-      console.error('PartsListDisplay: Failed to delete item:', error); // NOVO LOG
     }
   };
 
@@ -288,7 +284,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       onListChanged();
     } catch (error) {
       showError('Erro ao salvar edição do item.');
-      console.error('Failed to save edited item:', error);
     }
   };
 
@@ -356,7 +351,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       onListChanged();
     } catch (error) {
       showError('Erro ao adicionar novo item.');
-      console.error('Failed to add new item inline:', error);
     }
   };
 
@@ -499,8 +493,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                     onDragEnd={handleDragEnd}
                     data-id={item.id}
                     className="relative"
-                  ><TableCell className="w-[40px] p-2 cursor-grab">
-                      <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle */}
+                  ><TableCell className="w-[40px] p-2 cursor-grab"> {/* Drag handle */}
+                      <GripVertical className="h-4 w-4 text-muted-foreground" />
                     </TableCell>
                     
                     {editingItemId === item.id && !isMobile ? ( // Inline edit only on desktop

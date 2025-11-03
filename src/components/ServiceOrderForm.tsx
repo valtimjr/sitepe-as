@@ -160,7 +160,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
       showError('Erro ao atualizar as tags da peça.');
-      console.error('Failed to update part tags:', error);
     }
   };
 
@@ -243,7 +242,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
           showSuccess('Detalhes da Ordem de Serviço atualizados!');
         } catch (error) {
           showError('Erro ao atualizar os detalhes da Ordem de Serviço.');
-          console.error('Failed to update service order details:', error);
         }
       } else {
         // Se não houver itens, cria um item "em branco" para representar a OS
@@ -261,7 +259,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
           showSuccess('Ordem de Serviço recriada com novos detalhes!');
         } catch (error) {
           showError('Erro ao recriar a Ordem de Serviço.');
-          console.error('Failed to recreate blank service order:', error);
         }
       }
       onItemAdded();
@@ -304,7 +301,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             (item.os === initialSoData.os || (item.os === undefined && initialSoData.os === undefined)) &&
             (item.hora_inicio === initialSoData.hora_inicio || (item.hora_inicio === undefined && initialSoData.hora_inicio === undefined)) &&
             (item.hora_final === initialSoData.hora_final || (initialSoData.hora_final === undefined && item.hora_final === undefined)) &&
-            (item.servico_executado === initialSoData.servico_executado || (initialSoData.servico_executado === undefined && item.servico_executado === undefined)) &&
+            (item.servico_executado === initialSoData.servico_executado || (initialSoData.servico_executado === undefined && initialSoData.servico_executado === undefined)) &&
             !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
           );
           if (blankItem) {
@@ -327,7 +324,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         onClose?.(); // Fecha o modal/sheet
       } catch (error) {
         showError('Erro ao salvar peça.');
-        console.error('Failed to save part:', error);
       }
       return;
     }
@@ -372,7 +368,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         // setIsCreatingNewOrder(false); // Esta linha não é mais necessária aqui
       } catch (error) {
         showError('Erro ao criar ordem de serviço.');
-        console.error('Failed to create service order:', error);
       }
       return;
     }

@@ -41,12 +41,12 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         .single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 means "no rows found"
-        console.error('SessionContextProvider: Error fetching user profile from DB:', error);
+        // console.error('SessionContextProvider: Error fetching user profile from DB:', error);
         throw error;
       }
       return data as UserProfile || null;
     } catch (error: any) {
-      console.error('SessionContextProvider: Error fetching user profile (catch block):', error);
+      // console.error('SessionContextProvider: Error fetching user profile (catch block):', error);
       return null;
     }
   }, []);
@@ -59,12 +59,12 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         .select('*');
 
       if (error) {
-        console.error('SessionContextProvider: Error fetching page access rules from DB:', error);
+        // console.error('SessionContextProvider: Error fetching page access rules from DB:', error);
         throw error;
       }
       return data as PageAccessRule[] || [];
     } catch (error: any) {
-      console.error('SessionContextProvider: Error fetching page access rules (catch block):', error);
+      // console.error('SessionContextProvider: Error fetching page access rules (catch block):', error);
       return [];
     }
   }, []);
@@ -79,7 +79,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       if (initialCall) {
         const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) {
-          console.error('SessionContextProvider: Error getting initial session:', sessionError);
+          // console.error('SessionContextProvider: Error getting initial session:', sessionError);
         }
         sessionToUse = initialSession;
       }
@@ -98,7 +98,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       setPageAccessRules(fetchedRules);
 
     } catch (e) {
-      console.error('SessionContextProvider: Error during data fetch in loadAllData:', e);
+      // console.error('SessionContextProvider: Error during data fetch in loadAllData:', e);
     } finally {
       // Define isLoadingSessionAndProfile como false APENAS depois que todos os estados foram atualizados
       setIsLoadingSessionAndProfile(false);

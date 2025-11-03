@@ -37,7 +37,6 @@ const ForgotPasswordPage: React.FC = () => {
       // Opcional: redirecionar para uma página de confirmação ou para o login
       // navigate('/login'); 
     } catch (error: any) {
-      console.error('Erro ao enviar e-mail de redefinição:', error);
       showError(`Erro ao enviar e-mail: ${error.message}`);
     } finally {
       setIsLoading(false);

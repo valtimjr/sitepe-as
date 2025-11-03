@@ -73,8 +73,7 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
     .single();
 
   if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
-    console.error('Error fetching menu structure from app_config:', error);
-    return [];
+    throw new Error(`Error fetching menu structure from app_config: ${error.message}`);
   }
 
   let flatItems: MenuItem[] = (data?.value as MenuItem[]) || [];
@@ -88,7 +87,6 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
         .order('order_index', { ascending: true });
 
       if (!oldError && oldMenuItems && oldMenuItems.length > 0) {
-        console.log('Migrating old menu_structure data to new JSONB format...');
         flatItems = oldMenuItems.map(item => ({
           id: item.id,
           parent_id: item.parent_id,
@@ -99,10 +97,9 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
         }));
         // Salva a estrutura migrada no novo formato
         await saveMenuStructure(flatItems);
-        console.log('Menu_structure migration complete.');
       }
     } catch (e) {
-      console.warn('Old menu_structure table not found or error during migration attempt:', e);
+      // console.warn('Old menu_structure table not found or error during migration attempt:', e);
     }
   }
 
@@ -127,7 +124,6 @@ const saveMenuStructure = async (flatItems: MenuItem[]): Promise<void> => {
     .upsert({ key: MENU_STRUCTURE_KEY, value: flatItems, updated_at: new Date().toISOString() }, { onConflict: 'key' });
 
   if (error) {
-    console.error('Error saving menu structure to app_config:', error);
     throw new Error(`Erro ao salvar estrutura do menu: ${error.message}`);
   }
 };
@@ -181,7 +177,6 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching custom lists:', error);
     throw new Error(`Erro ao buscar listas personalizadas: ${error.message}`);
   }
 
@@ -196,7 +191,7 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
           .order('order_index', { ascending: true });
 
         if (!oldError && oldListItems && oldListItems.length > 0) {
-          console.log(`Migrating old custom_list_items for list ${list.id} to items_data JSONB format...`);
+          // console.log(`Migrating old custom_list_items for list ${list.id} to items_data JSONB format...`);
           const migratedItems: CustomListItem[] = oldListItems.map(item => ({
             id: item.id,
             item_name: item.item_name,
@@ -211,11 +206,11 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
             .from('custom_lists')
             .update({ items_data: migratedItems, updated_at: new Date().toISOString() }) // Inclui updated_at
             .eq('id', list.id);
-          console.log(`Custom_list_items migration complete for list ${list.id}.`);
+          // console.log(`Custom_list_items migration complete for list ${list.id}.`);
           return { ...list, items_data: migratedItems };
         }
       } catch (e) {
-        console.warn('Old custom_list_items table not found or error during migration attempt:', e);
+        // console.warn('Old custom_list_items table not found or error during migration attempt:', e);
       }
     }
     return list;
@@ -232,7 +227,6 @@ export const getCustomListById = async (listId: string): Promise<CustomList | nu
     .single();
 
   if (error && error.code !== 'PGRST116') {
-    console.error('Error fetching custom list by ID:', error);
     throw new Error(`Erro ao buscar lista personalizada por ID: ${error.message}`);
   }
 
@@ -257,7 +251,6 @@ export const createCustomList = async (title: string, userId: string): Promise<C
     .single();
 
   if (error) {
-    console.error('Error creating custom list:', error);
     throw new Error(`Erro ao criar lista personalizada: ${error.message}`);
   }
 
@@ -275,7 +268,6 @@ export const updateCustomList = async (list: CustomList): Promise<void> => {
     .eq('id', list.id);
 
   if (error) {
-    console.error('Error updating custom list:', error);
     throw new Error(`Erro ao atualizar lista personalizada: ${error.message}`);
   }
 };
@@ -325,7 +317,6 @@ export const deleteCustomList = async (listId: string): Promise<void> => {
     .eq('id', listId);
 
   if (error) {
-    console.error('Error deleting custom list:', error);
     throw new Error(`Erro ao excluir lista personalizada: ${error.message}`);
   }
 };

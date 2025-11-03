@@ -32,7 +32,7 @@ const AppHeader: React.FC = () => {
       const structure = await getMenuStructure();
       setRootMenuItems(structure);
     } catch (error) {
-      console.error('Failed to load dynamic menu:', error);
+      // console.error('Failed to load dynamic menu:', error);
     }
   }, []);
 
@@ -48,7 +48,7 @@ const AppHeader: React.FC = () => {
       }
       showSuccess('Você foi desconectado com sucesso!');
     } catch (error: any) {
-      console.error('AppHeader: Erro ao desconectar:', error);
+      // console.error('AppHeader: Erro ao desconectar:', error);
       showError(`Erro ao desconectar: ${error.message || 'Detalhes desconhecidos.'}`);
     } finally {
       navigate('/login');
@@ -69,7 +69,7 @@ const AppHeader: React.FC = () => {
           <DropdownMenuSub key={item.id}>
             <DropdownMenuSubTrigger>
               {item.title}
-            </DropdownMenuSubTrigger>
+            </DropdownMenuSubSubTrigger>
             <DropdownMenuSubContent sideOffset={2} alignOffset={-5}>
               {renderDynamicMenu(item.children)}
             </DropdownMenuSubContent>

@@ -43,7 +43,6 @@ const CustomListManager: React.FC = () => {
       setLists(fetchedLists);
     } catch (error) {
       showError('Erro ao carregar listas personalizadas.');
-      console.error('Failed to load custom lists:', error);
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +76,6 @@ const CustomListManager: React.FC = () => {
       loadLists();
     } catch (error) {
       showError('Erro ao excluir lista.');
-      console.error('Failed to delete list:', error);
     }
   };
 
@@ -101,7 +99,6 @@ const CustomListManager: React.FC = () => {
       loadLists();
     } catch (error) {
       showError('Erro ao salvar lista.');
-      console.error('Failed to save list:', error);
     }
   };
 
