@@ -5,6 +5,7 @@ import { BackgroundTask } from '@capawesome/capacitor-background-task';
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError } from '@/utils/toast';
 import { Capacitor } from '@capacitor/core'; // Importar Capacitor
+import { supabase } from '@/integrations/supabase/client'; // Adicionado: Importa a instância supabase
 import { 
   localDb, // Adicionado: Importa a instância localDb
   getLocalMonthlyApontamento, 
