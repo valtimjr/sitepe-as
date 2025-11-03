@@ -263,13 +263,13 @@ const CustomListPage: React.FC = () => {
 
   // Helper function to get part description for display
   const getPartDescription = (partCode: string): string => {
-    console.log(`[CustomListPage] getPartDescription: Buscando descrição para o código: "${partCode}"`);
+    console.log(`[CustomListPage] getPartDescription: Buscando descrição para o código: "${partCode}" na lista allAvailableParts (tamanho: ${allAvailableParts.length}).`);
     const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
     if (part) {
-      console.log(`[CustomListPage] getPartDescription: Encontrada peça: ${part.codigo} - ${part.descricao}`);
+      console.log(`[CustomListPage] getPartDescription: Peça encontrada: ${part.codigo} - ${part.descricao}`);
       return `${part.codigo} - ${part.descricao}`;
     }
-    console.log(`[CustomListPage] getPartDescription: Peça não encontrada para o código: "${partCode}"`);
+    console.log(`[CustomListPage] getPartDescription: Peça não encontrada para o código: "${partCode}" na lista allAvailableParts.`);
     return partCode;
   };
 
@@ -407,7 +407,7 @@ const CustomListPage: React.FC = () => {
                                   </PopoverTrigger>
                                   <PopoverContent className="w-auto max-w-xs p-2">
                                     <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                                    <ul className="list-disc list-inside">
+                                    <ul className="list-disc list-inside text-xs text-muted-foreground">
                                       {item.itens_relacionados.map(rel => <li key={rel}>{getPartDescription(rel)}</li>)}
                                     </ul>
                                   </PopoverContent>

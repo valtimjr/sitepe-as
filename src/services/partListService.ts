@@ -48,30 +48,35 @@ const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
 };
 
 const seedPartsFromJson = async (): Promise<void> => {
+  console.log('[seedPartsFromJson] Verificando se a tabela parts precisa ser populada...');
   // Primeiro, verifica se há peças no Supabase
   const { count: supabasePartsCount, error: countError } = await supabase
     .from('parts')
     .select('*', { count: 'exact' });
 
   if (countError) {
-    console.error('Error checking Supabase parts count:', countError);
+    console.error('[seedPartsFromJson] Erro ao verificar contagem de peças no Supabase:', countError);
     // Fallback para IndexedDB para verificar se já há dados localmente
     const localPartsCount = await localDb.parts.count();
     if (localPartsCount > 0) {
+      console.log('[seedPartsFromJson] Peças já existem no IndexedDB. Pulando seed.');
       return;
     }
   }
 
   if (supabasePartsCount && supabasePartsCount > 0) {
+    console.log(`[seedPartsFromJson] ${supabasePartsCount} peças já existem no Supabase. Pulando seed.`);
     return;
   }
 
+  console.log('[seedPartsFromJson] Tabela parts vazia no Supabase. Tentando popular de parts.json...');
   try {
     const response = await fetch('/data/parts.json'); // Caminho atualizado
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const parsedParts: Part[] = await response.json();
+    console.log(`[seedPartsFromJson] ${parsedParts.length} peças lidas de parts.json.`);
 
     // Adiciona ao Supabase
     const { error: insertError } = await supabase
@@ -79,55 +84,63 @@ const seedPartsFromJson = async (): Promise<void> => {
       .insert(parsedParts);
 
     if (insertError) {
-      console.error('Failed to seed parts to Supabase:', insertError);
+      console.error('[seedPartsFromJson] Falha ao popular peças no Supabase:', insertError);
       throw insertError;
     }
+    console.log(`[seedPartsFromJson] ${parsedParts.length} peças populadas no Supabase.`);
 
     // Também adiciona ao IndexedDB para cache local
     await bulkPutLocalParts(parsedParts);
+    console.log(`[seedPartsFromJson] ${parsedParts.length} peças populadas no IndexedDB.`);
 
   } catch (error) {
-    console.error("Failed to fetch or parse parts.json or seed Supabase/IndexedDB:", error);
+    console.error("[seedPartsFromJson] Falha ao buscar ou analisar parts.json ou popular Supabase/IndexedDB:", error);
   }
 };
 
 const seedAfs = async (): Promise<void> => {
+  console.log('[seedAfs] Verificando se a tabela afs precisa ser populada...');
   // 1. Primeiro, verifica se há AFs no Supabase
   const { count: supabaseAfsCount, error: countError } = await supabase
     .from('afs')
     .select('*', { count: 'exact' });
 
   if (countError) {
-    console.error('seedAfs: Error checking Supabase AFs count:', countError);
+    console.error('[seedAfs] Erro ao verificar contagem de AFs no Supabase:', countError);
     // Se houver erro ao contar, tenta carregar do IndexedDB como fallback
     const localAfsCount = await localDb.afs.count();
     if (localAfsCount > 0) {
+      console.log('[seedAfs] AFs já existem no IndexedDB. Pulando seed.');
       return;
     }
   }
 
   if (supabaseAfsCount && supabaseAfsCount > 0) {
+    console.log(`[seedAfs] ${supabaseAfsCount} AFs já existem no Supabase. Pulando seed.`);
     return;
   }
 
   let parsedAfs: Af[] = [];
   let source = '';
 
+  console.log('[seedAfs] Tabela afs vazia no Supabase. Tentando popular de afs.json...');
   // 2. Tenta carregar do public/data/afs.json
   try {
     const response = await fetch('/data/afs.json'); // Caminho atualizado
     if (!response.ok) {
-      console.warn('seedAfs: Failed to fetch afs.json, trying CSV. Status:', response.status);
+      console.warn('[seedAfs] Falha ao buscar afs.json, tentando CSV. Status:', response.status);
     } else {
       parsedAfs = await response.json();
       source = 'JSON';
+      console.log(`[seedAfs] ${parsedAfs.length} AFs lidos de afs.json.`);
     }
   } catch (jsonError) {
-    console.warn('seedAfs: Error fetching afs.json, trying CSV:', jsonError);
+    console.warn('[seedAfs] Erro ao buscar afs.json, tentando CSV:', jsonError);
   }
 
   // 3. Se JSON falhou ou estava vazio, tenta carregar do public/afs.csv
   if (parsedAfs.length === 0) {
+    console.log('[seedAfs] afs.json vazio ou falhou. Tentando popular de afs.csv...');
     try {
       const response = await fetch('/afs.csv');
       if (response.ok) {
@@ -143,6 +156,7 @@ const seedAfs = async (): Promise<void> => {
                 descricao: row.descricao || row.description || '', // Suporte a 'descricao' ou 'description'
               })).filter(af => af.af_number);
               source = 'CSV';
+              console.log(`[seedAfs] ${parsedAfs.length} AFs lidos de afs.csv.`);
               resolve();
             },
             error: (error: Error) => {
@@ -154,47 +168,51 @@ const seedAfs = async (): Promise<void> => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch (csvError) {
-      console.error("seedAfs: Failed to fetch or parse afs.csv:", csvError);
+      console.error("[seedAfs] Falha ao buscar ou analisar afs.csv:", csvError);
     }
   }
 
   // 4. Se dados foram encontrados, adiciona ao Supabase e IndexedDB
   if (parsedAfs.length > 0) {
+    console.log(`[seedAfs] Iniciando upsert de ${parsedAfs.length} AFs no Supabase e IndexedDB.`);
     try {
       const { error: upsertError } = await supabase
         .from('afs')
         .upsert(parsedAfs, { onConflict: 'af_number' }); // ALTERADO: Usando af_number como chave de conflito
 
       if (upsertError) {
-        console.error('seedAfs: Failed to upsert AFs to Supabase:', upsertError);
+        console.error('[seedAfs] Falha ao upsert AFs no Supabase:', upsertError);
         throw upsertError;
       }
 
       await bulkPutLocalAfs(parsedAfs);
+      console.log(`[seedAfs] ${parsedAfs.length} AFs upserted no Supabase e IndexedDB.`);
     } catch (dbError) {
-      console.error("seedAfs: Failed to seed Supabase/IndexedDB with AFs:", dbError);
+      console.error("[seedAfs] Falha ao popular Supabase/IndexedDB com AFs:", dbError);
     }
   } else {
-    console.warn('seedAfs: No AFs found in JSON or CSV to seed.');
+    console.warn('[seedAfs] Nenhum AF encontrado em JSON ou CSV para popular.');
   }
 };
 
 export const getParts = async (query?: string): Promise<Part[]> => {
-  console.log('[getParts] Iniciando busca de peças. Query:', query || 'Nenhuma');
+  console.log(`[getParts] Iniciando busca de peças. Query: "${query || 'Nenhuma'}"`);
   await seedPartsFromJson(); // Garante que o Supabase esteja populado
 
   let queryBuilder = supabase
     .from('parts')
-    .select('*')
-    .limit(1000); // Limite de 1000 para exibição
+    .select('*');
+    // REMOVIDO: limit(1000) para garantir que todos os itens sejam carregados quando não há query específica.
 
   if (query) {
     const lowerCaseQuery = query.toLowerCase().trim();
     const searchPattern = lowerCaseQuery.split(/\s+/).filter(Boolean).join('%');
     queryBuilder = queryBuilder.or(
       `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
-    );
-    console.log('[getParts] Supabase query pattern:', `%${searchPattern}%`);
+    ).limit(1000); // Mantém o limite para buscas interativas
+    console.log(`[getParts] Supabase query pattern (com limite): "%${searchPattern}%"`);
+  } else {
+    console.log('[getParts] Buscando TODAS as peças do Supabase (sem limite).');
   }
 
   const { data, error } = await queryBuilder;
@@ -203,11 +221,11 @@ export const getParts = async (query?: string): Promise<Part[]> => {
     console.error('[getParts] Erro ao buscar peças do Supabase:', error);
     console.log('[getParts] Tentando fallback para IndexedDB...');
     const localParts = await getLocalParts();
-    console.log('[getParts] Peças retornadas do IndexedDB:', localParts.length);
+    console.log(`[getParts] Peças retornadas do IndexedDB: ${localParts.length}`);
     return localParts;
   }
 
-  console.log('[getParts] Peças retornadas do Supabase:', data?.length);
+  console.log(`[getParts] Peças retornadas do Supabase: ${data?.length}`);
   // Atualiza o cache local com os dados do Supabase
   await localDb.parts.clear();
   await bulkPutLocalParts(data as Part[]);
@@ -216,6 +234,7 @@ export const getParts = async (query?: string): Promise<Part[]> => {
 };
 
 export const getAllPartsForExport = async (): Promise<Part[]> => {
+  console.log('[getAllPartsForExport] Iniciando busca de TODAS as peças para exportação.');
   let allData: Part[] = [];
   const pageSize = 1000; // Define o tamanho da página
   let offset = 0;
@@ -228,21 +247,24 @@ export const getAllPartsForExport = async (): Promise<Part[]> => {
       .range(offset, offset + pageSize - 1); // Busca um intervalo de registros
 
     if (error) {
-      console.error('Error fetching all parts for export from Supabase (paginated):', error);
+      console.error('[getAllPartsForExport] Erro ao buscar todas as peças para exportação do Supabase (paginado):', error);
       throw new Error(`Erro ao buscar todas as peças para exportação: ${error.message}`);
     }
 
     if (data && data.length > 0) {
       allData = allData.concat(data as Part[]);
       offset += pageSize;
+      console.log(`[getAllPartsForExport] Buscando... ${allData.length} peças carregadas até agora.`);
     } else {
       hasMore = false; // Não há mais dados para buscar
+      console.log(`[getAllPartsForExport] Todas as ${allData.length} peças carregadas para exportação.`);
     }
   }
   return allData;
 };
 
 export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
+  console.log('[addPart] Adicionando nova peça:', part);
   const newPart = { ...part, id: uuidv4() }; // Gera um ID para o Supabase
   const { data, error } = await supabase
     .from('parts')
@@ -250,17 +272,18 @@ export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
     .select();
 
   if (error) {
-    console.error('Error adding part to Supabase:', error);
+    console.error('[addPart] Erro ao adicionar peça no Supabase:', error);
     throw new Error(`Erro ao adicionar peça no Supabase: ${error.message}`);
   }
 
   // Adiciona ao IndexedDB também
   await localDb.parts.add(newPart);
+  console.log('[addPart] Peça adicionada com sucesso no Supabase e IndexedDB. ID:', data[0].id);
   return data[0].id;
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  console.log('[searchParts] Iniciando busca de peças. Query:', query);
+  console.log(`[searchParts] Iniciando busca de peças interativa. Query: "${query}"`);
   await seedPartsFromJson(); // Garante que o Supabase esteja populado
 
   const lowerCaseQuery = query.toLowerCase().trim();
@@ -268,7 +291,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
   let queryBuilder = supabase
     .from('parts')
     .select('*')
-    .limit(1000); // Limite de 1000 para exibição
+    .limit(1000); // Limite de 1000 para exibição em busca interativa
 
   if (lowerCaseQuery) {
     // Divide a query em palavras, filtra strings vazias e junta com '%' para buscar em sequência
@@ -278,7 +301,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     queryBuilder = queryBuilder.or(
       `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
     );
-    console.log('[searchParts] Supabase query pattern:', `%${searchPattern}%`);
+    console.log(`[searchParts] Supabase query pattern: "%${searchPattern}%" (com limite de 1000)`);
   }
 
   const { data, error } = await queryBuilder;
@@ -287,12 +310,12 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     console.error('[searchParts] Erro ao buscar peças no Supabase:', error);
     console.log('[searchParts] Tentando fallback para IndexedDB...');
     const localResults = await searchLocalParts(query); // Passa a query original para a busca local
-    console.log('[searchParts] Peças retornadas do IndexedDB:', localResults.length);
+    console.log(`[searchParts] Peças retornadas do IndexedDB: ${localResults.length}`);
     return localResults;
   }
 
   let results = data as Part[];
-  console.log('[searchParts] Peças retornadas do Supabase (antes da ordenação):', results.length);
+  console.log(`[searchParts] Peças retornadas do Supabase (antes da ordenação): ${results.length}`);
 
   // Helper para determinar a qualidade da correspondência em um campo
   const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
@@ -345,6 +368,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
 };
 
 export const updatePart = async (updatedPart: Part): Promise<void> => {
+  console.log('[updatePart] Atualizando peça:', updatedPart.id, updatedPart.codigo);
   // Atualiza no Supabase
   const { error: supabaseError } = await supabase
     .from('parts')
@@ -352,15 +376,17 @@ export const updatePart = async (updatedPart: Part): Promise<void> => {
     .eq('id', updatedPart.id);
 
   if (supabaseError) {
-    console.error('Error updating part in Supabase:', supabaseError);
+    console.error('[updatePart] Erro ao atualizar peça no Supabase:', supabaseError);
     throw new Error(`Erro ao atualizar a peça no Supabase: ${supabaseError.message}`);
   }
 
   // Atualiza no IndexedDB
   await updateLocalPart(updatedPart);
+  console.log('[updatePart] Peça atualizada com sucesso no Supabase e IndexedDB.');
 };
 
 export const deletePart = async (id: string): Promise<void> => {
+  console.log('[deletePart] Deletando peça:', id);
   // Deleta no Supabase
   const { error: supabaseError } = await supabase
     .from('parts')
@@ -368,16 +394,18 @@ export const deletePart = async (id: string): Promise<void> => {
     .eq('id', id);
 
   if (supabaseError) {
-    console.error('Error deleting part from Supabase:', supabaseError);
+    console.error('[deletePart] Erro ao deletar peça do Supabase:', supabaseError);
     throw new Error(`Erro ao excluir peça do Supabase: ${supabaseError.message}`);
   }
 
   // Deleta no IndexedDB
   await localDb.parts.delete(id);
+  console.log('[deletePart] Peça deletada com sucesso do Supabase e IndexedDB.');
 };
 
 // --- Funções para AFs ---
 export const getAfsFromService = async (): Promise<Af[]> => {
+  console.log('[getAfsFromService] Iniciando busca de AFs.');
   await seedAfs(); // Garante que o Supabase esteja populado
 
   const { data, error } = await supabase
@@ -387,18 +415,24 @@ export const getAfsFromService = async (): Promise<Af[]> => {
     .limit(1000); // Limite de 1000 para exibição
 
   if (error) {
-    console.error('Error fetching AFs from Supabase:', error);
+    console.error('[getAfsFromService] Erro ao buscar AFs do Supabase:', error);
     // Fallback para IndexedDB se Supabase falhar
-    return getLocalAfs();
+    console.log('[getAfsFromService] Tentando fallback para IndexedDB...');
+    const localAfs = await getLocalAfs();
+    console.log(`[getAfsFromService] AFs retornados do IndexedDB: ${localAfs.length}`);
+    return localAfs;
   }
 
+  console.log(`[getAfsFromService] AFs retornados do Supabase: ${data?.length}`);
   // Atualiza o cache local com os dados do Supabase
   await localDb.afs.clear();
   await bulkPutLocalAfs(data as Af[]);
+  console.log('[getAfsFromService] Cache local de AFs atualizado.');
   return data as Af[];
 };
 
 export const getAllAfsForExport = async (): Promise<Af[]> => {
+  console.log('[getAllAfsForExport] Iniciando busca de TODOS os AFs para exportação.');
   let allData: Af[] = [];
   const pageSize = 1000; // Define o tamanho da página
   let offset = 0;
@@ -411,21 +445,24 @@ export const getAllAfsForExport = async (): Promise<Af[]> => {
       .range(offset, offset + pageSize - 1); // Busca um intervalo de registros
 
     if (error) {
-      console.error('Error fetching all AFs for export from Supabase (paginated):', error);
+      console.error('[getAllAfsForExport] Erro ao buscar todos os AFs para exportação do Supabase (paginado):', error);
       throw new Error(`Erro ao buscar todos os AFs para exportação: ${error.message}`);
     }
 
     if (data && data.length > 0) {
       allData = allData.concat(data as Af[]);
       offset += pageSize;
+      console.log(`[getAllAfsForExport] Buscando... ${allData.length} AFs carregados até agora.`);
     } else {
       hasMore = false; // Não há mais dados para buscar
+      console.log(`[getAllAfsForExport] Todos os ${allData.length} AFs carregados para exportação.`);
     }
   }
   return allData;
 };
 
 export const addAf = async (af: Omit<Af, 'id'>): Promise<string> => {
+  console.log('[addAf] Adicionando novo AF:', af);
   const newAf = { ...af, id: uuidv4() }; // Gera um ID para o Supabase
   const { data, error } = await supabase
     .from('afs')
@@ -433,16 +470,18 @@ export const addAf = async (af: Omit<Af, 'id'>): Promise<string> => {
     .select();
 
   if (error) {
-    console.error('Error adding AF to Supabase:', error);
+    console.error('[addAf] Erro ao adicionar AF no Supabase:', error);
     throw new Error(`Erro ao adicionar AF no Supabase: ${error.message}`);
   }
 
   // Adiciona ao IndexedDB também
   await localDb.afs.add(newAf);
+  console.log('[addAf] AF adicionado com sucesso no Supabase e IndexedDB. ID:', data[0].id);
   return data[0].id;
 };
 
 export const updateAf = async (updatedAf: Af): Promise<void> => {
+  console.log('[updateAf] Atualizando AF:', updatedAf.id, updatedAf.af_number);
   // Atualiza no Supabase
   const { error: supabaseError } = await supabase
     .from('afs')
@@ -450,15 +489,17 @@ export const updateAf = async (updatedAf: Af): Promise<void> => {
     .eq('id', updatedAf.id);
 
   if (supabaseError) {
-    console.error('Error updating AF in Supabase:', supabaseError);
+    console.error('[updateAf] Erro ao atualizar AF no Supabase:', supabaseError);
     throw new Error(`Erro ao atualizar AF no Supabase: ${supabaseError.message}`);
   }
 
   // Atualiza no IndexedDB
   await localDb.afs.update(updatedAf.id, updatedAf);
+  console.log('[updateAf] AF atualizado com sucesso no Supabase e IndexedDB.');
 };
 
 export const deleteAf = async (id: string): Promise<void> => {
+  console.log('[deleteAf] Deletando AF:', id);
   // Deleta no Supabase
   const { error: supabaseError } = await supabase
     .from('afs')
@@ -466,83 +507,122 @@ export const deleteAf = async (id: string): Promise<void> => {
     .eq('id', id);
 
   if (supabaseError) {
-    console.error('Error deleting AF from Supabase:', supabaseError);
+    console.error('[deleteAf] Erro ao deletar AF do Supabase:', supabaseError);
     throw new Error(`Erro ao excluir AF do Supabase: ${supabaseError.message}`);
   }
 
   // Deleta no IndexedDB
   await localDb.afs.delete(id);
+  console.log('[deleteAf] AF deletado com sucesso do Supabase e IndexedDB.');
 };
 
 // --- Funções para SimplePartItem (Lista de Peças Simples) ---
 export const getSimplePartsListItems = async (): Promise<SimplePartItem[]> => {
-  return getLocalSimplePartsListItems();
+  console.log('[getSimplePartsListItems] Buscando itens da lista de peças simples do IndexedDB.');
+  const items = await getLocalSimplePartsListItems();
+  console.log(`[getSimplePartsListItems] ${items.length} itens retornados.`);
+  return items;
 };
 
 export const addSimplePartItem = async (item: Omit<SimplePartItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
-  return addLocalSimplePartItem(item, customCreatedAt);
+  console.log('[addSimplePartItem] Adicionando item à lista de peças simples:', item);
+  const id = await addLocalSimplePartItem(item, customCreatedAt);
+  console.log('[addSimplePartItem] Item adicionado com sucesso. ID:', id);
+  return id;
 };
 
 export const updateSimplePartItem = async (updatedItem: SimplePartItem): Promise<void> => {
+  console.log('[updateSimplePartItem] Atualizando item da lista de peças simples:', updatedItem.id);
   await updateLocalSimplePartItem(updatedItem);
+  console.log('[updateSimplePartItem] Item atualizado com sucesso.');
 };
 
 export const deleteSimplePartItem = async (id: string): Promise<void> => {
+  console.log('[deleteSimplePartItem] Deletando item da lista de peças simples:', id);
   await deleteLocalSimplePartItem(id);
+  console.log('[deleteSimplePartItem] Item deletado com sucesso.');
 };
 
 export const clearSimplePartsList = async (): Promise<void> => {
+  console.log('[clearSimplePartsList] Limpando lista de peças simples.');
   await clearLocalSimplePartsList();
+  console.log('[clearSimplePartsList] Lista de peças simples limpa.');
 };
 
 // --- Funções para ServiceOrderItem (Lista de Ordens de Serviço) ---
 export const getServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
-  return getLocalServiceOrderItems();
+  console.log('[getServiceOrderItems] Buscando itens da lista de ordens de serviço do IndexedDB.');
+  const items = await getLocalServiceOrderItems();
+  console.log(`[getServiceOrderItems] ${items.length} itens retornados.`);
+  return items;
 };
 
 export const addServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
+  console.log('[addServiceOrderItem] Adicionando item à lista de ordens de serviço:', item);
   const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
-  return addLocalServiceOrderItem(newItem, customCreatedAt);
+  const id = await addLocalServiceOrderItem(newItem, customCreatedAt);
+  console.log('[addServiceOrderItem] Item adicionado com sucesso. ID:', id);
+  return id;
 };
 
 export const updateServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
+  console.log('[updateServiceOrderItem] Atualizando item da lista de ordens de serviço:', updatedItem.id);
   await updateLocalServiceOrderItem(updatedItem);
+  console.log('[updateServiceOrderItem] Item atualizado com sucesso.');
 };
 
 export const deleteServiceOrderItem = async (id: string): Promise<void> => {
+  console.log('[deleteServiceOrderItem] Deletando item da lista de ordens de serviço:', id);
   await deleteLocalServiceOrderItem(id);
+  console.log('[deleteServiceOrderItem] Item deletado com sucesso.');
 };
 
 export const clearServiceOrderList = async (): Promise<void> => {
+  console.log('[clearServiceOrderList] Limpando lista de ordens de serviço.');
   await clearLocalServiceOrderItems();
+  console.log('[clearServiceOrderList] Lista de ordens de serviço limpa.');
 };
 
 export const getLocalUniqueAfs = async (): Promise<string[]> => {
+  console.log('[getLocalUniqueAfs] Buscando AFs únicos do IndexedDB.');
   const afs = await localDb.afs.toArray();
-  return afs.map(af => af.af_number).sort();
+  const uniqueAfs = afs.map(af => af.af_number).sort();
+  console.log(`[getLocalUniqueAfs] ${uniqueAfs.length} AFs únicos retornados.`);
+  return uniqueAfs;
 };
 
 // --- Monthly Apontamentos Management (IndexedDB) ---
 
 export const getLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<MonthlyApontamento | undefined> => {
-  return localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).first();
+  console.log(`[getLocalMonthlyApontamento] Buscando apontamento mensal local para user: ${userId}, month: ${monthYear}`);
+  const apontamento = await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).first();
+  console.log(`[getLocalMonthlyApontamento] Apontamento local encontrado: ${!!apontamento}`);
+  return apontamento;
 };
 
 export const putLocalMonthlyApontamento = async (monthlyApontamento: MonthlyApontamento): Promise<void> => {
+  console.log(`[putLocalMonthlyApontamento] Armazenando apontamento mensal localmente para user: ${monthlyApontamento.user_id}, month: ${monthlyApontamento.month_year}`);
   await localDb.monthlyApontamentos.put(monthlyApontamento);
+  console.log('[putLocalMonthlyApontamento] Apontamento mensal local salvo.');
 };
 
 export const bulkPutLocalMonthlyApontamentos = async (monthlyApontamentos: MonthlyApontamento[]): Promise<void> => {
+  console.log(`[bulkPutLocalMonthlyApontamentos] Armazenando ${monthlyApontamentos.length} apontamentos mensais localmente.`);
   await localDb.monthlyApontamentos.bulkPut(monthlyApontamentos);
+  console.log('[bulkPutLocalMonthlyApontamentos] Apontamentos mensais locais salvos em massa.');
 };
 
 export const clearLocalMonthlyApontamentos = async (userId: string): Promise<void> => {
+  console.log(`[clearLocalMonthlyApontamentos] Limpando apontamentos mensais locais para user: ${userId}`);
   const idsToDelete = await localDb.monthlyApontamentos.where('user_id').equals(userId).keys();
   await localDb.monthlyApontamentos.bulkDelete(idsToDelete);
+  console.log(`[clearLocalMonthlyApontamentos] ${idsToDelete.length} apontamentos mensais locais limpos.`);
 };
 
 export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<void> => {
+  console.log(`[deleteLocalMonthlyApontamento] Deletando apontamento mensal local para user: ${userId}, month: ${monthYear}`);
   await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).delete();
+  console.log('[deleteLocalMonthlyApontamento] Apontamento mensal local deletado.');
 };
 
 // --- Funções para Apontamentos (Time Tracking) ---
@@ -798,31 +878,36 @@ export const syncPendingApontamentos = async (userId: string): Promise<number> =
 // --- Funções de Importação e Exportação (mantidas) ---
 
 export const importParts = async (parts: Part[]): Promise<void> => {
+  console.log(`[importParts] Iniciando importação de ${parts.length} peças.`);
   const { error: supabaseError } = await supabase
     .from('parts')
     .upsert(parts, { onConflict: 'id' });
 
   if (supabaseError) {
-    console.error('Error importing parts to Supabase:', supabaseError);
+    console.error('[importParts] Erro ao importar peças para o Supabase:', supabaseError);
     throw new Error(`Erro ao importar peças para o Supabase: ${supabaseError.message}`);
   }
   await bulkPutLocalParts(parts);
+  console.log('[importParts] Peças importadas com sucesso no Supabase e IndexedDB.');
 };
 
 export const importAfs = async (afs: Af[]): Promise<void> => {
+  console.log(`[importAfs] Iniciando importação de ${afs.length} AFs.`);
   // CHAVE DE CONFLITO ALTERADA PARA 'af_number'
   const { error: supabaseError } = await supabase
     .from('afs')
     .upsert(afs, { onConflict: 'af_number' });
 
   if (supabaseError) {
-    console.error('Error importing AFs to Supabase:', supabaseError);
+    console.error('[importAfs] Erro ao importar AFs para o Supabase:', supabaseError);
     throw new Error(`Erro ao importar AFs para o Supabase: ${supabaseError.message}`);
   }
   await bulkPutLocalAfs(afs);
+  console.log('[importAfs] AFs importados com sucesso no Supabase e IndexedDB.');
 };
 
 export const exportDataAsCsv = (data: any[], filename: string): void => {
+  console.log(`[exportDataAsCsv] Exportando ${data.length} itens para CSV: ${filename}`);
   const csv = Papa.unparse(data);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
@@ -835,9 +920,11 @@ export const exportDataAsCsv = (data: any[], filename: string): void => {
     link.click();
     document.body.removeChild(link);
   }
+  console.log('[exportDataAsCsv] Exportação CSV concluída.');
 };
 
 export const exportDataAsJson = (data: any[], filename: string): void => {
+  console.log(`[exportDataAsJson] Exportando ${data.length} itens para JSON: ${filename}`);
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
   const link = document.createElement('a');
@@ -850,9 +937,11 @@ export const exportDataAsJson = (data: any[], filename: string): void => {
     link.click();
     document.body.removeChild(link);
   }
+  console.log('[exportDataAsJson] Exportação JSON concluída.');
 };
 
 export const cleanupEmptyParts = async (): Promise<number> => {
+  console.log('[cleanupEmptyParts] Iniciando limpeza de peças vazias.');
   let deletedCount = 0;
   const fetchPageSize = 1000; // Quantas peças buscar de uma vez
   const deleteBatchSize = 500; // Quantos IDs excluir em uma chamada do Supabase
@@ -861,13 +950,14 @@ export const cleanupEmptyParts = async (): Promise<number> => {
   let allIdsToDelete: string[] = [];
 
   while (hasMoreToFetch) {
+    console.log(`[cleanupEmptyParts] Buscando lote de peças (offset: ${offset})...`);
     const { data, error } = await supabase
       .from('parts')
-      .select('id, codigo, descricao')
+      .select('id, codigo, descricao, name') // Inclui 'name' na seleção
       .range(offset, offset + fetchPageSize - 1);
 
     if (error) {
-      console.error('Error fetching parts for cleanup from Supabase (paginated):', error);
+      console.error('[cleanupEmptyParts] Erro ao buscar peças para limpeza do Supabase (paginado):', error);
       throw new Error(`Erro ao buscar peças para limpeza: ${error.message}`);
     }
 
@@ -881,30 +971,38 @@ export const cleanupEmptyParts = async (): Promise<number> => {
         .map(part => part.id);
       allIdsToDelete = allIdsToDelete.concat(emptyPartsIds);
       offset += fetchPageSize;
+      console.log(`[cleanupEmptyParts] Lote processado. ${emptyPartsIds.length} peças vazias encontradas. Total para deletar: ${allIdsToDelete.length}`);
     } else {
       hasMoreToFetch = false;
+      console.log('[cleanupEmptyParts] Nenhuma peça adicional para buscar.');
     }
   }
 
   if (allIdsToDelete.length > 0) {
+    console.log(`[cleanupEmptyParts] Total de ${allIdsToDelete.length} peças vazias para deletar. Iniciando exclusão em lotes.`);
     // Realiza as exclusões em lotes
     for (let i = 0; i < allIdsToDelete.length; i += deleteBatchSize) {
       const batchIds = allIdsToDelete.slice(i, i + deleteBatchSize);
+      console.log(`[cleanupEmptyParts] Deletando lote de ${batchIds.length} IDs do Supabase.`);
       const { error: deleteError } = await supabase
         .from('parts')
         .delete()
         .in('id', batchIds);
 
       if (deleteError) {
-        console.error('Error deleting empty parts batch from Supabase:', deleteError);
+        console.error('[cleanupEmptyParts] Erro ao deletar lote de peças vazias do Supabase:', deleteError);
         throw new Error(`Erro ao excluir peças vazias do Supabase (lote): ${deleteError.message}`);
       }
       deletedCount += batchIds.length;
+      console.log(`[cleanupEmptyParts] Lote de ${batchIds.length} IDs deletado do Supabase.`);
     }
 
     // Deleta do IndexedDB em massa após todas as exclusões do Supabase
+    console.log(`[cleanupEmptyParts] Deletando ${allIdsToDelete.length} IDs do IndexedDB.`);
     await localDb.parts.bulkDelete(allIdsToDelete);
+    console.log('[cleanupEmptyParts] Peças vazias deletadas do IndexedDB.');
   }
 
+  console.log(`[cleanupEmptyParts] Limpeza de peças vazias concluída. ${deletedCount} peças removidas.`);
   return deletedCount;
 };

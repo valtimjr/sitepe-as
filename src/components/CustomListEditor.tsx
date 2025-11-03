@@ -434,11 +434,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         
         // Atualiza o estado local imediatamente para feedback visual
         setItems(updatedItemsWithNewOrder);
-        console.log('[CustomListEditor] handleDrop: Nova ordem local após soltar:', updatedItemsWithNewOrder.map(i => i.item_name));
 
         const loadingToastId = showLoading('Reordenando itens...');
+        console.log('[CustomListEditor] handleDrop: Nova ordem local após soltar:', updatedItemsWithNewOrder.map(i => i.item_name));
+
         try {
-          // Envia todos os itens atualizados para o banco de dados de uma vez
+          // Envia TODOS os itens atualizados para o banco de dados de uma vez
           await updateAllCustomListItems(list.id, updatedItemsWithNewOrder);
 
           showSuccess('Ordem atualizada com sucesso!');
@@ -538,13 +539,13 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   // Helper function to get part description for display
   const getPartDescription = (partCode: string): string => {
-    console.log(`[CustomListEditor] getPartDescription: Buscando descrição para o código: "${partCode}"`);
+    console.log(`[CustomListEditor] getPartDescription: Buscando descrição para o código: "${partCode}" na lista allAvailableParts (tamanho: ${allAvailableParts.length}).`);
     const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
     if (part) {
-      console.log(`[CustomListEditor] getPartDescription: Encontrada peça: ${part.codigo} - ${part.descricao}`);
+      console.log(`[CustomListEditor] getPartDescription: Peça encontrada: ${part.codigo} - ${part.descricao}`);
       return `${part.codigo} - ${part.descricao}`;
     }
-    console.log(`[CustomListEditor] getPartDescription: Peça não encontrada para o código: "${partCode}"`);
+    console.log(`[CustomListEditor] getPartDescription: Peça não encontrada para o código: "${partCode}" na lista allAvailableParts.`);
     return partCode;
   };
 
