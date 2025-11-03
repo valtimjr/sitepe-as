@@ -140,13 +140,12 @@ export const generateMonthlyApontamentos = (monthDate: Date, turn: string, userI
     const dateString = format(day, 'yyyy-MM-dd');
 
     return {
-      id: uuidv4(),
-      user_id: userId,
+      // REMOVIDO: id: uuidv4(), // Não é mais necessário, 'date' é o identificador único
       date: dateString,
       entry_time: schedule.entry,
       exit_time: schedule.exit,
       status: schedule.status,
-      created_at: new Date(),
+      created_at: new Date().toISOString(), // Convertido para ISO string
     };
   });
 };
