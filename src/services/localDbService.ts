@@ -1,5 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { v4 as uuidv4 } from 'uuid';
+import { DailyApontamento, MonthlyApontamento } from '@/types/supabase'; // Importar novos tipos
 
 export interface Part {
   id: string;
@@ -37,23 +38,16 @@ export interface Af {
   descricao?: string; // NOVO CAMPO
 }
 
-export interface Apontamento {
-  id: string;
-  user_id: string; // Adicionado para RLS local (embora o Dexie não precise, ajuda na sincronização)
-  date: string; // Formato 'YYYY-MM-DD'
-  entry_time?: string; // Formato 'HH:MM'
-  exit_time?: string; // Formato 'HH:MM'
-  status?: string; // Novo campo para Folga, Falta, Suspensao, Outros
-  created_at?: Date;
-  synced_at?: Date; // Para controle de sincronização
-}
+// A interface Apontamento agora é DailyApontamento, mas para compatibilidade
+// com o resto do código que ainda pode usar 'Apontamento', vamos re-exportá-la.
+export type Apontamento = DailyApontamento;
 
 class LocalDexieDb extends Dexie {
   simplePartsList!: Table<SimplePartItem>;
   serviceOrderItems!: Table<ServiceOrderItem>;
   parts!: Table<Part>;
   afs!: Table<Af>;
-  apontamentos!: Table<Apontamento>; // Nova tabela
+  monthlyApontamentos!: Table<MonthlyApontamento>; // Nova tabela para apontamentos mensais
 
   constructor() {
     super('PartsListDatabase');
@@ -117,7 +111,7 @@ class LocalDexieDb extends Dexie {
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags',
       afs: '++id, af_number',
-      apontamentos: 'id, user_id, date, synced_at', // Novo esquema para apontamentos
+      apontamentos: 'id, user_id, date, synced_at', // Esquema antigo para apontamentos
     });
     this.version(5).stores({
       simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
@@ -133,17 +127,47 @@ class LocalDexieDb extends Dexie {
       afs: '++id, af_number, descricao',
       apontamentos: 'id, user_id, date, synced_at',
     });
-    this.version(7).stores({ // Nova versão para garantir a aplicação correta do esquema
+    this.version(7).stores({
       simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags, name',
       afs: '++id, af_number, descricao',
-      apontamentos: 'id, user_id, date, synced_at',
+      apontamentos: null, // Remove a tabela antiga de apontamentos
+      monthlyApontamentos: 'id, user_id, month_year', // Nova tabela para apontamentos mensais
     }).upgrade(async tx => {
-      // Nenhuma lógica de migração específica é necessária aqui, pois as definições
-      // das tabelas já estão corretas e consistentes com a versão anterior (v6).
-      // Este upgrade serve principalmente para forçar o Dexie a reavaliar o esquema
-      // e corrigir quaisquer inconsistências internas que possam ter surgido.
+      // Lógica de migração de apontamentos antigos para o novo formato mensal
+      // Esta lógica é um exemplo e pode precisar ser ajustada dependendo dos dados existentes
+      const oldApontamentos = await tx.table('apontamentos').toArray();
+      const monthlyDataMap: { [key: string]: MonthlyApontamento } = {};
+
+      oldApontamentos.forEach((oldAp: any) => {
+        const date = new Date(oldAp.date);
+        const monthYear = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        const userId = oldAp.user_id;
+        const key = `${userId}-${monthYear}`;
+
+        if (!monthlyDataMap[key]) {
+          monthlyDataMap[key] = {
+            id: uuidv4(),
+            user_id: userId,
+            month_year: monthYear,
+            data: [],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+        }
+        monthlyDataMap[key].data.push({
+          id: oldAp.id,
+          date: oldAp.date,
+          entry_time: oldAp.entry_time,
+          exit_time: oldAp.exit_time,
+          status: oldAp.status,
+          created_at: oldAp.created_at?.toISOString(),
+          updated_at: oldAp.synced_at?.toISOString(), // Usar synced_at como updated_at
+        });
+      });
+
+      await tx.table('monthlyApontamentos').bulkAdd(Object.values(monthlyDataMap));
     });
   }
 }
@@ -264,21 +288,17 @@ export const getLocalSimplePartsListItems = async (): Promise<SimplePartItem[]> 
 
 export const addLocalSimplePartItem = async (item: Omit<SimplePartItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
   const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
-  console.log('localDbService: Adding new simple part item to IndexedDB:', newItem);
   await localDb.simplePartsList.add(newItem);
   return newItem.id;
 };
 
 export const updateLocalSimplePartItem = async (updatedItem: SimplePartItem): Promise<void> => {
-  console.log('localDbService: Updating simple part item in IndexedDB:', updatedItem);
   await localDb.simplePartsList.update(updatedItem.id, updatedItem);
 };
 
 export const deleteLocalSimplePartItem = async (id: string): Promise<void> => {
-  console.log('localDbService: Attempting to delete simple part item with ID:', id);
   try {
     await localDb.simplePartsList.delete(id);
-    console.log('localDbService: Successfully deleted item with ID:', id);
   } catch (error) {
     console.error('localDbService: Error deleting item with ID:', id, error);
     throw error; // Re-lança o erro para que o chamador possa tratá-lo
@@ -286,7 +306,6 @@ export const deleteLocalSimplePartItem = async (id: string): Promise<void> => {
 };
 
 export const clearLocalSimplePartsList = async (): Promise<void> => {
-  console.log('localDbService: Clearing all simple part list items from IndexedDB.');
   await localDb.simplePartsList.clear();
 };
 
@@ -319,32 +338,25 @@ export const getLocalUniqueAfs = async (): Promise<string[]> => {
   return afs.map(af => af.af_number).sort();
 };
 
-// --- Apontamentos Management (IndexedDB) ---
+// --- Monthly Apontamentos Management (IndexedDB) ---
 
-export const getLocalApontamentos = async (userId: string): Promise<Apontamento[]> => {
-  return localDb.apontamentos.where('user_id').equals(userId).toArray();
+export const getLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<MonthlyApontamento | undefined> => {
+  return localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).first();
 };
 
-export const putLocalApontamento = async (apontamento: Apontamento): Promise<void> => {
-  // Usa put para inserir ou atualizar (baseado na chave primária 'id')
-  await localDb.apontamentos.put(apontamento);
+export const putLocalMonthlyApontamento = async (monthlyApontamento: MonthlyApontamento): Promise<void> => {
+  await localDb.monthlyApontamentos.put(monthlyApontamento);
 };
 
-export const bulkPutLocalApontamentos = async (apontamentos: Apontamento[]): Promise<void> => {
-  await localDb.apontamentos.bulkPut(apontamentos);
+export const bulkPutLocalMonthlyApontamentos = async (monthlyApontamentos: MonthlyApontamento[]): Promise<void> => {
+  await localDb.monthlyApontamentos.bulkPut(monthlyApontamentos);
 };
 
-export const clearLocalApontamentos = async (userId: string): Promise<void> => {
-  const idsToDelete = await localDb.apontamentos.where('user_id').equals(userId).keys();
-  await localDb.apontamentos.bulkDelete(idsToDelete);
+export const clearLocalMonthlyApontamentos = async (userId: string): Promise<void> => {
+  const idsToDelete = await localDb.monthlyApontamentos.where('user_id').equals(userId).keys();
+  await localDb.monthlyApontamentos.bulkDelete(idsToDelete);
 };
 
-export const deleteLocalApontamentosByDateRange = async (userId: string, startDate: string, endDate: string): Promise<number> => {
-  const idsToDelete = await localDb.apontamentos
-    .where('user_id').equals(userId)
-    .and(a => a.date >= startDate && a.date <= endDate)
-    .keys();
-  
-  await localDb.apontamentos.bulkDelete(idsToDelete);
-  return idsToDelete.length;
+export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<void> => {
+  await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).delete();
 };

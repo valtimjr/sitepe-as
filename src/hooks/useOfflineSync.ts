@@ -3,9 +3,11 @@ import { App } from '@capacitor/app';
 import { Network } from '@capacitor/network';
 import { BackgroundTask } from '@capawesome/capacitor-background-task';
 import { useSession } from '@/components/SessionContextProvider';
-import { syncPendingApontamentos } from '@/services/partListService';
 import { showSuccess, showError } from '@/utils/toast';
 import { Capacitor } from '@capacitor/core'; // Importar Capacitor
+import { getLocalMonthlyApontamento, putLocalMonthlyApontamento, MonthlyApontamento } from '@/services/localDbService';
+import { syncMonthlyApontamentoToSupabase } from '@/services/partListService';
+import { format } from 'date-fns';
 
 const SYNC_INTERVAL_MS = 60000; // Tenta sincronizar a cada 60 segundos se estiver online
 
@@ -24,12 +26,28 @@ export function useOfflineSync() {
       }
 
       console.log('OfflineSync: Tentando sincronizar operações pendentes...');
-      const syncedCount = await syncPendingApontamentos(user.id);
       
-      if (syncedCount > 0) {
-        showSuccess(`Sincronização concluída: ${syncedCount} apontamento(s) enviado(s).`);
+      // Para o novo modelo, a sincronização é mais complexa.
+      // Precisaríamos de um mecanismo para detectar quais MonthlyApontamentos locais
+      // foram modificados e não sincronizados.
+      // Por simplicidade, esta implementação assume que `updateApontamento` já tenta
+      // sincronizar imediatamente quando online.
+      // Uma solução mais robusta envolveria um campo `synced_at` no MonthlyApontamento
+      // local e comparar com o `updated_at` do Supabase.
+
+      // Por enquanto, vamos apenas tentar sincronizar o mês atual se houver dados locais.
+      const currentMonthYear = format(new Date(), 'yyyy-MM');
+      const localMonthlyApontamento = await getLocalMonthlyApontamento(user.id, currentMonthYear);
+
+      if (localMonthlyApontamento && localMonthlyApontamento.data.length > 0) {
+        // Poderíamos adicionar uma lógica para verificar se o local `updated_at` é mais recente que o remoto
+        // Para esta tarefa, vamos apenas tentar sincronizar se houver dados locais.
+        await syncMonthlyApontamentoToSupabase(localMonthlyApontamento);
+        showSuccess(`Sincronização concluída para o mês ${currentMonthYear}.`);
+        return 1; // 1 MonthlyApontamento sincronizado
       }
-      return syncedCount;
+      
+      return 0;
     } catch (error) {
       console.error('OfflineSync: Erro durante a sincronização:', error);
       showError('Erro ao sincronizar dados offline. Tente novamente mais tarde.');

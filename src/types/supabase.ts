@@ -24,15 +24,25 @@ export interface Part {
   name?: string; // NOVO CAMPO: Nome global da peça
 }
 
-export interface Apontamento {
-  id: string;
-  user_id: string;
+// Apontamento diário, agora parte de um array JSONB
+export interface DailyApontamento {
+  id: string; // ID único para o apontamento diário
   date: string; // Formato 'YYYY-MM-DD'
   entry_time?: string; // Formato 'HH:MM'
   exit_time?: string; // Formato 'HH:MM'
   status?: string; // Novo campo para Folga, Falta, Suspensao, Outros
-  created_at?: Date;
-  synced_at?: Date;
+  created_at?: string; // Armazenado como string ISO para JSONB
+  updated_at?: string; // Para controle de atualização dentro do JSONB
+}
+
+// Novo tipo para o registro mensal no Supabase
+export interface MonthlyApontamento {
+  id: string;
+  user_id: string;
+  month_year: string; // Formato 'YYYY-MM'
+  data: DailyApontamento[]; // Array de apontamentos diários
+  created_at?: string;
+  updated_at?: string;
 }
 
 // NOVOS TIPOS PARA LISTAS PERSONALIZADAS E MENU
@@ -54,8 +64,6 @@ export interface CustomListItem {
   order_index: number;
   itens_relacionados: string[]; // NOVO: Array de códigos de peças relacionadas
 }
-
-// REMOVIDO: CustomListItemRelation não é mais uma tabela separada
 
 export interface MenuItem {
   id: string; // UUID gerado no frontend

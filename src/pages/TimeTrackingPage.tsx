@@ -71,7 +71,7 @@ const STATUS_MAP = {
 const TimeTrackingPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading } = useSession();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [apontamentos, setApontamentos] = useState<Apontamento[]>([]);
+  const [apontamentos, setApontamentos] = useState<Apontamento[]>([]); // Agora é DailyApontamento[]
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
@@ -101,7 +101,8 @@ const TimeTrackingPage: React.FC = () => {
     if (!userId) return;
     setIsLoading(true);
     try {
-      const fetchedApontamentos = await getApontamentos(userId);
+      const monthYear = format(currentDate, 'yyyy-MM');
+      const fetchedApontamentos = await getApontamentos(userId, monthYear);
       setApontamentos(fetchedApontamentos);
     } catch (error) {
       showError('Erro ao carregar apontamentos.');
@@ -109,7 +110,7 @@ const TimeTrackingPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [userId]);
+  }, [userId, currentDate]); // Adicionado currentDate como dependência
 
   useEffect(() => {
     loadApontamentos();
@@ -131,16 +132,21 @@ const TimeTrackingPage: React.FC = () => {
     });
   };
 
-  const handleDeleteApontamento = useCallback(async (id: string) => {
+  const handleDeleteApontamento = useCallback(async (dailyApontamentoId: string, day: Date) => {
+    if (!userId) {
+      showError('Usuário não autenticado.');
+      return;
+    }
+    const monthYear = format(day, 'yyyy-MM');
     try {
-      await deleteApontamento(id);
-      setApontamentos(prev => prev.filter(a => a.id !== id));
+      await deleteApontamento(userId, monthYear, dailyApontamentoId);
+      setApontamentos(prev => prev.filter(a => a.id !== dailyApontamentoId));
       showSuccess('Apontamento excluído.');
     } catch (error) {
       showError('Erro ao excluir apontamento.');
       console.error('Failed to delete apontamento:', error);
     }
-  }, []);
+  }, [userId]);
 
   const handleTimeChange = useCallback(async (day: Date, field: 'entry_time' | 'exit_time', value: string) => {
     if (!userId) {
@@ -149,6 +155,7 @@ const TimeTrackingPage: React.FC = () => {
     }
 
     const dateString = format(day, 'yyyy-MM-dd');
+    const monthYear = format(day, 'yyyy-MM');
     const existingApontamento = getApontamentoForDay(day);
     
     const newValue = value.trim() === '' ? undefined : value;
@@ -157,21 +164,20 @@ const TimeTrackingPage: React.FC = () => {
       ? { ...existingApontamento, [field]: newValue, status: undefined }
       : {
           id: uuidv4(),
-          user_id: userId,
           date: dateString,
           entry_time: field === 'entry_time' ? newValue : undefined,
           exit_time: field === 'exit_time' ? newValue : undefined,
-          created_at: new Date(),
+          created_at: new Date().toISOString(),
         };
 
     if (!newApontamento.entry_time && !newApontamento.exit_time && !newApontamento.status && existingApontamento) {
-      await handleDeleteApontamento(existingApontamento.id);
+      await handleDeleteApontamento(existingApontamento.id, day);
       return;
     }
 
     setIsSaving(true);
     try {
-      const updated = await updateApontamento(newApontamento);
+      const updated = await updateApontamento(userId, monthYear, newApontamento);
       updateApontamentoState(updated);
       showSuccess('Apontamento salvo!');
     } catch (error) {
@@ -183,15 +189,20 @@ const TimeTrackingPage: React.FC = () => {
   }, [userId, handleDeleteApontamento, apontamentos]);
 
   const handleClearStatus = useCallback(async (day: Date) => {
+    if (!userId) {
+      showError('Usuário não autenticado.');
+      return;
+    }
+    const monthYear = format(day, 'yyyy-MM');
     const existingApontamento = getApontamentoForDay(day);
     if (!existingApontamento) return;
 
     if (!existingApontamento.entry_time && !existingApontamento.exit_time) {
-      await handleDeleteApontamento(existingApontamento.id);
+      await handleDeleteApontamento(existingApontamento.id, day);
     } else {
       setIsSaving(true);
       try {
-        const updated = await updateApontamento({ ...existingApontamento, status: undefined });
+        const updated = await updateApontamento(userId, monthYear, { ...existingApontamento, status: undefined });
         updateApontamentoState(updated);
         showSuccess('Status removido. Campos de hora liberados.');
       } catch (error) {
@@ -201,7 +212,7 @@ const TimeTrackingPage: React.FC = () => {
         setIsSaving(false);
       }
     }
-  }, [handleDeleteApontamento, apontamentos]);
+  }, [userId, handleDeleteApontamento, apontamentos]);
 
   const handleStatusChange = useCallback(async (day: Date, status: string) => {
     if (!userId) {
@@ -210,21 +221,21 @@ const TimeTrackingPage: React.FC = () => {
     }
 
     const dateString = format(day, 'yyyy-MM-dd');
+    const monthYear = format(day, 'yyyy-MM');
     const existingApontamento = getApontamentoForDay(day);
 
     const newApontamento: Apontamento = existingApontamento
       ? { ...existingApontamento, status, entry_time: undefined, exit_time: undefined }
       : {
           id: uuidv4(),
-          user_id: userId,
           date: dateString,
           status,
-          created_at: new Date(),
+          created_at: new Date().toISOString(),
         };
 
     setIsSaving(true);
     try {
-      const updated = await updateApontamento(newApontamento);
+      const updated = await updateApontamento(userId, monthYear, newApontamento);
       updateApontamentoState(updated);
       showSuccess(`Dia marcado como ${status.split(':')[0]}!`);
     } catch (error) {
@@ -265,8 +276,8 @@ const TimeTrackingPage: React.FC = () => {
       const [entryH, entryM] = entry.split(':').map(Number);
       const [exitH, exitM] = exit.split(':').map(Number);
 
-      let entryTime = setHours(setMinutes(new Date(), entryM), entryH);
-      let exitTime = setHours(setMinutes(new Date(), exitM), exitH);
+      let entryTime = setHours(setMinutes(new Date(), entryM), new Date().getDate(), new Date().getMonth(), new Date().getFullYear());
+      let exitTime = setHours(setMinutes(new Date(), exitM), new Date().getDate(), new Date().getMonth(), new Date().getFullYear());
 
       if (exitTime.getTime() < entryTime.getTime()) {
         exitTime = addDays(exitTime, 1);
@@ -394,7 +405,8 @@ const TimeTrackingPage: React.FC = () => {
 
     try {
       const generatedApontamentos = generateMonthlyApontamentos(currentDate, selectedTurn, userId);
-      
+      const monthYear = format(currentDate, 'yyyy-MM');
+
       const existingDates = new Set(apontamentos.map(a => a.date));
       const newApontamentosToSave = generatedApontamentos.filter(genA => !existingDates.has(genA.date));
 
@@ -403,7 +415,8 @@ const TimeTrackingPage: React.FC = () => {
         return;
       }
 
-      const syncPromises = newApontamentosToSave.map(a => updateApontamento(a));
+      // Atualiza cada apontamento individualmente no serviço
+      const syncPromises = newApontamentosToSave.map(a => updateApontamento(userId, monthYear, a));
       await Promise.all(syncPromises);
 
       showSuccess(`${newApontamentosToSave.length} dias da escala do ${selectedTurn} foram preenchidos!`);
@@ -423,12 +436,13 @@ const TimeTrackingPage: React.FC = () => {
       return;
     }
 
+    const monthYear = format(currentDate, 'yyyy-MM');
     const loadingToastId = showLoading('Limpando apontamentos do mês...');
     try {
-      const deletedCount = await deleteApontamentosByMonth(userId, currentMonthStart, currentMonthEnd);
+      const deletedCount = await deleteApontamentosByMonth(userId, monthYear);
       
       if (deletedCount > 0) {
-        showSuccess(`${deletedCount} apontamentos de ${format(currentDate, 'MMMM', { locale: ptBR })} foram removidos!`);
+        showSuccess(`${deletedCount} apontamentos de ${format(currentDate, 'MMMM yyyy', { locale: ptBR })} foram removidos!`);
       } else {
         showSuccess('Nenhum apontamento encontrado para limpar neste mês.');
       }
@@ -715,7 +729,7 @@ const TimeTrackingPage: React.FC = () => {
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {apontamento && (
-                                  <DropdownMenuItem onClick={() => handleDeleteApontamento(apontamento.id)} className="text-destructive">
+                                  <DropdownMenuItem onClick={() => handleDeleteApontamento(apontamento.id, day)} className="text-destructive">
                                     <Trash2 className="h-4 w-4 mr-2" /> Excluir Registro
                                   </DropdownMenuItem>
                                 )}
