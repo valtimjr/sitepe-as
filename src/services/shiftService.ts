@@ -58,11 +58,11 @@ const ROTATING_TURNS = ['Turno A', 'Turno B', 'Turno C'];
 const FIXED_TURNS = ['Turno Dia 07:00 - 17:00', 'Turno Dia 07:30 - 17:00']; // Mantido para referência interna, mas não exportado
 
 // Mapeamento de Turno para o índice da escala na Semana 1 (2024-01-01)
-// Turno A = Dia (Índice 0) - ALTERADO
+// Turno A = Noite (Índice 2) - REVERTIDO
 // Turno B = Dia (Índice 0)
 // Turno C = Intermediário (Índice 1)
 const TURN_BASE_INDEX: { [key: string]: number } = {
-  'Turno A': 0, // Dia (Anteriormente era Noite)
+  'Turno A': 2, // Noite (Revertido para o valor anterior)
   'Turno B': 0, // Dia
   'Turno C': 1, // Intermediário
 };
