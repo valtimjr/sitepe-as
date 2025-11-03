@@ -392,35 +392,49 @@ const TimeTrackingPage: React.FC = () => {
   };
 
   const handleGenerateSchedule = async () => {
+    console.log('handleGenerateSchedule: Botão "Gerar Escala" clicado.');
+    console.log('handleGenerateSchedule: userId:', userId);
+    console.log('handleGenerateSchedule: selectedTurn:', selectedTurn);
+
     if (!userId || !selectedTurn) {
       showError('Selecione um turno e faça login.');
+      console.error('handleGenerateSchedule: userId ou selectedTurn ausentes.');
       return;
     }
 
     setIsGeneratingSchedule(true);
     const loadingToastId = showLoading('Gerando escala e sincronizando...');
+    console.log('handleGenerateSchedule: Iniciando geração da escala...');
 
     try {
       const generatedApontamentos = generateMonthlyApontamentos(currentDate, selectedTurn, userId);
       const monthYear = format(currentDate, 'yyyy-MM');
+      console.log('handleGenerateSchedule: Apontamentos gerados:', generatedApontamentos);
 
       if (generatedApontamentos.length === 0) {
         showSuccess('Nenhum apontamento gerado para este mês com o turno selecionado.');
+        console.warn('handleGenerateSchedule: Nenhum apontamento gerado.');
         return;
       }
 
       // Atualiza todos os apontamentos gerados, `updateApontamento` cuidará da lógica de sobrescrita
-      const syncPromises = generatedApontamentos.map(a => updateApontamento(userId, monthYear, a));
+      const syncPromises = generatedApontamentos.map(a => {
+        console.log(`handleGenerateSchedule: Preparando para atualizar apontamento para o dia ${a.date}`);
+        return updateApontamento(userId, monthYear, a);
+      });
       await Promise.all(syncPromises);
+      console.log('handleGenerateSchedule: Todos os apontamentos foram processados.');
 
       showSuccess(`${generatedApontamentos.length} dias da escala do ${selectedTurn} foram preenchidos/atualizados!`);
       loadApontamentos(); // Recarrega os apontamentos para refletir as mudanças
+      console.log('handleGenerateSchedule: Escala gerada e sincronizada com sucesso.');
     } catch (error) {
       showError('Erro ao gerar a escala de horários.');
-      console.error('Failed to generate schedule:', error);
+      console.error('handleGenerateSchedule: Erro durante a geração ou sincronização da escala:', error);
     } finally {
       dismissToast(loadingToastId);
       setIsGeneratingSchedule(false);
+      console.log('handleGenerateSchedule: Finalizado.');
     }
   };
 
