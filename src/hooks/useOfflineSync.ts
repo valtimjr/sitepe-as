@@ -31,11 +31,11 @@ export function useOfflineSync() {
     try {
       const status = await Network.getStatus();
       if (!status.connected) {
-        console.log('OfflineSync: Sem conexão. Pulando sincronização.');
+        // console.log('OfflineSync: Sem conexão. Pulando sincronização.');
         return 0;
       }
 
-      console.log('OfflineSync: Iniciando sincronização de apontamentos mensais...');
+      // console.log('OfflineSync: Iniciando sincronização de apontamentos mensais...');
       
       const userId = user.id;
       const localMonthlyApontamentos = await localDb.monthlyApontamentos.where('user_id').equals(userId).toArray();
@@ -67,17 +67,17 @@ export function useOfflineSync() {
           const remoteUpdatedAt = new Date(remoteApMeta.updated_at || 0);
 
           if (localUpdatedAt > remoteUpdatedAt) {
-            console.log(`OfflineSync: Local mais recente para ${monthYear}. Adicionando à fila de push.`);
+            // console.log(`OfflineSync: Local mais recente para ${monthYear}. Adicionando à fila de push.`);
             toPush.push(localAp);
           } else if (remoteUpdatedAt > localUpdatedAt) {
-            console.log(`OfflineSync: Remoto mais recente para ${monthYear}. Adicionando à fila de pull.`);
+            // console.log(`OfflineSync: Remoto mais recente para ${monthYear}. Adicionando à fila de pull.`);
             toPull.push(remoteApMeta);
           } else {
-            console.log(`OfflineSync: Local e remoto em sync para ${monthYear}.`);
+            // console.log(`OfflineSync: Local e remoto em sync para ${monthYear}.`);
           }
         } else {
           // Existe localmente, mas não remotamente (novo registro offline)
-          console.log(`OfflineSync: Novo registro local para ${monthYear}. Adicionando à fila de push.`);
+          // console.log(`OfflineSync: Novo registro local para ${monthYear}. Adicionando à fila de push.`);
           toPush.push(localAp);
         }
       }
@@ -85,7 +85,7 @@ export function useOfflineSync() {
       // Identifica registros remotos que não existem localmente
       for (const [monthYear, remoteApMeta] of remoteMap.entries()) {
         if (!localMap.has(monthYear)) {
-          console.log(`OfflineSync: Novo registro remoto para ${monthYear}. Adicionando à fila de pull.`);
+          // console.log(`OfflineSync: Novo registro remoto para ${monthYear}. Adicionando à fila de pull.`);
           toPull.push(remoteApMeta);
         }
       }
@@ -116,7 +116,7 @@ export function useOfflineSync() {
       if (syncCount > 0) {
         showSuccess(`Sincronização de ${syncCount} apontamento(s) mensal(is) concluída.`);
       } else {
-        console.log('OfflineSync: Nenhuma alteração detectada para sincronizar.');
+        // console.log('OfflineSync: Nenhuma alteração detectada para sincronizar.');
       }
       return syncCount;
 
@@ -138,7 +138,7 @@ export function useOfflineSync() {
       } else {
         // Se for para o background, inicia a tarefa em background
         const taskId = await BackgroundTask.beforeExit(async () => {
-          console.log('OfflineSync: Executando tarefa em background...');
+          // console.log('OfflineSync: Executando tarefa em background...');
           await syncOperations();
           BackgroundTask.finish({ taskId });
         });
@@ -158,7 +158,7 @@ export function useOfflineSync() {
 
     const handleNetworkChange = async (status: { connected: boolean }) => {
       if (status.connected) {
-        console.log('OfflineSync: Conexão restaurada. Iniciando sincronização.');
+        // console.log('OfflineSync: Conexão restaurada. Iniciando sincronização.');
         await syncOperations();
       }
     };

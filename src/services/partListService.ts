@@ -48,35 +48,29 @@ const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
 };
 
 const seedPartsFromJson = async (): Promise<void> => {
-  console.log('[seedPartsFromJson] Verificando se a tabela parts precisa ser populada...');
   // Primeiro, verifica se há peças no Supabase
   const { count: supabasePartsCount, error: countError } = await supabase
     .from('parts')
     .select('*', { count: 'exact' });
 
   if (countError) {
-    console.error('[seedPartsFromJson] Erro ao verificar contagem de peças no Supabase:', countError);
     // Fallback para IndexedDB para verificar se já há dados localmente
     const localPartsCount = await localDb.parts.count();
     if (localPartsCount > 0) {
-      console.log('[seedPartsFromJson] Peças já existem no IndexedDB. Pulando seed.');
       return;
     }
   }
 
   if (supabasePartsCount && supabasePartsCount > 0) {
-    console.log(`[seedPartsFromJson] ${supabasePartsCount} peças já existem no Supabase. Pulando seed.`);
     return;
   }
 
-  console.log('[seedPartsFromJson] Tabela parts vazia no Supabase. Tentando popular de parts.json...');
   try {
     const response = await fetch('/data/parts.json'); // Caminho atualizado
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const parsedParts: Part[] = await response.json();
-    console.log(`[seedPartsFromJson] ${parsedParts.length} peças lidas de parts.json.`);
 
     // Adiciona ao Supabase
     const { error: insertError } = await supabase
@@ -84,14 +78,11 @@ const seedPartsFromJson = async (): Promise<void> => {
       .insert(parsedParts);
 
     if (insertError) {
-      console.error('[seedPartsFromJson] Falha ao popular peças no Supabase:', insertError);
       throw insertError;
     }
-    console.log(`[seedPartsFromJson] ${parsedParts.length} peças populadas no Supabase.`);
 
     // Também adiciona ao IndexedDB para cache local
     await bulkPutLocalParts(parsedParts);
-    console.log(`[seedPartsFromJson] ${parsedParts.length} peças populadas no IndexedDB.`);
 
   } catch (error) {
     console.error("[seedPartsFromJson] Falha ao buscar ou analisar parts.json ou popular Supabase/IndexedDB:", error);
@@ -99,48 +90,41 @@ const seedPartsFromJson = async (): Promise<void> => {
 };
 
 const seedAfs = async (): Promise<void> => {
-  console.log('[seedAfs] Verificando se a tabela afs precisa ser populada...');
   // 1. Primeiro, verifica se há AFs no Supabase
   const { count: supabaseAfsCount, error: countError } = await supabase
     .from('afs')
     .select('*', { count: 'exact' });
 
   if (countError) {
-    console.error('[seedAfs] Erro ao verificar contagem de AFs no Supabase:', countError);
     // Se houver erro ao contar, tenta carregar do IndexedDB como fallback
     const localAfsCount = await localDb.afs.count();
     if (localAfsCount > 0) {
-      console.log('[seedAfs] AFs já existem no IndexedDB. Pulando seed.');
       return;
     }
   }
 
   if (supabaseAfsCount && supabaseAfsCount > 0) {
-    console.log(`[seedAfs] ${supabaseAfsCount} AFs já existem no Supabase. Pulando seed.`);
     return;
   }
 
   let parsedAfs: Af[] = [];
   let source = '';
 
-  console.log('[seedAfs] Tabela afs vazia no Supabase. Tentando popular de afs.json...');
   // 2. Tenta carregar do public/data/afs.json
   try {
     const response = await fetch('/data/afs.json'); // Caminho atualizado
     if (!response.ok) {
-      console.warn('[seedAfs] Falha ao buscar afs.json, tentando CSV. Status:', response.status);
+      // console.warn('[seedAfs] Falha ao buscar afs.json, tentando CSV. Status:', response.status);
     } else {
       parsedAfs = await response.json();
       source = 'JSON';
-      console.log(`[seedAfs] ${parsedAfs.length} AFs lidos de afs.json.`);
     }
   } catch (jsonError) {
-    console.warn('[seedAfs] Erro ao buscar afs.json, tentando CSV:', jsonError);
+    // console.warn('[seedAfs] Erro ao buscar afs.json, tentando CSV:', jsonError);
   }
 
   // 3. Se JSON falhou ou estava vazio, tenta carregar do public/afs.csv
   if (parsedAfs.length === 0) {
-    console.log('[seedAfs] afs.json vazio ou falhou. Tentando popular de afs.csv...');
     try {
       const response = await fetch('/afs.csv');
       if (response.ok) {
@@ -156,7 +140,6 @@ const seedAfs = async (): Promise<void> => {
                 descricao: row.descricao || row.description || '', // Suporte a 'descricao' ou 'description'
               })).filter(af => af.af_number);
               source = 'CSV';
-              console.log(`[seedAfs] ${parsedAfs.length} AFs lidos de afs.csv.`);
               resolve();
             },
             error: (error: Error) => {
@@ -174,7 +157,6 @@ const seedAfs = async (): Promise<void> => {
 
   // 4. Se dados foram encontrados, adiciona ao Supabase e IndexedDB
   if (parsedAfs.length > 0) {
-    console.log(`[seedAfs] Iniciando upsert de ${parsedAfs.length} AFs no Supabase e IndexedDB.`);
     try {
       const { error: upsertError } = await supabase
         .from('afs')
@@ -186,39 +168,32 @@ const seedAfs = async (): Promise<void> => {
       }
 
       await bulkPutLocalAfs(parsedAfs);
-      console.log(`[seedAfs] ${parsedAfs.length} AFs upserted no Supabase e IndexedDB.`);
     } catch (dbError) {
       console.error("seedAfs: Failed to seed Supabase/IndexedDB with AFs:", dbError);
     }
   } else {
-    console.warn('seedAfs: No AFs found in JSON or CSV to seed.');
+    // console.warn('seedAfs: No AFs found in JSON or CSV to seed.');
   }
 };
 
 export const getParts = async (query?: string): Promise<Part[]> => {
-  console.log(`[getParts] Iniciando busca de peças. Query: "${query || 'Nenhuma'}"`);
   await seedPartsFromJson(); // Garante que o Supabase esteja populado
 
   if (query) {
     // --- Lógica para busca interativa (com query) ---
-    console.log(`[getParts] Query fornecida. Tentando busca local primeiro para a query: "${query}"`);
     const localResults = await searchLocalParts(query);
     if (localResults.length > 0) {
-      console.log(`[getParts] Resultados locais encontrados para a query "${query}": ${localResults.length} itens. Retornando resultados locais.`);
       return localResults;
     }
-    console.log(`[getParts] Nenhum resultado local para a query "${query}". Recorrendo à busca remota (limitada).`);
     // Recorre à busca remota (que tem um limite de 1000 para busca interativa)
     return searchParts(query); // Isso chama a função searchParts existente
   } else {
     // --- Lógica para obter TODAS as peças (sem query) com verificação de atualização ---
-    console.log('[getParts] Nenhuma query fornecida. Tentando obter TODAS as peças com verificação de atualização.');
 
     const localParts = await getLocalParts();
     let needsUpdate = false;
 
     if (localParts.length === 0) {
-      console.log('[getParts] Cache local de peças está vazio. Necessita atualização completa.');
       needsUpdate = true;
     } else {
       // Verifica a contagem remota para decidir se precisa atualizar
@@ -228,43 +203,34 @@ export const getParts = async (query?: string): Promise<Part[]> => {
           .select('*', { count: 'exact' });
 
         if (countError) {
-          console.warn('[getParts] Erro ao obter contagem remota de peças. Assumindo que o cache local está bom:', countError.message);
           // Em caso de erro na contagem remota, assume que o cache local é válido para evitar falha total.
         } else if (remoteCount !== null && localParts.length !== remoteCount) {
-          console.log(`[getParts] Contagem local (${localParts.length}) difere da remota (${remoteCount}). Necessita atualização.`);
           needsUpdate = true;
-        } else {
-          console.log(`[getParts] Contagem local (${localParts.length}) e remota (${remoteCount}) são iguais. Cache local parece atualizado.`);
         }
       } catch (e) {
-        console.warn('[getParts] Erro inesperado ao verificar contagem remota. Assumindo que o cache local está bom:', e);
+        // console.warn('[getParts] Erro inesperado ao verificar contagem remota. Assumindo que o cache local está bom:', e);
       }
     }
 
     if (needsUpdate) {
-      console.log('[getParts] Iniciando busca de TODAS as peças do Supabase com paginação para atualizar o cache local...');
       try {
         const allRemoteParts = await getAllPartsForExport(); // Esta função já lida com paginação
-        console.log(`[getParts] Buscadas ${allRemoteParts.length} peças do Supabase via paginação.`);
         
         // Atualiza o cache local
         await localDb.parts.clear();
         await bulkPutLocalParts(allRemoteParts);
-        console.log('[getParts] Cache local atualizado com todas as peças remotas.');
         return allRemoteParts;
       } catch (error) {
         console.error('[getParts] Erro ao buscar TODAS as peças do Supabase para atualização:', error);
         throw new Error(`Erro ao buscar todas as peças do Supabase: ${error.message}`);
       }
     } else {
-      console.log('[getParts] Retornando peças do cache local (já atualizado ou não necessita atualização).');
       return localParts;
     }
   }
 };
 
 export const getAllPartsForExport = async (): Promise<Part[]> => {
-  console.log('[getAllPartsForExport] Iniciando busca de TODAS as peças para exportação.');
   let allData: Part[] = [];
   const pageSize = 1000; // Define o tamanho da página
   let offset = 0;
@@ -284,17 +250,14 @@ export const getAllPartsForExport = async (): Promise<Part[]> => {
     if (data && data.length > 0) {
       allData = allData.concat(data as Part[]);
       offset += pageSize;
-      console.log(`[getAllPartsForExport] Buscando... ${allData.length} peças carregadas até agora.`);
     } else {
       hasMore = false; // Não há mais dados para buscar
-      console.log(`[getAllPartsForExport] Todas as ${allData.length} peças carregadas para exportação.`);
     }
   }
   return allData;
 };
 
 export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
-  console.log('[addPart] Adicionando nova peça:', part);
   const newPart = { ...part, id: uuidv4() }; // Gera um ID para o Supabase
   const { data, error } = await supabase
     .from('parts')
@@ -308,12 +271,10 @@ export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
 
   // Adiciona ao IndexedDB também
   await localDb.parts.add(newPart);
-  console.log('[addPart] Peça adicionada com sucesso no Supabase e IndexedDB. ID:', data[0].id);
   return data[0].id;
 };
 
 export const searchParts = async (query: string): Promise<Part[]> => {
-  console.log(`[searchParts] Iniciando busca de peças interativa. Query: "${query}"`);
   await seedPartsFromJson(); // Garante que o Supabase esteja populado
 
   const lowerCaseQuery = query.toLowerCase().trim();
@@ -331,21 +292,18 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     queryBuilder = queryBuilder.or(
       `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
     );
-    console.log(`[searchParts] Supabase query pattern: "%${searchPattern}%" (com limite de 1000)`);
   }
 
   const { data, error } = await queryBuilder;
 
   if (error) {
     console.error('[searchParts] Erro ao buscar peças no Supabase:', error);
-    console.log('[searchParts] Tentando fallback para IndexedDB...');
+    // console.log('[searchParts] Tentando fallback para IndexedDB...');
     const localResults = await searchLocalParts(query); // Passa a query original para a busca local
-    console.log(`[searchParts] Peças retornadas do IndexedDB: ${localResults.length}`);
     return localResults;
   }
 
   let results = data as Part[];
-  console.log(`[searchParts] Peças retornadas do Supabase (antes da ordenação): ${results.length}`);
 
   // Helper para determinar a qualidade da correspondência em um campo
   const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
@@ -391,14 +349,12 @@ export const searchParts = async (query: string): Promise<Part[]> => {
 
       return 0;
     });
-    console.log('[searchParts] Peças ordenadas por relevância.');
   }
 
   return results;
 };
 
 export const updatePart = async (updatedPart: Part): Promise<void> => {
-  console.log('[updatePart] Atualizando peça:', updatedPart.id, updatedPart.codigo);
   // Atualiza no Supabase
   const { error: supabaseError } = await supabase
     .from('parts')
@@ -412,11 +368,9 @@ export const updatePart = async (updatedPart: Part): Promise<void> => {
 
   // Atualiza no IndexedDB
   await updateLocalPart(updatedPart);
-  console.log('[updatePart] Peça atualizada com sucesso no Supabase e IndexedDB.');
 };
 
 export const deletePart = async (id: string): Promise<void> => {
-  console.log('[deletePart] Deletando peça:', id);
   // Deleta no Supabase
   const { error: supabaseError } = await supabase
     .from('parts')
@@ -430,12 +384,10 @@ export const deletePart = async (id: string): Promise<void> => {
 
   // Deleta no IndexedDB
   await localDb.parts.delete(id);
-  console.log('[deletePart] Peça deletada com sucesso do Supabase e IndexedDB.');
 };
 
 // --- Funções para AFs ---
 export const getAfsFromService = async (): Promise<Af[]> => {
-  console.log('[getAfsFromService] Iniciando busca de AFs.');
   await seedAfs(); // Garante que o Supabase esteja populado
 
   const { data, error } = await supabase
@@ -447,22 +399,18 @@ export const getAfsFromService = async (): Promise<Af[]> => {
   if (error) {
     console.error('[getAfsFromService] Erro ao buscar AFs do Supabase:', error);
     // Fallback para IndexedDB se Supabase falhar
-    console.log('[getAfsFromService] Tentando fallback para IndexedDB...');
+    // console.log('[getAfsFromService] Tentando fallback para IndexedDB...');
     const localAfs = await getLocalAfs();
-    console.log(`[getAfsFromService] AFs retornados do IndexedDB: ${localAfs.length}`);
     return localAfs;
   }
 
-  console.log(`[getAfsFromService] AFs retornados do Supabase: ${data?.length}`);
   // Atualiza o cache local com os dados do Supabase
   await localDb.afs.clear();
   await bulkPutLocalAfs(data as Af[]);
-  console.log('[getAfsFromService] Cache local de AFs atualizado.');
   return data as Af[];
 };
 
 export const getAllAfsForExport = async (): Promise<Af[]> => {
-  console.log('[getAllAfsForExport] Iniciando busca de TODOS os AFs para exportação.');
   let allData: Af[] = [];
   const pageSize = 1000; // Define o tamanho da página
   let offset = 0;
@@ -482,17 +430,14 @@ export const getAllAfsForExport = async (): Promise<Af[]> => {
     if (data && data.length > 0) {
       allData = allData.concat(data as Af[]);
       offset += pageSize;
-      console.log(`[getAllAfsForExport] Buscando... ${allData.length} AFs carregados até agora.`);
     } else {
       hasMore = false; // Não há mais dados para buscar
-      console.log(`[getAllAfsForExport] Todos os ${allData.length} AFs carregados para exportação.`);
     }
   }
   return allData;
 };
 
 export const addAf = async (af: Omit<Af, 'id'>): Promise<string> => {
-  console.log('[addAf] Adicionando novo AF:', af);
   const newAf = { ...af, id: uuidv4() }; // Gera um ID para o Supabase
   const { data, error } = await supabase
     .from('afs')
@@ -506,12 +451,10 @@ export const addAf = async (af: Omit<Af, 'id'>): Promise<string> => {
 
   // Adiciona ao IndexedDB também
   await localDb.afs.add(newAf);
-  console.log('[addAf] AF adicionado com sucesso no Supabase e IndexedDB. ID:', data[0].id);
   return data[0].id;
 };
 
 export const updateAf = async (updatedAf: Af): Promise<void> => {
-  console.log('[updateAf] Atualizando AF:', updatedAf.id, updatedAf.af_number);
   // Atualiza no Supabase
   const { error: supabaseError } = await supabase
     .from('afs')
@@ -525,11 +468,9 @@ export const updateAf = async (updatedAf: Af): Promise<void> => {
 
   // Atualiza no IndexedDB
   await localDb.afs.update(updatedAf.id, updatedAf);
-  console.log('[updateAf] AF atualizado com sucesso no Supabase e IndexedDB.');
 };
 
 export const deleteAf = async (id: string): Promise<void> => {
-  console.log('[deleteAf] Deletando AF:', id);
   // Deleta no Supabase
   const { error: supabaseError } = await supabase
     .from('afs')
@@ -543,116 +484,83 @@ export const deleteAf = async (id: string): Promise<void> => {
 
   // Deleta no IndexedDB
   await localDb.afs.delete(id);
-  console.log('[deleteAf] AF deletado com sucesso do Supabase e IndexedDB.');
 };
 
 // --- Funções para SimplePartItem (Lista de Peças Simples) ---
 export const getSimplePartsListItems = async (): Promise<SimplePartItem[]> => {
-  console.log('[getSimplePartsListItems] Buscando itens da lista de peças simples do IndexedDB.');
   const items = await getLocalSimplePartsListItems();
-  console.log(`[getSimplePartsListItems] ${items.length} itens retornados.`);
   return items;
 };
 
 export const addSimplePartItem = async (item: Omit<SimplePartItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
-  console.log('[addSimplePartItem] Adicionando item à lista de peças simples:', item);
   const id = await addLocalSimplePartItem(item, customCreatedAt);
-  console.log('[addSimplePartItem] Item adicionado com sucesso. ID:', id);
   return id;
 };
 
 export const updateSimplePartItem = async (updatedItem: SimplePartItem): Promise<void> => {
-  console.log('[updateSimplePartItem] Atualizando item da lista de peças simples:', updatedItem.id);
   await updateLocalSimplePartItem(updatedItem);
-  console.log('[updateSimplePartItem] Item atualizado com sucesso.');
 };
 
 export const deleteSimplePartItem = async (id: string): Promise<void> => {
-  console.log('[deleteSimplePartItem] Deletando item da lista de peças simples:', id);
   await deleteLocalSimplePartItem(id);
-  console.log('[deleteSimplePartItem] Item deletado com sucesso.');
 };
 
 export const clearSimplePartsList = async (): Promise<void> => {
-  console.log('[clearSimplePartsList] Limpando lista de peças simples.');
   await clearLocalSimplePartsList();
-  console.log('[clearSimplePartsList] Lista de peças simples limpa.');
 };
 
 // --- Funções para ServiceOrderItem (Lista de Ordens de Serviço) ---
 export const getServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
-  console.log('[getServiceOrderItems] Buscando itens da lista de ordens de serviço do IndexedDB.');
   const items = await getLocalServiceOrderItems();
-  console.log(`[getServiceOrderItems] ${items.length} itens retornados.`);
   return items;
 };
 
 export const addServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
-  console.log('[addServiceOrderItem] Adicionando item à lista de ordens de serviço:', item);
   const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
   const id = await addLocalServiceOrderItem(newItem, customCreatedAt);
-  console.log('[addServiceOrderItem] Item adicionado com sucesso. ID:', id);
   return id;
 };
 
 export const updateServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
-  console.log('[updateServiceOrderItem] Atualizando item da lista de ordens de serviço:', updatedItem.id);
   await updateLocalServiceOrderItem(updatedItem);
-  console.log('[updateServiceOrderItem] Item atualizado com sucesso.');
 };
 
 export const deleteServiceOrderItem = async (id: string): Promise<void> => {
-  console.log('[deleteServiceOrderItem] Deletando item da lista de ordens de serviço:', id);
   await deleteLocalServiceOrderItem(id);
-  console.log('[deleteServiceOrderItem] Item deletado com sucesso.');
 };
 
 export const clearServiceOrderList = async (): Promise<void> => {
-  console.log('[clearServiceOrderList] Limpando lista de ordens de serviço.');
   await clearLocalServiceOrderItems();
-  console.log('[clearServiceOrderList] Lista de ordens de serviço limpa.');
 };
 
 export const getLocalUniqueAfs = async (): Promise<string[]> => {
-  console.log('[getLocalUniqueAfs] Buscando AFs únicos do IndexedDB.');
   const afs = await localDb.afs.toArray();
   const uniqueAfs = afs.map(af => af.af_number).sort();
-  console.log(`[getLocalUniqueAfs] ${uniqueAfs.length} AFs únicos retornados.`);
   return uniqueAfs;
 };
 
 // --- Monthly Apontamentos Management (IndexedDB) ---
 
 export const getLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<MonthlyApontamento | undefined> => {
-  console.log(`[getLocalMonthlyApontamento] Buscando apontamento mensal local para user: ${userId}, month: ${monthYear}`);
   const apontamento = await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).first();
-  console.log(`[getLocalMonthlyApontamento] Apontamento local encontrado: ${!!apontamento}`);
   return apontamento;
 };
 
 export const putLocalMonthlyApontamento = async (monthlyApontamento: MonthlyApontamento): Promise<void> => {
-  console.log(`[putLocalMonthlyApontamento] Armazenando apontamento mensal localmente para user: ${monthlyApontamento.user_id}, month: ${monthlyApontamento.month_year}`);
   await localDb.monthlyApontamentos.put(monthlyApontamento);
-  console.log('[putLocalMonthlyApontamento] Apontamento mensal local salvo.');
 };
 
 export const bulkPutLocalMonthlyApontamentos = async (monthlyApontamentos: MonthlyApontamento[]): Promise<void> => {
-  console.log(`[bulkPutLocalMonthlyApontamentos] Armazenando ${monthlyApontamentos.length} apontamentos mensais localmente.`);
   await localDb.monthlyApontamentos.bulkPut(monthlyApontamentos);
-  console.log('[bulkPutLocalMonthlyApontamentos] Apontamentos mensais locais salvos em massa.');
 };
 
 export const clearLocalMonthlyApontamentos = async (userId: string): Promise<void> => {
-  console.log(`[clearLocalMonthlyApontamentos] Limpando apontamentos mensais locais para user: ${userId}`);
   const idsToDelete = await localDb.monthlyApontamentos.where('user_id').equals(userId).keys();
   await localDb.monthlyApontamentos.bulkDelete(idsToDelete);
-  console.log(`[clearLocalMonthlyApontamentos] ${idsToDelete.length} apontamentos mensais locais limpos.`);
 };
 
 export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<void> => {
-  console.log(`[deleteLocalMonthlyApontamento] Deletando apontamento mensal local para user: ${userId}, month: ${monthYear}`);
   await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).delete();
-  console.log('[deleteLocalMonthlyApontamento] Apontamento mensal local deletado.');
 };
 
 // --- Funções para Apontamentos (Time Tracking) ---
@@ -670,7 +578,6 @@ const isOnline = async () => {
 
 // Sincroniza dados do Supabase para o IndexedDB
 export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
-  console.log(`[syncMonthlyApontamentosFromSupabase] Fetching for user: ${userId}, month: ${monthYear}, forcePull: ${forcePull}`);
   
   const localMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
 
@@ -697,21 +604,17 @@ export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthY
     if (localMonthlyApontamento) {
       // Se forcePull é true, ou se o remoto é mais recente que o local, atualiza o local
       if (forcePull || (remoteMonthlyApontamento.updated_at && localMonthlyApontamento.updated_at && new Date(remoteMonthlyApontamento.updated_at) > new Date(localMonthlyApontamento.updated_at))) {
-        console.log(`[syncMonthlyApontamentosFromSupabase] Remote is newer or forcePull. Updating local for ${monthYear}.`);
         await putLocalMonthlyApontamento(remoteMonthlyApontamento);
         return remoteMonthlyApontamento;
       } else {
-        console.log(`[syncMonthlyApontamentosFromSupabase] Local is newer or same. No pull needed for ${monthYear}.`);
         return localMonthlyApontamento; // Retorna a versão local, que é a mais recente ou igual
       }
     } else {
       // Se não há local, apenas adiciona o remoto
-      console.log(`[syncMonthlyApontamentosFromSupabase] No local data. Adding remote for ${monthYear}.`);
       await putLocalMonthlyApontamento(remoteMonthlyApontamento);
       return remoteMonthlyApontamento;
     }
   }
-  console.log(`[syncMonthlyApontamentosFromSupabase] No data found in Supabase for ${monthYear}.`);
   return undefined;
 };
 
@@ -744,14 +647,11 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
       console.error(`[syncMonthlyApontamentoToSupabase] Error fetching remote updated_at for ${month_year}:`, remoteError);
       // Em caso de erro ao buscar o remoto, assume que precisa enviar para evitar perda de dados
     } else if (remoteData && remoteData.updated_at && new Date(remoteData.updated_at) >= new Date(payload.updated_at)) {
-      console.log(`[syncMonthlyApontamentoToSupabase] Remote is newer or same. Skipping push for ${month_year}.`);
       // Se o remoto é mais recente ou igual, não envia (a menos que forcePush)
       // Retorna o monthlyApontamento original, pois não houve alteração no Supabase
       return monthlyApontamento; 
     }
   }
-
-  console.log(`[syncMonthlyApontamentoToSupabase] Sending payload to Supabase for ${month_year}, forcePush: ${forcePush}`);
 
   const { data: upsertedData, error } = await supabase
     .from('monthly_apontamentos')
@@ -770,7 +670,6 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
   };
 
   await putLocalMonthlyApontamento(syncedMonthlyApontamento);
-  console.log(`[syncMonthlyApontamentoToSupabase] Stored in local DB after sync for ${month_year}.`);
   
   return syncedMonthlyApontamento;
 };
@@ -785,7 +684,6 @@ export const getApontamentos = async (userId: string, monthYear: string): Promis
     monthlyApontamento = await syncMonthlyApontamentosFromSupabase(userId, monthYear);
   } else {
     // Se offline, tenta do cache local
-    console.log(`[getApontamentos] Offline. Fetching from local DB for user: ${userId}, month: ${monthYear}`);
     monthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
   }
 
@@ -800,12 +698,10 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
   if (!currentMonthlyApontamento) {
     // Se não existe localmente, tenta buscar do Supabase (com lógica de comparação)
     if (online) {
-      console.log(`[updateApontamento] No local data. Fetching from Supabase for user: ${userId}, month: ${monthYear}`);
       currentMonthlyApontamento = await syncMonthlyApontamentosFromSupabase(userId, monthYear);
     }
     if (!currentMonthlyApontamento) {
       // Se ainda não existe, cria um novo registro mensal
-      console.log(`[updateApontamento] Creating new MonthlyApontamento object for user: ${userId}, month: ${monthYear}`);
       currentMonthlyApontamento = {
         id: uuidv4(), // ID para o registro mensal
         user_id: userId,
@@ -828,12 +724,10 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
 
   if (existingIndexByDate !== -1) {
     // Se um apontamento para a mesma data existe, atualiza-o
-    console.log(`[updateApontamento] Updating existing daily apontamento for date: ${dailyApontamento.date}`);
     newDailyApontamentoToReturn = { ...cleanedDailyApontamento, updated_at: new Date().toISOString() };
     updatedDailyApontamentos[existingIndexByDate] = newDailyApontamentoToReturn;
   } else {
     // Caso contrário, adiciona como uma nova entrada.
-    console.log(`[updateApontamento] Adding new daily apontamento for date: ${dailyApontamento.date}`);
     newDailyApontamentoToReturn = { ...cleanedDailyApontamento, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     updatedDailyApontamentos.push(newDailyApontamentoToReturn);
   }
@@ -844,12 +738,10 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
     updated_at: new Date().toISOString(), // Atualiza o timestamp do MonthlyApontamento
   };
 
-  console.log(`[updateApontamento] Storing updated MonthlyApontamento locally for ${monthYear}.`);
   await putLocalMonthlyApontamento(updatedMonthlyApontamento);
 
   if (online) {
     try {
-      console.log(`[updateApontamento] Online. Attempting to sync to Supabase for ${monthYear}.`);
       // Chama syncMonthlyApontamentoToSupabase com a lógica de comparação
       await syncMonthlyApontamentoToSupabase(updatedMonthlyApontamento);
     } catch (e) {
@@ -868,13 +760,11 @@ export const deleteApontamento = async (userId: string, monthYear: string, daily
 
   if (!currentMonthlyApontamento) {
     // Se não existe localmente, não há o que deletar
-    console.log(`[deleteApontamento] No local MonthlyApontamento found for ${monthYear}. Nothing to delete.`);
     return;
   }
 
   // Filtra o apontamento pela data
   const updatedDailyApontamentos = currentMonthlyApontamento.data.filter(a => a.date !== dailyApontamentoDate);
-  console.log(`[deleteApontamento] Deleting daily apontamento for date: ${dailyApontamentoDate}.`);
 
   const updatedMonthlyApontamento: MonthlyApontamento = {
     ...currentMonthlyApontamento,
@@ -882,12 +772,10 @@ export const deleteApontamento = async (userId: string, monthYear: string, daily
     updated_at: new Date().toISOString(), // Atualiza o timestamp do MonthlyApontamento
   };
 
-  console.log(`[deleteApontamento] Storing updated MonthlyApontamento locally after deletion for ${monthYear}.`);
   await putLocalMonthlyApontamento(updatedMonthlyApontamento);
 
   if (online) {
     try {
-      console.log(`[deleteApontamento] Online. Attempting to sync deletion to Supabase for ${monthYear}.`);
       // Chama syncMonthlyApontamentoToSupabase com a lógica de comparação
       await syncMonthlyApontamentoToSupabase(updatedMonthlyApontamento);
     } catch (e) {
@@ -901,12 +789,10 @@ export const deleteApontamento = async (userId: string, monthYear: string, daily
 export const deleteApontamentosByMonth = async (userId: string, monthYear: string): Promise<number> => {
   const online = await isOnline();
   
-  console.log(`[deleteApontamentosByMonth] Deleting local MonthlyApontamento for user: ${userId}, month: ${monthYear}`);
   // Deleta no IndexedDB
   await deleteLocalMonthlyApontamento(userId, monthYear);
 
   if (online) {
-    console.log(`[deleteApontamentosByMonth] Online. Deleting from Supabase for user: ${userId}, month: ${monthYear}`);
     // Deleta no Supabase
     const { error: supabaseError, count } = await supabase
       .from('monthly_apontamentos')
@@ -918,11 +804,9 @@ export const deleteApontamentosByMonth = async (userId: string, monthYear: strin
       console.error(`[deleteApontamentosByMonth] Error deleting monthly apontamentos from Supabase for ${monthYear}:`, supabaseError);
       throw new Error(`Erro ao excluir apontamentos mensais do Supabase: ${supabaseError.message}`);
     }
-    console.log(`[deleteApontamentosByMonth] Deleted ${count || 0} records from Supabase for ${monthYear}.`);
     return count || 0;
   }
 
-  console.log(`[deleteApontamentosByMonth] Offline. Only local deletion performed for ${monthYear}.`);
   return 0; // Se offline, apenas a exclusão local é feita.
 };
 

@@ -54,7 +54,7 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
 
       if (data.user) {
         showSuccess('Cadastro realizado com sucesso! Verifique seu e-mail para confirmar a conta.');
-        // Marcar o convite como usado imediatamente após o signup, antes da confirmação do email
+        // Marcar o convite como usado imediatamente após o signup, antes da confirmação do e-mail
         // Isso é importante para evitar que o mesmo convite seja usado várias vezes
         await markInviteAsUsed(data.user.id);
         navigate('/login'); // Redireciona para o login para o usuário confirmar o e-mail
@@ -83,7 +83,7 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
         console.error('CustomSignupForm: Erro ao marcar convite como usado:', error);
         showError('Erro ao finalizar o convite. Por favor, contate o suporte.');
       } else {
-        // console.log('CustomSignupForm: Convite marcado como usado com sucesso.'); // Removido
+        // console.log('CustomSignupForm: Convite marcado como usado com sucesso.');
       }
     } catch (error) {
       console.error('CustomSignupForm: Erro inesperado ao marcar convite como usado:', error);

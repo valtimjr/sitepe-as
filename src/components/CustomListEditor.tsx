@@ -71,18 +71,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
   const loadItems = useCallback(async () => {
-    console.log('[CustomListEditor] loadItems: Carregando itens para a lista ID:', list.id);
     if (!list.id) {
-      console.warn('[CustomListEditor] loadItems: list.id é nulo ou indefinido. Abortando.');
       return; // Adicionado para evitar chamadas desnecessárias
     }
     setIsLoading(true);
     try {
       const fetchedItems = await getCustomListItems(list.id);
       setItems(fetchedItems);
-      console.log('[CustomListEditor] loadItems: Itens carregados:', fetchedItems.length);
     } catch (error) {
-      console.error('[CustomListEditor] loadItems: Erro ao carregar itens da lista:', error);
+      console.error('Erro ao carregar itens da lista:', error);
       showError('Erro ao carregar itens da lista.');
     } finally {
       setIsLoading(false);
@@ -99,7 +96,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   // Efeito para preencher o formulário quando `editingItem` muda
   useEffect(() => {
     const initializeFormForEdit = async () => {
-      console.log('[CustomListEditor] initializeFormForEdit: editingItem mudou para:', editingItem);
       if (editingItem) {
         setCurrentEditItem(editingItem);
         setFormItemName(editingItem.item_name);
@@ -114,16 +110,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setSearchResultsRelated([]); // Limpa os resultados de busca relacionada
 
         if (editingItem.part_code) {
-          console.log('[CustomListEditor] initializeFormForEdit: Buscando peça para edição:', editingItem.part_code);
           const part = allAvailableParts.find(p => p.codigo.toLowerCase() === editingItem.part_code!.toLowerCase());
           setSelectedPartFromSearch(part || null);
-          console.log('[CustomListEditor] initializeFormForEdit: Peça encontrada para edição:', part);
         } else {
           setSelectedPartFromSearch(null);
-          console.log('[CustomListEditor] initializeFormForEdit: Nenhum part_code para edição.');
         }
       } else {
-        console.log('[CustomListEditor] initializeFormForEdit: editingItem é nulo, resetando formulário.');
         resetForm();
         setSelectedPartFromSearch(null);
       }
@@ -135,16 +127,13 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   useEffect(() => {
     const fetchSearchResults = async () => {
-      console.log('[CustomListEditor] fetchSearchResults: Query de busca principal:', searchQuery);
       if (searchQuery.length > 1) {
         setIsLoadingParts(true); // Set loading for search
         const results = await searchPartsService(searchQuery);
         setSearchResults(results);
         setIsLoadingParts(false); // Unset loading for search
-        console.log('[CustomListEditor] fetchSearchResults: Resultados da busca principal:', results.length);
       } else {
         setSearchResults([]);
-        console.log('[CustomListEditor] fetchSearchResults: Query muito curta, limpando resultados da busca principal.');
       }
     };
     const handler = setTimeout(() => {
@@ -156,16 +145,13 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   // Efeito para a busca de peças relacionadas
   useEffect(() => {
     const fetchRelatedSearchResults = async () => {
-      console.log('[CustomListEditor] fetchRelatedSearchResults: Query de busca relacionada:', relatedSearchQuery);
       if (relatedSearchQuery.length > 1) {
         // setIsLoadingParts(true); // This loading state is shared, be careful
         const results = await searchPartsService(relatedSearchQuery);
         setSearchResultsRelated(results);
         // setIsLoadingParts(false);
-        console.log('[CustomListEditor] fetchRelatedSearchResults: Resultados da busca relacionada:', results.length);
       } else {
         setSearchResultsRelated([]);
-        console.log('[CustomListEditor] fetchRelatedSearchResults: Query relacionada muito curta, limpando resultados.');
       }
     };
     const handler = setTimeout(() => {
@@ -176,7 +162,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
 
   const resetForm = () => {
-    console.log('[CustomListEditor] resetForm: Resetando todos os campos do formulário.');
     setCurrentEditItem(null);
     setFormItemName('');
     setFormPartCode('');
@@ -192,13 +177,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleAdd = () => {
-    console.log('[CustomListEditor] handleAdd: Chamado para adicionar novo item.');
     resetForm();
     onClose(); // Signal to parent to open sheet for new item
   };
 
   const handleEdit = (item: CustomListItem) => {
-    console.log('[CustomListEditor] handleEdit: Editando item:', item.id);
     setCurrentEditItem(item);
     setFormItemName(item.item_name);
     setFormPartCode(item.part_code || '');
@@ -213,7 +196,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleSelectPart = (part: Part) => {
-    console.log('[CustomListEditor] handleSelectPart: Peça selecionada:', part.codigo);
     setSelectedPartFromSearch(part);
     setFormPartCode(part.codigo);
     setFormDescription(part.descricao);
@@ -224,7 +206,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('[CustomListEditor] handleSubmit: Tentando salvar item.');
     
     const trimmedItemName = formItemName.trim();
     const trimmedDescription = formDescription.trim();
@@ -232,13 +213,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
     if (formQuantity <= 0) {
       showError('A quantidade deve ser maior que zero.');
-      console.error('[CustomListEditor] handleSubmit: Erro: Quantidade inválida.');
       return;
     }
 
     if (!trimmedItemName && !trimmedDescription) {
       showError('O Nome ou a Descrição da Peça deve ser preenchido.');
-      console.error('[CustomListEditor] handleSubmit: Erro: Nome ou Descrição vazios.');
       return;
     }
 
@@ -252,15 +231,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       order_index: currentEditItem?.order_index ?? 0, // Mantém a ordem ou define 0 para novo
       itens_relacionados: formItensRelacionados, // Inclui o novo campo
     };
-    console.log('[CustomListEditor] handleSubmit: Payload do item:', payload);
 
     try {
       if (currentEditItem) {
-        console.log('[CustomListEditor] handleSubmit: Atualizando item existente:', currentEditItem.id);
         await updateCustomListItem(list.id, { ...currentEditItem, ...payload }); // Passa list.id
         showSuccess('Item atualizado com sucesso!');
       } else {
-        console.log('[CustomListEditor] handleSubmit: Adicionando novo item à lista:', list.id);
         await addCustomListItem(list.id, payload); // Passa list.id
         showSuccess('Item adicionado com sucesso!');
       }
@@ -268,35 +244,30 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       onClose(); // Signal to parent to close sheet
       loadItems();
       onItemSaved?.(); // Usando encadeamento opcional
-      console.log('[CustomListEditor] handleSubmit: Item salvo com sucesso.');
     } catch (error) {
-      console.error('[CustomListEditor] handleSubmit: Erro ao salvar item:', error);
+      console.error('Erro ao salvar item:', error);
       showError('Erro ao salvar item.');
     }
   };
 
   const handleDelete = async (itemId: string) => {
-    console.log('[CustomListEditor] handleDelete: Deletando item:', itemId);
     try {
       await deleteCustomListItemService(list.id, itemId); // Passa list.id
       showSuccess('Item excluído com sucesso!');
       loadItems();
       onItemSaved?.(); // Usando encadeamento opcional
-      console.log('[CustomListEditor] handleDelete: Item excluído com sucesso.');
     } catch (error) {
-      console.error('[CustomListEditor] handleDelete: Erro ao excluir item:', error);
+      console.error('Erro ao excluir item:', error);
       showError('Erro ao excluir item.');
     }
   };
 
   const handleMoveItem = async (item: CustomListItem, direction: 'up' | 'down') => {
-    console.log(`[CustomListEditor] handleMoveItem: Movendo item ${item.id} ${direction}.`);
     const currentItemsCopy = [...items]; // Usar a cópia do estado atual
     const currentIndex = currentItemsCopy.findIndex(i => i.id === item.id);
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
     if (targetIndex < 0 || targetIndex >= currentItemsCopy.length) {
-      console.warn('[CustomListEditor] handleMoveItem: Movimento inválido, fora dos limites.');
       return;
     }
 
@@ -314,7 +285,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setItems(updatedItemsWithNewOrder);
 
     const loadingToastId = showLoading('Reordenando itens...');
-    console.log('[CustomListEditor] handleMoveItem: Nova ordem local:', updatedItemsWithNewOrder.map(i => i.item_name));
 
     try {
       // Envia TODOS os itens atualizados para o banco de dados de uma vez
@@ -323,9 +293,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       showSuccess('Ordem atualizada!');
       await loadItems(); // Recarrega para garantir consistência com o DB
       onItemSaved?.();
-      console.log('[CustomListEditor] handleMoveItem: Ordem salva no DB e recarregada.');
     } catch (error) {
-      console.error('[CustomListEditor] handleMoveItem: Erro ao reordenar itens:', error);
+      console.error('Erro ao reordenar itens:', error);
       showError('Erro ao reordenar itens.');
       // Em caso de erro, você pode querer reverter o estado local aqui
     } finally {
@@ -352,7 +321,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleCopyList = async () => {
-    console.log('[CustomListEditor] handleCopyList: Copiando lista.');
     if (items.length === 0) {
       showError('A lista está vazia. Adicione itens antes de copiar.');
       return;
@@ -363,38 +331,32 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     try {
       await navigator.clipboard.writeText(textToCopy);
       showSuccess('Lista de peças copiada para a área de transferência!');
-      console.log('[CustomListEditor] handleCopyList: Lista copiada com sucesso.');
     } catch (err) {
-      console.error('[CustomListEditor] handleCopyList: Erro ao copiar a lista:', err);
+      console.error('Erro ao copiar a lista:', err);
       showError('Erro ao copiar a lista. Por favor, tente novamente.');
     }
   };
 
   const handleExportCsv = () => {
-    console.log('[CustomListEditor] handleExportCsv: Exportando lista para CSV.');
     if (items.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
     exportDataAsCsv(items, `${list.title.replace(/\s/g, '_')}_itens.csv`);
     showSuccess('Lista exportada para CSV com sucesso!');
-    console.log('[CustomListEditor] handleExportCsv: Lista exportada para CSV.');
   };
 
   const handleExportPdf = () => {
-    console.log('[CustomListEditor] handleExportPdf: Exportando lista para PDF.');
     if (items.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
     generateCustomListPdf(items, list.title);
     showSuccess('PDF gerado com sucesso!');
-    console.log('[CustomListEditor] handleExportPdf: Lista exportada para PDF.');
   };
 
   // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: CustomListItem) => {
-    console.log('[CustomListEditor] handleDragStart: Iniciando arrasto para item:', item.id);
     setDraggedItem(item);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', item.id);
@@ -414,7 +376,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, targetItem: CustomListItem) => {
     e.preventDefault();
     e.currentTarget.classList.remove('opacity-50');
-    console.log('[CustomListEditor] handleDrop: Item solto sobre:', targetItem.id);
 
     if (draggedItem && draggedItem.id !== targetItem.id) {
       const currentItemsCopy = [...items]; // Usar a cópia do estado atual
@@ -436,7 +397,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setItems(updatedItemsWithNewOrder);
 
         const loadingToastId = showLoading('Reordenando itens...');
-        console.log('[CustomListEditor] handleDrop: Nova ordem local após soltar:', updatedItemsWithNewOrder.map(i => i.item_name));
 
         try {
           // Envia TODOS os itens atualizados para o banco de dados de uma vez
@@ -445,9 +405,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           showSuccess('Ordem atualizada com sucesso!');
           await loadItems(); // Recarrega para garantir consistência com o DB
           onItemSaved?.();
-          console.log('[CustomListEditor] handleDrop: Ordem salva no DB e recarregada.');
         } catch (error) {
-          console.error('[CustomListEditor] handleDrop: Erro ao reordenar itens:', error);
+          console.error('Erro ao reordenar itens:', error);
           showError('Erro ao reordenar itens.');
           // Em caso de erro, você pode querer reverter o estado local aqui
         } finally {
@@ -459,24 +418,20 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
-    console.log('[CustomListEditor] handleDragEnd: Arrasto finalizado.');
     e.currentTarget.classList.remove('opacity-50');
     setDraggedItem(null);
   };
   // --- End Drag and Drop Handlers ---
 
   const handleSaveGlobalPartName = async () => {
-    console.log('[CustomListEditor] handleSaveGlobalPartName: Tentando salvar nome global.');
     if (!selectedPartFromSearch || !formPartCode) {
       showError('Nenhuma peça selecionada para atualizar o nome global.');
-      console.error('[CustomListEditor] handleSaveGlobalPartName: Erro: Nenhuma peça selecionada.');
       return;
     }
   
     const currentGlobalName = selectedPartFromSearch.name || '';
     if (formItemName.trim() === currentGlobalName.trim()) {
       showError('O nome global não foi alterado.');
-      console.warn('[CustomListEditor] handleSaveGlobalPartName: Aviso: Nome global não alterado.');
       return;
     }
   
@@ -487,9 +442,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       // No need to reload all parts here, just update the selectedPartFromSearch state
       // to reflect the change if it's still the same part.
       setSelectedPartFromSearch(prev => prev ? { ...prev, name: formItemName.trim() } : null);
-      console.log('[CustomListEditor] handleSaveGlobalPartName: Nome global atualizado com sucesso.');
     } catch (error) {
-      console.error('[CustomListEditor] handleSaveGlobalPartName: Erro ao atualizar nome global da peça:', error);
+      console.error('Erro ao atualizar nome global da peça:', error);
       showError('Erro ao atualizar nome global da peça.');
     } finally {
       dismissToast(loadingToastId);
@@ -497,28 +451,22 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleAddRelatedPart = (part: Part) => {
-    console.log('[CustomListEditor] handleAddRelatedPart: Adicionando peça relacionada:', part.codigo);
     if (!formItensRelacionados.includes(part.codigo)) {
       setFormItensRelacionados(prev => [...prev, part.codigo]);
       setRelatedSearchQuery(''); // Limpa o campo de busca relacionada
       setSearchResultsRelated([]); // Limpa os resultados relacionados
       showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
-      console.log('[CustomListEditor] handleAddRelatedPart: Peça adicionada com sucesso.');
     } else {
       showError(`Peça ${part.codigo} já está na lista de itens relacionados.`);
-      console.warn('[CustomListEditor] handleAddRelatedPart: Aviso: Peça já existe nos relacionados.');
     }
   };
 
   const handleRemoveRelatedPart = (codigo: string) => {
-    console.log('[CustomListEditor] handleRemoveRelatedPart: Removendo peça relacionada:', codigo);
     setFormItensRelacionados(prev => prev.filter(c => c !== codigo));
     showSuccess(`Peça ${codigo} removida dos itens relacionados.`);
-    console.log('[CustomListEditor] handleRemoveRelatedPart: Peça removida com sucesso.');
   };
 
   const handleBulkAddRelatedParts = () => {
-    console.log('[CustomListEditor] handleBulkAddRelatedParts: Adicionando peças relacionadas em massa.');
     const newCodes = bulkRelatedPartsInput
       .split(';')
       .map(code => code.trim())
@@ -526,7 +474,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
     if (newCodes.length === 0) {
       showError('Nenhum código válido encontrado para adicionar.');
-      console.warn('[CustomListEditor] handleBulkAddRelatedParts: Aviso: Nenhum código válido para adicionar.');
       return;
     }
 
@@ -534,18 +481,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setFormItensRelacionados(uniqueNewCodes);
     setBulkRelatedPartsInput('');
     showSuccess(`${newCodes.length} código(s) adicionado(s) aos itens relacionados.`);
-    console.log('[CustomListEditor] handleBulkAddRelatedParts: Códigos adicionados em massa:', newCodes);
   };
 
   // Helper function to get part description for display
   const getPartDescription = (partCode: string): string => {
-    console.log(`[CustomListEditor] getPartDescription: Buscando descrição para o código: "${partCode}" na lista allAvailableParts (tamanho: ${allAvailableParts.length}).`);
     const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
     if (part) {
-      console.log(`[CustomListEditor] getPartDescription: Peça encontrada: ${part.codigo} - ${part.descricao}`);
       return `${part.codigo} - ${part.descricao}`;
     }
-    console.log(`[CustomListEditor] getPartDescription: Peça não encontrada para o código: "${partCode}" na lista allAvailableParts.`);
     return partCode;
   };
 
