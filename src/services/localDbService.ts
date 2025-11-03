@@ -129,7 +129,6 @@ class LocalDexieDb extends Dexie {
       monthlyApontamentos: 'id, user_id, month_year', // Nova tabela para apontamentos mensais
     }).upgrade(async tx => {
       // Lógica de migração de apontamentos antigos para o novo formato mensal
-      // Esta lógica é um exemplo e pode precisar ser ajustada dependendo dos dados existentes
       const oldApontamentos = await tx.table('apontamentos').toArray();
       const monthlyDataMap: { [key: string]: MonthlyApontamento } = {};
 
@@ -141,7 +140,7 @@ class LocalDexieDb extends Dexie {
 
         if (!monthlyDataMap[key]) {
           monthlyDataMap[key] = {
-            id: uuidv4(),
+            id: uuidv4(), // ID para o registro mensal
             user_id: userId,
             month_year: monthYear,
             data: [],
@@ -149,15 +148,16 @@ class LocalDexieDb extends Dexie {
             updated_at: new Date().toISOString(),
           };
         }
-        monthlyDataMap[key].data.push({
-          // id: oldAp.id, // REMOVIDO: id não existe mais em DailyApontamento
+        // Explicitamente constrói DailyApontamento para garantir que 'id' não seja incluído
+        const dailyEntry: DailyApontamento = {
           date: oldAp.date,
           entry_time: oldAp.entry_time,
           exit_time: oldAp.exit_time,
           status: oldAp.status,
           created_at: oldAp.created_at?.toISOString(),
-          updated_at: oldAp.synced_at?.toISOString(), // Usar synced_at como updated_at
-        });
+          updated_at: oldAp.synced_at?.toISOString(),
+        };
+        monthlyDataMap[key].data.push(dailyEntry);
       });
 
       await tx.table('monthlyApontamentos').bulkAdd(Object.values(monthlyDataMap));

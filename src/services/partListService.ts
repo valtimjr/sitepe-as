@@ -41,6 +41,12 @@ export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends LocalAf {}
 export type Apontamento = DailyApontamento; // Apontamento agora é o DailyApontamento
 
+// Helper para garantir que DailyApontamento objetos não contenham um campo 'id'
+const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
+  const { id, ...rest } = ap as any; // Converte para any para desestruturar 'id' com segurança, se existir
+  return rest;
+};
+
 const seedPartsFromJson = async (): Promise<void> => {
   // Primeiro, verifica se há peças no Supabase
   const { count: supabasePartsCount, error: countError } = await supabase
@@ -529,7 +535,7 @@ export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthY
   if (data) {
     const monthlyApontamento: MonthlyApontamento = {
       ...data,
-      data: data.data as DailyApontamento[], // Garante o tipo correto
+      data: (data.data as DailyApontamento[]).map(cleanDailyApontamento), // Limpa IDs ao buscar
       created_at: data.created_at,
       updated_at: data.updated_at,
     };
@@ -543,11 +549,14 @@ export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthY
 export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: MonthlyApontamento): Promise<MonthlyApontamento> => {
   const { id, user_id, month_year, data, created_at } = monthlyApontamento;
   
+  // Limpa cada entrada diária antes de enviar para o Supabase
+  const cleanedData = data.map(cleanDailyApontamento);
+
   const payload = {
     id,
     user_id,
     month_year,
-    data,
+    data: cleanedData, // Usa os dados limpos
     created_at: created_at || new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -565,7 +574,7 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
 
   const syncedMonthlyApontamento: MonthlyApontamento = {
     ...upsertedData,
-    data: upsertedData.data as DailyApontamento[],
+    data: (upsertedData.data as DailyApontamento[]).map(cleanDailyApontamento), // Limpa IDs ao receber de volta
   };
 
   await putLocalMonthlyApontamento(syncedMonthlyApontamento);
@@ -618,13 +627,16 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
   // Encontra o apontamento pela data, que agora é o identificador único
   const existingIndexByDate = updatedDailyApontamentos.findIndex(a => a.date === dailyApontamento.date);
 
+  // Garante que o dailyApontamento recebido esteja limpo (sem 'id')
+  const cleanedDailyApontamento = cleanDailyApontamento(dailyApontamento);
+
   if (existingIndexByDate !== -1) {
     // Se um apontamento para a mesma data existe, atualiza-o
-    newDailyApontamentoToReturn = { ...dailyApontamento, updated_at: new Date().toISOString() };
+    newDailyApontamentoToReturn = { ...cleanedDailyApontamento, updated_at: new Date().toISOString() };
     updatedDailyApontamentos[existingIndexByDate] = newDailyApontamentoToReturn;
   } else {
     // Caso contrário, adiciona como uma nova entrada.
-    newDailyApontamentoToReturn = { ...dailyApontamento, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    newDailyApontamentoToReturn = { ...cleanedDailyApontamento, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     updatedDailyApontamentos.push(newDailyApontamentoToReturn);
   }
 
