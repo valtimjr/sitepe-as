@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays, FileDown } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth } from '@/services/partListService';
+import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth, getLocalMonthlyApontamento, syncMonthlyApontamentoToSupabase } from '@/services/partListService'; // Importar getLocalMonthlyApontamento e syncMonthlyApontamentoToSupabase
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { generateTimeTrackingPdf } from '@/lib/pdfGenerator';
@@ -38,6 +38,7 @@ import { Link } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
+import { MonthlyApontamento } from '@/types/supabase'; // Importar MonthlyApontamento
 
 // Mapeamento de Status para Ícone e Estilo
 const STATUS_MAP = {
@@ -407,25 +408,34 @@ const TimeTrackingPage: React.FC = () => {
     console.log('handleGenerateSchedule: Iniciando geração da escala...');
 
     try {
-      const generatedApontamentos = generateMonthlyApontamentos(currentDate, selectedTurn, userId);
+      const generatedDailyApontamentos = generateMonthlyApontamentos(currentDate, selectedTurn, userId);
       const monthYear = format(currentDate, 'yyyy-MM');
-      console.log('handleGenerateSchedule: Apontamentos gerados:', generatedApontamentos);
+      console.log('handleGenerateSchedule: Apontamentos diários gerados:', generatedDailyApontamentos);
 
-      if (generatedApontamentos.length === 0) {
+      if (generatedDailyApontamentos.length === 0) {
         showSuccess('Nenhum apontamento gerado para este mês com o turno selecionado.');
         console.warn('handleGenerateSchedule: Nenhum apontamento gerado.');
         return;
       }
 
-      // Atualiza todos os apontamentos gerados, `updateApontamento` cuidará da lógica de sobrescrita
-      const syncPromises = generatedApontamentos.map(a => {
-        console.log(`handleGenerateSchedule: Preparando para atualizar apontamento para o dia ${a.date}`);
-        return updateApontamento(userId, monthYear, a);
-      });
-      await Promise.all(syncPromises);
-      console.log('handleGenerateSchedule: Todos os apontamentos foram processados.');
+      // 1. Tenta buscar o MonthlyApontamento existente (local ou Supabase)
+      let existingMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
 
-      showSuccess(`${generatedApontamentos.length} dias da escala do ${selectedTurn} foram preenchidos/atualizados!`);
+      // 2. Cria o objeto MonthlyApontamento completo com os novos dados
+      const newMonthlyApontamento: MonthlyApontamento = {
+        id: existingMonthlyApontamento?.id || uuidv4(), // Reutiliza o ID se existir, senão gera um novo
+        user_id: userId,
+        month_year: monthYear,
+        data: generatedDailyApontamentos, // O array completo de DailyApontamento
+        created_at: existingMonthlyApontamento?.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // 3. Sincroniza o objeto MonthlyApontamento completo UMA VEZ
+      console.log('handleGenerateSchedule: Sincronizando MonthlyApontamento completo com Supabase...');
+      await syncMonthlyApontamentoToSupabase(newMonthlyApontamento);
+      
+      showSuccess(`${generatedDailyApontamentos.length} dias da escala do ${selectedTurn} foram preenchidos/atualizados!`);
       loadApontamentos(); // Recarrega os apontamentos para refletir as mudanças
       console.log('handleGenerateSchedule: Escala gerada e sincronizada com sucesso.');
     } catch (error) {
