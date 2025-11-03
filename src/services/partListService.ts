@@ -612,9 +612,26 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
     }
   }
 
-  const updatedDailyApontamentos = currentMonthlyApontamento.data.filter(a => a.id !== dailyApontamento.id);
-  const newDailyApontamento = { ...dailyApontamento, updated_at: new Date().toISOString() };
-  updatedDailyApontamentos.push(newDailyApontamento);
+  let updatedDailyApontamentos = [...currentMonthlyApontamento.data];
+  let newDailyApontamentoToReturn: DailyApontamento;
+
+  const existingIndexById = updatedDailyApontamentos.findIndex(a => a.id === dailyApontamento.id);
+  const existingIndexByDate = updatedDailyApontamentos.findIndex(a => a.date === dailyApontamento.date);
+
+  if (existingIndexById !== -1) {
+    // Se um apontamento com o mesmo ID existe, atualiza-o
+    newDailyApontamentoToReturn = { ...dailyApontamento, updated_at: new Date().toISOString() };
+    updatedDailyApontamentos[existingIndexById] = newDailyApontamentoToReturn;
+  } else if (existingIndexByDate !== -1) {
+    // Se um apontamento para a mesma data existe (mas com ID diferente, ex: da geração de escala), atualiza-o
+    // IMPORTANTE: Preserva o ID existente se estiver atualizando por data, para que futuras exclusões/edições funcionem.
+    newDailyApontamentoToReturn = { ...dailyApontamento, id: updatedDailyApontamentos[existingIndexByDate].id, updated_at: new Date().toISOString() };
+    updatedDailyApontamentos[existingIndexByDate] = newDailyApontamentoToReturn;
+  } else {
+    // Caso contrário, adiciona como uma nova entrada. Gera um novo ID se não for fornecido.
+    newDailyApontamentoToReturn = { ...dailyApontamento, id: dailyApontamento.id || uuidv4(), updated_at: new Date().toISOString() };
+    updatedDailyApontamentos.push(newDailyApontamentoToReturn);
+  }
 
   const updatedMonthlyApontamento: MonthlyApontamento = {
     ...currentMonthlyApontamento,
@@ -633,7 +650,7 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
     }
   }
   
-  return newDailyApontamento;
+  return newDailyApontamentoToReturn;
 };
 
 // Deleta um apontamento diário dentro do blob JSON mensal

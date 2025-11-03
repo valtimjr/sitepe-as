@@ -163,7 +163,7 @@ const TimeTrackingPage: React.FC = () => {
     const newApontamento: Apontamento = existingApontamento
       ? { ...existingApontamento, [field]: newValue, status: undefined }
       : {
-          id: uuidv4(),
+          id: uuidv4(), // Gerar novo ID apenas se não houver apontamento existente
           date: dateString,
           entry_time: field === 'entry_time' ? newValue : undefined,
           exit_time: field === 'exit_time' ? newValue : undefined,
@@ -227,7 +227,7 @@ const TimeTrackingPage: React.FC = () => {
     const newApontamento: Apontamento = existingApontamento
       ? { ...existingApontamento, status, entry_time: undefined, exit_time: undefined }
       : {
-          id: uuidv4(),
+          id: uuidv4(), // Gerar novo ID apenas se não houver apontamento existente
           date: dateString,
           status,
           created_at: new Date().toISOString(),
@@ -407,19 +407,18 @@ const TimeTrackingPage: React.FC = () => {
       const generatedApontamentos = generateMonthlyApontamentos(currentDate, selectedTurn, userId);
       const monthYear = format(currentDate, 'yyyy-MM');
 
-      const existingDates = new Set(apontamentos.map(a => a.date));
-      const newApontamentosToSave = generatedApontamentos.filter(genA => !existingDates.has(genA.date));
-
-      if (newApontamentosToSave.length === 0) {
-        showSuccess('A escala já está preenchida para este mês ou não há novos dias para preencher.');
+      // Removido o filtro `newApontamentosToSave`
+      // A função `updateApontamento` agora lida com a lógica de sobrescrever/adicionar
+      if (generatedApontamentos.length === 0) {
+        showSuccess('Nenhum apontamento gerado para este mês com o turno selecionado.');
         return;
       }
 
-      // Atualiza cada apontamento individualmente no serviço
-      const syncPromises = newApontamentosToSave.map(a => updateApontamento(userId, monthYear, a));
+      // Atualiza todos os apontamentos gerados, `updateApontamento` cuidará da lógica de sobrescrita
+      const syncPromises = generatedApontamentos.map(a => updateApontamento(userId, monthYear, a));
       await Promise.all(syncPromises);
 
-      showSuccess(`${newApontamentosToSave.length} dias da escala do ${selectedTurn} foram preenchidos!`);
+      showSuccess(`${generatedApontamentos.length} dias da escala do ${selectedTurn} foram preenchidos/atualizados!`);
       loadApontamentos();
     } catch (error) {
       showError('Erro ao gerar a escala de horários.');
