@@ -562,13 +562,14 @@ export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthY
   }
 
   if (data) {
-    console.log(`[syncMonthlyApontamentosFromSupabase] Received data from Supabase for ${monthYear}:`, data);
+    console.log(`[syncMonthlyApontamentosFromSupabase] Raw data received from Supabase for ${monthYear}:`, data); // NEW LOG
     const monthlyApontamento: MonthlyApontamento = {
       ...data,
       data: (data.data as DailyApontamento[]).map(cleanDailyApontamento), // Limpa IDs e user_id ao buscar
       created_at: data.created_at,
       updated_at: data.updated_at,
     };
+    console.log(`[syncMonthlyApontamentosFromSupabase] Cleaned and processed data for local DB for ${monthYear}:`, monthlyApontamento.data); // NEW LOG
     await putLocalMonthlyApontamento(monthlyApontamento);
     console.log(`[syncMonthlyApontamentosFromSupabase] Stored in local DB for ${monthYear}:`, monthlyApontamento);
     return monthlyApontamento;
@@ -583,6 +584,7 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
   
   // Limpa cada entrada diária antes de enviar para o Supabase
   const cleanedData = data.map(cleanDailyApontamento);
+  console.log(`[syncMonthlyApontamentoToSupabase] Cleaned daily data before sending to Supabase for ${month_year}:`, cleanedData); // NEW LOG
 
   const payload = {
     id,
@@ -612,6 +614,7 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
     ...upsertedData,
     data: (upsertedData.data as DailyApontamento[]).map(cleanDailyApontamento), // Limpa IDs e user_id ao receber de volta
   };
+  console.log(`[syncMonthlyApontamentoToSupabase] Cleaned and processed data for local DB after sync for ${month_year}:`, syncedMonthlyApontamento.data); // NEW LOG
 
   await putLocalMonthlyApontamento(syncedMonthlyApontamento);
   console.log(`[syncMonthlyApontamentoToSupabase] Stored in local DB after sync for ${month_year}:`, syncedMonthlyApontamento);
