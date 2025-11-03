@@ -113,7 +113,6 @@ const TimeTrackingPage: React.FC = () => {
       setApontamentos(fetchedApontamentos);
     } catch (error) {
       showError('Erro ao carregar apontamentos.');
-      console.error('Failed to load time tracking data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -151,7 +150,6 @@ const TimeTrackingPage: React.FC = () => {
       showSuccess('Apontamento excluído.');
     } catch (error) {
       showError('Erro ao excluir apontamento.');
-      console.error('Failed to delete apontamento:', error);
     }
   }, [userId]);
 
@@ -188,7 +186,6 @@ const TimeTrackingPage: React.FC = () => {
       showSuccess('Apontamento salvo!');
     } catch (error) {
       showError('Erro ao salvar apontamento.');
-      console.error('Failed to save apontamento:', error);
     } finally {
       setIsSaving(false);
     }
@@ -213,7 +210,6 @@ const TimeTrackingPage: React.FC = () => {
         showSuccess('Status removido. Campos de hora liberados.');
       } catch (error) {
         showError('Erro ao remover status.');
-        console.error('Failed to clear status:', error);
       } finally {
         setIsSaving(false);
       }
@@ -245,7 +241,6 @@ const TimeTrackingPage: React.FC = () => {
       showSuccess(`Dia marcado como ${status.split(':')[0]}!`);
     } catch (error) {
       showError('Erro ao marcar status.');
-      console.error('Failed to set status:', error);
     } finally {
       setIsSaving(false);
     }
@@ -361,7 +356,6 @@ const TimeTrackingPage: React.FC = () => {
       showSuccess('Apontamentos copiados para a área de transferência!');
     } catch (err) {
       showError('Erro ao copiar o texto.');
-      console.error('Failed to copy text:', err);
     }
   };
 
@@ -438,7 +432,6 @@ const TimeTrackingPage: React.FC = () => {
       loadApontamentos(); // Recarrega os apontamentos para refletir as mudanças
     } catch (error) {
       showError('Erro ao gerar a escala de horários.');
-      console.error('Erro durante a geração ou sincronização da escala:', error);
     } finally {
       dismissToast(loadingToastId);
       setIsGeneratingSchedule(false);
@@ -465,7 +458,6 @@ const TimeTrackingPage: React.FC = () => {
       loadApontamentos();
     } catch (error) {
       showError('Erro ao limpar apontamentos do mês.');
-      console.error('Failed to clear month entries:', error);
     } finally {
       dismissToast(loadingToastId);
     }
