@@ -58,11 +58,11 @@ const ROTATING_TURNS = ['Turno A', 'Turno B', 'Turno C'];
 const FIXED_TURNS = ['Turno Dia 07:00 - 17:00', 'Turno Dia 07:30 - 17:00']; // Mantido para referência interna, mas não exportado
 
 // Mapeamento de Turno para o índice da escala na Semana 1 (2024-01-01)
-// Turno A = Noite (Índice 2)
+// Turno A = Dia (Índice 0) - ALTERADO
 // Turno B = Dia (Índice 0)
 // Turno C = Intermediário (Índice 1)
 const TURN_BASE_INDEX: { [key: string]: number } = {
-  'Turno A': 2, // Noite
+  'Turno A': 0, // Dia (Anteriormente era Noite)
   'Turno B': 0, // Dia
   'Turno C': 1, // Intermediário
 };
@@ -126,7 +126,7 @@ export const getShiftSchedule = (date: Date, turn: string): { entry?: string; ex
 /**
  * Gera os apontamentos automáticos para um mês inteiro.
  * @param monthDate Qualquer data dentro do mês desejado.
- * @param turn O turno selecionado (Turno A, Turno B, Turno C, etc.).
+ * @param turn The shift turn (Turno A, Turno B, Turno C, Turno Dia 07:00 - 17:00, etc.).
  * @param userId O ID do usuário para preencher o apontamento.
  * @returns Uma lista de objetos Apontamento.
  */
