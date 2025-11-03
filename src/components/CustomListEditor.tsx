@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescrip
 import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
-import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, deleteCustomListItem as deleteCustomListItemService } from '@/services/customListService';
+import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, deleteCustomListItem as deleteCustomListItemService, updateAllCustomListItems } from '@/services/customListService';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -263,7 +263,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       onItemSaved?.(); // Usando encadeamento opcional
     } catch (error) {
       showError('Erro ao salvar item.');
-      console.error('CustomListEditor: Failed to save item:', error); // LOG
+      console.error('Failed to save item:', error); // LOG
     }
   };
 
@@ -275,7 +275,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       onItemSaved?.(); // Usando encadeamento opcional
     } catch (error) {
       showError('Erro ao excluir item.');
-      console.error('CustomListEditor: Failed to delete item:', error); // LOG
+      console.error('Failed to delete item:', error); // LOG
     }
   };
 
@@ -308,10 +308,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     const loadingToastId = showLoading('Reordenando itens...');
 
     try {
-      // Envia todos os itens atualizados para o banco de dados
-      await Promise.all(updatedItemsWithNewOrder.map(updatedItem =>
-        updateCustomListItem(list.id, updatedItem)
-      ));
+      // Envia TODOS os itens atualizados para o banco de dados de uma vez
+      await updateAllCustomListItems(list.id, updatedItemsWithNewOrder);
 
       showSuccess('Ordem atualizada!');
       await loadItems(); // Recarrega para garantir consistência com o DB
@@ -356,7 +354,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       showSuccess('Lista de peças copiada para a área de transferência!');
     } catch (err) {
       showError('Erro ao copiar a lista. Por favor, tente novamente.');
-      console.error('CustomListEditor: Failed to copy list items:', err); // LOG
+      console.error('Failed to copy list items:', err); // LOG
     }
   };
 
@@ -428,10 +426,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
         const loadingToastId = showLoading('Reordenando itens...');
         try {
-          // Envia todos os itens atualizados para o banco de dados
-          await Promise.all(updatedItemsWithNewOrder.map(updatedItem =>
-            updateCustomListItem(list.id, updatedItem)
-          ));
+          // Envia TODOS os itens atualizados para o banco de dados de uma vez
+          await updateAllCustomListItems(list.id, updatedItemsWithNewOrder);
 
           showSuccess('Ordem atualizada com sucesso!');
           await loadItems(); // Recarrega para garantir consistência com o DB
@@ -474,7 +470,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       setSelectedPartFromSearch(prev => prev ? { ...prev, name: formItemName.trim() } : null);
     } catch (error) {
       showError('Erro ao atualizar nome global da peça.');
-      console.error('CustomListEditor: Failed to update global part name:', error); // LOG
+      console.error('Failed to update global part name:', error); // LOG
     } finally {
       dismissToast(loadingToastId);
     }

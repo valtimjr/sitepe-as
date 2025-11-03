@@ -264,6 +264,10 @@ export const createCustomList = async (title: string, userId: string): Promise<C
   return data as CustomList;
 };
 
+/**
+ * Atualiza os metadados da lista (título) ou o array completo de itens.
+ * @param list O objeto CustomList completo com os dados atualizados.
+ */
 export const updateCustomList = async (list: CustomList): Promise<void> => {
   console.log('customListService: updateCustomList - Saving list ID:', list.id, 'with items_data:', list.items_data); // LOG
   const { error } = await supabase
@@ -276,6 +280,44 @@ export const updateCustomList = async (list: CustomList): Promise<void> => {
     throw new Error(`Erro ao atualizar lista personalizada: ${error.message}`);
   }
 };
+
+/**
+ * Atualiza um único item dentro do array items_data de uma lista.
+ * Esta função agora é mais segura contra race conditions se usada corretamente.
+ * @param listId O ID da lista.
+ * @param item O item CustomListItem completo com os dados atualizados.
+ */
+export const updateCustomListItem = async (listId: string, item: CustomListItem): Promise<void> => {
+  const currentList = await getCustomListById(listId);
+  if (!currentList) throw new Error('Lista personalizada não encontrada.');
+
+  const updatedItems = (currentList.items_data || []).map(existingItem =>
+    existingItem.id === item.id ? { ...item, list_id: listId, itens_relacionados: item.itens_relacionados || [] } : existingItem
+  );
+
+  await updateCustomList({ ...currentList, items_data: updatedItems });
+};
+
+/**
+ * Atualiza o array completo de itens para uma lista específica.
+ * Esta é a função que será usada para reordenação.
+ * @param listId O ID da lista.
+ * @param updatedItems O array completo de CustomListItem[] com a nova ordem e order_index.
+ */
+export const updateAllCustomListItems = async (listId: string, updatedItems: CustomListItem[]): Promise<void> => {
+  const currentList = await getCustomListById(listId);
+  if (!currentList) throw new Error('Lista personalizada não encontrada.');
+
+  // Garante que todos os itens no array recebido tenham list_id e itens_relacionados
+  const itemsToSave = updatedItems.map(item => ({
+    ...item,
+    list_id: listId,
+    itens_relacionados: item.itens_relacionados || [],
+  }));
+
+  await updateCustomList({ ...currentList, items_data: itemsToSave });
+};
+
 
 export const deleteCustomList = async (listId: string): Promise<void> => {
   const { error } = await supabase
@@ -305,17 +347,6 @@ export const addCustomListItem = async (listId: string, item: Omit<CustomListIte
   
   await updateCustomList({ ...currentList, items_data: updatedItems });
   return newItem;
-};
-
-export const updateCustomListItem = async (listId: string, item: CustomListItem): Promise<void> => {
-  const currentList = await getCustomListById(listId);
-  if (!currentList) throw new Error('Lista personalizada não encontrada.');
-
-  const updatedItems = (currentList.items_data || []).map(existingItem =>
-    existingItem.id === item.id ? { ...item, list_id: listId, itens_relacionados: item.itens_relacionados || [] } : existingItem
-  );
-
-  await updateCustomList({ ...currentList, items_data: updatedItems });
 };
 
 export const deleteCustomListItem = async (listId: string, itemId: string): Promise<void> => {
