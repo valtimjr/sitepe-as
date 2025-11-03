@@ -580,10 +580,10 @@ const TimeTrackingPage: React.FC = () => {
               </Button>
             </div>
             
-            <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2"> {/* Alterado para flex-row e items-center */}
+            <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2">
               <Button 
                 onClick={handleCopyText} 
-                className="flex items-center gap-2 flex-1 sm:w-auto bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground" // Adicionado flex-1 e estilos
+                className="flex items-center gap-2 w-full sm:w-auto bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground"
               >
                 <Copy className="h-4 w-4" /> Copiar Texto
               </Button>
@@ -601,11 +601,11 @@ const TimeTrackingPage: React.FC = () => {
                   <Button 
                     onClick={handleExportPdf} 
                     disabled={apontamentos.length === 0} 
-                    variant={isMobile ? "ghost" : "default"} // Ghost para mobile, default para desktop
-                    size={isMobile ? "icon" : undefined} // Icon size para mobile, undefined para desktop
+                    variant={isMobile ? "ghost" : "default"}
+                    size={isMobile ? "icon" : undefined}
                     className={cn(
                       "flex items-center gap-2",
-                      isMobile ? "h-10 w-10 p-0" : "" // Tamanho para mobile
+                      isMobile ? "h-10 w-10 p-0" : ""
                     )}
                   >
                     {isMobile ? (
@@ -627,9 +627,9 @@ const TimeTrackingPage: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[60px] sm:w-[80px]">Dia</TableHead> {/* Largura ajustada para mobile */}
-                    <TableHead className="w-auto min-w-[150px] sm:min-w-[200px]">Entrada</TableHead> {/* Cabeçalho dinâmico */}
-                    <TableHead className="w-[50px] text-right">Ações</TableHead> {/* Largura ajustada para mobile */}
+                    <TableHead className="w-[60px] sm:w-[80px]">Dia</TableHead>
+                    <TableHead className="w-auto min-w-[150px] sm:min-w-[200px]">Entrada</TableHead>
+                    <TableHead className="w-[50px] text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -648,7 +648,7 @@ const TimeTrackingPage: React.FC = () => {
 
                     return (
                       <TableRow key={dateString} className={isWeekend ? 'bg-muted/50' : ''}>
-                        <TableCell className="font-medium w-[60px] sm:w-[80px]"> {/* Largura ajustada */}
+                        <TableCell className="font-medium w-[60px] sm:w-[80px]">
                           <div className="flex flex-col items-start">
                             <span>{format(day, 'dd/MM')} ({dayName.substring(0, 3)})</span>
                             {isMobile && (
@@ -659,7 +659,7 @@ const TimeTrackingPage: React.FC = () => {
                           </div>
                         </TableCell>
                         
-                        <TableCell className="space-y-2"> {/* Removido col-span-2 */}
+                        <TableCell className="space-y-2">
                           {hasStatus ? (
                             <div className={cn(
                               "flex flex-col items-center justify-center p-2 rounded-md",
@@ -678,7 +678,7 @@ const TimeTrackingPage: React.FC = () => {
                               )}
                             </div>
                           ) : (
-                            <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2"> {/* Empilha em mobile, lado a lado em sm+ */}
+                            <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2">
                               <div className="flex-1 w-full">
                                 <Label htmlFor={`entry-${dateString}`} className="sr-only">Entrada</Label>
                                 <Input
@@ -712,12 +712,11 @@ const TimeTrackingPage: React.FC = () => {
                                 onClick={() => handleClearStatus(day)}
                                 disabled={isSaving}
                                 aria-label="Reverter para Horas"
-                                className="hidden sm:inline-flex" // Oculta em mobile, mostra em sm+
+                                className="hidden sm:inline-flex"
                               >
                                 <Clock3 className="h-4 w-4 text-primary" />
                               </Button>
                             ) : (
-                              // Oculta o botão "Folga" em mobile, mantém no desktop
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -745,7 +744,6 @@ const TimeTrackingPage: React.FC = () => {
                                 <DropdownMenuItem onClick={() => handleStatusChange(day, 'Suspensao')} disabled={hasStatus}>
                                   Suspensão
                                 </DropdownMenuItem>
-                                {/* Adiciona a opção Folga no dropdown para mobile */}
                                 {isMobile && (
                                   <DropdownMenuItem onClick={() => handleStatusChange(day, 'Folga')} disabled={hasStatus}>
                                     Folga
@@ -777,7 +775,7 @@ const TimeTrackingPage: React.FC = () => {
 
       {/* Sheet para Outros Status */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md"> {/* SheetContent com side="right" */}
+        <SheetContent side="right" className="sm:max-w-md">
           <SheetHeader>
             <SheetTitle>Marcar Outro Status</SheetTitle>
           </SheetHeader>
@@ -791,7 +789,7 @@ const TimeTrackingPage: React.FC = () => {
               rows={3}
             />
           </div>
-          <SheetFooter> {/* SheetFooter para botões */}
+          <SheetFooter>
             <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
               <X className="h-4 w-4 mr-2" /> Cancelar
             </Button>
