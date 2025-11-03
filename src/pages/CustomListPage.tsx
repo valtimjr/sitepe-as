@@ -1,4 +1,5 @@
-/** @jsxImportSource react */
+"use client";
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import CustomListEditor from '@/components/CustomListEditor';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import AfSearchInput from '@/components/AfSearchInput';
 import { Label } from '@/components/ui/label';
@@ -43,7 +44,7 @@ const CustomListPage: React.FC = () => {
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
   const loadList = useCallback(async () => {
-    if (!listId) return;
+    if (!listId) return; // Adicionado para evitar chamadas desnecessárias
     setIsLoading(true);
     try {
       const listData = await getCustomListById(listId);
@@ -374,6 +375,9 @@ const CustomListPage: React.FC = () => {
           <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
             <SheetHeader>
               <SheetTitle>Editar Item da Lista</SheetTitle>
+              <SheetDescription>
+                Edite os detalhes do item da lista.
+              </SheetDescription>
             </SheetHeader>
             {itemToEdit && listId && (
               <CustomListEditor
