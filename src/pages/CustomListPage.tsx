@@ -1,5 +1,4 @@
-"use client";
-
+/** @jsxImportSource react */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,7 @@ import { generateCustomListPdf } from '@/lib/pdfGenerator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import CustomListEditor from '@/components/CustomListEditor';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import AfSearchInput from '@/components/AfSearchInput';
 import { Label } from '@/components/ui/label';
@@ -44,7 +43,7 @@ const CustomListPage: React.FC = () => {
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
   const loadList = useCallback(async () => {
-    if (!listId) return; // Adicionado para evitar chamadas desnecessárias
+    if (!listId) return;
     setIsLoading(true);
     try {
       const listData = await getCustomListById(listId);
@@ -423,3 +422,7 @@ const CustomListPage: React.FC = () => {
         </Sheet>
       </div>
     </React.Fragment>
+  );
+};
+
+export default CustomListPage;

@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet'; // Sheet is imported but will not be used directly in this component's return
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet'; // Importar Sheet e SheetDescription
 import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
@@ -42,7 +43,7 @@ interface CustomListEditorProps {
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved }) => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // Removed isSheetOpen state as parent will manage it
+  const [isSheetOpen, setIsSheetOpen] = useState(false); // Renomeado para clareza
   const [currentEditItem, setCurrentEditItem] = useState<CustomListItem | null>(null);
   
   // Form states for main item
@@ -126,7 +127,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         } else {
           setSelectedPartFromSearch(null);
         }
-        // Removed setIsSheetOpen(true); as parent manages it
+        setIsSheetOpen(true);
       } else {
         resetForm();
         setSelectedPartFromSearch(null);
@@ -190,7 +191,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const handleAdd = () => {
     resetForm();
-    onClose(); // Signal to parent to open sheet for new item
+    setIsSheetOpen(true);
   };
 
   const handleEdit = (item: CustomListItem) => {
@@ -205,7 +206,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setBulkRelatedPartsInput(''); // Limpa o campo de bulk
     setRelatedSearchQuery(''); // Limpa a query de busca relacionada
     setSearchResultsRelated([]); // Limpa os resultados de busca relacionada
-    // Removed setIsSheetOpen(true); as parent manages it
+    setIsSheetOpen(true);
   };
 
   const handleSelectPart = (part: Part) => {
@@ -254,7 +255,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         showSuccess('Item adicionado com sucesso!');
       }
       
-      onClose(); // Signal to parent to close sheet
+      setIsSheetOpen(false);
       loadItems();
       onItemSaved?.(); // Usando encadeamento opcional
     } catch (error) {
@@ -584,7 +585,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                       <GripVertical className="h-4 w-4 text-muted-foreground" />
                     </TableCell>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                    <TableCell className="w-auto whitespace-normal break-words p-2 text-left"> {/* Ajustado para mobile */}
+                    <TableCell className="w-auto whitespace-normal break-words p-2"> {/* Ajustado para mobile */}
                         <div className="flex flex-col items-start">
                           {item.part_code && (
                             <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
@@ -596,13 +597,9 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                           {item.itens_relacionados && item.itens_relacionados.length > 0 && (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
-                                >
+                                <span className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-help">
                                   <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                                </Button>
+                                </span>
                               </TooltipTrigger>
                               <TooltipContent className="max-w-xs">
                                 <p className="font-bold mb-1">Itens Relacionados:</p>
@@ -680,174 +677,177 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       </CardContent>
 
       {/* Sheet Principal para Adicionar/Editar Item */}
-      {/* This Sheet is now managed by the parent component (CustomListPage) */}
-      <SheetHeader>
-        <SheetTitle>{currentEditItem ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
-        <SheetDescription>
-          {currentEditItem ? 'Edite os detalhes do item da lista.' : 'Adicione um novo item à lista personalizada.'}
-        </SheetDescription>
-      </SheetHeader>
-      <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-        <div className="space-y-2">
-          <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
-          <PartSearchInput
-            onSearch={setSearchQuery}
-            searchResults={searchResults}
-            onSelectPart={handleSelectPart}
-            searchQuery={searchQuery}
-            allParts={allAvailableParts}
-            isLoading={isLoadingParts}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          <div className="space-y-2 md:col-span-2"> {/* Nome Personalizado: maior */}
-            <Label htmlFor="item-name">Nome Personalizado</Label> {/* Rótulo encurtado */}
-            <div className="flex items-center gap-2">
-              <Input
-                id="item-name"
-                value={formItemName}
-                onChange={(e) => setFormItemName(e.target.value)}
-                placeholder="Ex: Kit de Reparo do Motor"
-                className="flex-1"
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{currentEditItem ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
+            <SheetDescription>
+              {currentEditItem ? 'Edite os detalhes do item da lista.' : 'Adicione um novo item à lista personalizada.'}
+            </SheetDescription>
+          </SheetHeader>
+          <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
+              <PartSearchInput
+                onSearch={setSearchQuery}
+                searchResults={searchResults}
+                onSelectPart={handleSelectPart}
+                searchQuery={searchQuery}
+                allParts={allAvailableParts}
+                isLoading={isLoadingParts}
               />
-              {formPartCode && ( 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleSaveGlobalPartName}
-                      disabled={
-                        !selectedPartFromSearch || 
-                        formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim() ||
-                        !formItemName.trim()
-                      }
-                    >
-                      <Save className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Salvar este nome como o nome global da peça "{selectedPartFromSearch?.codigo || 'N/A'}"
-                  </TooltipContent>
-                </Tooltip>
-              )}
             </div>
-          </div>
-          
-          <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
-            <Label htmlFor="part-code">Cód. Peça (Opcional)</Label> {/* Rótulo encurtado */}
-            <Input
-              id="part-code"
-              value={formPartCode}
-              onChange={(e) => setFormPartCode(e.target.value)}
-              placeholder="Código da peça"
-              className="w-full"
-            />
-          </div>
-        </div> {/* End grid-cols-1 md:grid-cols-3 for name/part-code */}
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
-            <Label htmlFor="description">Descrição (Opcional)</Label>
-            <Input
-              id="description"
-              value={formDescription}
-              onChange={(e) => setFormDescription(e.target.value)}
-              placeholder="Descrição da peça"
-              className="w-full"
-            />
-          </div>
 
-          <div className="space-y-2 md:col-span-1"> {/* Quantidade: menor */}
-            <Label htmlFor="quantity">Quantidade</Label>
-            <Input
-              id="quantity"
-              type="number"
-              value={formQuantity}
-              onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
-              min="1"
-              required
-              className="w-full"
-            />
-          </div>
-        </div> {/* End grid-cols-1 md:grid-cols-3 for description/quantity */}
-
-        {/* Seção de Itens Relacionados */}
-        <div className="space-y-2 border-t pt-4">
-          <Label className="flex items-center gap-2">
-            <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
-          </Label>
-          <PartSearchInput
-            onSearch={setRelatedSearchQuery}
-            searchResults={relatedSearchResults}
-            onSelectPart={handleAddRelatedPart}
-            searchQuery={relatedSearchQuery}
-            allParts={allAvailableParts}
-            isLoading={isLoadingParts}
-          />
-          <div className="space-y-2">
-            <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
-              Adicionar múltiplos códigos (separados por ';')
-            </Label>
-            <div className="flex gap-2">
-              <Textarea
-                id="bulk-related-parts"
-                value={bulkRelatedPartsInput}
-                onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
-                placeholder="Ex: COD1; COD2; COD3"
-                rows={2}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                onClick={handleBulkAddRelatedParts}
-                disabled={bulkRelatedPartsInput.trim().length === 0}
-                variant="outline"
-                size="icon"
-                aria-label="Adicionar em massa"
-              >
-                <PlusCircle className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          <ScrollArea className="h-24 w-full rounded-md border p-2">
-            {formItensRelacionados.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {formItensRelacionados.map(codigo => (
-                  <div key={codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
-                    {codigo}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 p-0 text-destructive"
-                      onClick={() => handleRemoveRelatedPart(codigo)}
-                    >
-                      <XCircle className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              <div className="space-y-2 md:col-span-2"> {/* Nome Personalizado: maior */}
+                <Label htmlFor="item-name">Nome Personalizado</Label> {/* Rótulo encurtado */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="item-name"
+                    value={formItemName}
+                    onChange={(e) => setFormItemName(e.target.value)}
+                    placeholder="Ex: Kit de Reparo do Motor"
+                    className="flex-1"
+                  />
+                  {formPartCode && ( 
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleSaveGlobalPartName}
+                          disabled={
+                            !selectedPartFromSearch || 
+                            formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim() ||
+                            !formItemName.trim()
+                          }
+                        >
+                          <Save className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Salvar este nome como o nome global da peça "{selectedPartFromSearch?.codigo || 'N/A'}"
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
               </div>
-            )}
-          </ScrollArea>
-          <p className="text-sm text-muted-foreground">
-            Adicione códigos de peças que estão relacionadas a este item da lista.
-          </p>
-        </div>
+              
+              <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
+                <Label htmlFor="part-code">Cód. Peça (Opcional)</Label> {/* Rótulo encurtado */}
+                <Input
+                  id="part-code"
+                  value={formPartCode}
+                  onChange={(e) => setFormPartCode(e.target.value)}
+                  placeholder="Código da peça"
+                  className="w-full"
+                />
+              </div>
+            </div> {/* End grid-cols-1 md:grid-cols-3 for name/part-code */}
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
+                <Label htmlFor="description">Descrição (Opcional)</Label>
+                <Input
+                  id="description"
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  placeholder="Descrição da peça"
+                  className="w-full"
+                />
+              </div>
 
-        <SheetFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            <XCircle className="h-4 w-4 mr-2" /> Cancelar
-          </Button>
-          <Button type="submit">
-            <Save className="h-4 w-4 mr-2" /> Salvar
-          </Button>
-        </SheetFooter>
-      </form>
+              <div className="space-y-2 md:col-span-1"> {/* Quantidade: menor */}
+                <Label htmlFor="quantity">Quantidade</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  value={formQuantity}
+                  onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
+                  min="1"
+                  required
+                  className="w-full"
+                />
+              </div>
+            </div> {/* End grid-cols-1 md:grid-cols-3 for description/quantity */}
+
+            {/* Seção de Itens Relacionados */}
+            <div className="space-y-2 border-t pt-4">
+              <Label className="flex items-center gap-2">
+                <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
+              </Label>
+              <PartSearchInput
+                onSearch={setRelatedSearchQuery}
+                searchResults={relatedSearchResults}
+                onSelectPart={handleAddRelatedPart}
+                searchQuery={relatedSearchQuery}
+                allParts={allAvailableParts}
+                isLoading={isLoadingParts}
+              />
+              <div className="space-y-2">
+                <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
+                  Adicionar múltiplos códigos (separados por ';')
+                </Label>
+                <div className="flex gap-2">
+                  <Textarea
+                    id="bulk-related-parts"
+                    value={bulkRelatedPartsInput}
+                    onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
+                    placeholder="Ex: COD1; COD2; COD3"
+                    rows={2}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleBulkAddRelatedParts}
+                    disabled={bulkRelatedPartsInput.trim().length === 0}
+                    variant="outline"
+                    size="icon"
+                    aria-label="Adicionar em massa"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <ScrollArea className="h-24 w-full rounded-md border p-2">
+                {formItensRelacionados.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {formItensRelacionados.map(codigo => (
+                      <div key={codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
+                        {codigo}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 p-0 text-destructive"
+                          onClick={() => handleRemoveRelatedPart(codigo)}
+                        >
+                          <XCircle className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+              <p className="text-sm text-muted-foreground">
+                Adicione códigos de peças que estão relacionadas a este item da lista.
+              </p>
+            </div>
+
+            <SheetFooter>
+              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
+                <XCircle className="h-4 w-4 mr-2" /> Cancelar
+              </Button>
+              <Button type="submit">
+                <Save className="h-4 w-4 mr-2" /> Salvar
+              </Button>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 };
