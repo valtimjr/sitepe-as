@@ -107,7 +107,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setSearchResultsRelated([]); // Limpa os resultados de busca relacionada
 
         if (editingItem.part_code) {
-          const part = allAvailableParts.find(p => p.codigo === editingItem.part_code);
+          const part = allAvailableParts.find(p => p.codigo.toLowerCase() === editingItem.part_code!.toLowerCase());
           setSelectedPartFromSearch(part || null);
         } else {
           setSelectedPartFromSearch(null);
@@ -475,7 +475,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   // Helper function to get part description for display
   const getPartDescription = (partCode: string): string => {
-    const part = allAvailableParts.find(p => p.codigo === partCode);
+    const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
     return part ? `${part.codigo} - ${part.descricao}` : partCode;
   };
 
@@ -552,7 +552,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[30px] p-2"> {/* Ajustado para 30px */}
-                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                    <GripVertical className="h-4 w-4" />
                   </TableHead>
                   <TableHead className="w-[3rem] p-2">Qtd</TableHead> {/* Ajustado para 3rem */}
                   <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead> {/* Ajustado para mobile */}
@@ -712,7 +712,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                       onClick={handleSaveGlobalPartName}
                       disabled={
                         !selectedPartFromSearch || 
-                        formItemName.trim() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim() ||
+                        formItemName.trim().toLowerCase() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim().toLowerCase() ||
                         !formItemName.trim()
                       }
                     >

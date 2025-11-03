@@ -42,7 +42,7 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
 
   // Helper function to get part description for display
   const getPartDescription = (partCode: string): string => {
-    const part = allAvailableParts.find(p => p.codigo === partCode);
+    const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
     return part ? `${part.codigo} - ${part.descricao}` : partCode;
   };
 
