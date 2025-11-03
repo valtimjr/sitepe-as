@@ -110,24 +110,17 @@ class LocalDexieDb extends Dexie {
       simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags',
-      afs: '++id, af_number',
+      afs: '++id, af_number, descricao', // Atualizado para incluir 'descricao'
       apontamentos: 'id, user_id, date, synced_at', // Esquema antigo para apontamentos
     });
     this.version(5).stores({
-      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
-      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
-      parts: '++id, codigo, descricao, tags',
-      afs: '++id, af_number, descricao', // Atualizado para incluir 'descricao'
-      apontamentos: 'id, user_id, date, synced_at',
-    });
-    this.version(6).stores({
       simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags, name', // Adicionado 'name'
       afs: '++id, af_number, descricao',
       apontamentos: 'id, user_id, date, synced_at',
     });
-    this.version(7).stores({
+    this.version(6).stores({
       simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
       parts: '++id, codigo, descricao, tags, name',
@@ -157,7 +150,7 @@ class LocalDexieDb extends Dexie {
           };
         }
         monthlyDataMap[key].data.push({
-          id: oldAp.id,
+          // id: oldAp.id, // REMOVIDO: id não existe mais em DailyApontamento
           date: oldAp.date,
           entry_time: oldAp.entry_time,
           exit_time: oldAp.exit_time,

@@ -26,8 +26,7 @@ export interface Part {
 
 // Apontamento diário, agora parte de um array JSONB
 export interface DailyApontamento {
-  id: string; // ID único para o apontamento diário
-  date: string; // Formato 'YYYY-MM-DD'
+  date: string; // Formato 'YYYY-MM-DD' - AGORA É O IDENTIFICADOR ÚNICO
   entry_time?: string; // Formato 'HH:MM'
   exit_time?: string; // Formato 'HH:MM'
   status?: string; // Novo campo para Folga, Falta, Suspensao, Outros

@@ -12,7 +12,6 @@ import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, del
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { generateTimeTrackingPdf } from '@/lib/pdfGenerator';
-import { v4 as uuidv4 } from 'uuid';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -127,20 +126,20 @@ const TimeTrackingPage: React.FC = () => {
 
   const updateApontamentoState = (updated: Apontamento) => {
     setApontamentos(prev => {
-      const filtered = prev.filter(a => a.id !== updated.id);
+      const filtered = prev.filter(a => a.date !== updated.date); // Filtrar por date
       return [...filtered, updated];
     });
   };
 
-  const handleDeleteApontamento = useCallback(async (dailyApontamentoId: string, day: Date) => {
+  const handleDeleteApontamento = useCallback(async (dailyApontamentoDate: string, day: Date) => {
     if (!userId) {
       showError('Usuário não autenticado.');
       return;
     }
     const monthYear = format(day, 'yyyy-MM');
     try {
-      await deleteApontamento(userId, monthYear, dailyApontamentoId);
-      setApontamentos(prev => prev.filter(a => a.id !== dailyApontamentoId));
+      await deleteApontamento(userId, monthYear, dailyApontamentoDate); // Passar a data
+      setApontamentos(prev => prev.filter(a => a.date !== dailyApontamentoDate)); // Filtrar por data
       showSuccess('Apontamento excluído.');
     } catch (error) {
       showError('Erro ao excluir apontamento.');
@@ -163,7 +162,6 @@ const TimeTrackingPage: React.FC = () => {
     const newApontamento: Apontamento = existingApontamento
       ? { ...existingApontamento, [field]: newValue, status: undefined }
       : {
-          id: uuidv4(), // Gerar novo ID apenas se não houver apontamento existente
           date: dateString,
           entry_time: field === 'entry_time' ? newValue : undefined,
           exit_time: field === 'exit_time' ? newValue : undefined,
@@ -171,7 +169,7 @@ const TimeTrackingPage: React.FC = () => {
         };
 
     if (!newApontamento.entry_time && !newApontamento.exit_time && !newApontamento.status && existingApontamento) {
-      await handleDeleteApontamento(existingApontamento.id, day);
+      await handleDeleteApontamento(existingApontamento.date, day); // Passar a data
       return;
     }
 
@@ -198,7 +196,7 @@ const TimeTrackingPage: React.FC = () => {
     if (!existingApontamento) return;
 
     if (!existingApontamento.entry_time && !existingApontamento.exit_time) {
-      await handleDeleteApontamento(existingApontamento.id, day);
+      await handleDeleteApontamento(existingApontamento.date, day); // Passar a data
     } else {
       setIsSaving(true);
       try {
@@ -227,7 +225,6 @@ const TimeTrackingPage: React.FC = () => {
     const newApontamento: Apontamento = existingApontamento
       ? { ...existingApontamento, status, entry_time: undefined, exit_time: undefined }
       : {
-          id: uuidv4(), // Gerar novo ID apenas se não houver apontamento existente
           date: dateString,
           status,
           created_at: new Date().toISOString(),
@@ -407,8 +404,12 @@ const TimeTrackingPage: React.FC = () => {
       const generatedApontamentos = generateMonthlyApontamentos(currentDate, selectedTurn, userId);
       const monthYear = format(currentDate, 'yyyy-MM');
 
-      // Itera sobre TODOS os apontamentos gerados e chama updateApontamento para cada um.
-      // A função updateApontamento agora lida com a lógica de sobrescrever ou adicionar.
+      if (generatedApontamentos.length === 0) {
+        showSuccess('Nenhum apontamento gerado para este mês com o turno selecionado.');
+        return;
+      }
+
+      // Atualiza todos os apontamentos gerados, `updateApontamento` cuidará da lógica de sobrescrita
       const syncPromises = generatedApontamentos.map(a => updateApontamento(userId, monthYear, a));
       await Promise.all(syncPromises);
 
@@ -722,7 +723,7 @@ const TimeTrackingPage: React.FC = () => {
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {apontamento && (
-                                  <DropdownMenuItem onClick={() => handleDeleteApontamento(apontamento.id, day)} className="text-destructive">
+                                  <DropdownMenuItem onClick={() => handleDeleteApontamento(apontamento.date, day)} className="text-destructive">
                                     <Trash2 className="h-4 w-4 mr-2" /> Excluir Registro
                                   </DropdownMenuItem>
                                 )}

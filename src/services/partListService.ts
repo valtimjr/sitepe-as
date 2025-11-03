@@ -602,7 +602,7 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
     if (!currentMonthlyApontamento) {
       // Se ainda não existe, cria um novo registro mensal
       currentMonthlyApontamento = {
-        id: uuidv4(),
+        id: uuidv4(), // ID para o registro mensal
         user_id: userId,
         month_year: monthYear,
         data: [],
@@ -615,21 +615,16 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
   let updatedDailyApontamentos = [...currentMonthlyApontamento.data];
   let newDailyApontamentoToReturn: DailyApontamento;
 
-  const existingIndexById = updatedDailyApontamentos.findIndex(a => a.id === dailyApontamento.id);
+  // Encontra o apontamento pela data, que agora é o identificador único
   const existingIndexByDate = updatedDailyApontamentos.findIndex(a => a.date === dailyApontamento.date);
 
-  if (existingIndexById !== -1) {
-    // Se um apontamento com o mesmo ID existe, atualiza-o
+  if (existingIndexByDate !== -1) {
+    // Se um apontamento para a mesma data existe, atualiza-o
     newDailyApontamentoToReturn = { ...dailyApontamento, updated_at: new Date().toISOString() };
-    updatedDailyApontamentos[existingIndexById] = newDailyApontamentoToReturn;
-  } else if (existingIndexByDate !== -1) {
-    // Se um apontamento para a mesma data existe (mas com ID diferente, ex: da geração de escala), atualiza-o
-    // IMPORTANTE: Preserva o ID existente se estiver atualizando por data, para que futuras exclusões/edições funcionem.
-    newDailyApontamentoToReturn = { ...dailyApontamento, id: updatedDailyApontamentos[existingIndexByDate].id, updated_at: new Date().toISOString() };
     updatedDailyApontamentos[existingIndexByDate] = newDailyApontamentoToReturn;
   } else {
-    // Caso contrário, adiciona como uma nova entrada. Gera um novo ID se não for fornecido.
-    newDailyApontamentoToReturn = { ...dailyApontamento, id: dailyApontamento.id || uuidv4(), updated_at: new Date().toISOString() };
+    // Caso contrário, adiciona como uma nova entrada.
+    newDailyApontamentoToReturn = { ...dailyApontamento, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     updatedDailyApontamentos.push(newDailyApontamentoToReturn);
   }
 
@@ -654,7 +649,7 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
 };
 
 // Deleta um apontamento diário dentro do blob JSON mensal
-export const deleteApontamento = async (userId: string, monthYear: string, dailyApontamentoId: string): Promise<void> => {
+export const deleteApontamento = async (userId: string, monthYear: string, dailyApontamentoDate: string): Promise<void> => {
   const online = await isOnline();
   let currentMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
 
@@ -663,7 +658,8 @@ export const deleteApontamento = async (userId: string, monthYear: string, daily
     return;
   }
 
-  const updatedDailyApontamentos = currentMonthlyApontamento.data.filter(a => a.id !== dailyApontamentoId);
+  // Filtra o apontamento pela data
+  const updatedDailyApontamentos = currentMonthlyApontamento.data.filter(a => a.date !== dailyApontamentoDate);
 
   const updatedMonthlyApontamento: MonthlyApontamento = {
     ...currentMonthlyApontamento,
