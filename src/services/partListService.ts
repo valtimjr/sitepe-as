@@ -41,9 +41,9 @@ export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends LocalAf {}
 export type Apontamento = DailyApontamento; // Apontamento agora é o DailyApontamento
 
-// Helper para garantir que DailyApontamento objetos não contenham um campo 'id'
+// Helper para garantir que DailyApontamento objetos não contenham um campo 'id' ou 'user_id'
 const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
-  const { id, ...rest } = ap as any; // Converte para any para desestruturar 'id' com segurança, se existir
+  const { id, user_id, ...rest } = ap as any; // Converte para any para desestruturar 'id' e 'user_id' com segurança, se existirem
   return rest;
 };
 
@@ -505,6 +505,34 @@ export const clearServiceOrderList = async (): Promise<void> => {
   await clearLocalServiceOrderItems();
 };
 
+export const getLocalUniqueAfs = async (): Promise<string[]> => {
+  const afs = await localDb.afs.toArray();
+  return afs.map(af => af.af_number).sort();
+};
+
+// --- Monthly Apontamentos Management (IndexedDB) ---
+
+export const getLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<MonthlyApontamento | undefined> => {
+  return localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).first();
+};
+
+export const putLocalMonthlyApontamento = async (monthlyApontamento: MonthlyApontamento): Promise<void> => {
+  await localDb.monthlyApontamentos.put(monthlyApontamento);
+};
+
+export const bulkPutLocalMonthlyApontamentos = async (monthlyApontamentos: MonthlyApontamento[]): Promise<void> => {
+  await localDb.monthlyApontamentos.bulkPut(monthlyApontamentos);
+};
+
+export const clearLocalMonthlyApontamentos = async (userId: string): Promise<void> => {
+  const idsToDelete = await localDb.monthlyApontamentos.where('user_id').equals(userId).keys();
+  await localDb.monthlyApontamentos.bulkDelete(idsToDelete);
+};
+
+export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<void> => {
+  await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).delete();
+};
+
 // --- Funções para Apontamentos (Time Tracking) ---
 
 // Helper function to check network status
@@ -535,7 +563,7 @@ export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthY
   if (data) {
     const monthlyApontamento: MonthlyApontamento = {
       ...data,
-      data: (data.data as DailyApontamento[]).map(cleanDailyApontamento), // Limpa IDs ao buscar
+      data: (data.data as DailyApontamento[]).map(cleanDailyApontamento), // Limpa IDs e user_id ao buscar
       created_at: data.created_at,
       updated_at: data.updated_at,
     };
@@ -574,7 +602,7 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
 
   const syncedMonthlyApontamento: MonthlyApontamento = {
     ...upsertedData,
-    data: (upsertedData.data as DailyApontamento[]).map(cleanDailyApontamento), // Limpa IDs ao receber de volta
+    data: (upsertedData.data as DailyApontamento[]).map(cleanDailyApontamento), // Limpa IDs e user_id ao receber de volta
   };
 
   await putLocalMonthlyApontamento(syncedMonthlyApontamento);
@@ -627,7 +655,7 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
   // Encontra o apontamento pela data, que agora é o identificador único
   const existingIndexByDate = updatedDailyApontamentos.findIndex(a => a.date === dailyApontamento.date);
 
-  // Garante que o dailyApontamento recebido esteja limpo (sem 'id')
+  // Garante que o dailyApontamento recebido esteja limpo (sem 'id' e 'user_id')
   const cleanedDailyApontamento = cleanDailyApontamento(dailyApontamento);
 
   if (existingIndexByDate !== -1) {
