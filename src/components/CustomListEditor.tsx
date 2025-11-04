@@ -12,7 +12,7 @@ import { CustomList, CustomListItem, Part } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, deleteCustomListItem as deleteCustomListItemService, updateAllCustomListItems } from '@/services/customListService';
 import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
-import { generateCustomListPdf } from '@/lib/pdfGenerator';
+import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -46,10 +46,10 @@ interface CustomListEditorProps {
   onClose: () => void;
   editingItem?: CustomListItem | null;
   onItemSaved?: () => void;
-  // Removido: allAvailableParts: Part[];
+  allAvailableParts: Part[]; // Adicionado de volta para o CustomListManager
 }
 
-const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved }) => {
+const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved, allAvailableParts }) => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   // Form states for main item
@@ -128,6 +128,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           setSelectedPartFromSearch(null);
         }
       } else {
+        // Se não houver editingItem, o formulário deve estar no modo de adição
         setIsFormForNewItem(true);
         resetForm();
         setSelectedPartFromSearch(null);
@@ -142,6 +143,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     const fetchSearchResults = async () => {
       if (searchQuery.length > 1) {
         setIsLoadingParts(true);
+        // searchPartsService agora retorna apenas o array de Part[]
         const results = await searchPartsService(searchQuery);
         setSearchResults(results);
         setIsLoadingParts(false);
@@ -190,8 +192,22 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     resetForm();
   };
 
-  const handleEdit = (item: CustomListItem) => {
+  // CORRIGIDO: Renomeado para refletir a ação de clique na tabela
+  const handleEditItemClick = (item: CustomListItem) => {
     setIsFormForNewItem(false);
+    // Define o item a ser editado no estado local do formulário
+    // Isso é usado quando o CustomListEditor é usado dentro do CustomListManager
+    // e o usuário clica em 'Editar' na tabela.
+    
+    // Se o componente for usado dentro de um Sheet (como no CustomListManager),
+    // ele precisa de um mecanismo para fechar e reabrir o Sheet com o novo item.
+    // Como o CustomListEditor é o componente que contém o formulário,
+    // vamos apenas preencher o formulário com os dados do item.
+    
+    // Se o item for o mesmo que já está sendo editado, não faz nada.
+    if (editingItem && editingItem.id === item.id) return;
+
+    // Simula a lógica de inicialização do useEffect(editingItem)
     setFormItemName(item.item_name);
     setFormPartCode(item.part_code || '');
     setFormDescription(item.description || '');
@@ -246,7 +262,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       part_code: trimmedPartCode || null,
       description: trimmedDescription || null,
       quantity: formQuantity,
-      order_index: editingItem?.order_index ?? 0,
+      order_index: editingItem?.order_index ?? items.length, // Usa o índice do item de edição ou o final da lista
       itens_relacionados: formItensRelacionados,
     };
 
@@ -255,6 +271,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         await addCustomListItem(list.id, payload);
         showSuccess('Item adicionado com sucesso!');
       } else if (editingItem) {
+        // Se estiver no modo de edição, usa o ID do item original
         await updateCustomListItem(list.id, { ...editingItem, ...payload });
         showSuccess('Item atualizado com sucesso!');
       }
@@ -327,6 +344,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       const codigo = item.part_code ? ` (Cód: ${item.part_code})` : '';
       const descricao = item.description || '';
       
+      // Formato: [QUANTIDADE] - [NOME PERSONALIZADO] [DESCRIÇÃO] (Cód: [CÓDIGO])
       formattedText += `${quantidade} - ${nome} ${descricao}${codigo}`.trim() + '\n';
     });
 
@@ -364,7 +382,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    generateCustomListPdf(items, list.title);
+    lazyGenerateCustomListPdf(items, list.title);
     showSuccess('PDF gerado com sucesso!');
   };
 
