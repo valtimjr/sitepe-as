@@ -609,7 +609,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                     className="relative"
                   >
                     <TableCell className="w-[30px] p-2 cursor-grab">
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
+                      <GripVertical className="h-4 w-4" />
                     </TableCell>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
                     <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
@@ -623,8 +623,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                           )}
                           {item.itens_relacionados && item.itens_relacionados.length > 0 && (
                             <Popover 
+                              key={`popover-${item.id}`} // Adicionado key
                               open={openRelatedItemsPopoverId === item.id} 
                               onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
+                              modal={false} // Adicionado modal={false}
                             >
                               <PopoverTrigger asChild>
                                 <Button 

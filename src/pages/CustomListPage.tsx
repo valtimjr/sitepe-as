@@ -371,7 +371,12 @@ const CustomListPage: React.FC = () => {
                                 <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
                               )}
                               {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                                <Popover open={isRelatedItemsPopoverOpen === item.id} onOpenChange={(open) => setIsRelatedItemsPopoverOpen(open ? item.id : null)}>
+                                <Popover 
+                                  key={`popover-${item.id}`} // Adicionado key
+                                  open={isRelatedItemsPopoverOpen === item.id} 
+                                  onOpenChange={(open) => setIsRelatedItemsPopoverOpen(open ? item.id : null)}
+                                  modal={false} // Adicionado modal={false}
+                                >
                                   <PopoverTrigger asChild>
                                     <Button 
                                       variant="ghost" 
