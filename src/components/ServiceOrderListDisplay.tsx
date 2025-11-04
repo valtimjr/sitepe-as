@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem } from '@/services/partListService';
-import { generateServiceOrderPdf } from '@/lib/pdfGenerator';
+import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide, XCircle, Save, FilePlus, FileDown } from 'lucide-react';
 import {
@@ -254,13 +254,13 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     return textToCopy.trim();
   }, [groupedServiceOrders]);
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => { // Alterado para async
     if (groupedServiceOrders.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
     // Passa os itens JÁ AGRUPADOS E ORDENADOS para a função de PDF
-    generateServiceOrderPdf(groupedServiceOrders, 'Lista de Ordens de Serviço');
+    await lazyGenerateServiceOrderPdf(groupedServiceOrders, 'Lista de Ordens de Serviço'); // Usa a função lazy
     showSuccess('PDF gerado com sucesso!');
   };
 

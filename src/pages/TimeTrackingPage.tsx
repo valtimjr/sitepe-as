@@ -11,7 +11,7 @@ import { ptBR } from 'date-fns/locale';
 import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth, getLocalMonthlyApontamento, syncMonthlyApontamentoToSupabase } from '@/services/partListService'; // Importar getLocalMonthlyApontamento e syncMonthlyApontamentoToSupabase
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { generateTimeTrackingPdf } from '@/lib/pdfGenerator';
+import { lazyGenerateTimeTrackingPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -368,7 +368,7 @@ const TimeTrackingPage: React.FC = () => {
     showSuccess('Apontamentos prontos para compartilhar no WhatsApp!');
   };
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => { // Alterado para async
     const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
     
     const pdfTitle = `Apontamento de Horas - ${monthYearTitle}\n${employeeHeader}`;
@@ -385,7 +385,7 @@ const TimeTrackingPage: React.FC = () => {
       return;
     }
 
-    generateTimeTrackingPdf(currentMonthApontamentos, pdfTitle);
+    await lazyGenerateTimeTrackingPdf(currentMonthApontamentos, pdfTitle); // Usa a função lazy
     showSuccess('PDF gerado com sucesso!');
   };
 

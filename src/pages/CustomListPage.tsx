@@ -11,7 +11,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts } from '@/services/partListService';
-import { generateCustomListPdf } from '@/lib/pdfGenerator';
+import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import CustomListEditor from '@/components/CustomListEditor';
@@ -150,12 +150,12 @@ const CustomListPage: React.FC = () => {
     showSuccess('Lista exportada para CSV com sucesso!');
   };
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => { // Alterado para async
     if (items.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    generateCustomListPdf(items, listTitle);
+    await lazyGenerateCustomListPdf(items, listTitle); // Usa a função lazy
     showSuccess('PDF gerado com sucesso!');
   };
 

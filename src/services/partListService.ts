@@ -891,7 +891,7 @@ export const cleanupEmptyParts = async (): Promise<number> => {
     const { data, error } = await supabase
       .from('parts')
       .select('id, codigo, descricao')
-      .range(offset, offset + fetchPageSize - 1);
+      .range(offset, offset + pageSize - 1);
 
     if (error) {
       console.error('Error fetching parts for cleanup from Supabase (paginated):', error);

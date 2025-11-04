@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem, updateSimplePartItem, getParts, getAfsFromService, Part, Af, addSimplePartItem } from '@/services/partListService';
-import { generatePartsListPdf } from '@/lib/pdfGenerator';
+import { lazyGeneratePartsListPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
 import { showSuccess, showError } from '@/utils/toast';
 import { Trash2, Download, Copy, GripVertical, MoreHorizontal, Edit, Save, XCircle, Loader2, PlusCircle, FileDown } from 'lucide-react';
 import {
@@ -124,12 +124,12 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   }, [inlineSearchQuery]);
 
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => { // Alterado para async
     if (orderedItems.length === 0) {
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    generatePartsListPdf(orderedItems, listTitle); // Usa listTitle como título principal
+    await lazyGeneratePartsListPdf(orderedItems, listTitle); // Usa a função lazy
     showSuccess('PDF gerado com sucesso!');
   };
 
