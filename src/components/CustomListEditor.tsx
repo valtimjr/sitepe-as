@@ -454,45 +454,71 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleAddRelatedPart = (part: Part) => {
-    if (!formItensRelacionados.includes(part.codigo)) {
-      setFormItensRelacionados(prev => [...prev, part.codigo]);
+    // Formato: "CÓDIGO - NOME/DESCRIÇÃO"
+    const formattedPart = `${part.codigo} - ${part.name || part.descricao}`;
+    if (!formItensRelacionados.includes(formattedPart)) {
+      setFormItensRelacionados(prev => [...prev, formattedPart]);
       setRelatedSearchQuery(''); // Limpa o campo de busca relacionada
       setSearchResultsRelated([]); // Limpa os resultados relacionados
-      showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
+      showSuccess(`Peça '${part.codigo}' adicionada aos itens relacionados.`);
     } else {
-      showError(`Peça ${part.codigo} já está na lista de itens relacionados.`);
+      showError(`Peça '${part.codigo}' já está na lista de itens relacionados.`);
     }
   };
 
-  const handleRemoveRelatedPart = (codigo: string) => {
-    setFormItensRelacionados(prev => prev.filter(c => c !== codigo));
-    showSuccess(`Peça ${codigo} removida dos itens relacionados.`);
+  const handleRemoveRelatedPart = (formattedPartString: string) => {
+    setFormItensRelacionados(prev => prev.filter(c => c !== formattedPartString));
+    showSuccess(`Item '${formattedPartString.split(' - ')[0]}' removido dos itens relacionados.`);
   };
 
-  const handleBulkAddRelatedParts = () => {
-    const newCodes = bulkRelatedPartsInput
+  const handleBulkAddRelatedParts = async () => {
+    const codesToSearch = bulkRelatedPartsInput
       .split(';')
       .map(code => code.trim())
       .filter(code => code.length > 0);
 
-    if (newCodes.length === 0) {
-      showError('Nenhum código válido encontrado para adicionar.');
+    if (codesToSearch.length === 0) {
+      showError('Nenhum código válido encontrado para adicionar em massa.');
       return;
     }
 
-    const uniqueNewCodes = Array.from(new Set([...formItensRelacionados, ...newCodes]));
-    setFormItensRelacionados(uniqueNewCodes);
+    const loadingToastId = showLoading('Buscando e adicionando peças relacionadas...');
+    const newRelatedItems: string[] = [];
+    let foundCount = 0;
+
+    for (const code of codesToSearch) {
+      try {
+        const results = await searchPartsService(code);
+        const foundPart = results.find(p => p.codigo.toLowerCase() === code.toLowerCase());
+
+        if (foundPart) {
+          const formattedPart = `${foundPart.codigo} - ${foundPart.name || foundPart.descricao}`;
+          if (!formItensRelacionados.includes(formattedPart) && !newRelatedItems.includes(formattedPart)) {
+            newRelatedItems.push(formattedPart);
+            foundCount++;
+          }
+        } else {
+          console.warn(`Peça com código '${code}' não encontrada para adição em massa.`);
+        }
+      } catch (error) {
+        console.error(`Erro ao buscar peça '${code}' para adição em massa:`, error);
+      }
+    }
+
+    if (newRelatedItems.length > 0) {
+      setFormItensRelacionados(prev => Array.from(new Set([...prev, ...newRelatedItems])));
+      showSuccess(`${foundCount} peça(s) adicionada(s) em massa aos itens relacionados.`);
+    } else {
+      showError('Nenhuma nova peça válida encontrada ou adicionada em massa.');
+    }
     setBulkRelatedPartsInput('');
-    showSuccess(`${newCodes.length} código(s) adicionado(s) aos itens relacionados.`);
+    dismissToast(loadingToastId);
   };
 
   // Helper function to get part description for display
-  const getPartDescription = (partCode: string): string => {
-    const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
-    if (part) {
-      return `${part.codigo} - ${part.descricao}`;
-    }
-    return partCode;
+  // This function is now simplified as the full string is stored.
+  const getPartDescription = (formattedPartString: string): string => {
+    return formattedPartString;
   };
 
   return (
@@ -588,7 +614,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                     data-id={item.id}
                     className="relative"
                   ><TableCell className="w-[30px] p-2 cursor-grab"> {/* Ajustado para 30px */}
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
+                      <GripVertical className="h-4 w-4" />
                     </TableCell>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
                     <TableCell className="w-auto whitespace-normal break-words p-2 text-left"> {/* Ajustado para mobile */}
@@ -817,15 +843,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {formItensRelacionados.map(codigo => (
-                  <div key={codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
-                    {getPartDescription(codigo)}
+                {formItensRelacionados.map(formattedPartString => (
+                  <div key={formattedPartString} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
+                    {getPartDescription(formattedPartString)}
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       className="h-4 w-4 p-0 text-destructive"
-                      onClick={() => handleRemoveRelatedPart(codigo)}
+                      onClick={() => handleRemoveRelatedPart(formattedPartString)}
                     >
                       <XCircle className="h-3 w-3" />
                     </Button>

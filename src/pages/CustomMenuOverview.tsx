@@ -41,13 +41,14 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
   };
 
   // Helper function to get part description for display
-  const getPartDescription = (partCode: string): string => {
-    const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
-    if (part) {
-      return `${part.codigo} - ${part.descricao}`;
-    }
-    return partCode;
-  };
+  // REMOVIDO: Esta função não é mais necessária aqui, pois o popover exibirá a string diretamente.
+  // const getPartDescription = (partCode: string): string => {
+  //   const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
+  //   if (part) {
+  //     return `${part.codigo} - ${part.descricao}`;
+  //   }
+  //   return partCode;
+  // };
 
   const content = (
     <div 
@@ -88,7 +89,7 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
               <TooltipContent className="max-w-xs">
                 <p className="font-bold mb-1">Itens Relacionados:</p>
                 <ul className="list-disc list-inside">
-                  {item.itens_relacionados.map(rel => <li key={rel}>{getPartDescription(rel)}</li>)}
+                  {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)} {/* Exibe a string diretamente */}
                 </ul>
               </TooltipContent>
             </Tooltip>
