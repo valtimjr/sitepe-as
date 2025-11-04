@@ -78,8 +78,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   // State to control if the form is for a new item or editing an existing one
   const [isFormForNewItem, setIsFormForNewItem] = useState(false);
 
-  // State for related items popover
-  const [isRelatedItemsPopoverOpen, setIsRelatedItemsPopoverOpen] = useState(false);
+  // State for related items popover - AGORA ARMAZENA O ID DO ITEM ABERTO
+  const [openRelatedItemsPopoverId, setOpenRelatedItemsPopoverId] = useState<string | null>(null);
 
   const isMobile = useIsMobile();
 
@@ -622,7 +622,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                             <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
                           )}
                           {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                            <Popover open={isRelatedItemsPopoverOpen} onOpenChange={setIsRelatedItemsPopoverOpen}>
+                            <Popover 
+                              open={openRelatedItemsPopoverId === item.id} 
+                              onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
+                            >
                               <PopoverTrigger asChild>
                                 <Button 
                                   variant="ghost" 
