@@ -21,8 +21,8 @@ const SearchParts = () => {
   useEffect(() => {
     const performSearch = async () => {
       setIsLoading(true);
-      // Sempre chama searchPartsService, mesmo com uma query vazia, para garantir dados atualizados
-      const results = await searchPartsService(searchQuery);
+      // Ajuste aqui: searchPartsService agora retorna { parts, totalCount }
+      const { parts: results } = await searchPartsService(searchQuery, 1, 50); // Usando paginação, mas focando apenas nos resultados
       setDisplayedParts(results);
       setIsLoading(false);
     };

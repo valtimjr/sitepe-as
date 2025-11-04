@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Part } from '@/services/partListService';
+import { searchParts as searchPartsService } from '@/services/partListService'; // Importar a função de serviço
 
 interface PartSearchInputProps {
   onSearch: (query: string) => void;
@@ -59,6 +60,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
   };
 
   // Determina qual lista exibir: searchResults se houver query, allParts se focado e vazio
+  // NOTA: searchResults já deve ser filtrado e populado pelo componente pai (PartItemForm/CustomListEditor)
   const displayList = searchQuery.length > 0 ? searchResults : allParts;
 
   // A lista de sugestões deve aparecer se o dropdown estiver explicitamente aberto E houver itens para mostrar
