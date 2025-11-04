@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Importar Popover
+import PartSearchInput from './PartSearchInput'; // IMPORT CORRIGIDO
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -670,7 +671,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => handleEdit(item)} className="h-8 w-8">
+                            <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8">
                               <Edit className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
@@ -797,10 +798,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
           </Label>
           <PartSearchInput
-            onSearch={setRelatedSearchQuery}
-            searchResults={relatedSearchResults}
+            onSearch={setSearchQueryRelated}
+            searchResults={searchResultsRelated}
             onSelectPart={handleAddRelatedPart}
-            searchQuery={relatedSearchQuery}
+            searchQuery={searchQueryRelated}
             isLoading={isLoadingParts}
           />
           <div className="space-y-2">
