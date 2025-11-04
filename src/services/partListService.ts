@@ -31,7 +31,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network'; // Importar Network
 import { format } from 'date-fns';
-import { DailyApontamento, MonthlyApontamento, PartImage } from '@/types/supabase'; // Importar novos tipos e PartImage
+import { DailyApontamento, MonthlyApontamento } from '@/types/supabase'; // Removido PartImage
 
 export interface Part extends LocalPart {
   name?: string; // Adicionado o campo 'name'
@@ -934,72 +934,4 @@ export const cleanupEmptyParts = async (): Promise<number> => {
   }
 
   return deletedCount;
-};
-
-// --- Funções de Gerenciamento de Imagens de Peças (Bytescale) ---
-
-/**
- * Verifica se um código de peça existe na tabela 'parts'.
- */
-export const checkPartCodeExists = async (partCode: string): Promise<boolean> => {
-  const { count, error } = await supabase
-    .from('parts')
-    .select('id', { count: 'exact', head: true })
-    .eq('codigo', partCode);
-
-  if (error) {
-    console.error('[checkPartCodeExists] Erro ao verificar código de peça:', error);
-    throw new Error(`Erro ao verificar código de peça: ${error.message}`);
-  }
-
-  return (count || 0) > 0;
-};
-
-/**
- * Adiciona uma nova associação de imagem.
- */
-export const addPartImage = async (image: Omit<PartImage, 'id' | 'created_at'>): Promise<PartImage> => {
-  const { data, error } = await supabase
-    .from('part_images')
-    .insert(image)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('[addPartImage] Erro ao adicionar imagem:', error);
-    throw new Error(`Erro ao adicionar imagem: ${error.message}`);
-  }
-
-  return data as PartImage;
-};
-
-/**
- * Obtém todas as associações de imagens.
- */
-export const getAssociatedPartImages = async (): Promise<PartImage[]> => {
-  const { data, error } = await supabase
-    .from('part_images')
-    .select('*');
-
-  if (error) {
-    console.error('[getAssociatedPartImages] Erro ao buscar imagens associadas:', error);
-    throw new Error(`Erro ao buscar imagens associadas: ${error.message}`);
-  }
-
-  return data as PartImage[];
-};
-
-/**
- * Remove uma associação de imagem pelo ID do arquivo Bytescale.
- */
-export const deletePartImage = async (bytescaleFileId: string): Promise<void> => {
-  const { error } = await supabase
-    .from('part_images')
-    .delete()
-    .eq('bytescale_file_id', bytescaleFileId);
-
-  if (error) {
-    console.error('[deletePartImage] Erro ao remover associação de imagem:', error);
-    throw new Error(`Erro ao remover associação de imagem: ${error.message}`);
-  }
 };

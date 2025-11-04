@@ -73,12 +73,3 @@ export interface MenuItem {
   itens_relacionados: string[]; // NOVO: Array de códigos de peças relacionadas
   children?: MenuItem[]; // Para a estrutura hierárquica
 }
-
-// NOVO: Interface para associação de imagens de peças
-export interface PartImage {
-  id: string;
-  part_code: string;
-  image_url: string;
-  bytescale_file_id: string; // ID do arquivo no Bytescale para referência
-  created_at?: string;
-}

@@ -12,7 +12,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
 import { cn } from '@/lib/utils';
-import BytescaleImageManager from '@/components/BytescaleImageManager'; // Importar o novo componente
 
 const DATABASE_MANAGER_ACTIVE_TAB_KEY = 'database_manager_active_tab';
 
@@ -29,7 +28,7 @@ const DatabaseManagerPage: React.FC = () => {
   
   // Define quais abas serão visíveis
   const visibleTabs = [
-    ...(isAdmin ? ['parts', 'afs', 'invites', 'images'] : []), // Adicionado 'images'
+    ...(isAdmin ? ['parts', 'afs', 'invites'] : []),
     ...(canAccessMenuManager ? ['menu'] : []),
   ];
 
@@ -69,8 +68,7 @@ const DatabaseManagerPage: React.FC = () => {
 
   // Define as classes de coluna dinamicamente
   const totalVisibleTabs = visibleTabs.length;
-  const gridColsClass = totalVisibleTabs === 5 ? 'grid-cols-2 md:grid-cols-5' : // Ajustado para 5 abas
-                        totalVisibleTabs === 4 ? 'grid-cols-2 md:grid-cols-4' : 
+  const gridColsClass = totalVisibleTabs === 4 ? 'grid-cols-2 md:grid-cols-4' : 
                         totalVisibleTabs === 3 ? 'grid-cols-3' : 
                         totalVisibleTabs === 2 ? 'grid-cols-2' : 
                         'grid-cols-1';
@@ -94,7 +92,6 @@ const DatabaseManagerPage: React.FC = () => {
           {isAdmin && <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>}
           {isAdmin && <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>}
           {isAdmin && <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="images">Gerenciar Imagens</TabsTrigger>} {/* Nova aba */}
           {canAccessMenuManager && (
             <TabsTrigger value="menu">
               <div className="flex items-center justify-center gap-2">
@@ -118,11 +115,6 @@ const DatabaseManagerPage: React.FC = () => {
         {isAdmin && activeTab === 'invites' && (
           <TabsContent value="invites">
             <InviteManager />
-          </TabsContent>
-        )}
-        {isAdmin && activeTab === 'images' && (
-          <TabsContent value="images">
-            <BytescaleImageManager />
           </TabsContent>
         )}
         {canAccessMenuManager && activeTab === 'menu' && (
