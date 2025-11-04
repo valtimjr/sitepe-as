@@ -78,14 +78,19 @@ const PartManagementTable: React.FC = () => {
   useEffect(() => {
     const loadInitialParts = async () => {
       console.time('PartManagementTable: loadInitialParts');
+      console.log('PartManagementTable: Iniciando carregamento inicial de peças...');
       setIsLoading(true);
       try {
+        console.log('PartManagementTable: Chamando getParts() para carregar todas as peças.');
         const fetchedParts = await getParts();
+        console.log(`PartManagementTable: getParts() retornou ${fetchedParts.length} peças.`);
         setParts(fetchedParts);
       } catch (error) {
+        console.error('PartManagementTable: Erro ao carregar peças inicialmente:', error);
         showError('Erro ao carregar peças.');
       } finally {
         setIsLoading(false);
+        console.log('PartManagementTable: Carregamento inicial de peças finalizado.');
         console.timeEnd('PartManagementTable: loadInitialParts');
       }
     };
@@ -98,16 +103,21 @@ const PartManagementTable: React.FC = () => {
   useEffect(() => {
     const fetchSearchResults = async () => {
       console.time('PartManagementTable: fetchSearchResults');
+      console.log(`PartManagementTable: Iniciando busca de peças para query: "${searchQuery}"`);
       setIsLoading(true);
       try {
+        console.log('PartManagementTable: Chamando searchPartsService() para buscar peças.');
         const results = await searchPartsService(searchQuery);
+        console.log(`PartManagementTable: searchPartsService() retornou ${results.length} resultados.`);
         setParts(results);
         setSelectedPartIds(new Set());
       } catch (error) {
+        console.error('PartManagementTable: Erro ao buscar peças:', error);
         showError('Erro ao buscar peças.');
         setParts([]);
       } finally {
         setIsLoading(false);
+        console.log('PartManagementTable: Busca de peças finalizada.');
         console.timeEnd('PartManagementTable: fetchSearchResults');
       }
     };
@@ -122,6 +132,7 @@ const PartManagementTable: React.FC = () => {
   }, [searchQuery]);
 
   const handleAddPart = () => {
+    console.log('PartManagementTable: Abrindo formulário para adicionar nova peça.');
     setCurrentPart(null);
     setFormCodigo('');
     setFormDescricao('');
@@ -131,6 +142,7 @@ const PartManagementTable: React.FC = () => {
   };
 
   const handleEditPart = (part: Part) => {
+    console.log(`PartManagementTable: Abrindo formulário para editar peça com ID: ${part.id}`);
     setCurrentPart(part);
     setFormCodigo(part.codigo);
     setFormDescricao(part.descricao);
@@ -141,12 +153,19 @@ const PartManagementTable: React.FC = () => {
 
   const handleDeletePart = async (id: string) => {
     if (!window.confirm('Tem certeza que deseja excluir esta peça?')) return;
+    console.time('PartManagementTable: handleDeletePart');
+    console.log(`PartManagementTable: Iniciando exclusão da peça com ID: ${id}`);
     try {
+      console.log('PartManagementTable: Chamando deletePart() para excluir peça.');
       await deletePart(id);
       showSuccess('Peça excluída com sucesso!');
+      console.log(`PartManagementTable: Peça com ID: ${id} excluída com sucesso.`);
       loadPartsAfterAction();
     } catch (error) {
+      console.error(`PartManagementTable: Erro ao excluir peça com ID: ${id}:`, error);
       showError('Erro ao excluir peça.');
+    } finally {
+      console.timeEnd('PartManagementTable: handleDeletePart');
     }
   };
 
@@ -161,44 +180,58 @@ const PartManagementTable: React.FC = () => {
       setFormTags(currentPart.tags || '');
     }
 
+    console.time('PartManagementTable: handleSubmit');
+    console.log(`PartManagementTable: Iniciando submissão do formulário (modo: ${currentPart ? 'edição' : 'adição'}).`);
+
     try {
+      const payload: Omit<Part, 'id'> = {
+        codigo: formCodigo,
+        descricao: formDescricao,
+        tags: formTags,
+        name: formName,
+      };
+
       if (currentPart) {
+        console.log(`PartManagementTable: Chamando updatePart() para atualizar peça com ID: ${currentPart.id}.`);
         await updatePart({
           ...currentPart,
-          codigo: formCodigo,
-          descricao: formDescricao,
-          tags: formTags,
-          name: formName,
+          ...payload,
         });
         showSuccess('Peça atualizada com sucesso!');
+        console.log(`PartManagementTable: Peça com ID: ${currentPart.id} atualizada com sucesso.`);
       } else {
-        await addPart({
-          codigo: formCodigo,
-          descricao: formDescricao,
-          tags: formTags,
-          name: formName,
-        });
+        console.log('PartManagementTable: Chamando addPart() para adicionar nova peça.');
+        await addPart(payload);
         showSuccess('Peça adicionada com sucesso!');
+        console.log('PartManagementTable: Nova peça adicionada com sucesso.');
       }
       setIsSheetOpen(false); // Fecha o Sheet
       loadPartsAfterAction();
     } catch (error) {
+      console.error('PartManagementTable: Erro ao salvar peça:', error);
       showError('Erro ao salvar peça.');
+    } finally {
+      console.timeEnd('PartManagementTable: handleSubmit');
     }
   };
 
   const loadPartsAfterAction = async () => {
+    console.log('PartManagementTable: Recarregando lista de peças após ação...');
     if (searchQuery) {
+      console.log('PartManagementTable: Recarregando com searchPartsService() devido à query existente.');
       const results = await searchPartsService(searchQuery);
       setParts(results);
     } else {
+      console.log('PartManagementTable: Recarregando com getParts() (todas as peças).');
       const fetchedParts = await getParts();
       setParts(fetchedParts);
     }
     setSelectedPartIds(new Set());
+    console.log('PartManagementTable: Lista de peças recarregada.');
   };
 
   const handleSelectAll = (checked: boolean) => {
+    console.log(`PartManagementTable: Selecionar todos: ${checked}`);
     if (checked) {
       const allVisiblePartIds = new Set(parts.map(part => part.id));
       setSelectedPartIds(allVisiblePartIds);
@@ -208,6 +241,7 @@ const PartManagementTable: React.FC = () => {
   };
 
   const handleSelectPart = (id: string, checked: boolean) => {
+    console.log(`PartManagementTable: Selecionar peça ID: ${id}, checked: ${checked}`);
     setSelectedPartIds(prev => {
       const newSelection = new Set(prev);
       if (checked) {
@@ -224,12 +258,19 @@ const PartManagementTable: React.FC = () => {
       showError('Nenhuma peça selecionada para exclusão.');
       return;
     }
+    console.time('PartManagementTable: handleBulkDelete');
+    console.log(`PartManagementTable: Iniciando exclusão em massa de ${selectedPartIds.size} peças.`);
     try {
+      console.log('PartManagementTable: Chamando deletePart() para cada peça selecionada.');
       await Promise.all(Array.from(selectedPartIds).map(id => deletePart(id)));
       showSuccess(`${selectedPartIds.size ?? 0} peças excluídas com sucesso!`);
+      console.log(`PartManagementTable: ${selectedPartIds.size} peças excluídas em massa com sucesso.`);
       loadPartsAfterAction();
     } catch (error) {
+      console.error('PartManagementTable: Erro ao excluir peças selecionadas em massa:', error);
       showError('Erro ao excluir peças selecionadas.');
+    } finally {
+      console.timeEnd('PartManagementTable: handleBulkDelete');
     }
   };
 
@@ -238,17 +279,25 @@ const PartManagementTable: React.FC = () => {
       showError('Nenhuma peça selecionada para limpar tags.');
       return;
     }
+    console.time('PartManagementTable: handleBulkClearTags');
+    console.log(`PartManagementTable: Iniciando limpeza de tags para ${selectedPartIds.size} peças.`);
     try {
       const partsToUpdate = parts.filter(part => selectedPartIds.has(part.id));
+      console.log('PartManagementTable: Chamando updatePart() para limpar tags de cada peça selecionada.');
       await Promise.all(partsToUpdate.map(part => updatePart({ ...part, tags: '' })));
       showSuccess(`Tags de ${selectedPartIds.size ?? 0} peças limpas com sucesso!`);
+      console.log(`PartManagementTable: Tags de ${selectedPartIds.size} peças limpas com sucesso.`);
       loadPartsAfterAction();
     } catch (error) {
+      console.error('PartManagementTable: Erro ao limpar tags das peças selecionadas:', error);
       showError('Erro ao limpar tags das peças selecionadas.');
+    } finally {
+      console.timeEnd('PartManagementTable: handleBulkClearTags');
     }
   };
 
   const handleImportCsv = () => {
+    console.log('PartManagementTable: Acionando input de arquivo para importação CSV.');
     fileInputRef.current?.click();
   };
 
@@ -256,18 +305,21 @@ const PartManagementTable: React.FC = () => {
     const file = event.target.files?.[0];
     
     if (!file) {
+      console.log('PartManagementTable: Nenhum arquivo selecionado para importação.');
       setImportLog(['Nenhum arquivo selecionado.']);
       setParsedPartsToImport([]);
       setIsImportConfirmOpen(true);
       return;
     }
 
+    console.log(`PartManagementTable: Arquivo "${file.name}" selecionado. Iniciando leitura...`);
     const reader = new FileReader();
     
     reader.onload = (e) => {
       const csvText = e.target?.result as string;
       
       if (!csvText.trim()) {
+        console.warn('PartManagementTable: Arquivo CSV vazio ou com apenas espaços em branco.');
         setImportLog([
           `Arquivo lido: ${file.name}`,
           'O arquivo CSV está vazio ou contém apenas espaços em branco.',
@@ -278,11 +330,13 @@ const PartManagementTable: React.FC = () => {
         return;
       }
 
+      console.log('PartManagementTable: Iniciando análise do CSV com PapaParse.');
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
           const parsedData = results.data as any[];
+          console.log(`PartManagementTable: PapaParse concluiu. ${parsedData.length} linhas processadas.`);
           
           let newParts: Part[] = parsedData.map((row, index) => {
             const codigo = getRowValue(row, ['codigo', 'código', 'code']);
@@ -291,6 +345,7 @@ const PartManagementTable: React.FC = () => {
             const name = getRowValue(row, ['name', 'nome']) || '';
             
             if (!codigo || !descricao) {
+              console.warn(`PartManagementTable: Linha ${index + 1} ignorada por falta de Código ou Descrição.`);
               return null;
             }
 
@@ -303,12 +358,16 @@ const PartManagementTable: React.FC = () => {
             };
           }).filter((part): part is Part => part !== null);
 
+          console.log(`PartManagementTable: ${newParts.length} peças válidas extraídas antes da deduplicação.`);
+
           // --- Lógica de Deduplicação ---
           const partMap = new Map<string, Part>();
           newParts.forEach(part => {
+            // A última ocorrência de um CÓDIGO no CSV prevalece
             partMap.set(part.codigo, part);
           });
           const deduplicatedParts = Array.from(partMap.values());
+          console.log(`PartManagementTable: ${deduplicatedParts.length} peças únicas após deduplicação.`);
           // --- Fim da Lógica de Deduplicação ---
 
           setParsedPartsToImport(deduplicatedParts);
@@ -322,6 +381,7 @@ const PartManagementTable: React.FC = () => {
 
         },
         error: (error: any) => {
+          console.error('PartManagementTable: Erro ao analisar o arquivo CSV:', error);
           setImportLog([
             `Arquivo lido: ${file.name}`,
             `ERRO ao analisar o arquivo CSV: ${error.message}`,
@@ -334,6 +394,7 @@ const PartManagementTable: React.FC = () => {
     };
 
     reader.onerror = () => {
+      console.error('PartManagementTable: Erro ao ler o arquivo:', reader.error);
       setImportLog([
         `Arquivo lido: ${file.name}`,
         `ERRO ao ler o arquivo: ${reader.error?.message || 'Erro desconhecido.'}`,
@@ -362,19 +423,24 @@ const PartManagementTable: React.FC = () => {
 
     const loadingToastId = showLoading('Importando e sincronizando peças...');
     setImportLog(prev => [...prev, 'Iniciando importação para o banco de dados...']);
+    console.time('PartManagementTable: confirmImport');
 
     try {
+      console.log(`PartManagementTable: Chamando importParts() para ${newParts.length} peças.`);
       await importParts(newParts);
       setImportLog(prev => [...prev, `Sucesso: ${newParts.length} peças importadas/atualizadas.`]);
       showSuccess(`${newParts.length} peças importadas/atualizadas com sucesso!`);
+      console.log(`PartManagementTable: ${newParts.length} peças importadas/atualizadas com sucesso.`);
       loadPartsAfterAction();
     } catch (error) {
+      console.error('PartManagementTable: Erro na importação para o Supabase:', error);
       setImportLog(prev => [...prev, 'ERRO: Falha na importação para o Supabase.']);
       showError('Erro ao importar peças do CSV. Verifique o log.');
     } finally {
       dismissToast(loadingToastId);
       setIsImportConfirmOpen(false);
       setParsedPartsToImport([]);
+      console.timeEnd('PartManagementTable: confirmImport');
     }
   };
 
@@ -384,7 +450,9 @@ const PartManagementTable: React.FC = () => {
     try {
       loadingToastId = showLoading('Preparando exportação de peças...');
       console.time('PartManagementTable: exportDataAsCsv');
+      console.log('PartManagementTable: Iniciando exportação para CSV.');
       if (selectedPartIds.size > 0) {
+        console.log(`PartManagementTable: Exportando ${selectedPartIds.size} peças selecionadas.`);
         dataToExport = parts.filter(part => selectedPartIds.has(part.id));
         if (dataToExport.length === 0) {
           showError('Nenhuma peça selecionada para exportar.');
@@ -393,6 +461,7 @@ const PartManagementTable: React.FC = () => {
         exportDataAsCsv(dataToExport, 'pecas_selecionadas.csv');
         showSuccess(`${dataToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
       } else {
+        console.log('PartManagementTable: Exportando todas as peças. Chamando getAllPartsForExport().');
         dataToExport = await getAllPartsForExport();
         if (dataToExport.length === 0) {
           showError('Nenhuma peça para exportar.');
@@ -401,7 +470,9 @@ const PartManagementTable: React.FC = () => {
         exportDataAsCsv(dataToExport, 'todas_pecas.csv');
         showSuccess('Todos as peças exportadas para CSV com sucesso!');
       }
+      console.log(`PartManagementTable: Exportação para CSV concluída. Total de ${dataToExport.length} itens.`);
     } catch (error) {
+      console.error('PartManagementTable: Erro ao exportar peças para CSV:', error);
       showError('Erro ao exportar peças.');
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
@@ -415,7 +486,9 @@ const PartManagementTable: React.FC = () => {
     try {
       loadingToastId = showLoading('Preparando exportação de peças...');
       console.time('PartManagementTable: exportDataAsJson');
+      console.log('PartManagementTable: Iniciando exportação para JSON.');
       if (selectedPartIds.size > 0) {
+        console.log(`PartManagementTable: Exportando ${selectedPartIds.size} peças selecionadas.`);
         dataToExport = parts.filter(part => selectedPartIds.has(part.id));
         if (dataToExport.length === 0) {
           showError('Nenhuma peça selecionada para exportar.');
@@ -424,6 +497,7 @@ const PartManagementTable: React.FC = () => {
         exportDataAsJson(dataToExport, 'pecas_selecionadas.json');
         showSuccess(`${dataToExport.length} peças selecionadas exportadas para JSON com sucesso!`);
       } else {
+        console.log('PartManagementTable: Exportando todas as peças. Chamando getAllPartsForExport().');
         dataToExport = await getAllPartsForExport();
         if (dataToExport.length === 0) {
           showError('Nenhuma peça para exportar.');
@@ -432,7 +506,9 @@ const PartManagementTable: React.FC = () => {
         exportDataAsJson(dataToExport, 'todas_pecas.json');
         showSuccess('Todas as peças exportadas para JSON com sucesso!');
       }
+      console.log(`PartManagementTable: Exportação para JSON concluída. Total de ${dataToExport.length} itens.`);
     } catch (error) {
+      console.error('PartManagementTable: Erro ao exportar peças para JSON:', error);
       showError('Erro ao exportar peças.');
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
@@ -445,14 +521,18 @@ const PartManagementTable: React.FC = () => {
     try {
       loadingToastId = showLoading('Limpando peças vazias...');
       console.time('PartManagementTable: cleanupEmptyParts');
+      console.log('PartManagementTable: Iniciando limpeza de peças vazias. Chamando cleanupEmptyParts().');
       const deletedCount = await cleanupEmptyParts();
       if (deletedCount > 0) {
         showSuccess(`${deletedCount} peças vazias foram removidas com sucesso!`);
+        console.log(`PartManagementTable: ${deletedCount} peças vazias removidas com sucesso.`);
         loadPartsAfterAction();
       } else {
         showSuccess('Nenhuma peça vazia encontrada para remover.');
+        console.log('PartManagementTable: Nenhuma peça vazia encontrada para remover.');
       }
     } catch (error: any) {
+      console.error('PartManagementTable: Erro ao limpar peças vazias:', error);
       showError(`Erro ao limpar peças vazias: ${error.message || 'Detalhes desconhecidos.'}`);
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
