@@ -140,7 +140,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   listItems.forEach(item => {
     if (item.type === 'separator') {
       tableRows.push([
-        { content: '---', colSpan: 4, styles: { halign: 'center', fontStyle: 'italic', fillColor: [200, 200, 200], textColor: [50, 50, 50] } }
+        { content: '--- SEPARADOR ---', colSpan: 4, styles: { halign: 'center', fontStyle: 'bold', fillColor: [200, 200, 200], textColor: [50, 50, 50] } } // Alterado para bold
       ]);
       return;
     }

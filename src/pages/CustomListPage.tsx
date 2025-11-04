@@ -243,7 +243,7 @@ const CustomListPage: React.FC = () => {
     if (isSeparator) {
       return (
         <TableRow key={item.id} className="bg-muted/50 border-y border-dashed">
-          <TableCell colSpan={4} className="text-center font-mono text-sm text-muted-foreground italic p-2">
+          <TableCell colSpan={4} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
             <Separator className="my-0" />
           </TableCell>
         </TableRow>
