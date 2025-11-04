@@ -52,6 +52,10 @@ interface CustomListEditorProps {
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved, allAvailableParts }) => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // NOVO: Estado para rastrear o ID do item sendo editado (se houver)
+  const [currentEditingItemId, setCurrentEditingItemId] = useState<string | null>(null);
+
   // Form states for main item
   const [formItemName, setFormItemName] = useState('');
   const [formPartCode, setFormPartCode] = useState('');
@@ -109,6 +113,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     const initializeFormForEdit = async () => {
       if (editingItem) {
         setIsFormForNewItem(false);
+        setCurrentEditingItemId(editingItem.id); // Define o ID do item em edição
         setFormItemName(editingItem.item_name);
         setFormPartCode(editingItem.part_code || '');
         setFormDescription(editingItem.description || '');
@@ -130,6 +135,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       } else {
         // Se não houver editingItem, o formulário deve estar no modo de adição
         setIsFormForNewItem(true);
+        setCurrentEditingItemId(null); // Limpa o ID do item em edição
         resetForm();
         setSelectedPartFromSearch(null);
       }
@@ -189,25 +195,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const handleAdd = () => {
     setIsFormForNewItem(true);
+    setCurrentEditingItemId(null);
     resetForm();
   };
 
-  // CORRIGIDO: Renomeado para refletir a ação de clique na tabela
+  // CORRIGIDO: Função para editar item da tabela (preenche o formulário)
   const handleEditItemClick = (item: CustomListItem) => {
     setIsFormForNewItem(false);
-    // Define o item a ser editado no estado local do formulário
-    // Isso é usado quando o CustomListEditor é usado dentro do CustomListManager
-    // e o usuário clica em 'Editar' na tabela.
+    setCurrentEditingItemId(item.id); // Define o ID do item em edição
     
-    // Se o componente for usado dentro de um Sheet (como no CustomListManager),
-    // ele precisa de um mecanismo para fechar e reabrir o Sheet com o novo item.
-    // Como o CustomListEditor é o componente que contém o formulário,
-    // vamos apenas preencher o formulário com os dados do item.
-    
-    // Se o item for o mesmo que já está sendo editado, não faz nada.
-    if (editingItem && editingItem.id === item.id) return;
-
-    // Simula a lógica de inicialização do useEffect(editingItem)
     setFormItemName(item.item_name);
     setFormPartCode(item.part_code || '');
     setFormDescription(item.description || '');
@@ -262,22 +258,25 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       part_code: trimmedPartCode || null,
       description: trimmedDescription || null,
       quantity: formQuantity,
-      order_index: editingItem?.order_index ?? items.length, // Usa o índice do item de edição ou o final da lista
+      // Se for edição, o order_index é mantido. Se for novo, usa o tamanho atual da lista.
+      order_index: currentEditingItemId ? items.find(i => i.id === currentEditingItemId)?.order_index ?? items.length : items.length,
       itens_relacionados: formItensRelacionados,
     };
 
     try {
-      if (isFormForNewItem) {
+      if (currentEditingItemId) {
+        // Modo de edição: usa o ID do item em edição
+        await updateCustomListItem(list.id, { id: currentEditingItemId, list_id: list.id, ...payload });
+        showSuccess('Item atualizado com sucesso!');
+      } else {
+        // Modo de adição: adiciona um novo item
         await addCustomListItem(list.id, payload);
         showSuccess('Item adicionado com sucesso!');
-      } else if (editingItem) {
-        // Se estiver no modo de edição, usa o ID do item original
-        await updateCustomListItem(list.id, { ...editingItem, ...payload });
-        showSuccess('Item atualizado com sucesso!');
       }
       
       resetForm();
       setIsFormForNewItem(true);
+      setCurrentEditingItemId(null); // Limpa o ID após salvar
       loadItems();
       onItemSaved?.();
     } catch (error) {
@@ -777,6 +776,9 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
       {/* Formulário de Adicionar/Editar Item */}
       <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+        <h3 className="text-xl font-semibold">
+          {currentEditingItemId ? 'Editar Item' : 'Adicionar Novo Item'}
+        </h3>
         <div className="space-y-2">
           <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
           <PartSearchInput
@@ -946,7 +948,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             <XCircle className="h-4 w-4 mr-2" /> Cancelar
           </Button>
           <Button type="submit">
-            <Save className="h-4 w-4 mr-2" /> Salvar
+            <Save className="h-4 w-4 mr-2" /> {currentEditingItemId ? 'Salvar Alterações' : 'Adicionar Item'}
           </Button>
         </SheetFooter>
       </form>
