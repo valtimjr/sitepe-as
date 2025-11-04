@@ -146,6 +146,7 @@ const CustomListPage: React.FC = () => {
     showSuccess('PDF gerado com sucesso!');
   };
 
+  // CORRIGIDO: Definição da função handleEditItemClick
   const handleEditItemClick = (item: CustomListItem) => {
     setItemToEdit(item);
     setIsEditModalOpen(true);
@@ -372,6 +373,18 @@ const CustomListPage: React.FC = () => {
                                 </Popover>
                               )}
                             </div>
+                        </TableCell>
+                        <TableCell className="w-[70px] p-2 text-right">
+                          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8">
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Editar Item</TooltipContent>
+                            </Tooltip>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
