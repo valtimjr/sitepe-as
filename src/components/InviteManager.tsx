@@ -42,6 +42,7 @@ const InviteManager: React.FC = () => {
   const loadInvites = useCallback(async () => {
     if (!checkPageAccess('/admin')) return;
 
+    console.time('InviteManager: loadInvites');
     setIsLoadingInvites(true);
     try {
       const { data, error } = await supabase
@@ -55,6 +56,7 @@ const InviteManager: React.FC = () => {
       showError('Erro ao carregar convites: ' + error.message);
     } finally {
       setIsLoadingInvites(false);
+      console.timeEnd('InviteManager: loadInvites');
     }
   }, [checkPageAccess]);
 
@@ -66,6 +68,7 @@ const InviteManager: React.FC = () => {
     setIsGenerating(true);
     setNewInviteLink(null);
     setIsCopied(false);
+    console.time('InviteManager: generateInviteLink');
 
     try {
       const { data, error } = await supabase
@@ -85,6 +88,7 @@ const InviteManager: React.FC = () => {
       showError('Erro ao gerar link de convite: ' + error.message);
     } finally {
       setIsGenerating(false);
+      console.timeEnd('InviteManager: generateInviteLink');
     }
   };
 
@@ -107,6 +111,7 @@ const InviteManager: React.FC = () => {
 
   const handleDeleteInvite = async (id: string) => {
     if (!window.confirm('Tem certeza que deseja excluir este convite?')) return;
+    console.time('InviteManager: handleDeleteInvite');
     try {
       const { error } = await supabase
         .from('invites')
@@ -118,6 +123,8 @@ const InviteManager: React.FC = () => {
       loadInvites();
     } catch (error: any) {
       showError('Erro ao excluir convite: ' + error.message);
+    } finally {
+      console.timeEnd('InviteManager: handleDeleteInvite');
     }
   };
 

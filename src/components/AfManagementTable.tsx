@@ -76,6 +76,7 @@ const AfManagementTable: React.FC = () => {
   }, []);
 
   const loadAfs = async () => {
+    console.time('AfManagementTable: loadAfs');
     setIsLoading(true);
     try {
       const fetchedAfs = await getAfsFromService();
@@ -84,6 +85,7 @@ const AfManagementTable: React.FC = () => {
       showError('Erro ao carregar AFs.');
     } finally {
       setIsLoading(false);
+      console.timeEnd('AfManagementTable: loadAfs');
     }
   };
 
@@ -266,6 +268,7 @@ const AfManagementTable: React.FC = () => {
     const newAfs = parsedAfsToImport;
     const loadingToastId = showLoading('Importando e sincronizando AFs...');
     setImportLog(prev => [...prev, 'Iniciando importação para o banco de dados...']);
+    console.time('AfManagementTable: confirmImport');
 
     try {
       await importAfs(newAfs);
@@ -279,6 +282,7 @@ const AfManagementTable: React.FC = () => {
       dismissToast(loadingToastId);
       setIsImportConfirmOpen(false);
       setParsedAfsToImport([]);
+      console.timeEnd('AfManagementTable: confirmImport');
     }
   };
 
@@ -287,6 +291,7 @@ const AfManagementTable: React.FC = () => {
     let loadingToastId: string | undefined;
     try {
       loadingToastId = showLoading('Preparando exportação de AFs...');
+      console.time('AfManagementTable: exportDataAsCsv');
       if (selectedAfIds.size > 0) {
         dataToExport = afs.filter(af => selectedAfIds.has(af.id));
         if (dataToExport.length === 0) {
@@ -308,6 +313,7 @@ const AfManagementTable: React.FC = () => {
       showError('Erro ao exportar AFs.');
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
+      console.timeEnd('AfManagementTable: exportDataAsCsv');
     }
   };
 
@@ -316,6 +322,7 @@ const AfManagementTable: React.FC = () => {
     let loadingToastId: string | undefined;
     try {
       loadingToastId = showLoading('Preparando exportação de AFs...');
+      console.time('AfManagementTable: exportDataAsJson');
       if (selectedAfIds.size > 0) {
         dataToExport = afs.filter(af => selectedAfIds.has(af.id));
         if (dataToExport.length === 0) {
@@ -337,6 +344,7 @@ const AfManagementTable: React.FC = () => {
       showError('Erro ao exportar AFs.');
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
+      console.timeEnd('AfManagementTable: exportDataAsJson');
     }
   };
 

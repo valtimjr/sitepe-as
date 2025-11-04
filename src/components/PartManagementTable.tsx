@@ -66,7 +66,7 @@ const PartManagementTable: React.FC = () => {
   const [formTags, setFormTags] = useState('');
   const [formName, setFormName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set());
+  const [selectedPartIds, setSelectedPartIds] = new Set());
 
   // Novos estados para importação
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
@@ -77,6 +77,7 @@ const PartManagementTable: React.FC = () => {
 
   useEffect(() => {
     const loadInitialParts = async () => {
+      console.time('PartManagementTable: loadInitialParts');
       setIsLoading(true);
       try {
         const fetchedParts = await getParts();
@@ -85,6 +86,7 @@ const PartManagementTable: React.FC = () => {
         showError('Erro ao carregar peças.');
       } finally {
         setIsLoading(false);
+        console.timeEnd('PartManagementTable: loadInitialParts');
       }
     };
 
@@ -95,6 +97,7 @@ const PartManagementTable: React.FC = () => {
 
   useEffect(() => {
     const fetchSearchResults = async () => {
+      console.time('PartManagementTable: fetchSearchResults');
       setIsLoading(true);
       try {
         const results = await searchPartsService(searchQuery);
@@ -105,6 +108,7 @@ const PartManagementTable: React.FC = () => {
         setParts([]);
       } finally {
         setIsLoading(false);
+        console.timeEnd('PartManagementTable: fetchSearchResults');
       }
     };
 
@@ -379,6 +383,7 @@ const PartManagementTable: React.FC = () => {
     let loadingToastId: string | undefined;
     try {
       loadingToastId = showLoading('Preparando exportação de peças...');
+      console.time('PartManagementTable: exportDataAsCsv');
       if (selectedPartIds.size > 0) {
         dataToExport = parts.filter(part => selectedPartIds.has(part.id));
         if (dataToExport.length === 0) {
@@ -400,6 +405,7 @@ const PartManagementTable: React.FC = () => {
       showError('Erro ao exportar peças.');
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
+      console.timeEnd('PartManagementTable: exportDataAsCsv');
     }
   };
 
@@ -408,6 +414,7 @@ const PartManagementTable: React.FC = () => {
     let loadingToastId: string | undefined;
     try {
       loadingToastId = showLoading('Preparando exportação de peças...');
+      console.time('PartManagementTable: exportDataAsJson');
       if (selectedPartIds.size > 0) {
         dataToExport = parts.filter(part => selectedPartIds.has(part.id));
         if (dataToExport.length === 0) {
@@ -429,6 +436,7 @@ const PartManagementTable: React.FC = () => {
       showError('Erro ao exportar peças.');
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
+      console.timeEnd('PartManagementTable: exportDataAsJson');
     }
   };
 
@@ -436,6 +444,7 @@ const PartManagementTable: React.FC = () => {
     let loadingToastId: string | undefined;
     try {
       loadingToastId = showLoading('Limpando peças vazias...');
+      console.time('PartManagementTable: cleanupEmptyParts');
       const deletedCount = await cleanupEmptyParts();
       if (deletedCount > 0) {
         showSuccess(`${deletedCount} peças vazias foram removidas com sucesso!`);
@@ -447,6 +456,7 @@ const PartManagementTable: React.FC = () => {
       showError(`Erro ao limpar peças vazias: ${error.message || 'Detalhes desconhecidos.'}`);
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
+      console.timeEnd('PartManagementTable: cleanupEmptyParts');
     }
   };
 

@@ -96,6 +96,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   const [expandedItems, setExpandedItems] = new useState<Set<string>>(new Set());
 
   const loadData = useCallback(async () => {
+    console.time('MenuStructureEditor: loadData');
     setIsLoading(true);
     try {
       const [fetchedFlatItems, fetchedLists, fetchedAllParts] = await Promise.all([
@@ -113,6 +114,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     } finally {
       setIsLoading(false);
       setIsLoadingParts(false);
+      console.timeEnd('MenuStructureEditor: loadData');
     }
   }, [user]);
 
@@ -165,6 +167,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   };
 
   const handleDeleteMenuItem = async (id: string) => {
+    console.time('MenuStructureEditor: handleDeleteMenuItem');
     try {
       await deleteMenuItem(id);
       showSuccess('Item de menu excluído com sucesso!');
@@ -172,6 +175,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       onMenuUpdated();
     } catch (error) {
       showError('Erro ao excluir item de menu.');
+    } finally {
+      console.timeEnd('MenuStructureEditor: handleDeleteMenuItem');
     }
   };
 
@@ -181,6 +186,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       showError('O título é obrigatório.');
       return;
     }
+    console.time('MenuStructureEditor: handleSubmit');
 
     try {
       const payload: Omit<MenuItem, 'id' | 'created_at'> = {
@@ -204,6 +210,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       onMenuUpdated();
     } catch (error) {
       showError('Erro ao salvar item de menu.');
+    } finally {
+      console.timeEnd('MenuStructureEditor: handleSubmit');
     }
   };
 
@@ -223,6 +231,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     if (!currentItem || !targetItem) return;
 
     const loadingToastId = showLoading('Reordenando itens...');
+    console.time('MenuStructureEditor: handleMoveItem');
 
     try {
       await Promise.all([
@@ -237,6 +246,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       showError('Erro ao reordenar itens.');
     } finally {
       dismissToast(loadingToastId);
+      console.timeEnd('MenuStructureEditor: handleMoveItem');
     }
   };
 
