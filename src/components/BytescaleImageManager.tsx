@@ -177,46 +177,44 @@ const BytescaleImageManager: React.FC = () => {
                 <Settings className="h-4 w-4" /> Configurações
               </Button>
             </DialogTrigger>
-            {isSettingsOpen && ( // Renderização condicional explícita
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Configurações do Bytescale</DialogTitle>
-                  <DialogDescription>
-                    Configure suas chaves de acesso do Bytescale. Estas devem ser salvas como variáveis de ambiente.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="bytescale-api-key">Bytescale API Key (VITE_BYTESCALE_API_KEY)</Label>
-                    <Input
-                      id="bytescale-api-key"
-                      type="password"
-                      value={bytescaleApiKey}
-                      onChange={(e) => setBytescaleApiKey(e.target.value)}
-                      placeholder="sk_YOUR_API_KEY"
-                      readOnly // Apenas para visualização, deve ser configurado via .env
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Para alterar, edite a variável `VITE_BYTESCALE_API_KEY` no seu arquivo `.env.local`.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bytescale-account-id">Bytescale Account ID (VITE_BYTESCALE_ACCOUNT_ID)</Label>
-                    <Input
-                      id="bytescale-account-id"
-                      type="text"
-                      value={bytescaleAccountId}
-                      onChange={(e) => setBytescaleAccountId(e.target.value)}
-                      placeholder="YOUR_ACCOUNT_ID"
-                      readOnly // Apenas para visualização, deve ser configurado via .env
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Para alterar, edite a variável `VITE_BYTESCALE_ACCOUNT_ID` no seu arquivo `.env.local`.
-                    </p>
-                  </div>
+            <DialogContent className={isSettingsOpen ? '' : 'hidden'}> {/* Adicionado className condicional */}
+              <DialogHeader>
+                <DialogTitle>Configurações do Bytescale</DialogTitle>
+                <DialogDescription>
+                  Configure suas chaves de acesso do Bytescale. Estas devem ser salvas como variáveis de ambiente.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="bytescale-api-key">Bytescale API Key (VITE_BYTESCALE_API_KEY)</Label>
+                  <Input
+                    id="bytescale-api-key"
+                    type="password"
+                    value={bytescaleApiKey}
+                    onChange={(e) => setBytescaleApiKey(e.target.value)}
+                    placeholder="sk_YOUR_API_KEY"
+                    readOnly // Apenas para visualização, deve ser configurado via .env
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Para alterar, edite a variável `VITE_BYTESCALE_API_KEY` no seu arquivo `.env.local`.
+                  </p>
                 </div>
-              </DialogContent>
-            )}
+                <div className="space-y-2">
+                  <Label htmlFor="bytescale-account-id">Bytescale Account ID (VITE_BYTESCALE_ACCOUNT_ID)</Label>
+                  <Input
+                    id="bytescale-account-id"
+                    type="text"
+                    value={bytescaleAccountId}
+                    onChange={(e) => setBytescaleAccountId(e.target.value)}
+                    placeholder="YOUR_ACCOUNT_ID"
+                    readOnly // Apenas para visualização, deve ser configurado via .env
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Para alterar, edite a variável `VITE_BYTESCALE_ACCOUNT_ID` no seu arquivo `.env.local`.
+                  </p>
+                </div>
+              </div>
+            </DialogContent>
           </Dialog>
 
           <Button onClick={loadBytescaleFiles} disabled={isLoadingBytescale || isAssociating} className="flex items-center gap-2">
