@@ -1,16 +1,16 @@
 /** @jsxImportSource react */
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal, FileText } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal, FileText, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Part, getParts, addPart, updatePart, deletePart, searchParts as searchPartsService, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services/partListService';
+import { Part, addPart, updatePart, deletePart, searchParts, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -55,11 +55,13 @@ const getRowValue = (row: any, keys: string[]): string | undefined => {
   return undefined;
 };
 
+const PAGE_SIZE = 50;
+
 const PartManagementTable: React.FC = () => {
   const { checkPageAccess } = useSession();
   const [parts, setParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [currentPart, setCurrentPart] = useState<Part | null>(null);
   const [formCodigo, setFormCodigo] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
@@ -67,6 +69,10 @@ const PartManagementTable: React.FC = () => {
   const [formName, setFormName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(() => new Set());
+  
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Novos estados para importação
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
@@ -75,61 +81,41 @@ const PartManagementTable: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const loadInitialParts = async () => {
-      console.time('PartManagementTable: loadInitialParts');
-      console.log('PartManagementTable: Iniciando carregamento inicial de peças...');
-      setIsLoading(true);
-      try {
-        console.log('PartManagementTable: Chamando getParts() para carregar todas as peças.');
-        const fetchedParts = await getParts();
-        console.log(`PartManagementTable: getParts() retornou ${fetchedParts.length} peças.`);
-        setParts(fetchedParts);
-      } catch (error) {
-        console.error('PartManagementTable: Erro ao carregar peças inicialmente:', error);
-        showError('Erro ao carregar peças.');
-      } finally {
-        setIsLoading(false);
-        console.log('PartManagementTable: Carregamento inicial de peças finalizado.');
-        console.timeEnd('PartManagementTable: loadInitialParts');
-      }
-    };
-
-    if (!searchQuery) {
-      loadInitialParts();
+  const loadParts = useCallback(async (query: string, page: number) => {
+    console.time('PartManagementTable: loadParts');
+    setIsLoading(true);
+    try {
+      const { parts: fetchedParts, totalCount: fetchedTotalCount } = await searchParts(query, page, PAGE_SIZE);
+      setParts(fetchedParts);
+      setTotalCount(fetchedTotalCount);
+      setSelectedPartIds(new Set()); // Limpa seleção ao carregar nova página/busca
+    } catch (error) {
+      console.error('PartManagementTable: Erro ao carregar peças:', error);
+      showError('Erro ao carregar peças.');
+      setParts([]);
+      setTotalCount(0);
+    } finally {
+      setIsLoading(false);
+      console.timeEnd('PartManagementTable: loadParts');
     }
-  }, [searchQuery]);
+  }, []);
 
   useEffect(() => {
-    const fetchSearchResults = async () => {
-      console.time('PartManagementTable: fetchSearchResults');
-      console.log(`PartManagementTable: Iniciando busca de peças para query: "${searchQuery}"`);
-      setIsLoading(true);
-      try {
-        console.log('PartManagementTable: Chamando searchPartsService() para buscar peças.');
-        const results = await searchPartsService(searchQuery);
-        console.log(`PartManagementTable: searchPartsService() retornou ${results.length} resultados.`);
-        setParts(results);
-        setSelectedPartIds(new Set());
-      } catch (error) {
-        console.error('PartManagementTable: Erro ao buscar peças:', error);
-        showError('Erro ao buscar peças.');
-        setParts([]);
-      } finally {
-        setIsLoading(false);
-        console.log('PartManagementTable: Busca de peças finalizada.');
-        console.timeEnd('PartManagementTable: fetchSearchResults');
-      }
-    };
+    loadParts(searchQuery, currentPage);
+  }, [searchQuery, currentPage, loadParts]);
 
-    const handler = setTimeout(() => {
-      fetchSearchResults();
-    }, 300);
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [searchQuery]);
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1); // Volta para a primeira página ao pesquisar
+  };
 
   const handleAddPart = () => {
     console.log('PartManagementTable: Abrindo formulário para adicionar nova peça.');
@@ -160,7 +146,7 @@ const PartManagementTable: React.FC = () => {
       await deletePart(id);
       showSuccess('Peça excluída com sucesso!');
       console.log(`PartManagementTable: Peça com ID: ${id} excluída com sucesso.`);
-      loadPartsAfterAction();
+      loadParts(searchQuery, currentPage); // Recarrega a página atual
     } catch (error) {
       console.error(`PartManagementTable: Erro ao excluir peça com ID: ${id}:`, error);
       showError('Erro ao excluir peça.');
@@ -176,6 +162,7 @@ const PartManagementTable: React.FC = () => {
       return;
     }
 
+    const canEditTags = checkPageAccess('/manage-tags');
     if (!canEditTags && currentPart) {
       setFormTags(currentPart.tags || '');
     }
@@ -206,28 +193,13 @@ const PartManagementTable: React.FC = () => {
         console.log('PartManagementTable: Nova peça adicionada com sucesso.');
       }
       setIsSheetOpen(false); // Fecha o Sheet
-      loadPartsAfterAction();
+      loadParts(searchQuery, currentPage);
     } catch (error) {
       console.error('PartManagementTable: Erro ao salvar peça:', error);
       showError('Erro ao salvar peça.');
     } finally {
       console.timeEnd('PartManagementTable: handleSubmit');
     }
-  };
-
-  const loadPartsAfterAction = async () => {
-    console.log('PartManagementTable: Recarregando lista de peças após ação...');
-    if (searchQuery) {
-      console.log('PartManagementTable: Recarregando com searchPartsService() devido à query existente.');
-      const results = await searchPartsService(searchQuery);
-      setParts(results);
-    } else {
-      console.log('PartManagementTable: Recarregando com getParts() (todas as peças).');
-      const fetchedParts = await getParts();
-      setParts(fetchedParts);
-    }
-    setSelectedPartIds(new Set());
-    console.log('PartManagementTable: Lista de peças recarregada.');
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -265,7 +237,7 @@ const PartManagementTable: React.FC = () => {
       await Promise.all(Array.from(selectedPartIds).map(id => deletePart(id)));
       showSuccess(`${selectedPartIds.size ?? 0} peças excluídas com sucesso!`);
       console.log(`PartManagementTable: ${selectedPartIds.size} peças excluídas em massa com sucesso.`);
-      loadPartsAfterAction();
+      loadParts(searchQuery, currentPage);
     } catch (error) {
       console.error('PartManagementTable: Erro ao excluir peças selecionadas em massa:', error);
       showError('Erro ao excluir peças selecionadas.');
@@ -287,7 +259,7 @@ const PartManagementTable: React.FC = () => {
       await Promise.all(partsToUpdate.map(part => updatePart({ ...part, tags: '' })));
       showSuccess(`Tags de ${selectedPartIds.size ?? 0} peças limpas com sucesso!`);
       console.log(`PartManagementTable: Tags de ${selectedPartIds.size} peças limpas com sucesso.`);
-      loadPartsAfterAction();
+      loadParts(searchQuery, currentPage);
     } catch (error) {
       console.error('PartManagementTable: Erro ao limpar tags das peças selecionadas:', error);
       showError('Erro ao limpar tags das peças selecionadas.');
@@ -431,7 +403,7 @@ const PartManagementTable: React.FC = () => {
       setImportLog(prev => [...prev, `Sucesso: ${newParts.length} peças importadas/atualizadas.`]);
       showSuccess(`${newParts.length} peças importadas/atualizadas com sucesso!`);
       console.log(`PartManagementTable: ${newParts.length} peças importadas/atualizadas com sucesso.`);
-      loadPartsAfterAction();
+      loadParts(searchQuery, currentPage);
     } catch (error) {
       console.error('PartManagementTable: Erro na importação para o Supabase:', error);
       setImportLog(prev => [...prev, 'ERRO: Falha na importação para o Supabase.']);
@@ -526,7 +498,7 @@ const PartManagementTable: React.FC = () => {
       if (deletedCount > 0) {
         showSuccess(`${deletedCount} peças vazias foram removidas com sucesso!`);
         console.log(`PartManagementTable: ${deletedCount} peças vazias removidas com sucesso.`);
-        loadPartsAfterAction();
+        loadParts(searchQuery, currentPage);
       } else {
         showSuccess('Nenhuma peça vazia encontrada para remover.');
         console.log('PartManagementTable: Nenhuma peça vazia encontrada para remover.');
@@ -616,7 +588,7 @@ const PartManagementTable: React.FC = () => {
             type="text"
             placeholder="Buscar peça por código, descrição, nome ou tags..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={handleSearchChange}
             className="pl-9"
           />
         </div>
@@ -666,7 +638,9 @@ const PartManagementTable: React.FC = () => {
         )}
 
         {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Carregando peças...</p>
+          <p className="text-center text-muted-foreground py-8 flex items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando peças...
+          </p>
         ) : parts.length === 0 && searchQuery.length > 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhuma peça encontrada para "{searchQuery}".</p>
         ) : parts.length === 0 ? (
@@ -717,6 +691,33 @@ const PartManagementTable: React.FC = () => {
                 ))}
               </TableBody>
             </Table>
+          </div>
+        )}
+
+        {/* Controles de Paginação */}
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4">
+            <p className="text-sm text-muted-foreground">
+              Página {currentPage} de {totalPages} (Total: {totalCount} peças)
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || isLoading}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages || isLoading}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

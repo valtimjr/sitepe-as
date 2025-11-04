@@ -176,59 +176,123 @@ const seedAfs = async (): Promise<void> => {
   }
 };
 
-export const getParts = async (query?: string): Promise<Part[]> => {
-  await seedPartsFromJson(); // Garante que o Supabase esteja populado
+/**
+ * Função principal para obter peças, agora usando paginação e busca remota/local.
+ * @param query Query de busca.
+ * @param page Número da página (base 1).
+ * @param pageSize Tamanho da página.
+ * @returns Um objeto contendo as peças e a contagem total.
+ */
+export const searchParts = async (query: string, page: number = 1, pageSize: number = 50): Promise<{ parts: Part[], totalCount: number }> => {
+  await seedPartsFromJson();
 
-  if (query) {
-    // --- Lógica para busca interativa (com query) ---
-    const localResults = await searchLocalParts(query);
-    if (localResults.length > 0) {
-      return localResults;
-    }
-    // Recorre à busca remota (que tem um limite de 1000 para busca interativa)
-    return searchParts(query); // Isso chama a função searchParts existente
-  } else {
-    // --- Lógica para obter TODAS as peças (sem query) com verificação de atualização ---
+  const lowerCaseQuery = query.toLowerCase().trim();
+  const offset = (page - 1) * pageSize;
 
+  // 1. Tenta busca local (IndexedDB) se não houver query ou se a busca remota falhar
+  if (!lowerCaseQuery) {
     const localParts = await getLocalParts();
-    let needsUpdate = false;
-
-    if (localParts.length === 0) {
-      needsUpdate = true;
-    } else {
-      // Verifica a contagem remota para decidir se precisa atualizar
-      try {
-        const { count: remoteCount, error: countError } = await supabase
-          .from('parts')
-          .select('*', { count: 'exact' });
-
-        if (countError) {
-          // Em caso de erro na contagem remota, assume que o cache local é válido para evitar falha total.
-        } else if (remoteCount !== null && localParts.length !== remoteCount) {
-          needsUpdate = true;
-        }
-      } catch (e) {
-        // console.warn('[getParts] Erro inesperado ao verificar contagem remota. Assumindo que o cache local está bom:', e);
-      }
-    }
-
-    if (needsUpdate) {
-      try {
-        const allRemoteParts = await getAllPartsForExport(); // Esta função já lida com paginação
-        
-        // Atualiza o cache local
-        await localDb.parts.clear();
-        await bulkPutLocalParts(allRemoteParts);
-        return allRemoteParts;
-      } catch (error) {
-        console.error('[getParts] Erro ao buscar TODAS as peças do Supabase para atualização:', error);
-        throw new Error(`Erro ao buscar todas as peças do Supabase: ${error.message}`);
-      }
-    } else {
-      return localParts;
+    const totalCount = localParts.length;
+    const paginatedLocalParts = localParts.slice(offset, offset + pageSize);
+    
+    // Se não houver query, retorna o cache local paginado
+    if (!query) {
+      return { parts: paginatedLocalParts, totalCount };
     }
   }
+
+  // 2. Busca remota (Supabase)
+  let queryBuilder = supabase
+    .from('parts')
+    .select('*', { count: 'exact' });
+
+  if (lowerCaseQuery) {
+    const searchPattern = lowerCaseQuery.split(/\s+/).filter(Boolean).join('%');
+    queryBuilder = queryBuilder.or(
+      `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
+    );
+  }
+
+  // Aplica paginação
+  queryBuilder = queryBuilder.range(offset, offset + pageSize - 1);
+
+  const { data, error, count } = await queryBuilder;
+
+  if (error) {
+    console.error('[searchParts] Erro ao buscar peças no Supabase:', error);
+    // Fallback para IndexedDB se Supabase falhar
+    const localResults = await searchLocalParts(query);
+    const totalCount = localResults.length;
+    const paginatedLocalResults = localResults.slice(offset, offset + pageSize);
+    return { parts: paginatedLocalResults, totalCount };
+  }
+
+  let results = data as Part[];
+  const totalCount = count || 0;
+
+  // 3. Ordenação no cliente (para garantir consistência com a busca local)
+  const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
+    if (!fieldValue) return 0;
+    const lowerFieldValue = fieldValue.toLowerCase();
+
+    if (isMultiWord) {
+      return regex.test(lowerFieldValue) ? 1 : 0;
+    } else {
+      if (lowerFieldValue === query) return 3;
+      if (lowerFieldValue.startsWith(query)) return 2;
+      if (lowerFieldValue.includes(query)) return 1;
+    }
+    return 0;
+  };
+
+  if (lowerCaseQuery) {
+    const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
+    const isMultiWordQuery = queryWords.length > 1;
+    const escapedWords = queryWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
+
+    results.sort((a, b) => {
+      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+
+      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+
+      if (aNameScore !== bNameScore) return bNameScore - aNameScore;
+      if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
+      if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
+      if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
+
+      return 0;
+    });
+  }
+
+  return { parts: results, totalCount };
 };
+
+/**
+ * Função de conveniência para obter todas as peças (sem paginação) para exportação.
+ */
+export const getParts = async (query?: string): Promise<Part[]> => {
+  if (query) {
+    const { parts } = await searchParts(query, 1, 1000); // Limita a 1000 resultados para busca interativa
+    return parts;
+  }
+  
+  // Se não houver query, tenta carregar todas as peças do cache local
+  const localParts = await getLocalParts();
+  if (localParts.length > 0) {
+    return localParts;
+  }
+
+  // Se o cache estiver vazio, busca todas as remotas (com paginação interna)
+  return getAllPartsForExport();
+};
+
 
 export const getAllPartsForExport = async (): Promise<Part[]> => {
   let allData: Part[] = [];
@@ -272,86 +336,6 @@ export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
   // Adiciona ao IndexedDB também
   await localDb.parts.add(newPart);
   return data[0].id;
-};
-
-export const searchParts = async (query: string): Promise<Part[]> => {
-  await seedPartsFromJson(); // Garante que o Supabase esteja populado
-
-  const lowerCaseQuery = query.toLowerCase().trim();
-
-  let queryBuilder = supabase
-    .from('parts')
-    .select('*')
-    .limit(1000); // Limite de 1000 para exibição em busca interativa
-
-  if (lowerCaseQuery) {
-    // Divide a query em palavras, filtra strings vazias e junta com '%' para buscar em sequência
-    const searchPattern = lowerCaseQuery.split(/\s+/).filter(Boolean).join('%');
-    
-    // Usa o padrão construído para busca 'ilike' nos campos relevantes
-    queryBuilder = queryBuilder.or(
-      `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
-    );
-  }
-
-  const { data, error } = await queryBuilder;
-
-  if (error) {
-    console.error('[searchParts] Erro ao buscar peças no Supabase:', error);
-    // console.log('[searchParts] Tentando fallback para IndexedDB...');
-    const localResults = await searchLocalParts(query); // Passa a query original para a busca local
-    return localResults;
-  }
-
-  let results = data as Part[];
-
-  // Helper para determinar a qualidade da correspondência em um campo
-  const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
-    if (!fieldValue) return 0;
-    const lowerFieldValue = fieldValue.toLowerCase();
-
-    if (isMultiWord) {
-      return regex.test(lowerFieldValue) ? 1 : 0; // Apenas verifica se a sequência existe
-    } else { // Query de palavra única
-      if (lowerFieldValue === query) return 3; // Correspondência exata
-      if (lowerFieldValue.startsWith(query)) return 2; // Começa com
-      if (lowerFieldValue.includes(query)) return 1; // Inclui
-    }
-    return 0;
-  };
-
-  if (lowerCaseQuery) { // Apenas ordena se houver uma query
-    const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
-    const isMultiWordQuery = queryWords.length > 1;
-    // Cria regex para pontuação no lado do cliente, similar ao localDbService
-    const escapedWords = queryWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
-
-    results.sort((a, b) => {
-      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-
-      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-
-      // Prioriza nome
-      if (aNameScore !== bNameScore) return bNameScore - aNameScore;
-      // Depois tags
-      if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
-      // Depois código
-      if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
-      // Por último descrição
-      if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
-
-      return 0;
-    });
-  }
-
-  return results;
 };
 
 export const updatePart = async (updatedPart: Part): Promise<void> => {
