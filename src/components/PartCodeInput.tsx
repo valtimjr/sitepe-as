@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react'; // Adicionado: Importar Loader2
 import { cn } from '@/lib/utils';
 import { Part, searchPartsPaginated } from '@/services/partListService'; // Import searchPartsPaginated
 
