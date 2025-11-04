@@ -904,12 +904,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             {formItensRelacionados.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
             ) : (
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap gap-2"> {/* Alterado para flex-wrap e gap-2 */}
                 {formItensRelacionados.map((codigo, index) => (
                   <div 
                     key={codigo} 
                     className={cn(
-                      "flex items-center justify-between gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-md cursor-grab border border-transparent",
+                      "flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-transparent cursor-grab", // Estilo de tag
                       draggedRelatedItem === codigo && 'opacity-50',
                       draggedRelatedItem && 'hover:border-primary'
                     )}
@@ -920,7 +920,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                     onDragLeave={handleRelatedDragLeave}
                     onDragEnd={handleRelatedDragEnd}
                   >
-                    <div className="flex items-center gap-2 truncate">
+                    <div className="flex items-center gap-1 truncate">
                       <GripVertical className="h-3 w-3 shrink-0" />
                       <span className="truncate">{codigo}</span>
                     </div>
