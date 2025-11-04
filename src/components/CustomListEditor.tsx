@@ -39,6 +39,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Importar Popover
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -76,6 +77,9 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   // State to control if the form is for a new item or editing an existing one
   const [isFormForNewItem, setIsFormForNewItem] = useState(false);
+
+  // State for related items popover
+  const [isRelatedItemsPopoverOpen, setIsRelatedItemsPopoverOpen] = useState(false);
 
   const isMobile = useIsMobile();
 
@@ -618,8 +622,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                             <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
                           )}
                           {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
+                            <Popover open={isRelatedItemsPopoverOpen} onOpenChange={setIsRelatedItemsPopoverOpen}>
+                              <PopoverTrigger asChild>
                                 <Button 
                                   variant="ghost" 
                                   size="sm" 
@@ -627,14 +631,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                                 >
                                   <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
                                 </Button>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p className="font-bold mb-1">Itens Relacionados:</p>
-                                <ul className="list-disc list-inside">
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto max-w-xs p-2">
+                                <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                                <ul className="list-disc list-inside text-xs text-muted-foreground">
                                   {item.itens_relacionados.map(rel => <li key={rel}>{getPartDescription(rel)}</li>)}
                                 </ul>
-                              </TooltipContent>
-                            </Tooltip>
+                              </PopoverContent>
+                            </Popover>
                           )}
                         </div>
                     </TableCell>
