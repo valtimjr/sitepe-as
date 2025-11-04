@@ -7,4 +7,11 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  global: {
+    // Adiciona o cabeçalho 'x-client-info' com modo 'no-cors' para mitigar erros de CORS
+    headers: {
+      'x-client-info': 'supabase-js/2.75.1 (no-cors)',
+    },
+  },
+});
