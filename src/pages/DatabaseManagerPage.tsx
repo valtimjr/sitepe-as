@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PartManagementTable from '@/components/PartManagementTable';
 import AfManagementTable from '@/components/AfManagementTable';
 import InviteManager from '@/components/InviteManager';
-import MenuManagerPage from '@/pages/MenuManagerPage'; // Importar a página como componente
+import MenuManagerPage from '@/pages/MenuManagerPage';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
@@ -101,21 +101,23 @@ const DatabaseManagerPage: React.FC = () => {
           )}
         </TabsList>
         
-        {isAdmin && (
-          <>
-            <TabsContent value="parts">
-              <PartManagementTable />
-            </TabsContent>
-            <TabsContent value="afs">
-              <AfManagementTable />
-            </TabsContent>
-            <TabsContent value="invites">
-              <InviteManager />
-            </TabsContent>
-          </>
+        {/* Renderização condicional do conteúdo das abas */}
+        {isAdmin && activeTab === 'parts' && (
+          <TabsContent value="parts">
+            <PartManagementTable />
+          </TabsContent>
         )}
-
-        {canAccessMenuManager && (
+        {isAdmin && activeTab === 'afs' && (
+          <TabsContent value="afs">
+            <AfManagementTable />
+          </TabsContent>
+        )}
+        {isAdmin && activeTab === 'invites' && (
+          <TabsContent value="invites">
+            <InviteManager />
+          </TabsContent>
+        )}
+        {canAccessMenuManager && activeTab === 'menu' && (
           <TabsContent value="menu">
             <MenuManagerPage isEmbedded={true} />
           </TabsContent>
