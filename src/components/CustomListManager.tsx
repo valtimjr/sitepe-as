@@ -215,7 +215,10 @@ const CustomListManager: React.FC = () => {
 
       {/* NOVO: Sheet para o CustomListEditor (edição de conteúdo da lista) */}
       <Sheet open={isEditorSheetOpen} onOpenChange={setIsEditorSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent 
+          side="right" 
+          className="w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl overflow-y-auto" // Aumentado o max-width para desktop
+        >
           <SheetHeader>
             <SheetTitle>Editar Itens da Lista: {listToEditContent?.title}</SheetTitle>
             <SheetDescription>
