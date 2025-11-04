@@ -43,8 +43,6 @@ interface CustomListEditorProps {
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved, allAvailableParts }) => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentEditItem, setCurrentEditItem] = useState<CustomListItem | null>(null);
-  
   // Form states for main item
   const [formItemName, setFormItemName] = useState('');
   const [formPartCode, setFormPartCode] = useState('');
@@ -97,7 +95,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   useEffect(() => {
     const initializeFormForEdit = async () => {
       if (editingItem) {
-        setCurrentEditItem(editingItem);
         setFormItemName(editingItem.item_name);
         setFormPartCode(editingItem.part_code || '');
         setFormDescription(editingItem.description || '');
@@ -162,7 +159,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
 
   const resetForm = () => {
-    setCurrentEditItem(null);
     setFormItemName('');
     setFormPartCode('');
     setFormDescription('');
@@ -182,7 +178,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleEdit = (item: CustomListItem) => {
-    setCurrentEditItem(item);
     setFormItemName(item.item_name);
     setFormPartCode(item.part_code || '');
     setFormDescription(item.description || '');
@@ -228,13 +223,13 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       part_code: trimmedPartCode || null,
       description: trimmedDescription || null,
       quantity: formQuantity,
-      order_index: currentEditItem?.order_index ?? 0, // Mantém a ordem ou define 0 para novo
+      order_index: editingItem?.order_index ?? 0, // Mantém a ordem ou define 0 para novo
       itens_relacionados: formItensRelacionados, // Inclui o novo campo
     };
 
     try {
-      if (currentEditItem) {
-        await updateCustomListItem(list.id, { ...currentEditItem, ...payload }); // Passa list.id
+      if (editingItem) {
+        await updateCustomListItem(list.id, { ...editingItem, ...payload }); // Passa list.id
         showSuccess('Item atualizado com sucesso!');
       } else {
         await addCustomListItem(list.id, payload); // Passa list.id
@@ -683,14 +678,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         )}
       </CardContent>
 
-      {/* Sheet Principal para Adicionar/Editar Item */}
-      {/* This Sheet is now managed by the parent component (CustomListPage) */}
-      <SheetHeader>
-        <SheetTitle>{currentEditItem ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
-        <SheetDescription>
-          {currentEditItem ? 'Edite os detalhes do item da lista.' : 'Adicione um novo item à lista personalizada.'}
-        </SheetDescription>
-      </SheetHeader>
+      {/* Formulário de Adicionar/Editar Item */}
       <form onSubmit={handleSubmit} className="grid gap-4 py-4">
         <div className="space-y-2">
           <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
