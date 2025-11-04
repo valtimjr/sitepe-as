@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet'; // Sheet is imported but will not be used directly in this component's return
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
@@ -29,8 +29,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea'; // Importar Textarea
-import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
+import { Textarea } from '@/components/ui/textarea';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Table,
   TableBody,
@@ -38,14 +38,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'; // Adicionado: Importação dos componentes de tabela
+} from '@/components/ui/table';
 
 interface CustomListEditorProps {
   list: CustomList;
   onClose: () => void;
   editingItem?: CustomListItem | null;
-  onItemSaved?: () => void; // Tornada opcional
-  allAvailableParts: Part[]; // Adicionado para resolver descrições
+  onItemSaved?: () => void;
+  allAvailableParts: Part[];
 }
 
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved, allAvailableParts }) => {
@@ -56,12 +56,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [formPartCode, setFormPartCode] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formQuantity, setFormQuantity] = useState(1);
-  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]); // Novo estado
+  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]);
   
   // Search states for main item form
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(true); // This now refers to search loading
+  const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null);
 
   // Search states for related items form
@@ -74,11 +74,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   // Drag and Drop states
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
 
-  const isMobile = useIsMobile(); // Usar o hook useIsMobile
+  // State to control if the form is for a new item or editing an existing one
+  const [isFormForNewItem, setIsFormForNewItem] = useState(false);
+
+  const isMobile = useIsMobile();
 
   const loadItems = useCallback(async () => {
     if (!list.id) {
-      return; // Adicionado para evitar chamadas desnecessárias
+      return;
     }
     setIsLoading(true);
     try {
@@ -92,9 +95,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     }
   }, [list.id]);
 
-  // Removed loadParts from here, as allAvailableParts is now passed as a prop.
-  // The isLoadingParts state will now only reflect the search operation.
-
   useEffect(() => {
     loadItems();
   }, [loadItems]);
@@ -103,16 +103,17 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   useEffect(() => {
     const initializeFormForEdit = async () => {
       if (editingItem) {
+        setIsFormForNewItem(false); // Editing existing item
         setFormItemName(editingItem.item_name);
         setFormPartCode(editingItem.part_code || '');
         setFormDescription(editingItem.description || '');
         setFormQuantity(editingItem.quantity);
-        setFormItensRelacionados(editingItem.itens_relacionados || []); // Preenche itens relacionados
+        setFormItensRelacionados(editingItem.itens_relacionados || []);
         setSearchQuery('');
         setSearchResults([]);
-        setBulkRelatedPartsInput(''); // Limpa o campo de bulk
-        setRelatedSearchQuery(''); // Limpa a query de busca relacionada
-        setSearchResultsRelated([]); // Limpa os resultados de busca relacionada
+        setBulkRelatedPartsInput('');
+        setRelatedSearchQuery('');
+        setSearchResultsRelated([]);
 
         if (editingItem.part_code) {
           const part = allAvailableParts.find(p => p.codigo.toLowerCase() === editingItem.part_code!.toLowerCase());
@@ -121,6 +122,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           setSelectedPartFromSearch(null);
         }
       } else {
+        setIsFormForNewItem(true); // Adding new item
         resetForm();
         setSelectedPartFromSearch(null);
       }
@@ -133,10 +135,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQuery.length > 1) {
-        setIsLoadingParts(true); // Set loading for search
+        setIsLoadingParts(true);
         const results = await searchPartsService(searchQuery);
         setSearchResults(results);
-        setIsLoadingParts(false); // Unset loading for search
+        setIsLoadingParts(false);
       } else {
         setSearchResults([]);
       }
@@ -147,14 +149,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // Efeito para a busca de peças relacionadas
   useEffect(() => {
     const fetchRelatedSearchResults = async () => {
       if (relatedSearchQuery.length > 1) {
-        // setIsLoadingParts(true); // This loading state is shared, be careful
         const results = await searchPartsService(relatedSearchQuery);
         setSearchResultsRelated(results);
-        // setIsLoadingParts(false);
       } else {
         setSearchResultsRelated([]);
       }
@@ -171,31 +170,40 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setFormPartCode('');
     setFormDescription('');
     setFormQuantity(1);
-    setFormItensRelacionados([]); // Limpa itens relacionados
+    setFormItensRelacionados([]);
     setSearchQuery('');
     setSearchResults([]);
     setSelectedPartFromSearch(null);
-    setBulkRelatedPartsInput(''); // Limpa o campo de bulk
-    setRelatedSearchQuery(''); // Limpa a query de busca relacionada
-    setSearchResultsRelated([]); // Limpa os resultados de busca relacionada
+    setBulkRelatedPartsInput('');
+    setRelatedSearchQuery('');
+    setSearchResultsRelated([]);
   };
 
+  // Modified handleAdd to reset form and set isFormForNewItem to true
   const handleAdd = () => {
+    setIsFormForNewItem(true);
     resetForm();
-    onClose(); // Signal to parent to open sheet for new item
   };
 
   const handleEdit = (item: CustomListItem) => {
+    setIsFormForNewItem(false); // Editing existing item
     setFormItemName(item.item_name);
     setFormPartCode(item.part_code || '');
     setFormDescription(item.description || '');
     setFormQuantity(item.quantity);
-    setFormItensRelacionados(item.itens_relacionados || []); // Preenche itens relacionados
+    setFormItensRelacionados(item.itens_relacionados || []);
     setSearchQuery('');
     setSearchResults([]);
-    setBulkRelatedPartsInput(''); // Limpa o campo de bulk
-    setRelatedSearchQuery(''); // Limpa a query de busca relacionada
-    setSearchResultsRelated([]); // Limpa os resultados de busca relacionada
+    setBulkRelatedPartsInput('');
+    setRelatedSearchQuery('');
+    setSearchResultsRelated([]);
+
+    if (item.part_code) {
+      const part = allAvailableParts.find(p => p.codigo.toLowerCase() === item.part_code!.toLowerCase());
+      setSelectedPartFromSearch(part || null);
+    } else {
+      setSelectedPartFromSearch(null);
+    }
   };
 
   const handleSelectPart = (part: Part) => {
@@ -226,27 +234,28 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
     const finalItemName = trimmedItemName || trimmedDescription;
 
-    const payload: Omit<CustomListItem, 'id' | 'list_id'> = { // Removido list_id do Omit
+    const payload: Omit<CustomListItem, 'id' | 'list_id'> = {
       item_name: finalItemName,
       part_code: trimmedPartCode || null,
       description: trimmedDescription || null,
       quantity: formQuantity,
-      order_index: editingItem?.order_index ?? 0, // Mantém a ordem ou define 0 para novo
-      itens_relacionados: formItensRelacionados, // Inclui o novo campo
+      order_index: editingItem?.order_index ?? 0,
+      itens_relacionados: formItensRelacionados,
     };
 
     try {
-      if (editingItem) {
-        await updateCustomListItem(list.id, { ...editingItem, ...payload }); // Passa list.id
-        showSuccess('Item atualizado com sucesso!');
-      } else {
-        await addCustomListItem(list.id, payload); // Passa list.id
+      if (isFormForNewItem) { // Check isFormForNewItem to determine add or update
+        await addCustomListItem(list.id, payload);
         showSuccess('Item adicionado com sucesso!');
+      } else if (editingItem) {
+        await updateCustomListItem(list.id, { ...editingItem, ...payload });
+        showSuccess('Item atualizado com sucesso!');
       }
       
-      onClose(); // Signal to parent to close sheet
+      resetForm(); // Reset form fields after submission
+      setIsFormForNewItem(true); // Prepare for adding another new item
       loadItems();
-      onItemSaved?.(); // Usando encadeamento opcional
+      onItemSaved?.();
     } catch (error) {
       console.error('Erro ao salvar item:', error);
       showError('Erro ao salvar item.');
@@ -255,10 +264,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const handleDelete = async (itemId: string) => {
     try {
-      await deleteCustomListItemService(list.id, itemId); // Passa list.id
+      await deleteCustomListItemService(list.id, itemId);
       showSuccess('Item excluído com sucesso!');
       loadItems();
-      onItemSaved?.(); // Usando encadeamento opcional
+      onItemSaved?.();
     } catch (error) {
       console.error('Erro ao excluir item:', error);
       showError('Erro ao excluir item.');
@@ -266,7 +275,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleMoveItem = async (item: CustomListItem, direction: 'up' | 'down') => {
-    const currentItemsCopy = [...items]; // Usar a cópia do estado atual
+    const currentItemsCopy = [...items];
     const currentIndex = currentItemsCopy.findIndex(i => i.id === item.id);
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
@@ -274,32 +283,27 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       return;
     }
 
-    // Realiza a troca no array local
     const [removed] = currentItemsCopy.splice(currentIndex, 1);
     currentItemsCopy.splice(targetIndex, 0, removed);
 
-    // Atualiza o order_index de todos os itens com base na nova posição no array
     const updatedItemsWithNewOrder = currentItemsCopy.map((reorderedItem, index) => ({
       ...reorderedItem,
       order_index: index,
     }));
     
-    // Atualiza o estado local imediatamente para feedback visual
     setItems(updatedItemsWithNewOrder);
 
     const loadingToastId = showLoading('Reordenando itens...');
 
     try {
-      // Envia TODOS os itens atualizados para o banco de dados de uma vez
       await updateAllCustomListItems(list.id, updatedItemsWithNewOrder);
 
       showSuccess('Ordem atualizada!');
-      await loadItems(); // Recarrega para garantir consistência com o DB
+      await loadItems();
       onItemSaved?.();
     } catch (error) {
       console.error('Erro ao reordenar itens:', error);
       showError('Erro ao reordenar itens.');
-      // Em caso de erro, você pode querer reverter o estado local aqui
     } finally {
       dismissToast(loadingToastId);
     }
@@ -308,7 +312,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const formatListText = () => {
     if (items.length === 0) return '';
 
-    let formattedText = `${list.title}\n\n`; // Adiciona o título da lista aqui
+    let formattedText = `${list.title}\n\n`;
 
     items.forEach(item => {
       const quantidade = item.quantity;
@@ -316,7 +320,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       const codigo = item.part_code ? ` (Cód: ${item.part_code})` : '';
       const descricao = item.description || '';
       
-      // Formato: [QUANTIDADE] - [NOME PERSONALIZADO] [DESCRIÇÃO] (Cód: [CÓDIGO])
       formattedText += `${quantidade} - ${nome} ${descricao}${codigo}`.trim() + '\n';
     });
 
@@ -381,37 +384,32 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     e.currentTarget.classList.remove('opacity-50');
 
     if (draggedItem && draggedItem.id !== targetItem.id) {
-      const currentItemsCopy = [...items]; // Usar a cópia do estado atual
+      const currentItemsCopy = [...items];
       const draggedIndex = currentItemsCopy.findIndex(item => item.id === draggedItem.id);
       const targetIndex = currentItemsCopy.findIndex(item => item.id === targetItem.id);
 
       if (draggedIndex !== -1 && targetIndex !== -1) {
-        // Realiza a reordenação no array local
         const [removed] = currentItemsCopy.splice(draggedIndex, 1);
         currentItemsCopy.splice(targetIndex, 0, removed);
         
-        // Atualiza o order_index de todos os itens com base na nova posição no array
         const updatedItemsWithNewOrder = currentItemsCopy.map((reorderedItem, index) => ({
           ...reorderedItem,
           order_index: index,
         }));
         
-        // Atualiza o estado local imediatamente para feedback visual
         setItems(updatedItemsWithNewOrder);
 
         const loadingToastId = showLoading('Reordenando itens...');
 
         try {
-          // Envia TODOS os itens atualizados para o banco de dados de uma vez
           await updateAllCustomListItems(list.id, updatedItemsWithNewOrder);
 
           showSuccess('Ordem atualizada com sucesso!');
-          await loadItems(); // Recarrega para garantir consistência com o DB
+          await loadItems();
           onItemSaved?.();
         } catch (error) {
           console.error('Erro ao reordenar itens:', error);
           showError('Erro ao reordenar itens.');
-          // Em caso de erro, você pode querer reverter o estado local aqui
         } finally {
           dismissToast(loadingToastId);
         }
@@ -442,8 +440,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     try {
       await updatePart({ ...selectedPartFromSearch, name: formItemName.trim() });
       showSuccess('Nome global da peça atualizado com sucesso!');
-      // No need to reload all parts here, just update the selectedPartFromSearch state
-      // to reflect the change if it's still the same part.
       setSelectedPartFromSearch(prev => prev ? { ...prev, name: formItemName.trim() } : null);
     } catch (error) {
       console.error('Erro ao atualizar nome global da peça:', error);
@@ -454,12 +450,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleAddRelatedPart = (part: Part) => {
-    // Formato: "CÓDIGO - NOME/DESCRIÇÃO"
     const formattedPart = `${part.codigo} - ${part.name || part.descricao}`;
     if (!formItensRelacionados.includes(formattedPart)) {
       setFormItensRelacionados(prev => [...prev, formattedPart]);
-      setRelatedSearchQuery(''); // Limpa o campo de busca relacionada
-      setSearchResultsRelated([]); // Limpa os resultados relacionados
+      setRelatedSearchQuery('');
+      setSearchResultsRelated([]);
       showSuccess(`Peça '${part.codigo}' adicionada aos itens relacionados.`);
     } else {
       showError(`Peça '${part.codigo}' já está na lista de itens relacionados.`);
@@ -515,8 +510,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     dismissToast(loadingToastId);
   };
 
-  // Helper function to get part description for display
-  // This function is now simplified as the full string is stored.
   const getPartDescription = (formattedPartString: string): string => {
     return formattedPartString;
   };
@@ -524,22 +517,19 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
-        {/* Linha 1: Botões de Ação Rápida (Voltar e Adicionar Item) */}
         <div className="flex justify-between items-center">
           <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
           <Button onClick={handleAdd} className="flex items-center gap-2 shrink-0">
-            <PlusCircle className="h-4 w-4" /> Item
+            <PlusCircle className="h-4 w-4" /> Novo Item
           </Button>
         </div>
         
-        {/* Linha 2: Título da Lista (Centralizado) */}
         <CardTitle className="text-2xl font-bold text-center pt-2">
           {list.title}
         </CardTitle>
         
-        {/* Linha 3: Botões de Exportação/Cópia */}
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -593,12 +583,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[30px] p-2"> {/* Ajustado para 30px */}
+                  <TableHead className="w-[30px] p-2">
                     <GripVertical className="h-4 w-4" />
                   </TableHead>
-                  <TableHead className="w-[3rem] p-2">Qtd</TableHead> {/* Ajustado para 3rem */}
-                  <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead> {/* Ajustado para mobile */}
-                  <TableHead className="w-[70px] p-2 text-right">Ações</TableHead> {/* Ajustado para 70px */}
+                  <TableHead className="w-[3rem] p-2">Qtd</TableHead>
+                  <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                  <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -613,11 +603,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                     onDragEnd={handleDragEnd}
                     data-id={item.id}
                     className="relative"
-                  ><TableCell className="w-[30px] p-2 cursor-grab"> {/* Ajustado para 30px */}
-                      <GripVertical className="h-4 w-4" />
+                  >
+                    <TableCell className="w-[30px] p-2 cursor-grab">
+                      <GripVertical className="h-4 w-4 text-muted-foreground" />
                     </TableCell>
                     <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                    <TableCell className="w-auto whitespace-normal break-words p-2 text-left"> {/* Ajustado para mobile */}
+                    <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
                         <div className="flex flex-col items-start">
                           {item.part_code && (
                             <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
@@ -647,8 +638,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                           )}
                         </div>
                     </TableCell>
-                    <TableCell className="w-[70px] p-2 text-right"> {/* Ajustado para 70px */}
-                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1"> {/* Empilha verticalmente em mobile */}
+                    <TableCell className="w-[70px] p-2 text-right">
+                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button 
@@ -727,8 +718,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          <div className="space-y-2 md:col-span-2"> {/* Nome Personalizado: maior */}
-            <Label htmlFor="item-name">Nome Personalizado</Label> {/* Rótulo encurtado */}
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="item-name">Nome Personalizado</Label>
             <div className="flex items-center gap-2">
               <Input
                 id="item-name"
@@ -762,8 +753,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             </div>
           </div>
           
-          <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
-            <Label htmlFor="part-code">Cód. Peça (Opcional)</Label> {/* Rótulo encurtado */}
+          <div className="space-y-2 md:col-span-1">
+            <Label htmlFor="part-code">Cód. Peça (Opcional)</Label>
             <Input
               id="part-code"
               value={formPartCode}
@@ -772,10 +763,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               className="w-full"
             />
           </div>
-        </div> {/* End grid-cols-1 md:grid-cols-3 for name/part-code */}
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
+          <div className="space-y-2 md:col-span-2">
             <Label htmlFor="description">Descrição (Opcional)</Label>
             <Input
               id="description"
@@ -786,7 +777,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             />
           </div>
 
-          <div className="space-y-2 md:col-span-1"> {/* Quantidade: menor */}
+          <div className="space-y-2 md:col-span-1">
             <Label htmlFor="quantity">Quantidade</Label>
             <Input
               id="quantity"
@@ -798,9 +789,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               className="w-full"
             />
           </div>
-        </div> {/* End grid-cols-1 md:grid-cols-3 for description/quantity */}
+        </div>
 
-        {/* Seção de Itens Relacionados */}
         <div className="space-y-2 border-t pt-4">
           <Label className="flex items-center gap-2">
             <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
@@ -843,15 +833,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {formItensRelacionados.map(formattedPartString => (
-                  <div key={formattedPartString} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
-                    {getPartDescription(formattedPartString)}
+                {formItensRelacionados.map(codigo => (
+                  <div key={codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
+                    {getPartDescription(codigo)}
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       className="h-4 w-4 p-0 text-destructive"
-                      onClick={() => handleRemoveRelatedPart(formattedPartString)}
+                      onClick={() => handleRemoveRelatedPart(codigo)}
                     >
                       <XCircle className="h-3 w-3" />
                     </Button>

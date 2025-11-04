@@ -23,21 +23,21 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import CustomListEditor from './CustomListEditor';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
-import { getParts } from '@/services/partListService'; // Importar getParts para passar para o editor
-import { Part } from '@/types/supabase'; // Importar Part
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
+import { getParts } from '@/services/partListService';
+import { Part } from '@/types/supabase';
 
 const CustomListManager: React.FC = () => {
   const { user } = useSession();
   const [lists, setLists] = useState<CustomList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen (para adicionar/editar título)
-  const [currentList, setCurrentList] = useState<CustomList | null>(null); // Para adicionar/editar título
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [currentList, setCurrentList] = useState<CustomList | null>(null);
   const [formTitle, setFormTitle] = useState('');
   
-  const [isEditorSheetOpen, setIsEditorSheetOpen] = useState(false); // NOVO: para o CustomListEditor
-  const [listToEditContent, setListToEditContent] = useState<CustomList | null>(null); // NOVO: para o CustomListEditor
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // NOVO: para passar para o editor
+  const [isEditorSheetOpen, setIsEditorSheetOpen] = useState(false);
+  const [listToEditContent, setListToEditContent] = useState<CustomList | null>(null);
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
 
   const loadLists = useCallback(async () => {
     if (!user) return;
@@ -63,24 +63,24 @@ const CustomListManager: React.FC = () => {
 
   useEffect(() => {
     loadLists();
-    loadAllParts(); // Carrega todas as peças na montagem
+    loadAllParts();
   }, [loadLists, loadAllParts]);
 
   const handleAddList = () => {
     setCurrentList(null);
     setFormTitle('');
-    setIsSheetOpen(true); // Abre o Sheet para adicionar/editar título
+    setIsSheetOpen(true);
   };
 
   const handleEditListTitle = (list: CustomList) => {
     setCurrentList(list);
     setFormTitle(list.title);
-    setIsSheetOpen(true); // Abre o Sheet para adicionar/editar título
+    setIsSheetOpen(true);
   };
 
   const handleOpenEditor = (list: CustomList) => {
     setListToEditContent(list);
-    setIsEditorSheetOpen(true); // Abre o Sheet para o editor de conteúdo
+    setIsEditorSheetOpen(true);
   };
 
   const handleDeleteList = async (listId: string) => {
@@ -109,14 +109,13 @@ const CustomListManager: React.FC = () => {
         showSuccess('Lista criada com sucesso!');
       }
       
-      setIsSheetOpen(false); // Fecha o Sheet de título
+      setIsSheetOpen(false);
       loadLists();
     } catch (error) {
       showError('Erro ao salvar lista.');
     }
   };
 
-  // Função para fechar o editor de conteúdo e recarregar as listas
   const handleEditorClose = () => {
     setIsEditorSheetOpen(false);
     setListToEditContent(null);
@@ -227,7 +226,7 @@ const CustomListManager: React.FC = () => {
             <CustomListEditor 
               list={listToEditContent} 
               onClose={handleEditorClose}
-              allAvailableParts={allAvailableParts} // Passa todas as peças disponíveis
+              allAvailableParts={allAvailableParts}
             />
           )}
         </SheetContent>
