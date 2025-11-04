@@ -31,6 +31,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea'; // Importar Textarea
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'; // Adicionado: Importação dos componentes de tabela
 
 interface CustomListEditorProps {
   list: CustomList;
