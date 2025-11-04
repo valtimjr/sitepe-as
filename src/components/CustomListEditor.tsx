@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Importar Popover
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import PartSearchInput from './PartSearchInput'; // IMPORT CORRIGIDO
 import {
   AlertDialog,
@@ -39,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"; // ADICIONADO
+} from "@/components/ui/alert-dialog";
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -62,7 +62,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   // Search states for main item form
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(false); // Inicializado como false
+  const [isLoadingParts, setIsLoadingParts] = useState(false);
   const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null);
 
   // Search states for related items form
@@ -74,18 +74,19 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   // Drag and Drop states
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
+  const [draggedRelatedItem, setDraggedRelatedItem] = useState<string | null>(null); // Para itens relacionados
 
   // State to control if the form is for a new item or editing an existing one
   const [isFormForNewItem, setIsFormForNewItem] = useState(false);
 
-  // State for related items popover - AGORA ARMAZENA O ID DO ITEM ABERTO
+  // State for related items popover
   const [openRelatedItemsPopoverId, setOpenRelatedItemsPopoverId] = useState<string | null>(null);
 
   const isMobile = useIsMobile();
 
   const loadItems = useCallback(async () => {
     if (!list.id) {
-      return; // Adicionado para evitar chamadas desnecessárias
+      return;
     }
     setIsLoading(true);
     try {
@@ -107,7 +108,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   useEffect(() => {
     const initializeFormForEdit = async () => {
       if (editingItem) {
-        setIsFormForNewItem(false); // Editing existing item
+        setIsFormForNewItem(false);
         setFormItemName(editingItem.item_name);
         setFormPartCode(editingItem.part_code || '');
         setFormDescription(editingItem.description || '');
@@ -120,7 +121,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setSearchResultsRelated([]);
 
         if (editingItem.part_code) {
-          // Busca a peça exata para preencher selectedPartFromSearch
           const results = await searchPartsService(editingItem.part_code);
           const part = results.find(p => p.codigo.toLowerCase() === editingItem.part_code!.toLowerCase());
           setSelectedPartFromSearch(part || null);
@@ -128,7 +128,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           setSelectedPartFromSearch(null);
         }
       } else {
-        setIsFormForNewItem(true); // Adding new item
+        setIsFormForNewItem(true);
         resetForm();
         setSelectedPartFromSearch(null);
       }
@@ -185,14 +185,13 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setSearchResultsRelated([]);
   };
 
-  // Modified handleAdd to reset form and set isFormForNewItem to true
   const handleAdd = () => {
     setIsFormForNewItem(true);
     resetForm();
   };
 
   const handleEdit = (item: CustomListItem) => {
-    setIsFormForNewItem(false); // Editing existing item
+    setIsFormForNewItem(false);
     setFormItemName(item.item_name);
     setFormPartCode(item.part_code || '');
     setFormDescription(item.description || '');
@@ -205,7 +204,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setSearchResultsRelated([]);
 
     if (item.part_code) {
-      // Busca a peça exata para preencher selectedPartFromSearch
       searchPartsService(item.part_code).then(results => {
         const part = results.find(p => p.codigo.toLowerCase() === item.part_code!.toLowerCase());
         setSelectedPartFromSearch(part || null);
@@ -253,7 +251,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     };
 
     try {
-      if (isFormForNewItem) { // Check isFormForNewItem to determine add or update
+      if (isFormForNewItem) {
         await addCustomListItem(list.id, payload);
         showSuccess('Item adicionado com sucesso!');
       } else if (editingItem) {
@@ -261,8 +259,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         showSuccess('Item atualizado com sucesso!');
       }
       
-      resetForm(); // Reset form fields after submission
-      setIsFormForNewItem(true); // Prepare for adding another new item
+      resetForm();
+      setIsFormForNewItem(true);
       loadItems();
       onItemSaved?.();
     } catch (error) {
@@ -370,7 +368,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     showSuccess('PDF gerado com sucesso!');
   };
 
-  // --- Drag and Drop Handlers ---
+  // --- Drag and Drop Handlers (Itens da Lista Principal) ---
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: CustomListItem) => {
     setDraggedItem(item);
     e.dataTransfer.effectAllowed = 'move';
@@ -431,7 +429,49 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     e.currentTarget.classList.remove('opacity-50');
     setDraggedItem(null);
   };
-  // --- End Drag and Drop Handlers ---
+  // --- End Drag and Drop Handlers (Itens da Lista Principal) ---
+
+  // --- Drag and Drop Handlers (Itens Relacionados) ---
+  const handleRelatedDragStart = (e: React.DragEvent<HTMLDivElement>, item: string) => {
+    setDraggedRelatedItem(item);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item);
+    e.currentTarget.classList.add('opacity-50');
+  };
+
+  const handleRelatedDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('border-primary');
+  };
+
+  const handleRelatedDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.currentTarget.classList.remove('border-primary');
+  };
+
+  const handleRelatedDrop = (e: React.DragEvent<HTMLDivElement>, targetItem: string) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-primary');
+
+    if (draggedRelatedItem && draggedRelatedItem !== targetItem) {
+      const newRelatedItems = [...formItensRelacionados];
+      const draggedIndex = newRelatedItems.findIndex(item => item === draggedRelatedItem);
+      const targetIndex = newRelatedItems.findIndex(item => item === targetItem);
+
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+        const [removed] = newRelatedItems.splice(draggedIndex, 1);
+        newRelatedItems.splice(targetIndex, 0, removed);
+        setFormItensRelacionados(newRelatedItems);
+      }
+    }
+    setDraggedRelatedItem(null);
+  };
+
+  const handleRelatedDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    e.currentTarget.classList.remove('opacity-50');
+    setDraggedRelatedItem(null);
+  };
+  // --- End Drag and Drop Handlers (Itens Relacionados) ---
 
   const handleSaveGlobalPartName = async () => {
     if (!selectedPartFromSearch || !formPartCode) {
@@ -628,10 +668,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                           )}
                           {item.itens_relacionados && item.itens_relacionados.length > 0 && (
                             <Popover 
-                              key={`popover-${item.id}`} // Adicionado key
+                              key={`popover-${item.id}`}
                               open={openRelatedItemsPopoverId === item.id} 
                               onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
-                              modal={false} // Adicionado modal={false}
+                              modal={false}
                             >
                               <PopoverTrigger asChild>
                                 <Button 
@@ -844,15 +884,31 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             {formItensRelacionados.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {formItensRelacionados.map(codigo => (
-                  <div key={codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
-                    {codigo}
+              <div className="flex flex-col gap-1">
+                {formItensRelacionados.map((codigo, index) => (
+                  <div 
+                    key={codigo} 
+                    className={cn(
+                      "flex items-center justify-between gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-md cursor-grab border border-transparent",
+                      draggedRelatedItem === codigo && 'opacity-50',
+                      draggedRelatedItem && 'hover:border-primary'
+                    )}
+                    draggable
+                    onDragStart={(e) => handleRelatedDragStart(e, codigo)}
+                    onDragOver={handleRelatedDragOver}
+                    onDrop={(e) => handleRelatedDrop(e, codigo)}
+                    onDragLeave={handleRelatedDragLeave}
+                    onDragEnd={handleRelatedDragEnd}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <GripVertical className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{codigo}</span>
+                    </div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-4 w-4 p-0 text-destructive"
+                      className="h-4 w-4 p-0 text-destructive shrink-0"
                       onClick={() => handleRemoveRelatedPart(codigo)}
                     >
                       <XCircle className="h-3 w-3" />
@@ -863,7 +919,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             )}
           </ScrollArea>
           <p className="text-sm text-muted-foreground">
-            Adicione códigos de peças que estão relacionadas a este item da lista.
+            Arraste e solte os itens acima para reordenar.
           </p>
         </div>
 
