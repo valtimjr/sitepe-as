@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +7,7 @@ import { Part, addSimplePartItem, getParts, searchParts as searchPartsService, u
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save, XCircle } from 'lucide-react'; // Adicionado XCircle para o botão Cancelar
+import { Save, XCircle, Loader2 } from 'lucide-react'; // Adicionado XCircle para o botão Cancelar
 import { useSession } from '@/components/SessionContextProvider';
 import { SimplePartItem } from '@/services/localDbService'; // Importar SimplePartItem
 
@@ -24,9 +24,9 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const [af, setAf] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
+  // Removido: [allAvailableParts, setAllAvailableParts]
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(true);
+  const [isLoadingParts, setIsLoadingParts] = useState(false); // Inicializado como false
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
 
@@ -38,17 +38,20 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
         setAf(editingItem.af || '');
         
         // Para o PartSearchInput, precisamos de um objeto Part completo, então buscamos
-        // Primeiro, carrega todas as peças se ainda não estiverem carregadas
-        if (allAvailableParts.length === 0) {
-          const parts = await getParts();
-          setAllAvailableParts(parts);
+        // A busca por código exato é mais eficiente do que carregar todas as 47k peças.
+        if (editingItem.codigo_peca) {
+          setIsLoadingParts(true);
+          const results = await searchPartsService(editingItem.codigo_peca);
+          const partFromEdit = results.find(p => p.codigo === editingItem.codigo_peca);
+          setSelectedPart(partFromEdit || null);
+          setEditedTags(partFromEdit?.tags || '');
+          setSearchQuery(editingItem.codigo_peca || ''); 
+          setIsLoadingParts(false);
+        } else {
+          setSelectedPart(null);
+          setEditedTags('');
+          setSearchQuery('');
         }
-        
-        const partFromEdit = allAvailableParts.find(p => p.codigo === editingItem.codigo_peca);
-        setSelectedPart(partFromEdit || null);
-        setEditedTags(partFromEdit?.tags || '');
-        // Define a query de busca para o código da peça para que o PartSearchInput exiba corretamente
-        setSearchQuery(editingItem.codigo_peca || ''); 
       } else {
         // Reseta os campos para o modo de adição
         setSelectedPart(null);
@@ -61,27 +64,23 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     };
 
     initializeForm();
-  }, [editingItem, allAvailableParts]); // Depende de editingItem e allAvailableParts
+  }, [editingItem]); // Depende apenas de editingItem
 
   useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoadingParts(true);
-      const parts = await getParts();
-      setAllAvailableParts(parts);
-      setIsLoadingParts(false);
-
+    const loadInitialAfs = async () => {
       setIsLoadingAfs(true);
       const afs = await getAfsFromService();
       setAllAvailableAfs(afs);
       setIsLoadingAfs(false);
     };
-    loadInitialData();
+    loadInitialAfs();
   }, []);
 
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQuery.length > 1) {
         setIsLoadingParts(true);
+        // searchPartsService agora retorna apenas o array de Part[]
         const results = await searchPartsService(searchQuery);
         setSearchResults(results);
         setIsLoadingParts(false);
@@ -105,7 +104,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
 
   const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
-    setSearchQuery(''); // Limpa a query para que o input mostre o código da peça selecionada
+    setSearchQuery(part.codigo); // Exibe o código da peça selecionada no input
     setSearchResults([]);
   };
 
@@ -126,8 +125,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     try {
       await updatePart({ ...selectedPart, tags: editedTags });
       showSuccess('Tags da peça atualizadas com sucesso!');
-      const updatedParts = await getParts();
-      setAllAvailableParts(updatedParts);
+      // Não precisamos recarregar todas as peças, apenas atualizar o estado local
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
       showError('Erro ao atualizar as tags da peça.');
@@ -194,7 +192,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               searchResults={searchResults}
               onSelectPart={handleSelectPart}
               searchQuery={searchQuery}
-              allParts={allAvailableParts}
               isLoading={isLoadingParts}
             />
           </div>

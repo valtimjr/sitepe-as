@@ -37,8 +37,8 @@ const CustomListPage: React.FC = () => {
   const [afForExport, setAfForExport] = useState('');
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para resolver descrições
-  const [isLoadingAllParts, setIsLoadingAllParts] = useState(true); // Loading state for all parts
+  // Removido: [allAvailableParts, setAllAvailableParts]
+  // Removido: [isLoadingAllParts, setIsLoadingAllParts]
 
   // Estado para controlar o Popover de itens relacionados
   const [isRelatedItemsPopoverOpen, setIsRelatedItemsPopoverOpen] = useState<string | null>(null);
@@ -84,23 +84,10 @@ const CustomListPage: React.FC = () => {
     }
   }, []);
 
-  const loadAllParts = useCallback(async () => {
-    setIsLoadingAllParts(true);
-    try {
-      const parts = await getParts();
-      setAllAvailableParts(parts);
-    } catch (error) {
-      console.error("Erro ao carregar todas as peças:", error);
-    } finally {
-      setIsLoadingAllParts(false);
-    }
-  }, []);
-
   useEffect(() => {
     loadList();
     loadAfs();
-    loadAllParts(); // Load all parts on component mount
-  }, [loadList, loadAfs, loadAllParts]);
+  }, [loadList, loadAfs]);
 
   useEffect(() => {
     document.title = `${listTitle} - AutoBoard`;
@@ -239,16 +226,6 @@ const CustomListPage: React.FC = () => {
     }
   };
 
-  // Helper function to get part description for display
-  // REMOVIDO: Esta função não é mais necessária aqui, pois o popover exibirá a string diretamente.
-  // const getPartDescription = (partCode: string): string => {
-  //   const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
-  //   if (part) {
-  //     return `${part.codigo} - ${part.descricao}`;
-  //   }
-  //   return partCode;
-  // };
-
   return (
     <React.Fragment>
       <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -281,7 +258,7 @@ const CustomListPage: React.FC = () => {
                 <Button 
                   onClick={handleExportSelectedToMyList} 
                   className="flex items-center gap-2 flex-1 sm:w-auto" // Adicionado flex-1
-                  disabled={isLoadingAfs || isLoadingAllParts}
+                  disabled={isLoadingAfs}
                 >
                   <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
                 </Button>
@@ -329,7 +306,7 @@ const CustomListPage: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent>
-            {isLoading || isLoadingAllParts ? (
+            {isLoading ? (
               <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
             ) : items.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
@@ -421,7 +398,6 @@ const CustomListPage: React.FC = () => {
                 onClose={handleItemSavedOrClosed}
                 editingItem={itemToEdit}
                 onItemSaved={handleItemSavedOrClosed}
-                allAvailableParts={allAvailableParts} // Pass all available parts
               />
             )}
           </SheetContent>

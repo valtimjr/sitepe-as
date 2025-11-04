@@ -10,18 +10,6 @@ import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, Fil
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, deleteCustomListItem as deleteCustomListItemService, updateAllCustomListItems } from '@/services/customListService';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import PartSearchInput from './PartSearchInput';
 import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 import { generateCustomListPdf } from '@/lib/pdfGenerator';
@@ -46,10 +34,10 @@ interface CustomListEditorProps {
   onClose: () => void;
   editingItem?: CustomListItem | null;
   onItemSaved?: () => void;
-  allAvailableParts: Part[];
+  // Removido: allAvailableParts: Part[];
 }
 
-const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved, allAvailableParts }) => {
+const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved }) => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   // Form states for main item
@@ -62,7 +50,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   // Search states for main item form
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(true);
+  const [isLoadingParts, setIsLoadingParts] = useState(false); // Inicializado como false
   const [selectedPartFromSearch, setSelectedPartFromSearch] = useState<Part | null>(null);
 
   // Search states for related items form
@@ -85,7 +73,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const loadItems = useCallback(async () => {
     if (!list.id) {
-      return;
+      return; // Adicionado para evitar chamadas desnecessárias
     }
     setIsLoading(true);
     try {
@@ -120,7 +108,9 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         setSearchResultsRelated([]);
 
         if (editingItem.part_code) {
-          const part = allAvailableParts.find(p => p.codigo.toLowerCase() === editingItem.part_code!.toLowerCase());
+          // Busca a peça exata para preencher selectedPartFromSearch
+          const results = await searchPartsService(editingItem.part_code);
+          const part = results.find(p => p.codigo.toLowerCase() === editingItem.part_code!.toLowerCase());
           setSelectedPartFromSearch(part || null);
         } else {
           setSelectedPartFromSearch(null);
@@ -133,7 +123,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     };
 
     initializeFormForEdit();
-  }, [editingItem, allAvailableParts]);
+  }, [editingItem]);
 
 
   useEffect(() => {
@@ -203,8 +193,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setSearchResultsRelated([]);
 
     if (item.part_code) {
-      const part = allAvailableParts.find(p => p.codigo.toLowerCase() === item.part_code!.toLowerCase());
-      setSelectedPartFromSearch(part || null);
+      // Busca a peça exata para preencher selectedPartFromSearch
+      searchPartsService(item.part_code).then(results => {
+        const part = results.find(p => p.codigo.toLowerCase() === item.part_code!.toLowerCase());
+        setSelectedPartFromSearch(part || null);
+      });
     } else {
       setSelectedPartFromSearch(null);
     }
@@ -721,7 +714,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             searchResults={searchResults}
             onSelectPart={handleSelectPart}
             searchQuery={searchQuery}
-            allParts={allAvailableParts}
             isLoading={isLoadingParts}
           />
         </div>
@@ -809,7 +801,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             searchResults={relatedSearchResults}
             onSelectPart={handleAddRelatedPart}
             searchQuery={relatedSearchQuery}
-            allParts={allAvailableParts}
             isLoading={isLoadingParts}
           />
           <div className="space-y-2">
@@ -844,7 +835,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               <div className="flex flex-wrap gap-2">
                 {formItensRelacionados.map(codigo => (
                   <div key={codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
-                    {getPartDescription(codigo)}
+                    {codigo}
                     <Button
                       type="button"
                       variant="ghost"

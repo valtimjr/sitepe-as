@@ -86,8 +86,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   // Estados para o PartSearchInput dentro do modal
   const [searchQueryRelated, setSearchQueryRelated] = useState('');
   const [searchResultsRelated, setSearchResultsRelated] = useState<Part[]>([]);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(true);
+  // Removido: [allAvailableParts, setAllAvailableParts]
+  const [isLoadingParts, setIsLoadingParts] = useState(false); // Inicializado como false
 
   // Bulk add related items state
   const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
@@ -99,21 +99,18 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     console.time('MenuStructureEditor: loadData');
     setIsLoading(true);
     try {
-      const [fetchedFlatItems, fetchedLists, fetchedAllParts] = await Promise.all([
+      const [fetchedFlatItems, fetchedLists] = await Promise.all([
         getAllMenuItemsFlat(),
         user ? getCustomLists(user.id) : Promise.resolve([]),
-        getParts(),
       ]);
       
       setFlatMenuItems(fetchedFlatItems);
       setMenuHierarchy(buildMenuHierarchy(fetchedFlatItems));
       setCustomLists(fetchedLists);
-      setAllAvailableParts(fetchedAllParts);
     } catch (error) {
       showError('Erro ao carregar dados do menu.');
     } finally {
       setIsLoading(false);
-      setIsLoadingParts(false);
       console.timeEnd('MenuStructureEditor: loadData');
     }
   }, [user]);
@@ -507,7 +504,6 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
                 searchResults={searchResultsRelated}
                 onSelectPart={handleAddRelatedPart}
                 searchQuery={searchQueryRelated}
-                allParts={allAvailableParts}
                 isLoading={isLoadingParts}
               />
               <div className="space-y-2">

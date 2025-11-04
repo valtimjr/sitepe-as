@@ -15,10 +15,10 @@ import { getParts } from '@/services/partListService'; // Importar getParts
 interface MenuItemProps {
   item: MenuItem;
   level: number;
-  allAvailableParts: Part[]; // Adicionado para resolver descrições
+  // Removido: allAvailableParts: Part[];
 }
 
-const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailableParts }) => {
+const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
   const [isExpanded, setIsExpanded] = useState(level === 0);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false); // Estado para controlar o tooltip
   const hasChildren = item.children && item.children.length > 0;
@@ -39,16 +39,6 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
       setIsTooltipOpen(prev => !prev);
     }
   };
-
-  // Helper function to get part description for display
-  // REMOVIDO: Esta função não é mais necessária aqui, pois o popover exibirá a string diretamente.
-  // const getPartDescription = (partCode: string): string => {
-  //   const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
-  //   if (part) {
-  //     return `${part.codigo} - ${part.descricao}`;
-  //   }
-  //   return partCode;
-  // };
 
   const content = (
     <div 
@@ -120,7 +110,7 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
       {hasChildren && isExpanded && (
         <div className="w-full">
           {item.children!.map(child => (
-            <MenuItemDisplay key={child.id} item={child} level={level + 1} allAvailableParts={allAvailableParts} />
+            <MenuItemDisplay key={child.id} item={child} level={level + 1} />
           ))}
         </div>
       )}
@@ -131,8 +121,8 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
 const CustomMenuOverview: React.FC = () => {
   const [menuHierarchy, setMenuHierarchy] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para resolver descrições
-  const [isLoadingAllParts, setIsLoadingAllParts] = useState(true); // Loading state for all parts
+  // Removido: [allAvailableParts, setAllAvailableParts]
+  // Removido: [isLoadingAllParts, setIsLoadingAllParts]
 
   useEffect(() => {
     document.title = "Catálogo de Peças - AutoBoard";
@@ -152,22 +142,9 @@ const CustomMenuOverview: React.FC = () => {
     }
   }, []);
 
-  const loadAllParts = useCallback(async () => {
-    setIsLoadingAllParts(true);
-    try {
-      const parts = await getParts();
-      setAllAvailableParts(parts);
-    } catch (error) {
-      console.error("Erro ao carregar todas as peças:", error);
-    } finally {
-      setIsLoadingAllParts(false);
-    }
-  }, []);
-
   useEffect(() => {
     loadMenu();
-    loadAllParts(); // Load all parts on component mount
-  }, [loadMenu, loadAllParts]);
+  }, [loadMenu]);
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -189,7 +166,7 @@ const CustomMenuOverview: React.FC = () => {
           <CardTitle className="text-xl">Estrutura de Listas</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading || isLoadingAllParts ? (
+          {isLoading ? (
             <div className="text-center text-muted-foreground py-8 flex items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando catálogo...
             </div>
@@ -198,7 +175,7 @@ const CustomMenuOverview: React.FC = () => {
           ) : (
             <div className="border rounded-lg overflow-hidden">
               {menuHierarchy.map(item => (
-                <MenuItemDisplay key={item.id} item={item} level={0} allAvailableParts={allAvailableParts} />
+                <MenuItemDisplay key={item.id} item={item} level={0} />
               ))}
             </div>
           )}
