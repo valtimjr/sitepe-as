@@ -253,7 +253,6 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
   
   if (titleLines.length > 0) {
     // Linha 1: Título Principal (Apontamento de Horas - Mês Ano)
-    const mainTitle = titleLines[0];
     doc.setFontSize(14); // Reduzido de 18 para 14
     doc.setFont(undefined, 'bold');
     doc.text(mainTitle, 14, currentY);

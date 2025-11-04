@@ -244,7 +244,7 @@ const CustomListPage: React.FC = () => {
       return (
         <TableRow key={item.id} className="bg-muted/50 border-y border-dashed">
           <TableCell colSpan={4} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
-            <Separator className="my-0" />
+            <Separator className="my-0 bg-foreground/50 h-px" />
           </TableCell>
         </TableRow>
       );
