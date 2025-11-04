@@ -66,7 +66,7 @@ const PartManagementTable: React.FC = () => {
   const [formTags, setFormTags] = useState('');
   const [formName, setFormName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartIds, setSelectedPartIds] = new Set());
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(() => new Set());
 
   // Novos estados para importação
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
