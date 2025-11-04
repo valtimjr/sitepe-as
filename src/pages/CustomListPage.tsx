@@ -5,7 +5,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle, XCircle, FileDown } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle, XCircle, FileDown, Minus } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Importar Popover
+import { Separator } from '@/components/ui/separator';
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -37,8 +38,6 @@ const CustomListPage: React.FC = () => {
   const [afForExport, setAfForExport] = useState('');
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
-  // Removido: [allAvailableParts, setAllAvailableParts]
-  // Removido: [isLoadingAllParts, setIsLoadingAllParts]
 
   // Estado para controlar o Popover de itens relacionados
   const [isRelatedItemsPopoverOpen, setIsRelatedItemsPopoverOpen] = useState<string | null>(null);
@@ -99,6 +98,15 @@ const CustomListPage: React.FC = () => {
     let formattedText = `${listTitle}\n\n`;
 
     items.forEach(item => {
+      if (item.type === 'separator') {
+        formattedText += '--------------------\n';
+        return;
+      }
+      if (item.type === 'subtitle') {
+        formattedText += `\n--- ${item.item_name.toUpperCase()} ---\n`;
+        return;
+      }
+
       const quantidade = item.quantity;
       const nome = item.item_name || '';
       const codigo = item.part_code ? ` (Cód: ${item.part_code})` : '';
@@ -161,7 +169,7 @@ const CustomListPage: React.FC = () => {
   // --- Seleção de Itens ---
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allVisibleItemIds = new Set(items.map(item => item.id));
+      const allVisibleItemIds = new Set(items.filter(i => i.type === 'item').map(item => item.id));
       setSelectedItemIds(allVisibleItemIds);
     } else {
       setSelectedItemIds(new Set());
@@ -180,8 +188,8 @@ const CustomListPage: React.FC = () => {
     });
   };
 
-  const isAllSelected = items.length > 0 && selectedItemIds.size === items.length;
-  const isIndeterminate = selectedItemIds.size > 0 && selectedItemIds.size < items.length;
+  const isAllSelected = items.filter(i => i.type === 'item').length > 0 && selectedItemIds.size === items.filter(i => i.type === 'item').length;
+  const isIndeterminate = selectedItemIds.size > 0 && selectedItemIds.size < items.filter(i => i.type === 'item').length;
 
   // --- Exportar Selecionados para Minha Lista ---
   const handleExportSelectedToMyList = () => {
@@ -227,6 +235,93 @@ const CustomListPage: React.FC = () => {
     }
   };
 
+  const renderItemRow = (item: CustomListItem) => {
+    const isSeparator = item.type === 'separator';
+    const isSubtitle = item.type === 'subtitle';
+    const isItem = item.type === 'item';
+
+    if (isSeparator) {
+      return (
+        <TableRow key={item.id} className="bg-muted/50 border-y border-dashed">
+          <TableCell colSpan={4} className="text-center font-mono text-sm text-muted-foreground italic p-2">
+            <Separator className="my-0" />
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    if (isSubtitle) {
+      return (
+        <TableRow key={item.id} className="bg-accent/10 border-y border-primary/50">
+          <TableCell colSpan={4} className="text-left font-bold text-lg text-primary p-2">
+            {item.item_name}
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    // Item de peça normal
+    return (
+      <TableRow key={item.id}>
+        <TableCell className="w-[40px] p-2">
+          <Checkbox
+            checked={selectedItemIds.has(item.id)}
+            onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
+            aria-label={`Selecionar item ${item.item_name}`}
+          />
+        </TableCell>
+        <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
+        <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
+            <div className="flex flex-col items-start">
+              {item.part_code && (
+                <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
+              )}
+              <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
+              {item.description && (
+                <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
+              )}
+              {item.itens_relacionados && item.itens_relacionados.length > 0 && (
+                <Popover 
+                  key={`popover-${item.id}`}
+                  open={isRelatedItemsPopoverOpen === item.id} 
+                  onOpenChange={(open) => setIsRelatedItemsPopoverOpen(open ? item.id : null)}
+                  modal={false}
+                >
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
+                    >
+                      <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto max-w-xs p-2">
+                    <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                    <ul className="list-disc list-inside text-xs text-muted-foreground">
+                      {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
+                    </ul>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+        </TableCell>
+        <TableCell className="w-[70px] p-2 text-right">
+          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8">
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Editar Item</TooltipContent>
+            </Tooltip>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
   return (
     <React.Fragment>
       <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -254,11 +349,11 @@ const CustomListPage: React.FC = () => {
             <CardTitle className="text-xl font-bold text-center pt-2">
               Itens da Lista
             </CardTitle>
-            <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2"> {/* Alterado para flex-row e items-center */}
+            <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2">
               {selectedItemIds.size > 0 && (
                 <Button 
                   onClick={handleExportSelectedToMyList} 
-                  className="flex items-center gap-2 flex-1 sm:w-auto" // Adicionado flex-1
+                  className="flex items-center gap-2 flex-1 sm:w-auto"
                   disabled={isLoadingAfs}
                 >
                   <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
@@ -299,7 +394,7 @@ const CustomListPage: React.FC = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-                    <FileText className="h-4 w-4" /> Exportar PDF
+                    <FileDown className="h-4 w-4" /> Exportar PDF
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Exportar PDF</TooltipContent>
@@ -326,68 +421,11 @@ const CustomListPage: React.FC = () => {
                       </TableHead>
                       <TableHead className="w-[4rem] p-2">Qtd</TableHead>
                       <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                      <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {items.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="w-[40px] p-2">
-                          <Checkbox
-                            checked={selectedItemIds.has(item.id)}
-                            onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
-                            aria-label={`Selecionar item ${item.item_name}`}
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                        <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-                            <div className="flex flex-col items-start">
-                              {item.part_code && (
-                                <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
-                              )}
-                              <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
-                              {item.description && (
-                                <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
-                              )}
-                              {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                                <Popover 
-                                  key={`popover-${item.id}`} // Adicionado key
-                                  open={isRelatedItemsPopoverOpen === item.id} 
-                                  onOpenChange={(open) => setIsRelatedItemsPopoverOpen(open ? item.id : null)}
-                                  modal={false} // Adicionado modal={false}
-                                >
-                                  <PopoverTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
-                                    >
-                                      <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                                    </Button>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-auto max-w-xs p-2">
-                                    <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                                    <ul className="list-disc list-inside text-xs text-muted-foreground">
-                                      {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)} {/* Exibe a string diretamente */}
-                                    </ul>
-                                  </PopoverContent>
-                                </Popover>
-                              )}
-                            </div>
-                        </TableCell>
-                        <TableCell className="w-[70px] p-2 text-right">
-                          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8">
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Editar Item</TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {items.map((item) => renderItemRow(item))}
                   </TableBody>
                 </Table>
               </div>
@@ -411,6 +449,7 @@ const CustomListPage: React.FC = () => {
                 onClose={handleItemSavedOrClosed}
                 editingItem={itemToEdit}
                 onItemSaved={handleItemSavedOrClosed}
+                allAvailableParts={[]} // Não é necessário carregar todas as peças aqui, mas a prop é obrigatória
               />
             )}
           </SheetContent>

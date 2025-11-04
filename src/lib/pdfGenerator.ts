@@ -131,14 +131,28 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   let currentY = 22;
 
   doc.setFontSize(18);
-  doc.text(title, 14, currentY); // Usa o título fornecido como título principal
+  doc.text(title, 14, currentY);
   currentY += 8;
 
-  // Colunas para a lista personalizada
   const tableColumn = ["Qtd", "Nome", "Cód. Peça", "Descrição"];
-  const tableRows: (string | number | null)[][] = [];
+  const tableRows: any[] = [];
 
   listItems.forEach(item => {
+    if (item.type === 'separator') {
+      tableRows.push([
+        { content: '---', colSpan: 4, styles: { halign: 'center', fontStyle: 'italic', fillColor: [200, 200, 200], textColor: [50, 50, 50] } }
+      ]);
+      return;
+    }
+
+    if (item.type === 'subtitle') {
+      tableRows.push([
+        { content: item.item_name.toUpperCase(), colSpan: 4, styles: { halign: 'left', fontStyle: 'bold', fillColor: [230, 230, 230], textColor: [0, 0, 0], fontSize: 12 } }
+      ]);
+      return;
+    }
+
+    // Item normal
     const itemData = [
       item.quantity,
       item.item_name,
@@ -156,6 +170,13 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 240, 240] },
     margin: { top: 10 },
+    didParseCell: (data: any) => {
+      // Remove a borda inferior das células de subtítulo e separador
+      const item = listItems[data.row.index];
+      if (item && (item.type === 'subtitle' || item.type === 'separator')) {
+        data.cell.styles.lineWidth = 0;
+      }
+    }
   });
 
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);

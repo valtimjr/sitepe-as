@@ -56,6 +56,7 @@ export interface CustomList {
 
 export interface CustomListItem {
   id: string; // UUID gerado no frontend
+  type: 'item' | 'subtitle' | 'separator'; // NOVO: Tipo do item
   item_name: string;
   part_code: string | null;
   description: string | null;

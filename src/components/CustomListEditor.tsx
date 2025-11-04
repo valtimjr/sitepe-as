@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2, Minus } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, deleteCustomListItem as deleteCustomListItemService, updateAllCustomListItems } from '@/services/customListService';
@@ -28,7 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import PartSearchInput from './PartSearchInput'; // IMPORT CORRIGIDO
+import PartSearchInput from './PartSearchInput';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,23 +40,25 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 
 interface CustomListEditorProps {
   list: CustomList;
   onClose: () => void;
   editingItem?: CustomListItem | null;
   onItemSaved?: () => void;
-  allAvailableParts: Part[]; // Adicionado de volta para o CustomListManager
+  allAvailableParts: Part[];
 }
 
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved, allAvailableParts }) => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // NOVO: Estado para rastrear o ID do item sendo editado (se houver)
   const [currentEditingItemId, setCurrentEditingItemId] = useState<string | null>(null);
 
   // Form states for main item
+  const [formType, setFormType] = useState<'item' | 'subtitle' | 'separator'>('item');
   const [formItemName, setFormItemName] = useState('');
   const [formPartCode, setFormPartCode] = useState('');
   const [formDescription, setFormDescription] = useState('');
@@ -78,7 +80,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   // Drag and Drop states
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
-  const [draggedRelatedItem, setDraggedRelatedItem] = useState<string | null>(null); // Para itens relacionados
+  const [draggedRelatedItem, setDraggedRelatedItem] = useState<string | null>(null);
 
   // State to control if the form is for a new item or editing an existing one
   const [isFormForNewItem, setIsFormForNewItem] = useState(false);
@@ -113,7 +115,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     const initializeFormForEdit = async () => {
       if (editingItem) {
         setIsFormForNewItem(false);
-        setCurrentEditingItemId(editingItem.id); // Define o ID do item em edição
+        setCurrentEditingItemId(editingItem.id);
+        setFormType(editingItem.type || 'item'); // Usa o tipo existente ou 'item'
         setFormItemName(editingItem.item_name);
         setFormPartCode(editingItem.part_code || '');
         setFormDescription(editingItem.description || '');
@@ -133,9 +136,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
           setSelectedPartFromSearch(null);
         }
       } else {
-        // Se não houver editingItem, o formulário deve estar no modo de adição
         setIsFormForNewItem(true);
-        setCurrentEditingItemId(null); // Limpa o ID do item em edição
+        setCurrentEditingItemId(null);
         resetForm();
         setSelectedPartFromSearch(null);
       }
@@ -149,7 +151,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     const fetchSearchResults = async () => {
       if (searchQuery.length > 1) {
         setIsLoadingParts(true);
-        // searchPartsService agora retorna apenas o array de Part[]
         const results = await searchPartsService(searchQuery);
         setSearchResults(results);
         setIsLoadingParts(false);
@@ -180,6 +181,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
 
   const resetForm = () => {
+    setFormType('item');
     setFormItemName('');
     setFormPartCode('');
     setFormDescription('');
@@ -199,11 +201,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     resetForm();
   };
 
-  // CORRIGIDO: Função para editar item da tabela (preenche o formulário)
   const handleEditItemClick = (item: CustomListItem) => {
     setIsFormForNewItem(false);
-    setCurrentEditingItemId(item.id); // Define o ID do item em edição
+    setCurrentEditingItemId(item.id);
     
+    setFormType(item.type || 'item');
     setFormItemName(item.item_name);
     setFormPartCode(item.part_code || '');
     setFormDescription(item.description || '');
@@ -241,42 +243,40 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     const trimmedDescription = formDescription.trim();
     const trimmedPartCode = formPartCode.trim();
 
-    if (formQuantity <= 0) {
-      showError('A quantidade deve ser maior que zero.');
-      return;
-    }
-
-    if (!trimmedItemName && !trimmedDescription) {
+    if (formType !== 'separator' && !trimmedItemName && !trimmedDescription) {
       showError('O Nome ou a Descrição da Peça deve ser preenchido.');
       return;
     }
+    
+    if (formType === 'item' && formQuantity <= 0) {
+      showError('A quantidade deve ser maior que zero para itens de peça.');
+      return;
+    }
 
-    const finalItemName = trimmedItemName || trimmedDescription;
+    const finalItemName = trimmedItemName || trimmedDescription || (formType === 'separator' ? '---' : '');
 
     const payload: Omit<CustomListItem, 'id' | 'list_id'> = {
+      type: formType,
       item_name: finalItemName,
-      part_code: trimmedPartCode || null,
-      description: trimmedDescription || null,
-      quantity: formQuantity,
-      // Se for edição, o order_index é mantido. Se for novo, usa o tamanho atual da lista.
+      part_code: formType === 'item' ? trimmedPartCode || null : null,
+      description: formType === 'item' ? trimmedDescription || null : null,
+      quantity: formType === 'item' ? formQuantity : 0,
       order_index: currentEditingItemId ? items.find(i => i.id === currentEditingItemId)?.order_index ?? items.length : items.length,
-      itens_relacionados: formItensRelacionados,
+      itens_relacionados: formType === 'item' ? formItensRelacionados : [],
     };
 
     try {
       if (currentEditingItemId) {
-        // Modo de edição: usa o ID do item em edição
         await updateCustomListItem(list.id, { id: currentEditingItemId, list_id: list.id, ...payload });
         showSuccess('Item atualizado com sucesso!');
       } else {
-        // Modo de adição: adiciona um novo item
         await addCustomListItem(list.id, payload);
         showSuccess('Item adicionado com sucesso!');
       }
       
       resetForm();
       setIsFormForNewItem(true);
-      setCurrentEditingItemId(null); // Limpa o ID após salvar
+      setCurrentEditingItemId(null);
       loadItems();
       onItemSaved?.();
     } catch (error) {
@@ -338,12 +338,20 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     let formattedText = `${list.title}\n\n`;
 
     items.forEach(item => {
+      if (item.type === 'separator') {
+        formattedText += '--------------------\n';
+        return;
+      }
+      if (item.type === 'subtitle') {
+        formattedText += `\n--- ${item.item_name.toUpperCase()} ---\n`;
+        return;
+      }
+
       const quantidade = item.quantity;
       const nome = item.item_name || '';
       const codigo = item.part_code ? ` (Cód: ${item.part_code})` : '';
       const descricao = item.description || '';
       
-      // Formato: [QUANTIDADE] - [NOME PERSONALIZADO] [DESCRIÇÃO] (Cód: [CÓDIGO])
       formattedText += `${quantidade} - ${nome} ${descricao}${codigo}`.trim() + '\n';
     });
 
@@ -580,6 +588,175 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     return formattedPartString;
   };
 
+  const renderItemRow = (item: CustomListItem, index: number) => {
+    const isSeparator = item.type === 'separator';
+    const isSubtitle = item.type === 'subtitle';
+    const isItem = item.type === 'item';
+    const isEditing = currentEditingItemId === item.id;
+
+    if (isSeparator) {
+      return (
+        <TableRow key={item.id} className="bg-muted/50 hover:bg-muted/80 border-y-2 border-dashed" draggable onDragStart={(e) => handleDragStart(e, item)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, item)} onDragLeave={handleDragLeave} onDragEnd={handleDragEnd} data-id={item.id}>
+          <TableCell className="w-[30px] p-2 cursor-grab"><GripVertical className="h-4 w-4" /></TableCell>
+          <TableCell colSpan={3} className="text-center font-mono text-sm text-muted-foreground italic p-2">
+            --- SEPARADOR ---
+          </TableCell>
+          <TableCell className="w-[70px] p-2 text-right">
+            <div className="flex justify-end items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o separador. Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
+                  <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    if (isSubtitle) {
+      return (
+        <TableRow key={item.id} className="bg-accent/10 hover:bg-accent/50 border-y-2 border-primary/50" draggable onDragStart={(e) => handleDragStart(e, item)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, item)} onDragLeave={handleDragLeave} onDragEnd={handleDragEnd} data-id={item.id}>
+          <TableCell className="w-[30px] p-2 cursor-grab"><GripVertical className="h-4 w-4" /></TableCell>
+          <TableCell colSpan={3} className="text-left font-bold text-lg text-primary p-2">
+            {item.item_name}
+          </TableCell>
+          <TableCell className="w-[70px] p-2 text-right">
+            <div className="flex justify-end items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o subtítulo "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
+                  <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    // Item de peça normal
+    return (
+      <TableRow 
+        key={item.id}
+        draggable
+        onDragStart={(e) => handleDragStart(e, item)}
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, item)}
+        onDragLeave={handleDragLeave}
+        onDragEnd={handleDragEnd}
+        data-id={item.id}
+        className="relative"
+      >
+        <TableCell className="w-[30px] p-2 cursor-grab">
+          <GripVertical className="h-4 w-4" />
+        </TableCell>
+        <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
+        <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
+            <div className="flex flex-col items-start">
+              {item.part_code && (
+                <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
+              )}
+              <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
+              {item.description && (
+                <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
+              )}
+              {item.itens_relacionados && item.itens_relacionados.length > 0 && (
+                <Popover 
+                  key={`popover-${item.id}`}
+                  open={openRelatedItemsPopoverId === item.id} 
+                  onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
+                  modal={false}
+                >
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
+                    >
+                      <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto max-w-xs p-2">
+                    <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                    <ul className="list-disc list-inside text-xs text-muted-foreground">
+                      {item.itens_relacionados.map(rel => <li key={rel}>{getPartDescription(rel)}</li>)}
+                    </ul>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+        </TableCell>
+        <TableCell className="w-[70px] p-2 text-right">
+          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => handleMoveItem(item, 'up')}
+                  disabled={index === 0}
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Mover para Cima</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => handleMoveItem(item, 'down')}
+                  disabled={index === items.length - 1}
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Mover para Baixo</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8">
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Editar Item</TooltipContent>
+            </Tooltip>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-destructive h-8 w-8">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação irá remover o item "{item.item_name}" da lista. Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
@@ -658,116 +835,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.map((item, index) => (
-                  <TableRow 
-                    key={item.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, item)}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, item)}
-                    onDragLeave={handleDragLeave}
-                    onDragEnd={handleDragEnd}
-                    data-id={item.id}
-                    className="relative"
-                  >
-                    <TableCell className="w-[30px] p-2 cursor-grab">
-                      <GripVertical className="h-4 w-4" />
-                    </TableCell>
-                    <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                    <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-                        <div className="flex flex-col items-start">
-                          {item.part_code && (
-                            <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
-                          )}
-                          <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
-                          {item.description && (
-                            <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
-                          )}
-                          {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                            <Popover 
-                              key={`popover-${item.id}`}
-                              open={openRelatedItemsPopoverId === item.id} 
-                              onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
-                              modal={false}
-                            >
-                              <PopoverTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
-                                >
-                                  <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto max-w-xs p-2">
-                                <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                                <ul className="list-disc list-inside text-xs text-muted-foreground">
-                                  {item.itens_relacionados.map(rel => <li key={rel}>{getPartDescription(rel)}</li>)}
-                                </ul>
-                              </PopoverContent>
-                            </Popover>
-                          )}
-                        </div>
-                    </TableCell>
-                    <TableCell className="w-[70px] p-2 text-right">
-                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => handleMoveItem(item, 'up')}
-                              disabled={index === 0}
-                            >
-                              <ArrowUp className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Mover para Cima</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => handleMoveItem(item, 'down')}
-                              disabled={index === items.length - 1}
-                            >
-                              <ArrowDown className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Mover para Baixo</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Editar Item</TooltipContent>
-                        </Tooltip>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive h-8 w-8">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Esta ação irá remover o item "{item.item_name}" da lista. Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {items.map((item, index) => renderItemRow(item, index))}
               </TableBody>
             </Table>
           </div>
@@ -779,29 +847,39 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         <h3 className="text-xl font-semibold">
           {currentEditingItemId ? 'Editar Item' : 'Adicionar Novo Item'}
         </h3>
+        
         <div className="space-y-2">
-          <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
-          <PartSearchInput
-            onSearch={setSearchQuery}
-            searchResults={searchResults}
-            onSelectPart={handleSelectPart}
-            searchQuery={searchQuery}
-            isLoading={isLoadingParts}
-          />
+          <Label htmlFor="item-type">Tipo de Item</Label>
+          <Select
+            value={formType}
+            onValueChange={(value: 'item' | 'subtitle' | 'separator') => setFormType(value)}
+          >
+            <SelectTrigger id="item-type">
+              <SelectValue placeholder="Selecione o Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="item">Item de Peça</SelectItem>
+              <SelectItem value="subtitle">Subtítulo</SelectItem>
+              <SelectItem value="separator">Separador</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="item-name">Nome Personalizado</Label>
+        {formType !== 'separator' && (
+          <div className="space-y-2">
+            <Label htmlFor="item-name">
+              {formType === 'subtitle' ? 'Texto do Subtítulo' : 'Nome Personalizado'}
+            </Label>
             <div className="flex items-center gap-2">
               <Input
                 id="item-name"
                 value={formItemName}
                 onChange={(e) => setFormItemName(e.target.value)}
-                placeholder="Ex: Kit de Reparo do Motor"
+                placeholder={formType === 'subtitle' ? 'Ex: Peças do Motor' : 'Ex: Kit de Reparo do Motor'}
                 className="flex-1"
+                required={formType !== 'separator'}
               />
-              {formPartCode && ( 
+              {formPartCode && formType === 'item' && ( 
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -825,123 +903,138 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
               )}
             </div>
           </div>
-          
-          <div className="space-y-2 md:col-span-1">
-            <Label htmlFor="part-code">Cód. Peça (Opcional)</Label>
-            <Input
-              id="part-code"
-              value={formPartCode}
-              onChange={(e) => setFormPartCode(e.target.value)}
-              placeholder="Código da peça"
-              className="w-full"
-            />
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="description">Descrição (Opcional)</Label>
-            <Input
-              id="description"
-              value={formDescription}
-              onChange={(e) => setFormDescription(e.target.value)}
-              placeholder="Descrição da peça"
-              className="w-full"
-            />
-          </div>
+        )}
 
-          <div className="space-y-2 md:col-span-1">
-            <Label htmlFor="quantity">Quantidade</Label>
-            <Input
-              id="quantity"
-              type="number"
-              value={formQuantity}
-              onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
-              min="1"
-              required
-              className="w-full"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2 border-t pt-4">
-          <Label className="flex items-center gap-2">
-            <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
-          </Label>
-          <PartSearchInput
-            onSearch={setRelatedSearchQuery}
-            searchResults={relatedSearchResults}
-            onSelectPart={handleAddRelatedPart}
-            searchQuery={relatedSearchQuery}
-            isLoading={isLoadingParts}
-          />
-          <div className="space-y-2">
-            <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
-              Adicionar múltiplos códigos (separados por ';')
-            </Label>
-            <div className="flex gap-2">
-              <Textarea
-                id="bulk-related-parts"
-                value={bulkRelatedPartsInput}
-                onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
-                placeholder="Ex: COD1; COD2; COD3"
-                rows={2}
-                className="flex-1"
+        {formType === 'item' && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
+              <PartSearchInput
+                onSearch={setSearchQuery}
+                searchResults={searchResults}
+                onSelectPart={handleSelectPart}
+                searchQuery={searchQuery}
+                isLoading={isLoadingParts}
               />
-              <Button
-                type="button"
-                onClick={handleBulkAddRelatedParts}
-                disabled={bulkRelatedPartsInput.trim().length === 0}
-                variant="outline"
-                size="icon"
-                aria-label="Adicionar em massa"
-              >
-                <PlusCircle className="h-4 w-4" />
-              </Button>
             </div>
-          </div>
-          <ScrollArea className="h-24 w-full rounded-md border p-2">
-            {formItensRelacionados.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2"> {/* Alterado para flex-wrap e gap-2 */}
-                {formItensRelacionados.map((codigo, index) => (
-                  <div 
-                    key={codigo} 
-                    className={cn(
-                      "flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-transparent cursor-grab", // Estilo de tag
-                      draggedRelatedItem === codigo && 'opacity-50',
-                      draggedRelatedItem && 'hover:border-primary'
-                    )}
-                    draggable
-                    onDragStart={(e) => handleRelatedDragStart(e, codigo)}
-                    onDragOver={handleRelatedDragOver}
-                    onDrop={(e) => handleRelatedDrop(e, codigo)}
-                    onDragLeave={handleRelatedDragLeave}
-                    onDragEnd={handleRelatedDragEnd}
-                  >
-                    <div className="flex items-center gap-1 truncate">
-                      <GripVertical className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{codigo}</span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 p-0 text-destructive shrink-0"
-                      onClick={() => handleRemoveRelatedPart(codigo)}
-                    >
-                      <XCircle className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="part-code">Cód. Peça (Opcional)</Label>
+                <Input
+                  id="part-code"
+                  value={formPartCode}
+                  onChange={(e) => setFormPartCode(e.target.value)}
+                  placeholder="Código da peça"
+                  className="w-full"
+                />
               </div>
-            )}
-          </ScrollArea>
-          <p className="text-sm text-muted-foreground">
-            Arraste e solte os itens acima para reordenar.
-          </p>
-        </div>
+              
+              <div className="space-y-2 md:col-span-1">
+                <Label htmlFor="quantity">Quantidade</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  value={formQuantity}
+                  onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
+                  min="1"
+                  required
+                  className="w-full"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Descrição (Opcional)</Label>
+              <Input
+                id="description"
+                value={formDescription}
+                onChange={(e) => setFormDescription(e.target.value)}
+                placeholder="Descrição da peça"
+                className="w-full"
+              />
+            </div>
+
+            <div className="space-y-2 border-t pt-4">
+              <Label className="flex items-center gap-2">
+                <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
+              </Label>
+              <PartSearchInput
+                onSearch={setRelatedSearchQuery}
+                searchResults={relatedSearchResults}
+                onSelectPart={handleAddRelatedPart}
+                searchQuery={relatedSearchQuery}
+                isLoading={isLoadingParts}
+              />
+              <div className="space-y-2">
+                <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
+                  Adicionar múltiplos códigos (separados por ';')
+                </Label>
+                <div className="flex gap-2">
+                  <Textarea
+                    id="bulk-related-parts"
+                    value={bulkRelatedPartsInput}
+                    onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
+                    placeholder="Ex: COD1; COD2; COD3"
+                    rows={2}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleBulkAddRelatedParts}
+                    disabled={bulkRelatedPartsInput.trim().length === 0}
+                    variant="outline"
+                    size="icon"
+                    aria-label="Adicionar em massa"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <ScrollArea className="h-24 w-full rounded-md border p-2">
+                {formItensRelacionados.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {formItensRelacionados.map((codigo, index) => (
+                      <div 
+                        key={codigo} 
+                        className={cn(
+                          "flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-transparent cursor-grab",
+                          draggedRelatedItem === codigo && 'opacity-50',
+                          draggedRelatedItem && 'hover:border-primary'
+                        )}
+                        draggable
+                        onDragStart={(e) => handleRelatedDragStart(e, codigo)}
+                        onDragOver={handleRelatedDragOver}
+                        onDrop={(e) => handleRelatedDrop(e, codigo)}
+                        onDragLeave={handleRelatedDragLeave}
+                        onDragEnd={handleRelatedDragEnd}
+                      >
+                        <div className="flex items-center gap-1 truncate">
+                          <GripVertical className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{codigo}</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 p-0 text-destructive shrink-0"
+                          onClick={() => handleRemoveRelatedPart(codigo)}
+                        >
+                          <XCircle className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+              <p className="text-sm text-muted-foreground">
+                Arraste e solte os itens acima para reordenar.
+              </p>
+            </div>
+          </>
+        )}
 
         <SheetFooter>
           <Button type="button" variant="outline" onClick={onClose}>
