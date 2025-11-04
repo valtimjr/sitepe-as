@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal, FileText, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Part, addPart, updatePart, deletePart, searchParts, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services/partListService';
+import { Part, addPart, updatePart, deletePart, searchPartsPaginated, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -85,7 +85,8 @@ const PartManagementTable: React.FC = () => {
     console.time('PartManagementTable: loadParts');
     setIsLoading(true);
     try {
-      const { parts: fetchedParts, totalCount: fetchedTotalCount } = await searchParts(query, page, PAGE_SIZE);
+      // Usando a função paginada
+      const { parts: fetchedParts, totalCount: fetchedTotalCount } = await searchPartsPaginated(query, page, PAGE_SIZE);
       setParts(fetchedParts);
       setTotalCount(fetchedTotalCount);
       setSelectedPartIds(new Set()); // Limpa seleção ao carregar nova página/busca

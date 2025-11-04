@@ -21,8 +21,8 @@ const SearchParts = () => {
   useEffect(() => {
     const performSearch = async () => {
       setIsLoading(true);
-      // Ajuste aqui: searchPartsService agora retorna { parts, totalCount }
-      const { parts: results } = await searchPartsService(searchQuery, 1, 50); // Usando paginação, mas focando apenas nos resultados
+      // Usando a função searchParts (não paginada)
+      const results = await searchPartsService(searchQuery);
       setDisplayedParts(results);
       setIsLoading(false);
     };
@@ -69,6 +69,7 @@ const SearchParts = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Código</TableHead>
+                      <TableHead>Nome</TableHead>
                       <TableHead>Descrição</TableHead>
                       <TableHead>Tags</TableHead>
                     </TableRow>
@@ -77,6 +78,7 @@ const SearchParts = () => {
                     {displayedParts.map((part) => (
                       <TableRow key={part.id}>
                         <TableCell className="font-medium">{part.codigo}</TableCell>
+                        <TableCell>{part.name || 'N/A'}</TableCell>
                         <TableCell>{part.descricao}</TableCell>
                         <TableCell>{part.tags || 'N/A'}</TableCell>
                       </TableRow>

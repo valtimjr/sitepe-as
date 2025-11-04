@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Part, searchParts } from '@/services/partListService'; // Import searchParts from services
+import { Part, searchPartsPaginated } from '@/services/partListService'; // Import searchPartsPaginated
 
 interface PartCodeInputProps {
   value: string; // O código da peça digitado ou o código da peça selecionada
@@ -38,8 +38,8 @@ const PartCodeInput: React.FC<PartCodeInputProps> = ({ value, onChange, onSelect
       if (trimmedQuery.length > 0) {
         setIsSearchingInternal(true);
         try {
-          // Ajuste aqui: searchParts agora retorna { parts, totalCount }
-          const { parts: results } = await searchParts(trimmedQuery, 1, 1); // Busca apenas 1 resultado
+          // Usando searchPartsPaginated para buscar o resultado exato (limit 1)
+          const { parts: results } = await searchPartsPaginated(trimmedQuery, 1, 1); 
           
           if (results.length === 1 && results[0].codigo.toLowerCase() === trimmedQuery.toLowerCase()) {
             onSelectPart(results[0]); // Peça encontrada e exata
