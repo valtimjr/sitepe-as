@@ -139,8 +139,9 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
   listItems.forEach(item => {
     if (item.type === 'separator') {
+      // Renderiza o separador como uma linha horizontal
       tableRows.push([
-        { content: '--- SEPARADOR ---', colSpan: 4, styles: { halign: 'center', fontStyle: 'bold', fillColor: [200, 200, 200], textColor: [50, 50, 50] } } // Alterado para bold
+        { content: '', colSpan: 4, styles: { halign: 'center', fillColor: [150, 150, 150], minCellHeight: 1, cellPadding: 0, lineWidth: 0 } }
       ]);
       return;
     }
@@ -171,7 +172,6 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
     alternateRowStyles: { fillColor: [240, 240, 240] },
     margin: { top: 10 },
     didParseCell: (data: any) => {
-      // Remove a borda inferior das células de subtítulo e separador
       const item = listItems[data.row.index];
       if (item && (item.type === 'subtitle' || item.type === 'separator')) {
         data.cell.styles.lineWidth = 0;

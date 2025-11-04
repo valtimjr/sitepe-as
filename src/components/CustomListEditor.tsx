@@ -264,24 +264,21 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       part_code: formType === 'item' ? trimmedPartCode || null : null,
       description: formType === 'item' ? trimmedDescription || null : null,
       quantity: formType === 'item' ? formQuantity : 0,
-      // Se for edição, o order_index é mantido. Se for novo, usa o tamanho atual da lista.
       order_index: currentEditingItemId ? items.find(i => i.id === currentEditingItemId)?.order_index ?? items.length : items.length,
       itens_relacionados: formType === 'item' ? formItensRelacionados : [],
     };
 
     try {
       if (currentEditingItemId) {
-        // Modo de edição: usa o ID do item em edição
         await updateCustomListItem(list.id, { id: currentEditingItemId, list_id: list.id, ...payload });
         showSuccess('Item atualizado com sucesso!');
       } else {
-        // Modo de adição: adiciona um novo item
         await addCustomListItem(list.id, payload);
         showSuccess('Item adicionado com sucesso!');
       }
       
       resetForm();
-      setCurrentEditingItemId(null); // Limpa o ID após salvar
+      setCurrentEditingItemId(null);
       loadItems();
       onItemSaved?.();
     } catch (error) {
@@ -418,7 +415,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, targetItem: CustomListItem) => {
     e.preventDefault();
-    e.currentTarget.classList.remove('border-primary');
+    e.currentTarget.classList.remove('opacity-50');
 
     if (draggedItem && draggedItem.id !== targetItem.id) {
       const currentItemsCopy = [...items];
@@ -594,475 +591,175 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-col space-y-2 pb-2">
-        <div className="flex justify-between items-center">
-          <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
-            <ArrowLeft className="h-4 w-4" /> Voltar
-          </Button>
-          <Button onClick={handleAdd} className="flex items-center gap-2 shrink-0">
-            <PlusCircle className="h-4 w-4" /> Novo Item
-          </Button>
+    <React.Fragment>
+      <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
+        <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
+          <Link to="/custom-menu-view">
+            <Button variant="outline" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" /> Voltar ao Catálogo
+            </Button>
+          </Link>
+          {/* NOVO BOTÃO: Minha Lista de Peças */}
+          <Link to="/parts-list">
+            <Button variant="outline" className="flex items-center gap-2">
+              <ListIcon className="h-4 w-4" /> Minha Lista de Peças
+            </Button>
+          </Link>
         </div>
         
-        <CardTitle className="text-2xl font-bold text-center pt-2">
-          {list.title}
-        </CardTitle>
-        
-        <div className="flex flex-wrap justify-end gap-2 pt-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                onClick={handleCopyList} 
-                disabled={items.length === 0} 
-                variant="secondary" 
-                size="icon"
-                className="sm:w-auto sm:px-4"
-              >
-                <Copy className="h-4 w-4" /> 
-                <span className="hidden sm:inline ml-2">Copiar Lista</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Copiar Lista</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                onClick={handleExportCsv} 
-                disabled={items.length === 0} 
-                variant="outline" 
-                size="icon"
-                className="sm:w-auto sm:px-4"
-              >
-                <Download className="h-4 w-4" /> 
-                <span className="hidden sm:inline ml-2">Exportar CSV</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Exportar CSV</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" /> Exportar PDF
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Exportar PDF</TooltipContent>
-          </Tooltip>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
-        ) : items.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[30px] p-2">
-                    <GripVertical className="h-4 w-4" />
-                  </TableHead>
-                  <TableHead className="w-[3rem] p-2">Qtd</TableHead>
-                  <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                  <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item, index) => {
-                  const isSeparator = item.type === 'separator';
-                  const isSubtitle = item.type === 'subtitle';
-                  
-                  if (isSeparator) {
-                    return (
-                      <TableRow key={item.id} className="bg-muted/50 border-y-2 border-dashed" draggable onDragStart={(e) => handleDragStart(e, item)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, item)} onDragLeave={handleDragLeave} onDragEnd={handleDragEnd} data-id={item.id}>
-                        <TableCell className="w-[30px] p-2 cursor-grab"><GripVertical className="h-4 w-4" /></TableCell>
-                        <TableCell colSpan={3} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
-                          --- SEPARADOR ---
-                        </TableCell>
-                        <TableCell className="w-[70px] p-2 text-right">
-                          <div className="flex justify-end items-center gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o separador. Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  }
+        <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
+          <ListIcon className="h-8 w-8 text-primary" />
+          {listTitle}
+        </h1>
 
-                  if (isSubtitle) {
-                    return (
-                      <TableRow key={item.id} className="bg-accent/10 hover:bg-accent/50 border-y-2 border-primary/50" draggable onDragStart={(e) => handleDragStart(e, item)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, item)} onDragLeave={handleDragLeave} onDragEnd={handleDragEnd} data-id={item.id}>
-                        <TableCell className="w-[30px] p-2 cursor-grab"><GripVertical className="h-4 w-4" /></TableCell>
-                        <TableCell colSpan={3} className="text-left font-bold text-lg text-primary p-2">
-                          {item.item_name}
-                        </TableCell>
-                        <TableCell className="w-[70px] p-2 text-right">
-                          <div className="flex justify-end items-center gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o subtítulo "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  }
-
-                  // Item de peça normal
-                  return (
-                    <TableRow 
-                      key={item.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, item)}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, item)}
-                      onDragLeave={handleDragLeave}
-                      onDragEnd={handleDragEnd}
-                      data-id={item.id}
-                      className="relative"
-                    >
-                      <TableCell className="w-[30px] p-2 cursor-grab">
-                        <GripVertical className="h-4 w-4" />
-                      </TableCell>
-                      <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                      <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-                          <div className="flex flex-col items-start">
-                            {item.part_code && (
-                              <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
-                            )}
-                            <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
-                            {item.description && (
-                              <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
-                            )}
-                            {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                              <Popover 
-                                key={`popover-${item.id}`}
-                                open={openRelatedItemsPopoverId === item.id} 
-                                onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
-                                modal={false}
-                              >
-                                <PopoverTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
-                                  >
-                                    <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto max-w-xs p-2">
-                                  <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                                  <ul className="list-disc list-inside text-xs text-muted-foreground">
-                                    {item.itens_relacionados.map(rel => <li key={rel}>{getPartDescription(rel)}</li>)}
-                                  </ul>
-                                </PopoverContent>
-                              </Popover>
-                            )}
-                          </div>
-                      </TableCell>
-                      <TableCell className="w-[70px] p-2 text-right">
-                        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleMoveItem(item, 'up')}
-                                disabled={index === 0}
-                              >
-                                <ArrowUp className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Mover para Cima</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleMoveItem(item, 'down')}
-                                disabled={index === items.length - 1}
-                              >
-                                <ArrowDown className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Mover para Baixo</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Editar Item</TooltipContent>
-                          </Tooltip>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-destructive h-8 w-8">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta ação irá remover o item "{item.item_name}" da lista. Esta ação não pode ser desfeita.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-
-      {/* Formulário de Adicionar/Editar Item */}
-      <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-        <h3 className="text-xl font-semibold">
-          {currentEditingItemId ? 'Editar Item' : 'Adicionar Novo Item'}
-        </h3>
-        
-        <div className="space-y-2">
-          <Label htmlFor="item-type">Tipo de Item</Label>
-          <Select
-            value={formType}
-            onValueChange={(value: 'item' | 'subtitle' | 'separator') => {
-              setFormType(value);
-              // Limpa campos irrelevantes ao mudar o tipo
-              if (value !== 'item') {
-                setFormPartCode('');
-                setFormDescription('');
-                setFormQuantity(0);
-                setFormItensRelacionados([]);
-                setSelectedPartFromSearch(null);
-              }
-              if (value === 'separator') {
-                setFormItemName('--- SEPARADOR ---');
-              } else if (value === 'subtitle') {
-                setFormItemName('');
-              }
-            }}
-          >
-            <SelectTrigger id="item-type">
-              <SelectValue placeholder="Selecione o Tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="item">Item de Peça</SelectItem>
-              <SelectItem value="subtitle">Subtítulo</SelectItem>
-              <SelectItem value="separator">Separador</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {formType !== 'separator' && (
-          <div className="space-y-2">
-            <Label htmlFor="item-name">
-              {formType === 'subtitle' ? 'Texto do Subtítulo' : 'Nome Personalizado'}
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="item-name"
-                value={formItemName}
-                onChange={(e) => setFormItemName(e.target.value)}
-                placeholder={formType === 'subtitle' ? 'Ex: Peças do Motor' : 'Ex: Kit de Reparo do Motor'}
-                className="flex-1"
-                required={formType !== 'separator'}
-              />
-              {formPartCode && formType === 'item' && ( 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleSaveGlobalPartName}
-                      disabled={
-                        !selectedPartFromSearch || 
-                        formItemName.trim().toLowerCase() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim().toLowerCase() ||
-                        !formItemName.trim()
-                      }
-                    >
-                      <Save className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Salvar este nome como o nome global da peça "{selectedPartFromSearch?.codigo || 'N/A'}"
-                  </TooltipContent>
-                </Tooltip>
+        <Card className="w-full max-w-4xl mx-auto mb-8">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl font-bold text-center pt-2">
+              Itens da Lista
+            </CardTitle>
+            <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2">
+              {selectedItemIds.size > 0 && (
+                <Button 
+                  onClick={handleExportSelectedToMyList} 
+                  className="flex items-center gap-2 flex-1 sm:w-auto"
+                  disabled={isLoadingAfs}
+                >
+                  <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
+                </Button>
               )}
-            </div>
-          </div>
-        )}
-
-        {formType === 'item' && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
-              <PartSearchInput
-                onSearch={setSearchQuery}
-                searchResults={searchResults}
-                onSelectPart={handleSelectPart}
-                searchQuery={searchQuery}
-                isLoading={isLoadingParts}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="part-code">Cód. Peça (Opcional)</Label>
-                <Input
-                  id="part-code"
-                  value={formPartCode}
-                  onChange={(e) => setFormPartCode(e.target.value)}
-                  placeholder="Código da peça"
-                  className="w-full"
-                />
-              </div>
-              
-              <div className="space-y-2 md:col-span-1">
-                <Label htmlFor="quantity">Quantidade</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  value={formQuantity}
-                  onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
-                  min="1"
-                  required
-                  className="w-full"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Descrição (Opcional)</Label>
-              <Input
-                id="description"
-                value={formDescription}
-                onChange={(e) => setFormDescription(e.target.value)}
-                placeholder="Descrição da peça"
-                className="w-full"
-              />
-            </div>
-
-            <div className="space-y-2 border-t pt-4">
-              <Label className="flex items-center gap-2">
-                <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
-              </Label>
-              <PartSearchInput
-                onSearch={setRelatedSearchQuery}
-                searchResults={relatedSearchResults}
-                onSelectPart={handleAddRelatedPart}
-                searchQuery={relatedSearchQuery}
-                isLoading={isLoadingParts}
-              />
-              <div className="space-y-2">
-                <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
-                  Adicionar múltiplos códigos (separados por ';')
-                </Label>
-                <div className="flex gap-2">
-                  <Textarea
-                    id="bulk-related-parts"
-                    value={bulkRelatedPartsInput}
-                    onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
-                    placeholder="Ex: COD1; COD2; COD3"
-                    rows={2}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleBulkAddRelatedParts}
-                    disabled={bulkRelatedPartsInput.trim().length === 0}
-                    variant="outline"
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleCopyList} 
+                    disabled={items.length === 0} 
+                    variant="secondary" 
                     size="icon"
-                    aria-label="Adicionar em massa"
+                    className="sm:w-auto sm:px-4"
                   >
-                    <PlusCircle className="h-4 w-4" />
+                    <Copy className="h-4 w-4" /> 
+                    <span className="hidden sm:inline ml-2">Copiar Lista</span>
                   </Button>
-                </div>
-              </div>
-              <ScrollArea className="h-24 w-full rounded-md border p-2">
-                {formItensRelacionados.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {formItensRelacionados.map((codigo, index) => (
-                      <div 
-                        key={codigo} 
-                        className={cn(
-                          "flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-transparent cursor-grab",
-                          draggedRelatedItem === codigo && 'opacity-50',
-                          draggedRelatedItem && 'hover:border-primary'
-                        )}
-                        draggable
-                        onDragStart={(e) => handleRelatedDragStart(e, codigo)}
-                        onDragOver={handleRelatedDragOver}
-                        onDrop={(e) => handleRelatedDrop(e, codigo)}
-                        onDragLeave={handleRelatedDragLeave}
-                        onDragEnd={handleRelatedDragEnd}
-                      >
-                        <div className="flex items-center gap-1 truncate">
-                          <GripVertical className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{codigo}</span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-4 w-4 p-0 text-destructive shrink-0"
-                          onClick={() => handleRemoveRelatedPart(codigo)}
-                        >
-                          <XCircle className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-              <p className="text-sm text-muted-foreground">
-                Arraste e solte os itens acima para reordenar.
-              </p>
+                </TooltipTrigger>
+                <TooltipContent>Copiar Lista</TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleExportCsv} 
+                    disabled={items.length === 0} 
+                    variant="outline" 
+                    size="icon"
+                    className="sm:w-auto sm:px-4"
+                  >
+                    <Download className="h-4 w-4" /> 
+                    <span className="hidden sm:inline ml-2">Exportar CSV</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Exportar CSV</TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+                    <FileDown className="h-4 w-4" /> Exportar PDF
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Exportar PDF</TooltipContent>
+              </Tooltip>
             </div>
-          </>
-        )}
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
+            ) : items.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40px] p-2">
+                        <Checkbox
+                          checked={isAllSelected}
+                          indeterminate={isIndeterminate ? true : undefined}
+                          onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                          aria-label="Selecionar todos os itens"
+                        />
+                      </TableHead>
+                      <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                      <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                      <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((item) => renderItemRow(item))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <MadeWithDyad />
 
-        <SheetFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            <XCircle className="h-4 w-4 mr-2" /> Cancelar
-          </Button>
-          <Button type="submit">
-            <Save className="h-4 w-4 mr-2" /> {currentEditingItemId ? 'Salvar Alterações' : 'Adicionar Item'}
-          </Button>
-        </SheetFooter>
-      </form>
-    </Card>
+        {/* Sheet de Edição (mantido para o botão de lápis) */}
+        <Sheet open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Editar Item da Lista</SheetTitle>
+              <SheetDescription>
+                Edite os detalhes do item da lista.
+              </SheetDescription>
+            </SheetHeader>
+            {itemToEdit && listId && (
+              <CustomListEditor
+                list={{ id: listId, title: listTitle, user_id: '' }}
+                onClose={handleItemSavedOrClosed}
+                editingItem={itemToEdit}
+                onItemSaved={handleItemSavedOrClosed}
+                allAvailableParts={[]} // Não é necessário carregar todas as peças aqui, mas a prop é obrigatória
+              />
+            )}
+          </SheetContent>
+        </Sheet>
+
+        {/* Sheet para Exportar Selecionados com AF */}
+        <Sheet open={isExportSheetOpen} onOpenChange={setIsExportSheetOpen}>
+          <SheetContent side="right" className="sm:max-w-md">
+            <SheetHeader>
+              <SheetTitle>Exportar Itens para Minha Lista</SheetTitle>
+              <SheetDescription>
+                Selecione um AF (Número de Frota) para aplicar a todos os {selectedItemIds.size} itens selecionados antes de exportar para "Minha Lista de Peças".
+              </SheetDescription>
+            </SheetHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="af-for-export">AF (Número de Frota)</Label>
+                {isLoadingAfs ? (
+                  <Input value="Carregando AFs..." readOnly className="bg-muted" />
+                ) : (
+                  <AfSearchInput
+                    value={afForExport}
+                    onChange={setAfForExport}
+                    availableAfs={allAvailableAfs}
+                    onSelectAf={setAfForExport}
+                  />
+                )}
+              </div>
+            </div>
+            <SheetFooter>
+              <Button type="button" variant="outline" onClick={() => setIsExportSheetOpen(false)}>
+                <XCircle className="h-4 w-4 mr-2" /> Cancelar
+              </Button>
+              <Button type="button" onClick={handleConfirmExport} disabled={!afForExport.trim() || isLoadingAfs}>
+                <Check className="h-4 w-4 mr-2" /> Confirmar Exportação
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </React.Fragment>
   );
 };
 
-export default CustomListEditor;
+export default CustomListPage;
