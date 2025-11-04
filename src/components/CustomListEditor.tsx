@@ -798,10 +798,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
             <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
           </Label>
           <PartSearchInput
-            onSearch={setSearchQueryRelated}
-            searchResults={searchResultsRelated}
+            onSearch={setRelatedSearchQuery}
+            searchResults={relatedSearchResults}
             onSelectPart={handleAddRelatedPart}
-            searchQuery={searchQueryRelated}
+            searchQuery={relatedSearchQuery}
             isLoading={isLoadingParts}
           />
           <div className="space-y-2">
