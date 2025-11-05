@@ -4,6 +4,7 @@ import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partLi
 import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CustomListItem } from '@/types/supabase';
+import { localDb } from '@/services/localDbService';
 
 // Aplica o plugin explicitamente ao jsPDF
 applyPlugin(jsPDF);
@@ -91,7 +92,7 @@ const compareTimeStringsForPdf = (t1: string | undefined, t2: string | undefined
   return effectiveMinutes1 - effectiveMinutes2;
 };
 
-export const generatePartsListPdf = (listItems: SimplePartItem[], title: string = 'Lista de Peças'): void => {
+export const generatePartsListPdf = async (listItems: SimplePartItem[], title: string = 'Lista de Peças'): Promise<void> => {
   const doc = new jsPDF();
   let currentY = 22;
 
@@ -103,27 +104,19 @@ export const generatePartsListPdf = (listItems: SimplePartItem[], title: string 
   const tableColumn = ["Cód. Peça", "Nome", "Quantidade", "Descrição", "AF"];
   const tableRows: (string | number | undefined)[][] = [];
 
-  listItems.forEach(item => {
-    const itemData = [
-      item.codigo_peca || 'N/A',
-      item.descricao || 'N/A', // Descrição temporariamente aqui para obter o nome
-      item.quantidade ?? 'N/A',
-      item.descricao || 'N/A',
-      item.af || '',
-    ];
-    
+  for (const item of listItems) {
     // Tenta obter o nome da peça (se disponível)
-    const part = localDb.parts.where('codigo').equals(item.codigo_peca || '').first();
+    const part = await localDb.parts.where('codigo').equals(item.codigo_peca || '').first();
     
     // Ajusta a ordem dos dados para a tabela
     tableRows.push([
       item.codigo_peca || 'N/A',
-      (item as any).name || (part as any)?.name || 'N/A', // Adiciona o campo Nome
+      part?.name || 'N/A', // Adiciona o campo Nome
       item.quantidade ?? 'N/A',
       item.descricao || 'N/A',
       item.af || '',
     ]);
-  });
+  }
 
   (doc as any).autoTable({
     head: [tableColumn],
