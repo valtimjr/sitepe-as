@@ -243,18 +243,19 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
 
     results.sort((a, b) => {
       const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-
       const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-
       if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
+
+      const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
       if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
+
+      const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
       if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
+
+      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
       if (aNameScore !== bNameScore) return bNameScore - aNameScore;
 
       return 0;
@@ -271,104 +272,73 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
  * @returns Array de Part[].
  */
 export const searchParts = async (query: string): Promise<Part[]> => {
-  await seedPartsFromJson(); // Garante que o Supabase esteja populado
+  await seedPartsFromJson();
 
   const lowerCaseQuery = query.toLowerCase().trim();
+  if (!lowerCaseQuery) return [];
 
-  if (!lowerCaseQuery) {
-    return [];
-  }
-
-  // --- Nova lógica com busca priorizada ---
-
-  // 1. Busca por correspondências onde o código COMEÇA COM a consulta.
-  const { data: codeMatches, error: codeError } = await supabase
+  // Fetch from all fields to get a candidate pool
+  const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
+  const { data, error } = await supabase
     .from('parts')
     .select('*')
-    .ilike('codigo', `${lowerCaseQuery}%`)
-    .limit(50);
+    .or(`codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},name.ilike.${searchPattern},tags.ilike.${searchPattern}`)
+    .limit(250); // Fetch a decent pool to sort from
 
-  if (codeError) {
-    console.error('[searchParts] Erro ao buscar por código no Supabase:', codeError);
-    // Fallback para busca local em caso de erro
-    return searchLocalParts(query);
+  if (error) {
+    console.error('[searchParts] Erro ao buscar no Supabase:', error);
+    return searchLocalParts(query); // Fallback
   }
 
-  const resultsMap = new Map<string, Part>();
-  (codeMatches || []).forEach(part => resultsMap.set(part.id, part));
+  let results = data || [];
 
-  // 2. Se tivermos poucos resultados, expande a busca para outros campos e 'contém' em todos os campos.
-  const remainingLimit = 100 - resultsMap.size;
-  if (remainingLimit > 0) {
-    const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
-    
-    let otherQueryBuilder = supabase
-      .from('parts')
-      .select('*')
-      .or(`codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},name.ilike.${searchPattern},tags.ilike.${searchPattern}`)
-      .limit(remainingLimit);
-
-    // Exclui IDs que já foram encontrados
-    if (resultsMap.size > 0) {
-      otherQueryBuilder = otherQueryBuilder.not('id', 'in', `(${Array.from(resultsMap.keys()).join(',')})`);
-    }
-
-    const { data: otherMatches, error: otherError } = await otherQueryBuilder;
-
-    if (otherError) {
-      console.error('[searchParts] Erro ao buscar por outros campos no Supabase:', otherError);
-      // Retorna o que já temos, ordenado
-    } else if (otherMatches) {
-      otherMatches.forEach(part => resultsMap.set(part.id, part));
-    }
-  }
-
-  let results = Array.from(resultsMap.values());
-
-  // --- Fim da nova lógica ---
-
-  // Helper para determinar a qualidade da correspondência em um campo
+  // Now apply the user's priority sorting
   const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
     if (!fieldValue) return 0;
     const lowerFieldValue = fieldValue.toLowerCase();
 
     if (isMultiWord) {
+      // For multi-word, we just check if the sequence exists.
+      // A more complex scoring could be implemented here if needed.
       return regex.test(lowerFieldValue) ? 1 : 0;
     } else {
-      if (lowerFieldValue === query) return 3; // Correspondência exata
-      if (lowerFieldValue.startsWith(query)) return 2; // Começa com
-      if (lowerFieldValue.includes(query)) return 1; // Inclui
+      // For single-word, we can have more granular scoring.
+      if (lowerFieldValue === query) return 4; // Exact match
+      if (lowerFieldValue.startsWith(query)) return 3; // Starts with
+      if (lowerFieldValue.includes(query)) return 2; // Includes
     }
     return 0;
   };
 
-  if (lowerCaseQuery) {
-    const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
-    const isMultiWordQuery = queryWords.length > 1;
-    const escapedWords = queryWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
+  const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
+  const isMultiWordQuery = queryWords.length > 1;
+  const escapedWords = queryWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
 
-    results.sort((a, b) => {
-      const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+  results.sort((a, b) => {
+    const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
 
-      const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
+    
+    // Group name and description for sorting priority
+    const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    
+    const combinedAScore = Math.max(aDescricaoScore, aNameScore);
+    const combinedBScore = Math.max(bDescricaoScore, bNameScore);
 
-      if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
-      if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
-      if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
-      if (aNameScore !== bNameScore) return bNameScore - aNameScore;
+    if (combinedAScore !== combinedBScore) return combinedBScore - combinedAScore;
 
-      return 0;
-    });
-  }
+    return 0;
+  });
 
-  return results;
+  return results.slice(0, 100);
 };
 
 /**
