@@ -56,7 +56,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
 
   const handleSelectAndClose = (part: Part) => {
     onSelectPart(part);
-    onSearch(''); // Limpa a query de busca após a seleção
+    // onSearch(''); // Não limpa a query de busca aqui, o componente pai deve controlar isso
     setIsDropdownOpen(false); // Fecha o dropdown imediatamente
     if (inputRef.current) {
       inputRef.current.blur();
@@ -91,16 +91,30 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
                 <Loader2 className="h-4 w-4 animate-spin mr-2" /> Buscando peças...
               </li>
             ) : searchResults.length > 0 ? (
-              searchResults.map((part) => (
-                <li
-                  key={part.id}
-                  className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleSelectAndClose(part)}
-                >
-                  {part.codigo} - {part.descricao}
-                </li>
-              ))
+              searchResults.map((part) => {
+                const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
+                const subText = part.name && part.name.trim() !== '' ? part.descricao : '';
+
+                return (
+                  <li
+                    key={part.id}
+                    className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleSelectAndClose(part)}
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium text-sm">
+                        {part.codigo} - {mainText}
+                      </span>
+                      {subText && subText.trim() !== '' && (
+                        <span className="text-xs italic text-muted-foreground">
+                          {subText}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })
             ) : (
               <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhuma peça encontrada.</li>
             )}

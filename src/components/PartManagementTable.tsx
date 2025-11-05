@@ -94,7 +94,28 @@ const PartManagementTable: React.FC = () => {
 
   // Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
   const formatRelatedPartString = (part: Part): string => {
-    return `${part.codigo} - ${part.name || part.descricao}`;
+    const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
+    const subText = part.name && part.name.trim() !== '' ? part.descricao : '';
+    
+    // Formato: CÓDIGO | NOME/DESCRIÇÃO PRINCIPAL | DESCRIÇÃO SECUNDÁRIA
+    return `${part.codigo}|${mainText}|${subText}`;
+  };
+
+  // Função auxiliar para desformatar a string de exibição
+  const displayRelatedPartString = (formattedString: string): React.ReactNode => {
+    const parts = formattedString.split('|');
+    const codigo = parts[0];
+    const mainText = parts[1];
+    const subText = parts[2];
+
+    return (
+      <div className="flex flex-col items-start">
+        <span className="font-medium text-sm">{codigo} - {mainText}</span>
+        {subText && subText.trim() !== '' && (
+          <span className="text-xs italic text-muted-foreground">{subText}</span>
+        )}
+      </div>
+    );
   };
 
   const loadParts = useCallback(async (query: string, page: number) => {
@@ -577,7 +598,7 @@ const PartManagementTable: React.FC = () => {
 
   const handleRemoveRelatedPart = (formattedPartString: string) => {
     setFormItensRelacionados(prev => prev.filter(c => c !== formattedPartString));
-    showSuccess(`Item ${formattedPartString.split(' - ')[0]} removido dos itens relacionados.`);
+    showSuccess(`Item ${formattedPartString.split('|')[0]} removido dos itens relacionados.`);
   };
 
   const handleBulkAddRelatedParts = () => {
@@ -606,7 +627,8 @@ const PartManagementTable: React.FC = () => {
         }
       } else {
         // Se não for encontrado no catálogo, adiciona o código puro para permitir personalização
-        const pureCode = code;
+        // Formato: CÓDIGO | CÓDIGO | ''
+        const pureCode = `${code}|${code}|`;
         if (!formItensRelacionados.includes(pureCode) && !newRelatedItems.includes(pureCode)) {
           newRelatedItems.push(pureCode);
           foundCount++;
@@ -970,31 +992,31 @@ const PartManagementTable: React.FC = () => {
                   <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {formItensRelacionados.map((codigo, index) => (
+                    {formItensRelacionados.map((formattedString, index) => (
                       <div 
-                        key={codigo} 
+                        key={formattedString} 
                         className={cn(
                           "flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-transparent cursor-grab",
-                          draggedRelatedItem === codigo && 'opacity-50',
+                          draggedRelatedItem === formattedString && 'opacity-50',
                           draggedRelatedItem && 'hover:border-primary'
                         )}
                         draggable
-                        onDragStart={(e) => handleRelatedDragStart(e, codigo)}
+                        onDragStart={(e) => handleRelatedDragStart(e, formattedString)}
                         onDragOver={handleRelatedDragOver}
-                        onDrop={(e) => handleRelatedDrop(e, codigo)}
+                        onDrop={(e) => handleRelatedDrop(e, formattedString)}
                         onDragLeave={handleRelatedDragLeave}
                         onDragEnd={handleRelatedDragEnd}
                       >
                         <div className="flex items-center gap-1 truncate">
                           <GripVertical className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{codigo}</span>
+                          <span className="truncate">{displayRelatedPartString(formattedString)}</span>
                         </div>
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           className="h-4 w-4 p-0 text-destructive shrink-0"
-                          onClick={() => handleRemoveRelatedPart(codigo)}
+                          onClick={() => handleRemoveRelatedPart(formattedString)}
                         >
                           <XCircle className="h-3 w-3" />
                         </Button>
