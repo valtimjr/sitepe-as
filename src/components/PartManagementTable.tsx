@@ -36,6 +36,7 @@ import {
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import { useSession } from '@/components/SessionContextProvider';
+import { cn } from '@/lib/utils'; // <-- IMPORT FALTANTE ADICIONADO
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
 import PartSearchInput from './PartSearchInput'; // Importar PartSearchInput
@@ -121,7 +122,6 @@ const PartManagementTable: React.FC = () => {
         setIsLoadingRelatedParts(true);
         const results = await searchPartsService(relatedSearchQuery);
         setRelatedSearchResults(results);
-        setIsLoadingRelatedParts(false);
       } else {
         setRelatedSearchResults([]);
       }
@@ -473,7 +473,7 @@ const PartManagementTable: React.FC = () => {
           return;
         }
         exportDataAsCsv(dataToExport, 'todas_pecas.csv');
-        showSuccess('Todos as peças exportadas para CSV com sucesso!');
+        showSuccess('Todas as peças exportadas para CSV com sucesso!');
       }
       console.log(`PartManagementTable: Exportação para CSV concluída. Total de ${dataToExport.length} itens.`);
     } catch (error) {
@@ -896,18 +896,7 @@ const PartManagementTable: React.FC = () => {
               <PartSearchInput
                 onSearch={setRelatedSearchQuery}
                 searchResults={relatedSearchResults}
-                onSelectPart={(part) => {
-                  if (part) {
-                    if (!formItensRelacionados.includes(part.codigo)) {
-                      setFormItensRelacionados(prev => [...prev, part.codigo]);
-                      setRelatedSearchQuery('');
-                      setRelatedSearchResults([]);
-                      showSuccess(`Peça ${part.codigo} adicionada.`);
-                    } else {
-                      showError(`Peça ${part.codigo} já está na lista.`);
-                    }
-                  }
-                }}
+                onSelectPart={handleAddRelatedPart}
                 searchQuery={relatedSearchQuery}
                 isLoading={isLoadingRelatedParts}
               />
