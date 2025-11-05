@@ -242,20 +242,20 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
     const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
 
     results.sort((a, b) => {
-      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
 
-      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
 
-      if (aNameScore !== bNameScore) return bNameScore - aNameScore;
       if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
       if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
       if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
+      if (aNameScore !== bNameScore) return bNameScore - aNameScore;
 
       return 0;
     });
@@ -349,25 +349,20 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
 
     results.sort((a, b) => {
-      const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      // Prioriza fortemente correspondências de código
-      if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
-
-      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      // Depois, nome
-      if (aNameScore !== bNameScore) return bNameScore - aNameScore;
-
       const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      // Depois, tags
-      if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
-
+      const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+
+      const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      // Por último, descrição
+      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+
+      if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
+      if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
       if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
+      if (aNameScore !== bNameScore) return bNameScore - aNameScore;
 
       return 0;
     });
