@@ -7,7 +7,9 @@ import { Part, searchParts as searchPartsService } from '@/services/partListServ
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, Search, Tag } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const SearchParts = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,6 +74,7 @@ const SearchParts = () => {
                       <TableHead>Nome</TableHead>
                       <TableHead>Descrição</TableHead>
                       <TableHead>Tags</TableHead>
+                      <TableHead>Relacionados</TableHead> {/* NOVA COLUNA */}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -81,6 +84,27 @@ const SearchParts = () => {
                         <TableCell>{part.name || 'N/A'}</TableCell>
                         <TableCell>{part.descricao}</TableCell>
                         <TableCell>{part.tags || 'N/A'}</TableCell>
+                        <TableCell>
+                          {part.itens_relacionados && part.itens_relacionados.length > 0 ? (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="ghost" size="sm" className="text-blue-600 dark:text-blue-400 flex items-center gap-1 h-auto py-0 px-1">
+                                  <Tag className="h-3 w-3" /> {part.itens_relacionados.length}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto max-w-xs p-2">
+                                <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                                <ScrollArea className="h-24">
+                                  <ul className="list-disc list-inside text-xs text-muted-foreground">
+                                    {part.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
+                                  </ul>
+                                </ScrollArea>
+                              </PopoverContent>
+                            </Popover>
+                          ) : (
+                            'N/A'
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

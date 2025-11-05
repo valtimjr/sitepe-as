@@ -35,6 +35,7 @@ import { DailyApontamento, MonthlyApontamento } from '@/types/supabase'; // Remo
 
 export interface Part extends LocalPart {
   name?: string; // Adicionado o campo 'name'
+  itens_relacionados?: string[]; // Adicionado o campo 'itens_relacionados'
 }
 export interface SimplePartItem extends LocalSimplePartItem {}
 export interface ServiceOrderItem extends LocalServiceOrderItem {}
@@ -434,7 +435,13 @@ export const updatePart = async (updatedPart: Part): Promise<void> => {
   // Atualiza no Supabase
   const { error: supabaseError } = await supabase
     .from('parts')
-    .update({ codigo: updatedPart.codigo, descricao: updatedPart.descricao, tags: updatedPart.tags, name: updatedPart.name })
+    .update({ 
+      codigo: updatedPart.codigo, 
+      descricao: updatedPart.descricao, 
+      tags: updatedPart.tags, 
+      name: updatedPart.name,
+      itens_relacionados: updatedPart.itens_relacionados || [], // Inclui o novo campo
+    })
     .eq('id', updatedPart.id);
 
   if (supabaseError) {
@@ -772,7 +779,7 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
   let currentMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
 
   if (!currentMonthlyApontamento) {
-    // Se não existe localmente, tenta buscar do Supabase (com lógica de comparação)
+    // Se não existe localmente, tenta buscar do Supabase (se online)
     if (online) {
       currentMonthlyApontamento = await syncMonthlyApontamentosFromSupabase(userId, monthYear);
     }
@@ -957,7 +964,7 @@ export const exportDataAsJson = (data: any[], filename: string): void => {
 
 export const cleanupEmptyParts = async (): Promise<number> => {
   let deletedCount = 0;
-  const pageSize = 1000; // Quantas peças buscar de uma vez
+  const fetchPageSize = 1000; // Quantas peças buscar de uma vez
   const deleteBatchSize = 500; // Quantos IDs excluir em uma chamada do Supabase
   let offset = 0;
   let hasMoreToFetch = true;
@@ -967,7 +974,7 @@ export const cleanupEmptyParts = async (): Promise<number> => {
     const { data, error } = await supabase
       .from('parts')
       .select('id, codigo, descricao')
-      .range(offset, offset + pageSize - 1);
+      .range(offset, offset + fetchPageSize - 1);
 
     if (error) {
       console.error('Error fetching parts for cleanup from Supabase (paginated):', error);
@@ -983,7 +990,7 @@ export const cleanupEmptyParts = async (): Promise<number> => {
         )
         .map(part => part.id);
       allIdsToDelete = allIdsToDelete.concat(emptyPartsIds);
-      offset += pageSize;
+      offset += fetchPageSize;
     } else {
       hasMoreToFetch = false;
     }

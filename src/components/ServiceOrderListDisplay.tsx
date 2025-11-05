@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem } from '@/services/partListService';
+import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem, getParts } from '@/services/partListService';
 import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide, XCircle, Save, FilePlus, FileDown } from 'lucide-react';
+import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide, XCircle, Save, FilePlus, FileDown, Tag } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +29,9 @@ import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Importar Sheet
 import ServiceOrderForm from './ServiceOrderForm'; // Importar o formulário
 import { cn } from '@/lib/utils'; // Importar cn
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Part } from '@/types/supabase';
 
 interface ServiceOrderDetails {
   af: string;
@@ -103,6 +106,7 @@ const compareTimeStrings = (t1: string | undefined, t2: string | undefined): num
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder, sortOrder, onSortOrderChange }) => {
   const [groupedServiceOrders, setGroupedServiceOrders] = useState<ServiceOrderGroup[]>([]);
   const [draggedGroup, setDraggedGroup] = useState<ServiceOrderGroup | null>(null);
+  const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, string[]>>(new Map());
 
   const isMobile = useIsMobile(); // Hook para detectar mobile
 
@@ -111,6 +115,26 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
   const [partToEdit, setPartToEdit] = useState<ServiceOrderItem | null>(null);
   const [soGroupForPartForm, setSoGroupForPartForm] = useState<ServiceOrderGroupDetails | null>(null); // Usar ServiceOrderGroupDetails
   const [partFormMode, setPartFormMode] = useState<'add-part-to-existing-so' | 'edit-part'>('add-part-to-existing-so');
+
+  // Função para carregar o cache de itens relacionados
+  const loadRelatedPartsCache = useCallback(async () => {
+    try {
+      const allParts = await getParts();
+      const newCache = new Map<string, string[]>();
+      allParts.forEach(part => {
+        if (part.codigo && part.itens_relacionados && part.itens_relacionados.length > 0) {
+          newCache.set(part.codigo, part.itens_relacionados);
+        }
+      });
+      setRelatedPartsCache(newCache);
+    } catch (e) {
+      console.error("Erro ao carregar cache de peças relacionadas:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRelatedPartsCache();
+  }, [loadRelatedPartsCache]);
 
   // Função para agrupar e ordenar os itens brutos
   const processListItems = useCallback((items: ServiceOrderItem[], currentSortOrder: SortOrder): ServiceOrderGroup[] => {
@@ -332,7 +356,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         (item.os === currentSOIdentifier.os || (item.os === undefined && currentSOIdentifier.os === undefined)) &&
         (item.hora_inicio === currentSOIdentifier.hora_inicio || (item.hora_inicio === undefined && currentSOIdentifier.hora_inicio === undefined)) &&
         (item.hora_final === currentSOIdentifier.hora_final || (currentSOIdentifier.hora_final === undefined && item.hora_final === undefined)) &&
-        (item.servico_executado === currentSOIdentifier.servico_executado || (item.servico_executado === undefined && currentSOIdentifier.servico_executado === undefined))
+        (item.servico_executado === currentSOIdentifier.servico_executado || (currentSOIdentifier.servico_executado === undefined && item.servico_executado === undefined))
       );
 
       const hasRealPartsRemaining = remainingItemsForThisSO.some(item => item.codigo_peca || item.descricao || (item.quantidade !== undefined && item.quantidade > 0));
@@ -453,6 +477,28 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     setPartToEdit(null);
     setSoGroupForPartForm(null);
     onListChanged(); // Recarrega a lista após salvar/cancelar
+    loadRelatedPartsCache(); // Recarrega o cache de relacionados
+  };
+
+  const handleDeleteServiceOrder = async (group: ServiceOrderGroup) => {
+    const loadingToastId = showLoading('Excluindo Ordem de Serviço...');
+    try {
+      const itemsToDelete = listItems.filter(item =>
+        item.af === group.af &&
+        (item.os === group.os || (item.os === undefined && group.os === undefined)) &&
+        (item.hora_inicio === group.hora_inicio || (item.hora_inicio === undefined && group.hora_inicio === undefined)) &&
+        (item.hora_final === group.hora_final || (group.hora_final === undefined && item.hora_final === undefined)) &&
+        (item.servico_executado === group.servico_executado || (group.servico_executado === undefined && item.servico_executado === undefined))
+      );
+
+      await Promise.all(itemsToDelete.map(item => deleteServiceOrderItem(item.id)));
+      showSuccess(`Ordem de Serviço AF: ${group.af} excluída com sucesso!`);
+      onListChanged();
+    } catch (error) {
+      showError('Erro ao excluir Ordem de Serviço.');
+    } finally {
+      dismissToast(loadingToastId);
+    }
   };
 
   return (
@@ -601,14 +647,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                       {/* Linha de Detalhes da OS (Agrupamento) */}
                       <TableRow 
                         className="border-t-4 border-primary dark:border-primary bg-muted/50 hover:bg-muted/80"
-                        draggable={true} // Sempre draggable
-                        onDragStart={(e) => handleDragStart(e, group)}
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, group)}
-                        onDragLeave={handleDragLeave}
-                        onDragEnd={handleDragEnd}
+                        draggable={sortOrder === 'manual'} // Apenas draggable se for manual
+                        onDragStart={(e) => sortOrder === 'manual' && handleDragStart(e, group)}
+                        onDragOver={sortOrder === 'manual' ? handleDragOver : undefined}
+                        onDrop={(e) => sortOrder === 'manual' ? handleDrop(e, group) : undefined}
+                        onDragLeave={sortOrder === 'manual' ? handleDragLeave : undefined}
+                        onDragEnd={sortOrder === 'manual' ? handleDragEnd : undefined}
                         data-id={group.id}
-                      ><TableCell className="w-[30px] px-1 py-2 cursor-grab">
+                      ><TableCell className={cn("w-[30px] px-1 py-2", sortOrder === 'manual' ? 'cursor-grab' : 'cursor-default')}>
                           <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </TableCell>
                         {/* Célula única que abrange as colunas do botão de ordenação, Peça e Qtd */}
@@ -684,65 +730,99 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                       </TableRow>
 
                       {/* Linhas de Peças */}
-                      {group.parts.map((part, partIndex) => (
-                        <TableRow key={part.id} className={isEditingThisServiceOrder ? 'bg-accent/10' : ''}>
-                          <TableCell className="w-[30px] px-1 py-2"></TableCell> {/* Célula vazia para alinhar com o drag handle */}
-                          <TableCell className="w-[50px] px-1 py-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
-                          <TableCell className="w-auto whitespace-normal break-words px-1 py-2">
-                            <span className="text-sm">
-                              {part.codigo_peca && part.descricao 
-                                ? `${part.codigo_peca} - ${part.descricao}` 
-                                : part.codigo_peca || part.descricao || 'Item sem descrição'}
-                            </span>
-                          </TableCell>
-                          <TableCell className="w-[3rem] px-1 py-2 text-center">{part.quantidade ?? ''}</TableCell> {/* Alinhado ao centro */}
-                          
-                          {/* Célula de Ações para a Peça (alinhada com a coluna Opções) */}
-                          <TableCell className="w-[70px] px-1 py-2 text-right">
-                            <div className="flex justify-end items-center gap-1">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" onClick={() => handleOpenEditPartForm(part as ServiceOrderItem, group)} className="h-8 w-8">
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Editar item</TooltipContent>
-                              </Tooltip>
-                              <AlertDialog>
+                      {group.parts.map((part, partIndex) => {
+                        const relatedItems = relatedPartsCache.get(part.codigo_peca || '') || [];
+                        return (
+                          <TableRow key={part.id} className={isEditingThisServiceOrder ? 'bg-accent/10' : ''}>
+                            <TableCell className="w-[30px] px-1 py-2"></TableCell> {/* Célula vazia para alinhar com o drag handle */}
+                            <TableCell className="w-[50px] px-1 py-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
+                            <TableCell className="w-auto whitespace-normal break-words px-1 py-2">
+                              <div className="flex flex-col">
+                                <span className="text-sm">
+                                  {part.codigo_peca && part.descricao 
+                                    ? `${part.codigo_peca} - ${part.descricao}` 
+                                    : part.codigo_peca || part.descricao || 'Item sem descrição'}
+                                </span>
+                                {relatedItems.length > 0 && (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
+                                      >
+                                        <Tag className="h-3 w-3" /> {relatedItems.length} item(s) relacionado(s)
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto max-w-xs p-2">
+                                      <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                                      <ScrollArea className="h-24">
+                                        <ul className="list-disc list-inside text-xs text-muted-foreground">
+                                          {relatedItems.map(rel => <li key={rel}>{rel}</li>)}
+                                        </ul>
+                                      </ScrollArea>
+                                    </PopoverContent>
+                                  </Popover>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="w-[3rem] px-1 py-2 text-center">{part.quantidade ?? ''}</TableCell> {/* Alinhado ao centro */}
+                            
+                            {/* Célula de Ações para a Peça (alinhada com a coluna Opções) */}
+                            <TableCell className="w-[70px] px-1 py-2 text-right">
+                              <div className="flex justify-end items-center gap-1">
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <AlertDialogTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </AlertDialogTrigger>
+                                    <Button variant="ghost" size="icon" onClick={() => handleOpenEditPartForm(part as ServiceOrderItem, group)} className="h-8 w-8">
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>Remover item</TooltipContent>
+                                  <TooltipContent>Editar item</TooltipContent>
                                 </Tooltip>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Esta ação irá remover o item "{part.codigo_peca || part.descricao}" da lista. Esta ação não pode ser desfeita.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteItem(part.id)}>Remover</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                                <AlertDialog>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Remover item</TooltipContent>
+                                  </Tooltip>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Esta ação irá remover o item "{part.codigo_peca || part.descricao}" da lista. Esta ação não pode ser desfeita.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteItem(part.id)}>Remover</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                       {/* Botão "Adicionar Peça" abaixo da última peça (ou se não houver peças) */}
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-2">
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            onClick={() => handleOpenAddPartForm(group)}
+                            onClick={() => onEditServiceOrder({ 
+                              af: group.af, 
+                              os: group.os, 
+                              hora_inicio: group.hora_inicio, 
+                              hora_final: group.hora_final, 
+                              servico_executado: group.servico_executado,
+                              createdAt: group.createdAt,
+                              mode: 'add-part-to-existing-so'
+                            })}
                             className="flex items-center gap-2 mx-auto"
                           >
                             <PlusCircle className="h-4 w-4" /> Adicionar Peça

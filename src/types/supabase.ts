@@ -22,6 +22,7 @@ export interface Part {
   descricao: string;
   tags?: string;
   name?: string; // NOVO CAMPO: Nome global da peça
+  itens_relacionados?: string[]; // NOVO CAMPO: Códigos de peças relacionadas
 }
 
 // Apontamento diário, agora parte de um array JSONB

@@ -8,9 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal, FileText, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal, FileText, Loader2, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Part, addPart, updatePart, deletePart, searchPartsPaginated, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts } from '@/services/partListService';
+import { Part, addPart, updatePart, deletePart, searchPartsPaginated, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts, searchParts as searchPartsService } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -38,6 +38,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useSession } from '@/components/SessionContextProvider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
+import PartSearchInput from './PartSearchInput'; // Importar PartSearchInput
 
 // Função auxiliar para obter valor de uma linha, ignorando case e variações
 const getRowValue = (row: any, keys: string[]): string | undefined => {
@@ -67,6 +68,7 @@ const PartManagementTable: React.FC = () => {
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [formName, setFormName] = useState('');
+  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]); // NOVO ESTADO
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(() => new Set());
   
@@ -78,6 +80,13 @@ const PartManagementTable: React.FC = () => {
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [parsedPartsToImport, setParsedPartsToImport] = useState<Part[]>([]);
   const [importLog, setImportLog] = useState<string[]>([]);
+
+  // Estados para gerenciamento de itens relacionados
+  const [relatedSearchQuery, setRelatedSearchQuery] = useState('');
+  const [relatedSearchResults, setRelatedSearchResults] = useState<Part[]>([]);
+  const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
+  const [draggedRelatedItem, setDraggedRelatedItem] = useState<string | null>(null);
+  const [isLoadingRelatedParts, setIsLoadingRelatedParts] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -105,6 +114,24 @@ const PartManagementTable: React.FC = () => {
     loadParts(searchQuery, currentPage);
   }, [searchQuery, currentPage, loadParts]);
 
+  // Efeito para a busca de peças relacionadas
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (relatedSearchQuery.length > 1) {
+        setIsLoadingRelatedParts(true);
+        const results = await searchPartsService(relatedSearchQuery);
+        setRelatedSearchResults(results);
+        setIsLoadingRelatedParts(false);
+      } else {
+        setRelatedSearchResults([]);
+      }
+    };
+    const handler = setTimeout(() => {
+      fetchSearchResults();
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [relatedSearchQuery]);
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   const handlePageChange = (newPage: number) => {
@@ -125,6 +152,7 @@ const PartManagementTable: React.FC = () => {
     setFormDescricao('');
     setFormTags('');
     setFormName('');
+    setFormItensRelacionados([]); // Limpa itens relacionados
     setIsSheetOpen(true); // Abre o Sheet
   };
 
@@ -135,6 +163,7 @@ const PartManagementTable: React.FC = () => {
     setFormDescricao(part.descricao);
     setFormTags(part.tags || '');
     setFormName(part.name || '');
+    setFormItensRelacionados(part.itens_relacionados || []); // Carrega itens relacionados
     setIsSheetOpen(true); // Abre o Sheet
   };
 
@@ -177,6 +206,7 @@ const PartManagementTable: React.FC = () => {
         descricao: formDescricao,
         tags: formTags,
         name: formName,
+        itens_relacionados: formItensRelacionados, // Inclui itens relacionados
       };
 
       if (currentPart) {
@@ -316,6 +346,7 @@ const PartManagementTable: React.FC = () => {
             const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']);
             const tags = getRowValue(row, ['tags', 'tag']) || '';
             const name = getRowValue(row, ['name', 'nome']) || '';
+            const itensRelacionadosString = getRowValue(row, ['itens_relacionados', 'related_items']) || ''; // NOVO CAMPO
             
             if (!codigo || !descricao) {
               console.warn(`PartManagementTable: Linha ${index + 1} ignorada por falta de Código ou Descrição.`);
@@ -328,6 +359,7 @@ const PartManagementTable: React.FC = () => {
               descricao: descricao,
               tags: tags,
               name: name,
+              itens_relacionados: itensRelacionadosString.split(';').map(s => s.trim()).filter(s => s.length > 0), // Processa o array
             };
           }).filter((part): part is Part => part !== null);
 
@@ -517,6 +549,82 @@ const PartManagementTable: React.FC = () => {
 
   const isAllSelected = parts.length > 0 && selectedPartIds.size === parts.length;
   const isIndeterminate = selectedPartIds.size > 0 && selectedPartIds.size < parts.length;
+
+  // --- Handlers para Itens Relacionados ---
+  const handleAddRelatedPart = (part: Part) => {
+    if (!formItensRelacionados.includes(part.codigo)) {
+      setFormItensRelacionados(prev => [...prev, part.codigo]);
+      setRelatedSearchQuery('');
+      setRelatedSearchResults([]);
+      showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
+    } else {
+      showError(`Peça ${part.codigo} já está na lista de itens relacionados.`);
+    }
+  };
+
+  const handleRemoveRelatedPart = (codigo: string) => {
+    setFormItensRelacionados(prev => prev.filter(c => c !== codigo));
+    showSuccess(`Peça ${codigo} removida dos itens relacionados.`);
+  };
+
+  const handleBulkAddRelatedParts = () => {
+    const newCodes = bulkRelatedPartsInput
+      .split(';')
+      .map(code => code.trim())
+      .filter(code => code.length > 0);
+
+    if (newCodes.length === 0) {
+      showError('Nenhum código válido encontrado para adicionar.');
+      return;
+    }
+
+    const uniqueNewCodes = Array.from(new Set([...formItensRelacionados, ...newCodes]));
+    setFormItensRelacionados(uniqueNewCodes);
+    setBulkRelatedPartsInput('');
+    showSuccess(`${newCodes.length} código(s) adicionado(s) aos itens relacionados.`);
+  };
+
+  // Drag and Drop Handlers (Itens Relacionados)
+  const handleRelatedDragStart = (e: React.DragEvent<HTMLDivElement>, item: string) => {
+    setDraggedRelatedItem(item);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item);
+    e.currentTarget.classList.add('opacity-50');
+  };
+
+  const handleRelatedDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('border-primary');
+  };
+
+  const handleRelatedDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.currentTarget.classList.remove('border-primary');
+  };
+
+  const handleRelatedDrop = (e: React.DragEvent<HTMLDivElement>, targetItem: string) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-primary');
+
+    if (draggedRelatedItem && draggedRelatedItem !== targetItem) {
+      const newRelatedItems = [...formItensRelacionados];
+      const draggedIndex = newRelatedItems.findIndex(item => item === draggedRelatedItem);
+      const targetIndex = newRelatedItems.findIndex(item => item === targetItem);
+
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+        const [removed] = newRelatedItems.splice(draggedIndex, 1);
+        newRelatedItems.splice(targetIndex, 0, removed);
+        setFormItensRelacionados(newRelatedItems);
+      }
+    }
+    setDraggedRelatedItem(null);
+  };
+
+  const handleRelatedDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    e.currentTarget.classList.remove('opacity-50');
+    setDraggedRelatedItem(null);
+  };
+  // --- Fim Handlers para Itens Relacionados ---
 
   return (
     <Card className="w-full">
@@ -725,7 +833,7 @@ const PartManagementTable: React.FC = () => {
 
       {/* Sheet de Edição/Adição */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md"> {/* SheetContent com side="right" */}
+        <SheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow */}
           <SheetHeader>
             <SheetTitle>{currentPart ? 'Editar Peça' : 'Adicionar Nova Peça'}</SheetTitle>
           </SheetHeader>
@@ -779,6 +887,99 @@ const PartManagementTable: React.FC = () => {
                 disabled={!canEditTags}
               />
             </div>
+
+            {/* NOVO: Seção de Itens Relacionados */}
+            <div className="space-y-2 border-t pt-4">
+              <Label className="flex items-center gap-2">
+                <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
+              </Label>
+              <PartSearchInput
+                onSearch={setRelatedSearchQuery}
+                searchResults={relatedSearchResults}
+                onSelectPart={(part) => {
+                  if (part) {
+                    if (!formItensRelacionados.includes(part.codigo)) {
+                      setFormItensRelacionados(prev => [...prev, part.codigo]);
+                      setRelatedSearchQuery('');
+                      setRelatedSearchResults([]);
+                      showSuccess(`Peça ${part.codigo} adicionada.`);
+                    } else {
+                      showError(`Peça ${part.codigo} já está na lista.`);
+                    }
+                  }
+                }}
+                searchQuery={relatedSearchQuery}
+                isLoading={isLoadingRelatedParts}
+              />
+              <div className="space-y-2">
+                <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
+                  Adicionar múltiplos códigos (separados por ';')
+                </Label>
+                <div className="flex gap-2">
+                  <Textarea
+                    id="bulk-related-parts"
+                    value={bulkRelatedPartsInput}
+                    onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
+                    placeholder="Ex: COD1; COD2; COD3"
+                    rows={2}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleBulkAddRelatedParts}
+                    disabled={bulkRelatedPartsInput.trim().length === 0}
+                    variant="outline"
+                    size="icon"
+                    aria-label="Adicionar em massa"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <ScrollArea className="h-24 w-full rounded-md border p-2">
+                {formItensRelacionados.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {formItensRelacionados.map((codigo, index) => (
+                      <div 
+                        key={codigo} 
+                        className={cn(
+                          "flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-transparent cursor-grab",
+                          draggedRelatedItem === codigo && 'opacity-50',
+                          draggedRelatedItem && 'hover:border-primary'
+                        )}
+                        draggable
+                        onDragStart={(e) => handleRelatedDragStart(e, codigo)}
+                        onDragOver={handleRelatedDragOver}
+                        onDrop={(e) => handleRelatedDrop(e, codigo)}
+                        onDragLeave={handleRelatedDragLeave}
+                        onDragEnd={handleRelatedDragEnd}
+                      >
+                        <div className="flex items-center gap-1 truncate">
+                          <GripVertical className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{codigo}</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 p-0 text-destructive shrink-0"
+                          onClick={() => handleRemoveRelatedPart(codigo)}
+                        >
+                          <XCircle className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+              <p className="text-sm text-muted-foreground">
+                Arraste e solte os códigos acima para reordenar.
+              </p>
+            </div>
+            {/* FIM NOVO: Seção de Itens Relacionados */}
+
             <SheetFooter> {/* SheetFooter para botões */}
               <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar

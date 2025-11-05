@@ -8,6 +8,7 @@ export interface Part {
   descricao: string;
   tags?: string;
   name?: string; // Adicionado o campo 'name'
+  itens_relacionados?: string[]; // Adicionado o campo 'itens_relacionados'
 }
 
 export interface SimplePartItem {
@@ -162,6 +163,15 @@ class LocalDexieDb extends Dexie {
 
       await tx.table('monthlyApontamentos').bulkAdd(Object.values(monthlyDataMap));
     });
+    this.version(7).stores({ // NOVA VERSÃO
+      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
+      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
+      parts: '++id, codigo, descricao, tags, name, *itens_relacionados', // Adicionado itens_relacionados como índice multi-valor
+      afs: '++id, af_number, descricao',
+      monthlyApontamentos: 'id, user_id, month_year, [user_id+month_year]',
+    }).upgrade(async tx => {
+      // Não é necessária migração de dados, apenas atualização do esquema.
+    });
   }
 }
 
@@ -202,6 +212,8 @@ export const searchLocalParts = async (query: string): Promise<Part[]> => {
     const codigoMatch = part.codigo.toLowerCase().match(regexPattern);
     const descricaoMatch = part.descricao.toLowerCase().match(regexPattern);
     const tagsMatch = part.tags && part.tags.toLowerCase().match(regexPattern);
+    // Não busca em itens_relacionados aqui, pois é um array de códigos.
+    // A busca em itens_relacionados será feita separadamente se necessário.
 
     return nameMatch || codigoMatch || descricaoMatch || tagsMatch;
   });
@@ -319,7 +331,7 @@ export const updateLocalServiceOrderItem = async (updatedItem: ServiceOrderItem)
 };
 
 export const deleteLocalServiceOrderItem = async (id: string): Promise<void> => {
-  await localDb.serviceOrderItems.delete(id);
+  await localDb.serviceOrderOrderItems.delete(id);
 };
 
 export const clearLocalServiceOrderItems = async (): Promise<void> => {

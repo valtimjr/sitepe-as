@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem, updateSimplePartItem, getParts, getAfsFromService, Part, Af, addSimplePartItem } from '@/services/partListService';
+import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem, updateSimplePartItem, getParts, getAfsFromService, Part, Af, addSimplePartItem, searchParts as searchPartsService } from '@/services/partListService';
 import { lazyGeneratePartsListPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
 import { showSuccess, showError } from '@/utils/toast';
-import { Trash2, Download, Copy, GripVertical, MoreHorizontal, Edit, Save, XCircle, Loader2, PlusCircle, FileDown } from 'lucide-react';
+import { Trash2, Download, Copy, GripVertical, MoreHorizontal, Edit, Save, XCircle, Loader2, PlusCircle, FileDown, Tag } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +30,8 @@ import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { cn } from '@/lib/utils'; // Importar cn
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
@@ -69,7 +71,11 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
+  const [editedTags, setEditedTags] = useState<string>('');
   
+  // Cache para itens relacionados
+  const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, string[]>>(new Map());
+
   // Sincroniza o estado interno com a prop listItems quando ela muda
   useEffect(() => {
     setOrderedItems(listItems);
@@ -91,11 +97,22 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     loadInitialData();
   }, []);
 
+  // Effect to populate related parts cache
+  useEffect(() => {
+    const newCache = new Map<string, string[]>();
+    allAvailableParts.forEach(part => {
+      if (part.codigo && part.itens_relacionados && part.itens_relacionados.length > 0) {
+        newCache.set(part.codigo, part.itens_relacionados);
+      }
+    });
+    setRelatedPartsCache(newCache);
+  }, [allAvailableParts]);
+
   // Effect for inline part search (edit mode)
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQueryForEdit.length > 1) {
-        const results = await getParts(searchQueryForEdit);
+        const results = await searchPartsService(searchQueryForEdit);
         setSearchResultsForEdit(results);
       } else {
         setSearchResultsForEdit([]);
@@ -111,7 +128,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   useEffect(() => {
     const fetchInlineSearchResults = async () => {
       if (inlineSearchQuery.length > 1) {
-        const results = await getParts(inlineSearchQuery);
+        const results = await searchPartsService(inlineSearchQuery);
         setInlineSearchResults(results);
       } else {
         setInlineSearchResults([]);
@@ -482,153 +499,177 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orderedItems.map((item) => (
-                  <TableRow 
-                    key={item.id}
-                    draggable={editingItemId !== item.id && !isAddingInline} // Always draggable if not in edit/add mode
-                    onDragStart={(e) => handleDragStart(e, item)}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, item)}
-                    onDragLeave={handleDragLeave}
-                    onDragEnd={handleDragEnd}
-                    data-id={item.id}
-                    className="relative"
-                  ><TableCell className="w-[40px] p-2 cursor-grab"> {/* Drag handle */}
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
-                    </TableCell>
-                    
-                    {editingItemId === item.id && !isMobile ? ( // Inline edit only on desktop
-                      <>
-                        <TableCell className="w-auto whitespace-normal break-words p-2 space-y-1">
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor={`edit-search-part-${item.id}`} className="sr-only">Buscar Peça</Label>
-                            <PartSearchInput
-                              onSearch={handlePartSearchChangeForEdit} // Atualiza apenas a query de busca
-                              searchResults={searchResultsForEdit}
-                              onSelectPart={handleSelectPartForEdit} // Atualiza os campos de código/descrição e limpa a busca
-                              searchQuery={searchQueryForEdit} // Exibe a query de busca
-                              allParts={allAvailableParts}
-                              isLoading={isLoadingParts}
-                            />
-                            <div className="grid grid-cols-3 gap-2"> {/* Layout para Código e Descrição */}
-                          <div className="col-span-1"> {/* Código da Peça: menor */}
-                            <Label htmlFor={`edit-part-code-${item.id}`} className="sr-only">Código da Peça</Label>
+                {orderedItems.map((item) => {
+                  const relatedItems = relatedPartsCache.get(item.codigo_peca) || [];
+                  return (
+                    <TableRow 
+                      key={item.id}
+                      draggable={editingItemId !== item.id && !isAddingInline} // Always draggable if not in edit/add mode
+                      onDragStart={(e) => handleDragStart(e, item)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, item)}
+                      onDragLeave={handleDragLeave}
+                      onDragEnd={handleDragEnd}
+                      data-id={item.id}
+                      className="relative"
+                    ><TableCell className="w-[40px] p-2 cursor-grab"> {/* Drag handle */}
+                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                      </TableCell>
+                      
+                      {editingItemId === item.id && !isMobile ? ( // Inline edit only on desktop
+                        <>
+                          <TableCell className="w-auto whitespace-normal break-words p-2 space-y-1">
+                            <div className="flex flex-col gap-1">
+                              <Label htmlFor={`edit-search-part-${item.id}`} className="sr-only">Buscar Peça</Label>
+                              <PartSearchInput
+                                onSearch={handlePartSearchChangeForEdit} // Atualiza apenas a query de busca
+                                searchResults={searchResultsForEdit}
+                                onSelectPart={handleSelectPartForEdit} // Atualiza os campos de código/descrição e limpa a busca
+                                searchQuery={searchQueryForEdit} // Exibe a query de busca
+                                allParts={allAvailableParts}
+                                isLoading={isLoadingParts}
+                              />
+                              <div className="grid grid-cols-3 gap-2"> {/* Layout para Código e Descrição */}
+                            <div className="col-span-1"> {/* Código da Peça: menor */}
+                              <Label htmlFor={`edit-part-code-${item.id}`} className="sr-only">Código da Peça</Label>
+                              <Input
+                                id={`edit-part-code-${item.id}`}
+                                type="text"
+                                value={formPartCode} // Exibe o código da peça selecionada
+                                readOnly // Somente leitura
+                                placeholder="Código da peça"
+                                className="text-xs bg-muted"
+                              />
+                            </div>
+                            <div className="col-span-2"> {/* Descrição: maior */}
+                              <Label htmlFor={`edit-description-${item.id}`} className="sr-only">Descrição</Label>
+                              <Input
+                                id={`edit-description-${item.id}`}
+                                type="text"
+                                value={formDescription} // Exibe a descrição da peça selecionada
+                                readOnly // Somente leitura
+                                placeholder="Descrição da peça"
+                                className="text-xs bg-muted"
+                              />
+                            </div>
+                          </div>
+                              <Label htmlFor={`edit-af-${item.id}`} className="sr-only">AF</Label>
+                              <AfSearchInput
+                                value={formAf}
+                                onChange={setFormAf}
+                                availableAfs={allAvailableAfs}
+                                onSelectAf={handleAfSelectForEdit}
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-[3rem] p-2 text-center"> {/* Largura ajustada */}
+                            <Label htmlFor={`edit-quantity-${item.id}`} className="sr-only">Quantidade</Label>
                             <Input
-                              id={`edit-part-code-${item.id}`}
-                              type="text"
-                              value={formPartCode} // Exibe o código da peça selecionada
-                              readOnly // Somente leitura
-                              placeholder="Código da peça"
-                              className="text-xs bg-muted"
+                              id={`edit-quantity-${item.id}`}
+                              type="number"
+                              value={formQuantity}
+                              onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
+                              min="1"
+                              className="w-full text-center"
                             />
-                          </div>
-                          <div className="col-span-2"> {/* Descrição: maior */}
-                            <Label htmlFor={`edit-description-${item.id}`} className="sr-only">Descrição</Label>
-                            <Input
-                              id={`edit-description-${item.id}`}
-                              type="text"
-                              value={formDescription} // Exibe a descrição da peça selecionada
-                              readOnly // Somente leitura
-                              placeholder="Descrição da peça"
-                              className="text-xs bg-muted"
-                            />
-                          </div>
-                        </div>
-                            <Label htmlFor={`edit-af-${item.id}`} className="sr-only">AF</Label>
-                            <AfSearchInput
-                              value={formAf}
-                              onChange={setFormAf}
-                              availableAfs={allAvailableAfs}
-                              onSelectAf={handleAfSelectForEdit}
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="w-[3rem] p-2 text-center"> {/* Largura ajustada */}
-                          <Label htmlFor={`edit-quantity-${item.id}`} className="sr-only">Quantidade</Label>
-                          <Input
-                            id={`edit-quantity-${item.id}`}
-                            type="number"
-                            value={formQuantity}
-                            onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
-                            min="1"
-                            className="w-full text-center"
-                          />
-                        </TableCell>
-                        <TableCell className="w-[80px] p-2 text-right">
-                          <div className="flex justify-end items-center gap-1">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => handleSaveEdit(item)}>
-                                  <Save className="h-4 w-4 text-green-600" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Salvar</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={handleCancelEdit}>
-                                  <XCircle className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Cancelar</TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </TableCell>
-                      </>
-                    ) : (
-                      <>
-                        <TableCell className="w-auto whitespace-normal break-words p-2">
-                          <div className="flex flex-col">
-                            <span className="font-medium text-sm">{item.codigo_peca || 'N/A'}</span>
-                            <span className="text-xs text-muted-foreground">{item.descricao || 'N/A'}</span>
-                            {item.af && (
-                              <span className="text-xs text-blue-600 dark:text-blue-400 mt-1">AF: {item.af}</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell className="w-[3rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell> {/* Largura ajustada */}
-                        
-                        <TableCell className="w-[80px] p-2 text-right">
-                          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1"> {/* Alterado para flex-col em mobile */}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(item)}>
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Editar Item</TooltipContent>
-                            </Tooltip>
-                            <AlertDialog>
-                              <Tooltip> {/* Tooltip envolve o AlertDialogTrigger */}
+                          </TableCell>
+                          <TableCell className="w-[80px] p-2 text-right">
+                            <div className="flex justify-end items-center gap-1">
+                              <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-destructive">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </AlertDialogTrigger>
+                                  <Button variant="ghost" size="icon" onClick={() => handleSaveEdit(item)}>
+                                    <Save className="h-4 w-4 text-green-600" />
+                                  </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Remover Item</TooltipContent>
+                                <TooltipContent>Salvar</TooltipContent>
                               </Tooltip>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta ação irá remover o item "{item.codigo_peca || item.descricao}" da lista. Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteItem(item.id)}>Remover</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      </>
-                    )}
-                  </TableRow>
-                ))}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" onClick={handleCancelEdit}>
+                                    <XCircle className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Cancelar</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell className="w-auto whitespace-normal break-words p-2">
+                            <div className="flex flex-col">
+                              <span className="font-medium text-sm">{item.codigo_peca || 'N/A'}</span>
+                              <span className="text-xs text-muted-foreground">{item.descricao || 'N/A'}</span>
+                              {item.af && (
+                                <span className="text-xs text-blue-600 dark:text-blue-400 mt-1">AF: {item.af}</span>
+                              )}
+                              {relatedItems.length > 0 && (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
+                                    >
+                                      <Tag className="h-3 w-3" /> {relatedItems.length} item(s) relacionado(s)
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto max-w-xs p-2">
+                                    <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                                    <ScrollArea className="h-24">
+                                      <ul className="list-disc list-inside text-xs text-muted-foreground">
+                                        {relatedItems.map(rel => <li key={rel}>{rel}</li>)}
+                                      </ul>
+                                    </ScrollArea>
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+                            </div>
+                          </TableCell>
+                          
+                          <TableCell className="w-[3rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell> {/* Largura ajustada */}
+                          
+                          <TableCell className="w-[80px] p-2 text-right">
+                            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1"> {/* Alterado para flex-col em mobile */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" onClick={() => handleEditClick(item)}>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Editar Item</TooltipContent>
+                              </Tooltip>
+                              <AlertDialog>
+                                <Tooltip> {/* Tooltip envolve o AlertDialogTrigger */}
+                                  <TooltipTrigger asChild>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="text-destructive">
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Remover Item</TooltipContent>
+                                </Tooltip>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta ação irá remover o item "{item.codigo_peca || item.descricao}" da lista. Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteItem(item.id)}>Remover</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </>
+                      )}
+                    </TableRow>
+                  );
+                })}
 
                 {isAddingInline && !isMobile && ( // Inline add only on desktop
                   <TableRow className="bg-accent/10">
