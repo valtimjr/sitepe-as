@@ -52,6 +52,7 @@ interface CustomListEditorProps {
 }
 
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved, allAvailableParts }) => {
+  const { user } = useSession();
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -89,6 +90,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [openRelatedItemsPopoverId, setOpenRelatedItemsPopoverId] = useState<string | null>(null);
 
   const isMobile = useIsMobile();
+
+  // Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
+  const formatRelatedPartString = (part: Part): string => {
+    return `${part.codigo} - ${part.name || part.descricao}`;
+  };
 
   const loadItems = useCallback(async () => {
     if (!list.id) {
@@ -237,6 +243,20 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     setFormItemName(part.name || part.descricao || '');
     setSearchQuery('');
     setSearchResults([]);
+
+    // NOVO: Puxa os itens relacionados da peça principal (códigos)
+    if (part.itens_relacionados && part.itens_relacionados.length > 0) {
+      const formattedRelatedItems = part.itens_relacionados
+        .map(code => {
+          const relatedPart = allAvailableParts.find(p => p.codigo === code);
+          return relatedPart ? formatRelatedPartString(relatedPart) : code;
+        })
+        .filter(Boolean);
+      
+      // Adiciona os novos itens relacionados, mantendo os existentes (se houver)
+      setFormItensRelacionados(prev => Array.from(new Set([...prev, ...formattedRelatedItems])));
+      showSuccess(`Sugestões de itens relacionados da peça ${part.codigo} carregadas.`);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -303,18 +323,16 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleMoveItem = async (item: CustomListItem, direction: 'up' | 'down') => {
-    const currentItemsCopy = [...items];
-    const currentIndex = currentItemsCopy.findIndex(i => i.id === item.id);
+    const siblings = [...items];
+    const currentIndex = siblings.findIndex(i => i.id === item.id);
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
-    if (targetIndex < 0 || targetIndex >= currentItemsCopy.length) {
-      return;
-    }
+    if (targetIndex < 0 || targetIndex >= siblings.length) return;
 
-    const [removed] = currentItemsCopy.splice(currentIndex, 1);
-    currentItemsCopy.splice(targetIndex, 0, removed);
+    const [removed] = siblings.splice(currentIndex, 1);
+    siblings.splice(targetIndex, 0, removed);
 
-    const updatedItemsWithNewOrder = currentItemsCopy.map((reorderedItem, index) => ({
+    const updatedItemsWithNewOrder = siblings.map((reorderedItem, index) => ({
       ...reorderedItem,
       order_index: index,
     }));
@@ -529,7 +547,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleAddRelatedPart = (part: Part) => {
-    const formattedPart = `${part.codigo} - ${part.name || part.descricao}`;
+    const formattedPart = formatRelatedPartString(part); // Usa a string formatada
     if (!formItensRelacionados.includes(formattedPart)) {
       setFormItensRelacionados(prev => [...prev, formattedPart]);
       setRelatedSearchQuery('');
@@ -561,36 +579,32 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     let foundCount = 0;
 
     for (const code of codesToSearch) {
-      try {
-        const results = await searchPartsService(code);
-        const foundPart = results.find(p => p.codigo.toLowerCase() === code.toLowerCase());
+      const foundPart = allAvailableParts.find(p => p.codigo.toLowerCase() === code.toLowerCase());
 
-        if (foundPart) {
-          const formattedPart = `${foundPart.codigo} - ${foundPart.name || foundPart.descricao}`;
-          if (!formItensRelacionados.includes(formattedPart) && !newRelatedItems.includes(formattedPart)) {
-            newRelatedItems.push(formattedPart);
-            foundCount++;
-          }
-        } else {
-          console.warn(`Peça com código '${code}' não encontrada para adição em massa.`);
+      if (foundPart) {
+        const formattedPart = formatRelatedPartString(foundPart);
+        if (!formItensRelacionados.includes(formattedPart) && !newRelatedItems.includes(formattedPart)) {
+          newRelatedItems.push(formattedPart);
+          foundCount++;
         }
-      } catch (error) {
-        console.error(`Erro ao buscar peça '${code}' para adição em massa:`, error);
+      } else {
+        // Se não for encontrado no catálogo, adiciona o código puro para permitir personalização
+        const pureCode = code;
+        if (!formItensRelacionados.includes(pureCode) && !newRelatedItems.includes(pureCode)) {
+          newRelatedItems.push(pureCode);
+          foundCount++;
+        }
       }
     }
 
     if (newRelatedItems.length > 0) {
       setFormItensRelacionados(prev => Array.from(new Set([...prev, ...newRelatedItems])));
-      showSuccess(`${foundCount} peça(s) adicionada(s) em massa aos itens relacionados.`);
+      showSuccess(`${foundCount} item(s) adicionado(s) em massa aos itens relacionados.`);
     } else {
-      showError('Nenhuma nova peça válida encontrada ou adicionada em massa.');
+      showError('Nenhum novo item válido encontrado ou adicionado em massa.');
     }
     setBulkRelatedPartsInput('');
     dismissToast(loadingToastId);
-  };
-
-  const getPartDescription = (formattedPartString: string): string => {
-    return formattedPartString;
   };
 
   return (
@@ -770,7 +784,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                                 <PopoverContent className="w-auto max-w-xs p-2">
                                   <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
                                   <ul className="list-disc list-inside text-xs text-muted-foreground">
-                                    {item.itens_relacionados.map(rel => <li key={rel}>{getPartDescription(rel)}</li>)}
+                                    {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
                                   </ul>
                                 </PopoverContent>
                               </Popover>

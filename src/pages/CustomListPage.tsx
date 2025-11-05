@@ -38,6 +38,7 @@ const CustomListPage: React.FC = () => {
   const [afForExport, setAfForExport] = useState('');
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para passar ao editor
 
   // Estado para controlar o Popover de itens relacionados
   const [isRelatedItemsPopoverOpen, setIsRelatedItemsPopoverOpen] = useState<string | null>(null);
@@ -71,13 +72,14 @@ const CustomListPage: React.FC = () => {
     }
   }, [listId]);
 
-  const loadAfs = useCallback(async () => {
+  const loadAfsAndParts = useCallback(async () => {
     setIsLoadingAfs(true);
     try {
-      const afs = await getAfsFromService();
+      const [afs, parts] = await Promise.all([getAfsFromService(), getParts()]);
       setAllAvailableAfs(afs);
+      setAllAvailableParts(parts);
     } catch (error) {
-      console.error('Erro ao carregar AFs:', error);
+      console.error('Erro ao carregar AFs e Peças:', error);
     } finally {
       setIsLoadingAfs(false);
     }
@@ -85,8 +87,8 @@ const CustomListPage: React.FC = () => {
 
   useEffect(() => {
     loadList();
-    loadAfs();
-  }, [loadList, loadAfs]);
+    loadAfsAndParts();
+  }, [loadList, loadAfsAndParts]);
 
   useEffect(() => {
     document.title = `${listTitle} - AutoBoard`;
@@ -354,7 +356,7 @@ const CustomListPage: React.FC = () => {
               {selectedItemIds.size > 0 && (
                 <Button 
                   onClick={handleExportSelectedToMyList} 
-                  className="flex items-center gap-2 flex-1 sm:w-auto"
+                  className="flex-1 sm:w-auto"
                   disabled={isLoadingAfs}
                 >
                   <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
@@ -450,7 +452,7 @@ const CustomListPage: React.FC = () => {
                 onClose={handleItemSavedOrClosed}
                 editingItem={itemToEdit}
                 onItemSaved={handleItemSavedOrClosed}
-                allAvailableParts={[]} // Não é necessário carregar todas as peças aqui, mas a prop é obrigatória
+                allAvailableParts={allAvailableParts}
               />
             )}
           </SheetContent>
