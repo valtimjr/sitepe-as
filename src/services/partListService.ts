@@ -196,12 +196,16 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
     .select('*', { count: 'exact' });
 
   if (lowerCaseQuery) {
-    const searchPattern = lowerCaseQuery.split(/\s+/).filter(Boolean).join('%');
-    // MODIFICADO: Usa 'starts with' (ilike.${pattern}%) para o código para priorizá-lo.
+    const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
     queryBuilder = queryBuilder.or(
-      `codigo.ilike.${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
+      `codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},tags.ilike.${searchPattern},name.ilike.${searchPattern}`
     );
   }
+
+  // Adiciona uma ordenação no servidor para agrupar códigos.
+  // Isso aumenta a chance de uma busca por código trazer o resultado correto na primeira página.
+  // A ordenação final de prioridade é feita no cliente.
+  queryBuilder = queryBuilder.order('codigo', { ascending: true });
 
   // Aplica paginação
   queryBuilder = queryBuilder.range(offset, offset + pageSize - 1);
@@ -220,7 +224,7 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
   let results = data as Part[];
   const totalCount = count || 0;
 
-  // 2. Ordenação no cliente (para garantir consistência com a busca local)
+  // 2. Ordenação no cliente para aplicar a prioridade correta na página atual
   const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
     if (!fieldValue) return 0;
     const lowerFieldValue = fieldValue.toLowerCase();
@@ -228,9 +232,9 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
     if (isMultiWord) {
       return regex.test(lowerFieldValue) ? 1 : 0;
     } else {
-      if (lowerFieldValue === query) return 3;
-      if (lowerFieldValue.startsWith(query)) return 2;
-      if (lowerFieldValue.includes(query)) return 1;
+      if (lowerFieldValue === query) return 4; // Correspondência exata
+      if (lowerFieldValue.startsWith(query)) return 3; // Começa com
+      if (lowerFieldValue.includes(query)) return 2; // Inclui
     }
     return 0;
   };
@@ -254,7 +258,6 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
       const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
       if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
       
-      // Name can be a fallback or grouped with description. Let's put it last.
       const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
       if (aNameScore !== bNameScore) return bNameScore - aNameScore;
