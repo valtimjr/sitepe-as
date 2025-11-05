@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils'; // Importar cn
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Part } from '@/types/supabase';
+import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 
 interface ServiceOrderDetails {
   af: string;
@@ -508,19 +509,18 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           <CardTitle className="text-2xl font-bold mb-2 sm:mb-0">Lista de Ordens de Serviço</CardTitle>
         </div>
       </CardHeader>
-      <div className="flex flex-col sm:flex-row flex-wrap items-center justify-end gap-2 p-4 pt-0"> {/* Alterado para flex-col em mobile */}
-          {/* Botão "Iniciar Nova Ordem de Serviço" */}
+      <div className="flex flex-col sm:flex-row flex-wrap items-center justify-end gap-2 p-4 pt-0">
           <Button 
             onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
-            className="flex items-center gap-2 w-full sm:flex-grow" // w-full para mobile, sm:flex-grow para desktop
+            className="flex items-center gap-2 w-full sm:flex-grow"
           >
             <FilePlus className="h-4 w-4" /> Iniciar Nova OS
           </Button>
-          <div className="flex flex-row flex-wrap items-center justify-end gap-2 w-full sm:w-auto"> {/* Novo container para os outros botões */}
+          <div className="flex flex-row flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
             <Button 
               onClick={handleCopyList} 
               disabled={groupedServiceOrders.length === 0 || isLoading} 
-              className="flex-1 sm:w-auto sm:px-4 bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground" // Adicionado flex-1 e estilos
+              className="flex-1 sm:w-auto sm:px-4 bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground"
             >
               <Copy className="h-4 w-4" /> 
               <span className="hidden sm:inline ml-2">Copiar Lista</span>
@@ -539,11 +539,11 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                 <Button 
                   onClick={handleExportPdf} 
                   disabled={groupedServiceOrders.length === 0 || isLoading} 
-                  variant={isMobile ? "ghost" : "default"} // Ghost para mobile, default para desktop
-                  size={isMobile ? "icon" : undefined} // Icon size para mobile, undefined para desktop
+                  variant={isMobile ? "ghost" : "default"}
+                  size={isMobile ? "icon" : undefined}
                   className={cn(
                     "flex items-center gap-2",
-                    isMobile ? "h-10 w-10 p-0" : "" // Tamanho para mobile
+                    isMobile ? "h-10 w-10 p-0" : ""
                   )}
                 >
                   {isMobile ? (
@@ -564,7 +564,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                   variant="destructive" 
                   disabled={groupedServiceOrders.length === 0 || isLoading} 
                   size="icon"
-                  className="flex-1 sm:w-auto sm:px-4" // Adicionado flex-1
+                  className="flex-1 sm:w-auto sm:px-4"
                 >
                   <Trash2 className="h-4 w-4" /> 
                   <span className="hidden sm:inline ml-2">Limpar Lista</span>
@@ -592,7 +592,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <FilePlus className="h-16 w-16 mb-4 text-primary" />
             <p className="text-lg mb-4">Nenhuma ordem de serviço adicionada ainda.</p>
-            {/* MANTIDO: O botão "Iniciar a Primeira Ordem de Serviço" */}
             <Button 
               onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })}
               className="flex items-center gap-2"
@@ -606,26 +605,22 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[30px] px-1 py-2">
-                    <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle header */}
+                    <GripVertical className="h-4 w-4 text-muted-foreground" />
                   </TableHead>
-                  {/* Coluna Hora com botão de ordenação (movida para a esquerda) */}
-                  <TableHead className="w-[50px] px-1 py-2 text-center"> {/* Alinhado ao centro */}
+                  <TableHead className="w-[50px] px-1 py-2 text-center">
                     <Button 
                       variant="ghost" 
-                      size="icon" // Alterado para size="icon"
+                      size="icon"
                       onClick={handleTimeSortClick} 
-                      className="flex items-center justify-center w-full" // Centralizado
+                      className="flex items-center justify-center w-full"
                     >
                       <Clock className="h-4 w-4" />
                       {sortOrder === 'asc' && <ArrowDownNarrowWide className="h-4 w-4 ml-1" />}
                       {sortOrder === 'desc' && <ArrowUpNarrowWide className="h-4 w-4 ml-1" />}
                     </Button>
                   </TableHead>
-                  {/* Coluna Peça (ocupa a maior parte do espaço) */}
                   <TableHead className="w-auto whitespace-normal break-words px-1 py-2">Peça</TableHead>
-                  {/* Coluna Qtd com largura fixa */}
-                  <TableHead className="w-[3rem] px-1 py-2 text-center">Qtd</TableHead> {/* Alinhado ao centro */}
-                  {/* Coluna Opções (alinhada à direita) */}
+                  <TableHead className="w-[3rem] px-1 py-2 text-center">Qtd</TableHead>
                   <TableHead className="w-[70px] px-1 py-2 text-right">Opções</TableHead>
                 </TableRow>
               </TableHeader>
@@ -636,7 +631,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                     (editingServiceOrder.os === group.os || (editingServiceOrder.os === undefined && group.os === undefined)) &&
                     (editingServiceOrder.hora_inicio === group.hora_inicio || (editingServiceOrder.hora_inicio === undefined && group.hora_inicio === undefined)) &&
                     (editingServiceOrder.hora_final === group.hora_final || (editingServiceOrder.hora_final === undefined && group.hora_final === undefined)) &&
-                    (editingServiceOrder.servico_executado === group.servico_executado || (editingServiceOrder.servico_executado === undefined && group.servico_executado === undefined));
+                    (editingServiceOrder.servico_executado === group.servico_executado || (editingServiceOrder.servico_executado === undefined && item.servico_executado === undefined));
 
                   const timeDisplay = (group.hora_inicio || group.hora_final) 
                     ? (group.hora_inicio || '??') + ' - ' + (group.hora_final || '??')
@@ -644,23 +639,21 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
                   return (
                     <React.Fragment key={group.id}>
-                      {/* Linha de Detalhes da OS (Agrupamento) */}
                       <TableRow 
                         className="border-t-4 border-primary dark:border-primary bg-muted/50 hover:bg-muted/80"
-                        draggable={sortOrder === 'manual'} // Apenas draggable se for manual
+                        draggable={sortOrder === 'manual'}
                         onDragStart={(e) => sortOrder === 'manual' && handleDragStart(e, group)}
                         onDragOver={sortOrder === 'manual' ? handleDragOver : undefined}
                         onDrop={(e) => sortOrder === 'manual' ? handleDrop(e, group) : undefined}
                         onDragLeave={sortOrder === 'manual' ? handleDragLeave : undefined}
                         onDragEnd={sortOrder === 'manual' ? handleDragEnd : undefined}
                         data-id={group.id}
-                      ><TableCell className={cn("w-[30px] px-1 py-2", sortOrder === 'manual' ? 'cursor-grab' : 'cursor-default')}>
+                      >
+                        <TableCell className={cn("w-[30px] px-1 py-2", sortOrder === 'manual' ? 'cursor-grab' : 'cursor-default')}>
                           <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </TableCell>
-                        {/* Célula única que abrange as colunas do botão de ordenação, Peça e Qtd */}
-                        <TableCell colSpan={4} className="font-semibold py-2 align-top"> {/* colSpan ajustado para 4 */}
+                        <TableCell colSpan={4} className="font-semibold py-2 align-top">
                           <div className="flex justify-between items-start">
-                            {/* Detalhes da OS (Lado Esquerdo) */}
                             <div className="flex flex-col space-y-1 flex-grow">
                               <div className="flex items-center space-x-2">
                                 <span className="text-lg font-bold text-primary">AF: {group.af}</span>
@@ -677,8 +670,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                 </p>
                               )}
                             </div>
-                            
-                            {/* Botões de Ação (Lado Direito, alinhado com a coluna Opções) */}
                             <div className="flex items-center gap-1 shrink-0">
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -728,20 +719,19 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           </div>
                         </TableCell>
                       </TableRow>
-
-                      {/* Linhas de Peças */}
                       {group.parts.map((part, partIndex) => {
                         const relatedItems = relatedPartsCache.get(part.codigo_peca || '') || [];
                         return (
                           <TableRow key={part.id} className={isEditingThisServiceOrder ? 'bg-accent/10' : ''}>
-                            <TableCell className="w-[30px] px-1 py-2"></TableCell> {/* Célula vazia para alinhar com o drag handle */}
-                            <TableCell className="w-[50px] px-1 py-2"></TableCell> {/* Célula vazia para alinhar com o botão de ordenação */}
-                            <TableCell className="w-auto whitespace-normal break-words px-1 py-2">
-                              <div className="flex flex-col">
-                                <span className="text-sm">
-                                  {part.codigo_peca && part.descricao 
-                                    ? `${part.codigo_peca} - ${part.descricao}` 
-                                    : part.codigo_peca || part.descricao || 'Item sem descrição'}
+                            <TableCell className="w-[30px] px-1 py-2"></TableCell>
+                            <TableCell className="w-[50px] px-1 py-2"></TableCell>
+                            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
+                              <div className="flex flex-col items-start">
+                                {part.codigo_peca && (
+                                  <span className="font-medium text-sm text-primary whitespace-normal break-words">{part.codigo_peca}</span>
+                                )}
+                                <span className={cn("text-sm whitespace-normal break-words", !part.codigo_peca && 'font-medium')}>
+                                  {part.descricao || 'Item sem descrição'}
                                 </span>
                                 {relatedItems.length > 0 && (
                                   <Popover>
@@ -757,8 +747,12 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                     <PopoverContent className="w-auto max-w-xs p-2">
                                       <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
                                       <ScrollArea className="h-24">
-                                        <ul className="list-disc list-inside text-xs text-muted-foreground">
-                                          {relatedItems.map(rel => <li key={rel}>{rel}</li>)}
+                                        <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                                          {relatedItems.map(rel => (
+                                            <li key={rel} className="list-none ml-0">
+                                              <RelatedPartDisplay formattedString={rel} />
+                                            </li>
+                                          ))}
                                         </ul>
                                       </ScrollArea>
                                     </PopoverContent>
@@ -766,9 +760,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="w-[3rem] px-1 py-2 text-center">{part.quantidade ?? ''}</TableCell> {/* Alinhado ao centro */}
-                            
-                            {/* Célula de Ações para a Peça (alinhada com a coluna Opções) */}
+                            <TableCell className="w-[3rem] px-1 py-2 text-center">{part.quantidade ?? ''}</TableCell>
                             <TableCell className="w-[70px] px-1 py-2 text-right">
                               <div className="flex justify-end items-center gap-1">
                                 <Tooltip>
@@ -808,7 +800,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                           </TableRow>
                         );
                       })}
-                      {/* Botão "Adicionar Peça" abaixo da última peça (ou se não houver peças) */}
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-2">
                           <Button 
@@ -838,7 +829,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         )}
       </CardContent>
 
-      {/* Sheet/Dialog para Adicionar/Editar Peça */}
       {isPartFormOpen && (
         <Sheet open={isPartFormOpen} onOpenChange={setIsPartFormOpen}>
           <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
@@ -853,10 +843,10 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                 mode={partFormMode}
                 onItemAdded={handlePartFormClose}
                 onClose={handlePartFormClose}
-                initialPartData={partToEdit} // Passa a peça a ser editada
-                initialSoData={soGroupForPartForm} // Passa os detalhes da OS para a qual a peça pertence
-                onNewServiceOrder={() => {}} // Não é relevante neste contexto
-                listItems={listItems} // Passa listItems para o formulário
+                initialPartData={partToEdit}
+                initialSoData={soGroupForPartForm}
+                onNewServiceOrder={() => {}}
+                listItems={listItems}
               />
             </div>
           </SheetContent>
