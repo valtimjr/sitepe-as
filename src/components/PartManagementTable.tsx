@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal, FileText, Loader2, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Part, addPart, updatePart, deletePart, searchPartsPaginated, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts, searchParts as searchPartsService } from '@/services/partListService';
+import { Part, addPart, updatePart, deletePart, searchPartsPaginated, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts, searchParts as searchPartsService, getParts } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -36,10 +36,10 @@ import {
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import { useSession } from '@/components/SessionContextProvider';
-import { cn } from '@/lib/utils'; // <-- IMPORT FALTANTE ADICIONADO
+import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
-import PartSearchInput from './PartSearchInput'; // Importar PartSearchInput
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import PartSearchInput from './PartSearchInput';
 
 // Função auxiliar para obter valor de uma linha, ignorando case e variações
 const getRowValue = (row: any, keys: string[]): string | undefined => {
@@ -69,7 +69,7 @@ const PartManagementTable: React.FC = () => {
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [formName, setFormName] = useState('');
-  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]); // NOVO ESTADO
+  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(() => new Set());
   
@@ -88,13 +88,23 @@ const PartManagementTable: React.FC = () => {
   const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
   const [draggedRelatedItem, setDraggedRelatedItem] = useState<string | null>(null);
   const [isLoadingRelatedParts, setIsLoadingRelatedParts] = useState(false);
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para busca de relacionados
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
+  const formatRelatedPartString = (part: Part): string => {
+    return `${part.codigo} - ${part.name || part.descricao}`;
+  };
 
   const loadParts = useCallback(async (query: string, page: number) => {
     console.time('PartManagementTable: loadParts');
     setIsLoading(true);
     try {
+      // Carrega todas as peças para o cache local (necessário para itens relacionados)
+      const allParts = await getParts();
+      setAllAvailableParts(allParts);
+
       // Usando a função paginada
       const { parts: fetchedParts, totalCount: fetchedTotalCount } = await searchPartsPaginated(query, page, PAGE_SIZE);
       setParts(fetchedParts);
@@ -120,17 +130,19 @@ const PartManagementTable: React.FC = () => {
     const fetchSearchResults = async () => {
       if (relatedSearchQuery.length > 1) {
         setIsLoadingRelatedParts(true);
+        // Usamos searchPartsService para buscar sugestões
         const results = await searchPartsService(relatedSearchQuery);
         setRelatedSearchResults(results);
       } else {
         setRelatedSearchResults([]);
       }
+      setIsLoadingRelatedParts(false);
     };
     const handler = setTimeout(() => {
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [relatedSearchQuery]);
+  }, [relatedSearchQuery]); // Depende apenas da query de busca
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -552,8 +564,9 @@ const PartManagementTable: React.FC = () => {
 
   // --- Handlers para Itens Relacionados ---
   const handleAddRelatedPart = (part: Part) => {
-    if (!formItensRelacionados.includes(part.codigo)) {
-      setFormItensRelacionados(prev => [...prev, part.codigo]);
+    const formattedPart = formatRelatedPartString(part);
+    if (!formItensRelacionados.includes(formattedPart)) {
+      setFormItensRelacionados(prev => [...prev, formattedPart]);
       setRelatedSearchQuery('');
       setRelatedSearchResults([]);
       showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
@@ -562,26 +575,53 @@ const PartManagementTable: React.FC = () => {
     }
   };
 
-  const handleRemoveRelatedPart = (codigo: string) => {
-    setFormItensRelacionados(prev => prev.filter(c => c !== codigo));
-    showSuccess(`Peça ${codigo} removida dos itens relacionados.`);
+  const handleRemoveRelatedPart = (formattedPartString: string) => {
+    setFormItensRelacionados(prev => prev.filter(c => c !== formattedPartString));
+    showSuccess(`Item ${formattedPartString.split(' - ')[0]} removido dos itens relacionados.`);
   };
 
   const handleBulkAddRelatedParts = () => {
-    const newCodes = bulkRelatedPartsInput
+    const codesToSearch = bulkRelatedPartsInput
       .split(';')
       .map(code => code.trim())
       .filter(code => code.length > 0);
 
-    if (newCodes.length === 0) {
+    if (codesToSearch.length === 0) {
       showError('Nenhum código válido encontrado para adicionar.');
       return;
     }
 
-    const uniqueNewCodes = Array.from(new Set([...formItensRelacionados, ...newCodes]));
-    setFormItensRelacionados(uniqueNewCodes);
+    const loadingToastId = showLoading('Buscando e adicionando peças relacionadas...');
+    const newRelatedItems: string[] = [];
+    let foundCount = 0;
+
+    for (const code of codesToSearch) {
+      const foundPart = allAvailableParts.find(p => p.codigo.toLowerCase() === code.toLowerCase());
+
+      if (foundPart) {
+        const formattedPart = formatRelatedPartString(foundPart);
+        if (!formItensRelacionados.includes(formattedPart) && !newRelatedItems.includes(formattedPart)) {
+          newRelatedItems.push(formattedPart);
+          foundCount++;
+        }
+      } else {
+        // Se não for encontrado no catálogo, adiciona o código puro para permitir personalização
+        const pureCode = code;
+        if (!formItensRelacionados.includes(pureCode) && !newRelatedItems.includes(pureCode)) {
+          newRelatedItems.push(pureCode);
+          foundCount++;
+        }
+      }
+    }
+
+    if (newRelatedItems.length > 0) {
+      setFormItensRelacionados(prev => Array.from(new Set([...prev, ...newRelatedItems])));
+      showSuccess(`${foundCount} item(s) adicionado(s) em massa aos itens relacionados.`);
+    } else {
+      showError('Nenhum novo item válido encontrado ou adicionado em massa.');
+    }
     setBulkRelatedPartsInput('');
-    showSuccess(`${newCodes.length} código(s) adicionado(s) aos itens relacionados.`);
+    dismissToast(loadingToastId);
   };
 
   // Drag and Drop Handlers (Itens Relacionados)
