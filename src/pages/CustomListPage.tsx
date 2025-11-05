@@ -307,7 +307,8 @@ const CustomListPage: React.FC = () => {
             </div>
         </TableCell>
         <TableCell className="w-[70px] p-2 text-right">
-          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
+          {/* Botão de Edição Removido */}
+          {/* <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8">
@@ -316,7 +317,7 @@ const CustomListPage: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>Editar Item</TooltipContent>
             </Tooltip>
-          </div>
+          </div> */}
         </TableCell>
       </TableRow>
     );
