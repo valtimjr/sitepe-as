@@ -202,32 +202,39 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
   doc.setFontSize(18);
   doc.text(title, 14, 22);
 
-  const tableColumn = ["AF", "OS", "Início", "Fim", "Serviço Executado", "Peça", "Quantidade"];
+  const tableColumn = ["Detalhes da OS", "Peça", "Qtd."];
   const tableRows: any[] = [];
 
-  // A lista já vem agrupada e ordenada, então apenas a iteramos
   groupedServiceOrders.forEach(group => {
-    const partsToRender = group.parts.length > 0 ? group.parts : [{ id: 'no-parts', codigo_peca: 'Nenhuma peça', descricao: '', quantidade: '' }];
+    // Create the content for the first column
+    let detailsContent = `AF: ${group.af}`;
+    if (group.os) detailsContent += ` (OS: ${group.os})`;
+    if (group.hora_inicio || group.hora_final) {
+      detailsContent += `
+Horário: ${group.hora_inicio || '??'} - ${group.hora_final || '??'}`;
+    }
+    if (group.servico_executado) {
+      detailsContent += `
+Serviço: ${group.servico_executado}`;
+    }
+
+    const partsToRender = group.parts.length > 0 ? group.parts : [{ id: 'no-parts', codigo_peca: 'Nenhuma peça adicionada', descricao: '', quantidade: '' }];
     
     partsToRender.forEach((part: any, index: number) => {
       const partDescription = part.codigo_peca && part.descricao 
         ? `${part.codigo_peca} - ${part.descricao}` 
-        : part.codigo_peca || part.descricao || '';
+        : part.codigo_peca || part.descricao || 'N/A';
 
       if (index === 0) {
         tableRows.push([
-          { content: group.af, rowSpan: partsToRender.length, styles: { valign: 'top', fontStyle: 'bold' } },
-          { content: group.os || '', rowSpan: partsToRender.length, styles: { valign: 'top' } },
-          { content: group.hora_inicio || '', rowSpan: partsToRender.length, styles: { valign: 'top' } },
-          { content: group.hora_final || '', rowSpan: partsToRender.length, styles: { valign: 'top' } },
-          { content: group.servico_executado || '', rowSpan: partsToRender.length, styles: { valign: 'top', cellWidth: 40 } },
+          { content: detailsContent, rowSpan: partsToRender.length, styles: { valign: 'top' } },
           partDescription,
-          part.quantidade ?? '',
+          { content: part.quantidade ?? '', styles: { halign: 'center' } },
         ]);
       } else {
         tableRows.push([
           partDescription,
-          part.quantidade ?? '',
+          { content: part.quantidade ?? '', styles: { halign: 'center' } },
         ]);
       }
     });
@@ -237,17 +244,20 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
     head: [tableColumn],
     body: tableRows,
     startY: 30,
-    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [240, 240, 240] },
-    margin: { top: 10 },
-    didParseCell: (data: any) => {
-      if (data.section === 'body' && data.row.index > 0) {
-        // A lógica de agrupamento para a borda precisa ser ajustada para usar os dados do `sortedGroups`
-        // e não diretamente `listItems` que não está agrupado da mesma forma.
-        // Por simplicidade, vou remover a lógica de borda condicional por enquanto,
-        // pois ela se baseava em `listItems[data.row.index - 1]` que não reflete o agrupamento do PDF.
-        // Se a borda for essencial, precisaremos de uma abordagem mais robusta para rastrear os grupos no PDF.
+    columnStyles: {
+      0: { cellWidth: 60, fontStyle: 'bold' }, // Details column
+      1: { cellWidth: 'auto' }, // Part column
+      2: { cellWidth: 15, halign: 'center' }, // Quantity column
+    },
+    didDrawCell: (data: any) => {
+      // Add a thicker separator line before each new group
+      if (data.section === 'body' && data.row.index > 0 && data.row.cells[0] && data.row.cells[0].rowSpan) {
+        doc.setLineWidth(0.5);
+        doc.setDrawColor(40, 40, 40); // Dark gray
+        doc.line(data.cell.x, data.cell.y, data.cell.x + data.table.width, data.cell.y);
       }
     }
   });
