@@ -7,12 +7,14 @@ import { Part, addServiceOrderItem, getParts, getAfsFromService, searchParts as 
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save, Plus, FilePlus, XCircle, Loader2 } from 'lucide-react';
+import { Save, Plus, FilePlus, XCircle, Loader2, Tag } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
+import RelatedPartDisplay from './RelatedPartDisplay';
+import { ScrollArea } from './ui/scroll-area';
 
 interface ServiceOrderDetails {
   af: string;
@@ -127,6 +129,12 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   useEffect(() => {
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
+
+  const formatRelatedPartString = (part: Part): string => {
+    const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
+    const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
+    return `${part.codigo}|${mainText}|${subText}`;
+  };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -579,6 +587,25 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   </div>
                 </div>
               )}
+              {selectedPart && selectedPart.itens_relacionados && selectedPart.itens_relacionados.length > 0 && (
+                <div className="space-y-2 border-t pt-4">
+                  <Label className="flex items-center gap-2">
+                    <Tag className="h-4 w-4" /> Itens Relacionados da Peça
+                  </Label>
+                  <ScrollArea className="h-24 w-full rounded-md border p-2">
+                    <div className="flex flex-col gap-2">
+                      {selectedPart.itens_relacionados.map(relatedCode => {
+                        const relatedPart = allAvailableParts.find(p => p.codigo === relatedCode);
+                        if (relatedPart) {
+                          const formattedString = formatRelatedPartString(relatedPart);
+                          return <RelatedPartDisplay key={relatedCode} formattedString={formattedString} />;
+                        }
+                        return <RelatedPartDisplay key={relatedCode} formattedString={`${relatedCode}|${relatedCode}|`} />;
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
             </>
           )}
           <div className="flex gap-2 pt-4">
@@ -595,16 +622,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             </Button>
           </div>
         </form>
-        {/* REMOVIDO: O botão "Iniciar Nova Ordem de Serviço" foi removido daqui. */}
-        {/*
-        {mode === 'create-new-so' && (
-          <div className="flex flex-col space-y-2 mt-4">
-            <Button variant="outline" onClick={onNewServiceOrder} className="w-full flex items-center gap-2">
-              <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
-            </Button>
-          </div>
-        )}
-        */}
       </CardContent>
     </Card>
   );

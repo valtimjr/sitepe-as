@@ -3,18 +3,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addSimplePartItem, getParts, searchParts as searchPartsService, updatePart, getAfsFromService, Af, updateSimplePartItem } from '@/services/partListService'; // Adicionado updateSimplePartItem
+import { Part, addSimplePartItem, getParts, searchParts as searchPartsService, updatePart, getAfsFromService, Af, updateSimplePartItem } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save, XCircle, Loader2 } from 'lucide-react'; // Adicionado XCircle para o botão Cancelar
+import { Save, XCircle, Loader2, Tag } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
-import { SimplePartItem } from '@/services/localDbService'; // Importar SimplePartItem
+import { SimplePartItem } from '@/services/localDbService';
+import RelatedPartDisplay from './RelatedPartDisplay';
+import { ScrollArea } from './ui/scroll-area';
 
 interface PartItemFormProps {
-  onItemAdded: () => void; // Mantido para adição, mas também chamado após edição
-  editingItem?: SimplePartItem | null; // Novo prop para o item a ser editado
-  onCloseEdit?: () => void; // Novo prop para fechar o formulário de edição
+  onItemAdded: () => void;
+  editingItem?: SimplePartItem | null;
+  onCloseEdit?: () => void;
 }
 
 const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, onCloseEdit }) => {
@@ -24,21 +26,18 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const [af, setAf] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  // Removido: [allAvailableParts, setAllAvailableParts]
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(false); // Inicializado como false
+  const [isLoadingParts, setIsLoadingParts] = useState(false);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
 
-  // Efeito para inicializar o formulário com os dados do item de edição
   useEffect(() => {
     const initializeForm = async () => {
       if (editingItem) {
         setQuantidade(editingItem.quantidade ?? 1);
         setAf(editingItem.af || '');
         
-        // Para o PartSearchInput, precisamos de um objeto Part completo, então buscamos
-        // A busca por código exato é mais eficiente do que carregar todas as 47k peças.
         if (editingItem.codigo_peca) {
           setIsLoadingParts(true);
           const results = await searchPartsService(editingItem.codigo_peca);
@@ -53,7 +52,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
           setSearchQuery('');
         }
       } else {
-        // Reseta os campos para o modo de adição
         setSelectedPart(null);
         setQuantidade(1);
         setAf('');
@@ -64,23 +62,25 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     };
 
     initializeForm();
-  }, [editingItem]); // Depende apenas de editingItem
+  }, [editingItem]);
 
   useEffect(() => {
-    const loadInitialAfs = async () => {
+    const loadInitialData = async () => {
       setIsLoadingAfs(true);
       const afs = await getAfsFromService();
       setAllAvailableAfs(afs);
       setIsLoadingAfs(false);
+
+      const parts = await getParts();
+      setAllAvailableParts(parts);
     };
-    loadInitialAfs();
+    loadInitialData();
   }, []);
 
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQuery.length > 1) {
         setIsLoadingParts(true);
-        // searchPartsService agora retorna apenas o array de Part[]
         const results = await searchPartsService(searchQuery);
         setSearchResults(results);
         setIsLoadingParts(false);
@@ -98,13 +98,19 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
 
+  const formatRelatedPartString = (part: Part): string => {
+    const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
+    const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
+    return `${part.codigo}|${mainText}|${subText}`;
+  };
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
 
   const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
-    setSearchQuery(part.codigo); // Exibe o código da peça selecionada no input
+    setSearchQuery(part.codigo);
     setSearchResults([]);
   };
 
@@ -125,7 +131,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     try {
       await updatePart({ ...selectedPart, tags: editedTags });
       showSuccess('Tags da peça atualizadas com sucesso!');
-      // Não precisamos recarregar todas as peças, apenas atualizar o estado local
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
       showError('Erro ao atualizar as tags da peça.');
@@ -148,27 +153,24 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
       };
 
       if (editingItem) {
-        // Modo de edição: atualiza o item existente
         await updateSimplePartItem({
           ...editingItem,
           ...itemData,
         });
         showSuccess('Item atualizado com sucesso!');
-        onCloseEdit?.(); // Fecha o formulário de edição
+        onCloseEdit?.();
       } else {
-        // Modo de adição: adiciona um novo item
         await addSimplePartItem(itemData);
         showSuccess('Item adicionado à lista de Peças!');
       }
       
-      // Limpa os campos após a operação (se não for edição ou se for edição e o formulário não fechar)
       setSelectedPart(null);
       setQuantidade(1);
       setAf('');
       setEditedTags('');
       setSearchQuery('');
       setSearchResults([]);
-      onItemAdded(); // Notifica o pai que a lista foi alterada
+      onItemAdded();
     } catch (error) {
       showError('Erro ao salvar item na lista.');
     }
@@ -195,8 +197,8 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               isLoading={isLoadingParts}
             />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Layout responsivo */}
-            <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2 md:col-span-1">
               <Label htmlFor="codigo_peca">Código da Peça</Label>
               <Input
                 id="codigo_peca"
@@ -207,7 +209,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
                 className="bg-muted"
               />
             </div>
-            <div className="space-y-2 md:col-span-2"> {/* Nome da Peça: maior */}
+            <div className="space-y-2 md:col-span-2">
               <Label htmlFor="name">Nome da Peça</Label>
               <Input
                 id="name"
@@ -219,8 +221,8 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               />
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Layout responsivo */}
-            <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2 md:col-span-2">
               <Label htmlFor="descricao">Descrição</Label>
               <Input
                 id="descricao"
@@ -231,7 +233,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
                 className="bg-muted"
               />
             </div>
-            <div className="space-y-2 md:col-span-1"> {/* Quantidade: menor */}
+            <div className="space-y-2 md:col-span-1">
               <Label htmlFor="quantidade">Quantidade</Label>
               <Input
                 id="quantidade"
@@ -266,6 +268,25 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
                   <Save className="h-4 w-4" />
                 </Button>
               </div>
+            </div>
+          )}
+          {selectedPart && selectedPart.itens_relacionados && selectedPart.itens_relacionados.length > 0 && (
+            <div className="space-y-2 border-t pt-4">
+              <Label className="flex items-center gap-2">
+                <Tag className="h-4 w-4" /> Itens Relacionados da Peça
+              </Label>
+              <ScrollArea className="h-24 w-full rounded-md border p-2">
+                <div className="flex flex-col gap-2">
+                  {selectedPart.itens_relacionados.map(relatedCode => {
+                    const relatedPart = allAvailableParts.find(p => p.codigo === relatedCode);
+                    if (relatedPart) {
+                      const formattedString = formatRelatedPartString(relatedPart);
+                      return <RelatedPartDisplay key={relatedCode} formattedString={formattedString} />;
+                    }
+                    return <RelatedPartDisplay key={relatedCode} formattedString={`${relatedCode}|${relatedCode}|`} />;
+                  })}
+                </div>
+              </ScrollArea>
             </div>
           )}
           <div>
