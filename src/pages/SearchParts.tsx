@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Search, Tag } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import RelatedPartDisplay from '@/components/RelatedPartDisplay'; // Importado o novo componente
 
 const SearchParts = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,7 +75,7 @@ const SearchParts = () => {
                       <TableHead>Nome</TableHead>
                       <TableHead>Descrição</TableHead>
                       <TableHead>Tags</TableHead>
-                      <TableHead>Relacionados</TableHead> {/* NOVA COLUNA */}
+                      <TableHead>Relacionados</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -95,8 +96,12 @@ const SearchParts = () => {
                               <PopoverContent className="w-auto max-w-xs p-2">
                                 <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
                                 <ScrollArea className="h-24">
-                                  <ul className="list-disc list-inside text-xs text-muted-foreground">
-                                    {part.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)}
+                                  <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                                    {part.itens_relacionados.map(rel => (
+                                      <li key={rel} className="list-none ml-0">
+                                        <RelatedPartDisplay formattedString={rel} />
+                                      </li>
+                                    ))}
                                   </ul>
                                 </ScrollArea>
                               </PopoverContent>
