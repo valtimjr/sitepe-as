@@ -679,14 +679,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                     return (
                       <TableRow key={item.id} className="bg-muted/50 border-y-2 border-dashed" draggable onDragStart={(e) => handleDragStart(e, item)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, item)} onDragLeave={handleDragLeave} onDragEnd={handleDragEnd} data-id={item.id}>
                         <TableCell className="w-[30px] p-2 cursor-grab"><GripVertical className="h-4 w-4" /></TableCell>
-                        <TableCell colSpan={3} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
+                        <TableCell colSpan={2} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
                           <Separator className="my-0 bg-foreground/50 h-px" />
                         </TableCell>
                         <TableCell className="w-[70px] p-2 text-right">
                           <div className="flex justify-end items-center gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
                             <AlertDialog>
                               <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                               <AlertDialogContent>
@@ -704,14 +704,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                     return (
                       <TableRow key={item.id} className="bg-accent/10 hover:bg-accent/50 border-y-2 border-primary/50" draggable onDragStart={(e) => handleDragStart(e, item)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, item)} onDragLeave={handleDragLeave} onDragEnd={handleDragEnd} data-id={item.id}>
                         <TableCell className="w-[30px] p-2 cursor-grab"><GripVertical className="h-4 w-4" /></TableCell>
-                        <TableCell colSpan={3} className="text-left font-bold text-lg text-primary p-2">
+                        <TableCell colSpan={2} className="text-left font-bold text-lg text-primary p-2">
                           {item.item_name}
                         </TableCell>
                         <TableCell className="w-[70px] p-2 text-right">
                           <div className="flex justify-end items-center gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
                             <AlertDialog>
                               <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                               <AlertDialogContent>
@@ -778,58 +778,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                           </div>
                       </TableCell>
                       <TableCell className="w-[70px] p-2 text-right">
-                        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleMoveItem(item, 'up')}
-                                disabled={index === 0}
-                              >
-                                <ArrowUp className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Mover para Cima</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleMoveItem(item, 'down')}
-                                disabled={index === items.length - 1}
-                              >
-                                <ArrowDown className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Mover para Baixo</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Editar Item</TooltipContent>
-                          </Tooltip>
+                        <div className="flex justify-end items-center gap-1">
+                          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
+                          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
+                          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
                           <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-destructive h-8 w-8">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
+                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                             <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta ação irá remover o item "{item.item_name}" da lista. Esta ação não pode ser desfeita.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction>
-                              </AlertDialogFooter>
+                              <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o item "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
+                              <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
                         </div>
