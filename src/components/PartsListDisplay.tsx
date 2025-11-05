@@ -32,6 +32,7 @@ import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { cn } from '@/lib/utils'; // Importar cn
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
@@ -526,7 +527,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                                 searchResults={searchResultsForEdit}
                                 onSelectPart={handleSelectPartForEdit} // Atualiza os campos de código/descrição e limpa a busca
                                 searchQuery={searchQueryForEdit} // Exibe a query de busca
-                                allParts={allAvailableParts}
+                                // Removido allParts
                                 isLoading={isLoadingParts}
                               />
                               <div className="grid grid-cols-3 gap-2"> {/* Layout para Código e Descrição */}
@@ -617,8 +618,12 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                                   <PopoverContent className="w-auto max-w-xs p-2">
                                     <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
                                     <ScrollArea className="h-24">
-                                      <ul className="list-disc list-inside text-xs text-muted-foreground">
-                                        {relatedItems.map(rel => <li key={rel}>{rel}</li>)}
+                                      <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                                        {relatedItems.map(rel => (
+                                          <li key={rel} className="list-none ml-0">
+                                            <RelatedPartDisplay formattedString={rel} />
+                                          </li>
+                                        ))}
                                       </ul>
                                     </ScrollArea>
                                   </PopoverContent>
@@ -682,7 +687,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                           searchResults={inlineSearchResults}
                           onSelectPart={handleSelectPartForInlineAdd}
                           searchQuery={inlineSearchQuery}
-                          allParts={allAvailableParts}
+                          // Removido allParts
                           isLoading={isLoadingParts}
                         />
                         <div className="grid grid-cols-3 gap-2"> {/* Layout para Código e Descrição */}

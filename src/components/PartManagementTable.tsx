@@ -40,6 +40,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import PartSearchInput from './PartSearchInput';
+import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 
 // Função auxiliar para obter valor de uma linha, ignorando case e variações
 const getRowValue = (row: any, keys: string[]): string | undefined => {
@@ -99,23 +100,6 @@ const PartManagementTable: React.FC = () => {
     
     // Formato: CÓDIGO | NOME/DESCRIÇÃO PRINCIPAL | DESCRIÇÃO SECUNDÁRIA
     return `${part.codigo}|${mainText}|${subText}`;
-  };
-
-  // Função auxiliar para desformatar a string de exibição
-  const displayRelatedPartString = (formattedString: string): React.ReactNode => {
-    const parts = formattedString.split('|');
-    const codigo = parts[0];
-    const mainText = parts[1];
-    const subText = parts[2];
-
-    return (
-      <div className="flex flex-col items-start">
-        <span className="font-medium text-sm">{codigo} - {mainText}</span>
-        {subText && subText.trim() !== '' && (
-          <span className="text-xs italic text-muted-foreground">{subText}</span>
-        )}
-      </div>
-    );
   };
 
   const loadParts = useCallback(async (query: string, page: number) => {
@@ -1009,7 +993,9 @@ const PartManagementTable: React.FC = () => {
                       >
                         <div className="flex items-center gap-1 truncate">
                           <GripVertical className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{displayRelatedPartString(formattedString)}</span>
+                          <span className="truncate">
+                            <RelatedPartDisplay formattedString={formattedString} />
+                          </span>
                         </div>
                         <Button
                           type="button"
