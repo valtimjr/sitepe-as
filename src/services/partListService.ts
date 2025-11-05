@@ -48,83 +48,30 @@ const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
   return rest;
 };
 
-const seedPartsFromJson = async (): Promise<void> => {
-  // Primeiro, verifica se há peças no Supabase
-  const { count: supabasePartsCount, error: countError } = await supabase
-    .from('parts')
-    .select('*', { count: 'exact' });
-
-  if (countError) {
-    // Fallback para IndexedDB para verificar se já há dados localmente
-    const localPartsCount = await localDb.parts.count();
-    if (localPartsCount > 0) {
-      return;
-    }
-  }
-
-  if (supabasePartsCount && supabasePartsCount > 0) {
-    return;
-  }
-
+const seedPartsFromFile = async (): Promise<Part[]> => {
   try {
-    const response = await fetch('/data/parts.json'); // Caminho atualizado
+    const response = await fetch('/data/parts.json');
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const parsedParts: Part[] = await response.json();
-
-    // Adiciona ao Supabase
-    const { error: insertError } = await supabase
-      .from('parts')
-      .insert(parsedParts);
-
-    if (insertError) {
-      throw insertError;
-    }
-
-    // Também adiciona ao IndexedDB para cache local
-    await bulkPutLocalParts(parsedParts);
-
+    return await response.json();
   } catch (error) {
-    console.error("[seedPartsFromJson] Falha ao buscar ou analisar parts.json ou popular Supabase/IndexedDB:", error);
+    console.error("[seedPartsFromFile] Failed to fetch or parse parts.json:", error);
+    return [];
   }
 };
 
-const seedAfs = async (): Promise<void> => {
-  // 1. Primeiro, verifica se há AFs no Supabase
-  const { count: supabaseAfsCount, error: countError } = await supabase
-    .from('afs')
-    .select('*', { count: 'exact' });
-
-  if (countError) {
-    // Se houver erro ao contar, tenta carregar do IndexedDB como fallback
-    const localAfsCount = await localDb.afs.count();
-    if (localAfsCount > 0) {
-      return;
-    }
-  }
-
-  if (supabaseAfsCount && supabaseAfsCount > 0) {
-    return;
-  }
-
+const seedAfsFromFile = async (): Promise<Af[]> => {
   let parsedAfs: Af[] = [];
-  let source = '';
-
-  // 2. Tenta carregar do public/data/afs.json
   try {
-    const response = await fetch('/data/afs.json'); // Caminho atualizado
-    if (!response.ok) {
-      // console.warn('[seedAfs] Falha ao buscar afs.json, tentando CSV. Status:', response.status);
-    } else {
+    const response = await fetch('/data/afs.json');
+    if (response.ok) {
       parsedAfs = await response.json();
-      source = 'JSON';
     }
   } catch (jsonError) {
-    // console.warn('[seedAfs] Erro ao buscar afs.json, tentando CSV:', jsonError);
+    // console.warn('[seedAfsFromFile] Erro ao buscar afs.json, tentando CSV:', jsonError);
   }
 
-  // 3. Se JSON falhou ou estava vazio, tenta carregar do public/afs.csv
   if (parsedAfs.length === 0) {
     try {
       const response = await fetch('/afs.csv');
@@ -137,10 +84,9 @@ const seedAfs = async (): Promise<void> => {
             complete: (results: any) => {
               parsedAfs = results.data.map((row: any) => ({
                 id: row.id || uuidv4(),
-                af_number: row.af_number || row.codigo || row.AF, // Suporte a 'codigo' ou 'AF'
-                descricao: row.descricao || row.description || '', // Suporte a 'descricao' ou 'description'
-              })).filter(af => af.af_number);
-              source = 'CSV';
+                af_number: row.af_number || row.codigo || row.AF,
+                descricao: row.descricao || row.description || '',
+              })).filter((af: any) => af.af_number);
               resolve();
             },
             error: (error: Error) => {
@@ -148,33 +94,12 @@ const seedAfs = async (): Promise<void> => {
             }
           });
         });
-      } else {
-        throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch (csvError) {
-      console.error("[seedAfs] Falha ao buscar ou analisar afs.csv:", csvError);
+      console.error("[seedAfsFromFile] Falha ao buscar ou analisar afs.csv:", csvError);
     }
   }
-
-  // 4. Se dados foram encontrados, adiciona ao Supabase e IndexedDB
-  if (parsedAfs.length > 0) {
-    try {
-      const { error: upsertError } = await supabase
-        .from('afs')
-        .upsert(parsedAfs, { onConflict: 'af_number' }); // ALTERADO: Usando af_number como chave de conflito
-
-      if (upsertError) {
-        console.error('seedAfs: Failed to upsert AFs to Supabase:', upsertError);
-        throw upsertError;
-      }
-
-      await bulkPutLocalAfs(parsedAfs);
-    } catch (dbError) {
-      console.error("seedAfs: Failed to seed Supabase/IndexedDB with AFs:", dbError);
-    }
-  } else {
-    // console.warn('seedAfs: No AFs found in JSON or CSV to seed.');
-  }
+  return parsedAfs;
 };
 
 /**
@@ -185,8 +110,6 @@ const seedAfs = async (): Promise<void> => {
  * @returns Um objeto contendo as peças e a contagem total.
  */
 export const searchPartsPaginated = async (query: string, page: number = 1, pageSize: number = 50): Promise<{ parts: Part[], totalCount: number }> => {
-  await seedPartsFromJson();
-
   const lowerCaseQuery = query.toLowerCase().trim();
   const offset = (page - 1) * pageSize;
 
@@ -224,7 +147,7 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
   let results = data as Part[];
   const totalCount = count || 0;
 
-  // 2. Ordenação no cliente para aplicar a prioridade correta na página atual
+  // 2. Ordenação no cliente (para garantir consistência com a busca local)
   const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
     if (!fieldValue) return 0;
     const lowerFieldValue = fieldValue.toLowerCase();
@@ -232,9 +155,9 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
     if (isMultiWord) {
       return regex.test(lowerFieldValue) ? 1 : 0;
     } else {
-      if (lowerFieldValue === query) return 4; // Correspondência exata
-      if (lowerFieldValue.startsWith(query)) return 3; // Começa com
-      if (lowerFieldValue.includes(query)) return 2; // Inclui
+      if (lowerFieldValue === query) return 3;
+      if (lowerFieldValue.startsWith(query)) return 2;
+      if (lowerFieldValue.includes(query)) return 1;
     }
     return 0;
   };
@@ -276,8 +199,6 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
  * @returns Array de Part[].
  */
 export const searchParts = async (query: string): Promise<Part[]> => {
-  await seedPartsFromJson();
-
   const lowerCaseQuery = query.toLowerCase().trim();
   if (!lowerCaseQuery) return [];
 
@@ -349,44 +270,40 @@ export const searchParts = async (query: string): Promise<Part[]> => {
  * Função de conveniência para obter todas as peças (sem paginação) para cache/exportação.
  */
 export const getParts = async (): Promise<Part[]> => {
-  // --- Lógica para obter TODAS as peças (sem query) com verificação de atualização ---
-
   const localParts = await getLocalParts();
-  let needsUpdate = false;
-
-  if (localParts.length === 0) {
-    needsUpdate = true;
-  } else {
-    // Verifica a contagem remota para decidir se precisa atualizar
-    try {
-      const { count: remoteCount, error: countError } = await supabase
-        .from('parts')
-        .select('*', { count: 'exact' });
-
-      if (countError) {
-        // Em caso de erro na contagem remota, assume que o cache local é válido para evitar falha total.
-      } else if (remoteCount !== null && localParts.length !== remoteCount) {
-        needsUpdate = true;
+  if (localParts.length > 0) {
+    (async () => {
+      try {
+        const allRemoteParts = await getAllPartsForExport();
+        if (allRemoteParts.length !== localParts.length) {
+          await localDb.parts.clear();
+          await bulkPutLocalParts(allRemoteParts);
+        }
+      } catch (e) {
+        console.warn('Background parts sync failed:', e);
       }
-    } catch (e) {
-      // console.warn('[getParts] Erro inesperado ao verificar contagem remota. Assumindo que o cache local está bom:', e);
-    }
+    })();
+    return localParts;
   }
 
-  if (needsUpdate) {
-    try {
-      const allRemoteParts = await getAllPartsForExport(); // Esta função já lida com paginação
-      
-      // Atualiza o cache local
-      await localDb.parts.clear();
+  try {
+    const allRemoteParts = await getAllPartsForExport();
+    if (allRemoteParts.length > 0) {
       await bulkPutLocalParts(allRemoteParts);
       return allRemoteParts;
-    } catch (error) {
-      console.error('[getParts] Erro ao buscar TODAS as peças do Supabase para atualização:', error);
-      throw new Error(`Erro ao buscar todas as peças do Supabase: ${error.message}`);
     }
-  } else {
-    return localParts;
+
+    const partsFromFile = await seedPartsFromFile();
+    if (partsFromFile.length > 0) {
+      const { error: upsertError } = await supabase.from('parts').upsert(partsFromFile, { onConflict: 'id' });
+      if (upsertError) throw upsertError;
+      await bulkPutLocalParts(partsFromFile);
+      return partsFromFile;
+    }
+    return [];
+  } catch (error) {
+    console.error('[getParts] Erro ao buscar peças:', error);
+    return [];
   }
 };
 
@@ -475,26 +392,45 @@ export const deletePart = async (id: string): Promise<void> => {
 
 // --- Funções para AFs ---
 export const getAfsFromService = async (): Promise<Af[]> => {
-  await seedAfs(); // Garante que o Supabase esteja populado
-
-  const { data, error } = await supabase
-    .from('afs')
-    .select('*')
-    .order('af_number', { ascending: true }) // Ordena por número de AF
-    .limit(1000); // Limite de 1000 para exibição
-
-  if (error) {
-    console.error('[getAfsFromService] Erro ao buscar AFs do Supabase:', error);
-    // Fallback para IndexedDB se Supabase falhar
-    // console.log('[getAfsFromService] Tentando fallback para IndexedDB...');
-    const localAfs = await getLocalAfs();
+  const localAfs = await getLocalAfs();
+  if (localAfs.length > 0) {
+    (async () => {
+      try {
+        const { data, error } = await supabase.from('afs').select('*').order('af_number', { ascending: true });
+        if (error) throw error;
+        if (data.length !== localAfs.length) {
+          await localDb.afs.clear();
+          await bulkPutLocalAfs(data as Af[]);
+        }
+      } catch (e) {
+        console.warn('Background AF sync failed:', e);
+      }
+    })();
     return localAfs;
   }
 
-  // Atualiza o cache local com os dados do Supabase
-  await localDb.afs.clear();
-  await bulkPutLocalAfs(data as Af[]);
-  return data as Af[];
+  try {
+    const { data, error } = await supabase.from('afs').select('*').order('af_number', { ascending: true });
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      await bulkPutLocalAfs(data as Af[]);
+      return data as Af[];
+    }
+
+    const afsFromFile = await seedAfsFromFile();
+    if (afsFromFile.length > 0) {
+      const { error: upsertError } = await supabase.from('afs').upsert(afsFromFile, { onConflict: 'af_number' });
+      if (upsertError) throw upsertError;
+      await bulkPutLocalAfs(afsFromFile);
+      return afsFromFile;
+    }
+
+    return [];
+  } catch (error) {
+    console.error('[getAfsFromService] Erro ao buscar AFs:', error);
+    return [];
+  }
 };
 
 export const getAllAfsForExport = async (): Promise<Af[]> => {
