@@ -99,18 +99,30 @@ export const generatePartsListPdf = (listItems: SimplePartItem[], title: string 
   doc.text(title, 14, currentY); // Usa o título fornecido como título principal
   currentY += 8;
 
-  // Colunas simplificadas para a lista de peças
-  const tableColumn = ["Código da Peça", "Descrição", "Quantidade", "AF"]; // AF movido para o final
+  // Colunas: Código da Peça, Nome, Quantidade, Descrição
+  const tableColumn = ["Cód. Peça", "Nome", "Quantidade", "Descrição", "AF"];
   const tableRows: (string | number | undefined)[][] = [];
 
   listItems.forEach(item => {
     const itemData = [
       item.codigo_peca || 'N/A',
-      item.descricao || 'N/A',
+      item.descricao || 'N/A', // Descrição temporariamente aqui para obter o nome
       item.quantidade ?? 'N/A',
-      item.af || '', // AF movido para o final
+      item.descricao || 'N/A',
+      item.af || '',
     ];
-    tableRows.push(itemData);
+    
+    // Tenta obter o nome da peça (se disponível)
+    const part = localDb.parts.where('codigo').equals(item.codigo_peca || '').first();
+    
+    // Ajusta a ordem dos dados para a tabela
+    tableRows.push([
+      item.codigo_peca || 'N/A',
+      (item as any).name || (part as any)?.name || 'N/A', // Adiciona o campo Nome
+      item.quantidade ?? 'N/A',
+      item.descricao || 'N/A',
+      item.af || '',
+    ]);
   });
 
   (doc as any).autoTable({
@@ -134,7 +146,8 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   doc.text(title, 14, currentY);
   currentY += 8;
 
-  const tableColumn = ["Qtd", "Nome", "Cód. Peça", "Descrição"];
+  // Colunas: Cód. Peça, Nome, Quantidade, Descrição
+  const tableColumn = ["Cód. Peça", "Nome", "Quantidade", "Descrição"];
   const tableRows: any[] = [];
 
   listItems.forEach(item => {
@@ -155,10 +168,10 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
     // Item normal
     const itemData = [
-      item.quantity,
-      item.item_name,
-      item.part_code || 'N/A',
-      item.description || 'N/A',
+      item.part_code || 'N/A', // Cód. Peça
+      item.item_name, // Nome (Item Name)
+      item.quantity, // Quantidade
+      item.description || 'N/A', // Descrição
     ];
     tableRows.push(itemData);
   });
@@ -252,6 +265,7 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
   const titleLines = title.split('\n').filter(line => line.trim() !== '');
   
   if (titleLines.length > 0) {
+    const mainTitle = titleLines[0];
     // Linha 1: Título Principal (Apontamento de Horas - Mês Ano)
     doc.setFontSize(14); // Reduzido de 18 para 14
     doc.setFont(undefined, 'bold');
