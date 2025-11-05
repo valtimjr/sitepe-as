@@ -71,7 +71,9 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   // Função centralizada para carregar todos os dados
   const loadAllData = useCallback(async (initialCall: boolean, currentSession?: Session | null) => {
-    setIsLoadingSessionAndProfile(true);
+    if (initialCall) {
+      setIsLoadingSessionAndProfile(true);
+    }
     let sessionToUse = currentSession;
     let userToUse: User | null = null;
 
