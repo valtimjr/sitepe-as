@@ -253,7 +253,8 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
       const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
       if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
-
+      
+      // Name can be a fallback or grouped with description. Let's put it last.
       const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
       if (aNameScore !== bNameScore) return bNameScore - aNameScore;
