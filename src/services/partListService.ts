@@ -197,8 +197,9 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
 
   if (lowerCaseQuery) {
     const searchPattern = lowerCaseQuery.split(/\s+/).filter(Boolean).join('%');
+    // MODIFICADO: Usa 'starts with' (ilike.${pattern}%) para o código para priorizá-lo.
     queryBuilder = queryBuilder.or(
-      `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
+      `codigo.ilike.${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
     );
   }
 
@@ -274,28 +275,57 @@ export const searchParts = async (query: string): Promise<Part[]> => {
 
   const lowerCaseQuery = query.toLowerCase().trim();
 
-  let queryBuilder = supabase
+  if (!lowerCaseQuery) {
+    return [];
+  }
+
+  // --- Nova lógica com busca priorizada ---
+
+  // 1. Busca por correspondências onde o código COMEÇA COM a consulta.
+  const { data: codeMatches, error: codeError } = await supabase
     .from('parts')
     .select('*')
-    .limit(1000); // Limite de 1000 para exibição em busca interativa
+    .ilike('codigo', `${lowerCaseQuery}%`)
+    .limit(50);
 
-  if (lowerCaseQuery) {
-    const searchPattern = lowerCaseQuery.split(/\s+/).filter(Boolean).join('%');
+  if (codeError) {
+    console.error('[searchParts] Erro ao buscar por código no Supabase:', codeError);
+    // Fallback para busca local em caso de erro
+    return searchLocalParts(query);
+  }
+
+  const resultsMap = new Map<string, Part>();
+  (codeMatches || []).forEach(part => resultsMap.set(part.id, part));
+
+  // 2. Se tivermos poucos resultados, expande a busca para outros campos e 'contém' em todos os campos.
+  const remainingLimit = 100 - resultsMap.size;
+  if (remainingLimit > 0) {
+    const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
     
-    queryBuilder = queryBuilder.or(
-      `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
-    );
+    let otherQueryBuilder = supabase
+      .from('parts')
+      .select('*')
+      .or(`codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},name.ilike.${searchPattern},tags.ilike.${searchPattern}`)
+      .limit(remainingLimit);
+
+    // Exclui IDs que já foram encontrados
+    if (resultsMap.size > 0) {
+      otherQueryBuilder = otherQueryBuilder.not('id', 'in', `(${Array.from(resultsMap.keys()).join(',')})`);
+    }
+
+    const { data: otherMatches, error: otherError } = await otherQueryBuilder;
+
+    if (otherError) {
+      console.error('[searchParts] Erro ao buscar por outros campos no Supabase:', otherError);
+      // Retorna o que já temos, ordenado
+    } else if (otherMatches) {
+      otherMatches.forEach(part => resultsMap.set(part.id, part));
+    }
   }
 
-  const { data, error } = await queryBuilder;
+  let results = Array.from(resultsMap.values());
 
-  if (error) {
-    console.error('[searchParts] Erro ao buscar peças no Supabase:', error);
-    const localResults = await searchLocalParts(query);
-    return localResults;
-  }
-
-  let results = data as Part[];
+  // --- Fim da nova lógica ---
 
   // Helper para determinar a qualidade da correspondência em um campo
   const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
@@ -305,9 +335,9 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     if (isMultiWord) {
       return regex.test(lowerFieldValue) ? 1 : 0;
     } else {
-      if (lowerFieldValue === query) return 3;
-      if (lowerFieldValue.startsWith(query)) return 2;
-      if (lowerFieldValue.includes(query)) return 1;
+      if (lowerFieldValue === query) return 3; // Correspondência exata
+      if (lowerFieldValue.startsWith(query)) return 2; // Começa com
+      if (lowerFieldValue.includes(query)) return 1; // Inclui
     }
     return 0;
   };
@@ -319,19 +349,24 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
 
     results.sort((a, b) => {
-      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-
-      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-
-      if (aNameScore !== bNameScore) return bNameScore - aNameScore;
-      if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
+      // Prioriza fortemente correspondências de código
       if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
+
+      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      // Depois, nome
+      if (aNameScore !== bNameScore) return bNameScore - aNameScore;
+
+      const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      // Depois, tags
+      if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
+
+      const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      // Por último, descrição
       if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
 
       return 0;
