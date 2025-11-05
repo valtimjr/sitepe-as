@@ -26,7 +26,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Importar Popover
 import PartSearchInput from './PartSearchInput';
 import {
@@ -43,6 +43,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
+import { useSession } from './SessionContextProvider';
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -95,7 +96,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   // Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
   const formatRelatedPartString = (part: Part): string => {
     const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
-    const subText = part.name && part.name.trim() !== '' ? part.descricao : '';
+    const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
     
     // Formato: CÓDIGO | NOME/DESCRIÇÃO PRINCIPAL | DESCRIÇÃO SECUNDÁRIA
     return `${part.codigo}|${mainText}|${subText}`;
