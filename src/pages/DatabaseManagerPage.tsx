@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, LogOut, Database, Menu, List as ListIcon } from 'lucide-react';
@@ -18,40 +18,39 @@ const DATABASE_MANAGER_ACTIVE_TAB_KEY = 'database_manager_active_tab';
 const DatabaseManagerPage: React.FC = () => {
   const { isLoading, checkPageAccess, profile } = useSession();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<string>('');
 
   useEffect(() => {
     document.title = "Gerenciador de Banco de Dados - Gerenciador de Peças";
   }, []);
 
-  const canAccessMenuManager = checkPageAccess('/menu-manager');
-  const isAdmin = profile?.role === 'admin';
-  
-  // Define quais abas serão visíveis
-  const visibleTabs = [
-    ...(isAdmin ? ['parts', 'afs', 'invites'] : []),
-    ...(canAccessMenuManager ? ['menu'] : []),
-  ];
-
-  // Define o valor padrão da aba para a primeira aba visível
-  const defaultTab = visibleTabs[0];
-
-  // Estado para a aba ativa, lendo do localStorage ou usando o padrão
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    const savedTab = localStorage.getItem(DATABASE_MANAGER_ACTIVE_TAB_KEY);
-    // Verifica se a aba salva é uma das abas visíveis para o usuário atual
-    if (savedTab && visibleTabs.includes(savedTab)) {
-      return savedTab;
+  const { visibleTabs, defaultTab } = useMemo(() => {
+    if (isLoading) {
+      return { visibleTabs: [], defaultTab: '' };
     }
-    return defaultTab;
-  });
+    const isAdmin = profile?.role === 'admin';
+    const canAccessMenuManager = checkPageAccess('/menu-manager');
+    const tabs = [
+      ...(isAdmin ? ['parts', 'afs', 'invites'] : []),
+      ...(canAccessMenuManager ? ['menu'] : []),
+    ];
+    return { visibleTabs: tabs, defaultTab: tabs[0] || '' };
+  }, [isLoading, profile, checkPageAccess]);
 
-  // Atualiza a aba ativa se as ababas visíveis mudarem (ex: mudança de perfil)
   useEffect(() => {
-    if (!visibleTabs.includes(activeTab)) {
-      setActiveTab(defaultTab);
-      localStorage.setItem(DATABASE_MANAGER_ACTIVE_TAB_KEY, defaultTab);
+    if (!isLoading) {
+      if (visibleTabs.length === 0) return;
+
+      const savedTab = localStorage.getItem(DATABASE_MANAGER_ACTIVE_TAB_KEY);
+
+      if (savedTab && visibleTabs.includes(savedTab)) {
+        setActiveTab(savedTab);
+      } else {
+        setActiveTab(defaultTab);
+        localStorage.setItem(DATABASE_MANAGER_ACTIVE_TAB_KEY, defaultTab);
+      }
     }
-  }, [visibleTabs, activeTab, defaultTab]);
+  }, [isLoading, visibleTabs, defaultTab]);
 
   if (isLoading) {
     return (
@@ -61,12 +60,10 @@ const DatabaseManagerPage: React.FC = () => {
     );
   }
   
-  // Se não houver abas visíveis, o usuário não deveria estar aqui (mas o SessionContextProvider já lida com o redirecionamento)
   if (visibleTabs.length === 0) {
-    return null;
+    return null; // Redirection is handled by SessionContextProvider
   }
 
-  // Define as classes de coluna dinamicamente
   const totalVisibleTabs = visibleTabs.length;
   const gridColsClass = totalVisibleTabs === 4 ? 'grid-cols-2 md:grid-cols-4' : 
                         totalVisibleTabs === 3 ? 'grid-cols-3' : 
@@ -89,10 +86,10 @@ const DatabaseManagerPage: React.FC = () => {
         className="w-full max-w-6xl"
       >
         <TabsList className={cn("grid w-full h-auto mb-4", gridColsClass)}>
-          {isAdmin && <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>}
-          {canAccessMenuManager && (
+          {visibleTabs.includes('parts') && <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>}
+          {visibleTabs.includes('afs') && <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>}
+          {visibleTabs.includes('invites') && <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>}
+          {visibleTabs.includes('menu') && (
             <TabsTrigger value="menu">
               <div className="flex items-center justify-center gap-2">
                 <Menu className="h-4 w-4" /> Menus & Listas
@@ -101,23 +98,22 @@ const DatabaseManagerPage: React.FC = () => {
           )}
         </TabsList>
         
-        {/* Renderização condicional do conteúdo das abas */}
-        {isAdmin && activeTab === 'parts' && (
+        {visibleTabs.includes('parts') && (
           <TabsContent value="parts">
             <PartManagementTable />
           </TabsContent>
         )}
-        {isAdmin && activeTab === 'afs' && (
+        {visibleTabs.includes('afs') && (
           <TabsContent value="afs">
             <AfManagementTable />
           </TabsContent>
         )}
-        {isAdmin && activeTab === 'invites' && (
+        {visibleTabs.includes('invites') && (
           <TabsContent value="invites">
             <InviteManager />
           </TabsContent>
         )}
-        {canAccessMenuManager && activeTab === 'menu' && (
+        {visibleTabs.includes('menu') && (
           <TabsContent value="menu">
             <MenuManagerPage isEmbedded={true} />
           </TabsContent>
