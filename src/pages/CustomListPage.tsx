@@ -204,7 +204,7 @@ const CustomListPage: React.FC = () => {
 
   const selectableItems = useMemo(() => items.filter(i => i.type === 'item'), [items]);
   const isAllSelected = selectableItems.length > 0 && selectedItemIds.size === selectableItems.length;
-  const isIndeterminate = selectedItemIds.size > 0 && selectedItemIds.size < selectableItems.length;
+  const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
 
   // --- Exportar Selecionados para Minha Lista ---
   const handleExportSelectedToMyList = () => {
@@ -433,7 +433,7 @@ const CustomListPage: React.FC = () => {
                     <TableRow>
                       <TableHead className="w-[40px] p-2">
                         <Checkbox
-                          checked={isAllSelected}
+                          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
                           onCheckedChange={(checked) => handleSelectAll(checked === true)}
                           aria-label="Selecionar todos os itens"
                         />
