@@ -206,6 +206,31 @@ const CustomListPage: React.FC = () => {
     });
   };
 
+  const handleSubtitleSelect = (subtitleItem: CustomListItem, isChecked: boolean) => {
+    const startIndex = items.findIndex(item => item.id === subtitleItem.id);
+    if (startIndex === -1) return;
+
+    let endIndex = items.findIndex((item, index) => index > startIndex && item.type === 'subtitle');
+    if (endIndex === -1) {
+      endIndex = items.length;
+    }
+
+    const itemsInGroup = items.slice(startIndex, endIndex);
+    const selectableIdsInGroup = itemsInGroup
+      .filter(item => item.type === 'item')
+      .map(item => item.id);
+
+    setSelectedItemIds(prev => {
+      const newSelection = new Set(prev);
+      if (isChecked) {
+        selectableIdsInGroup.forEach(id => newSelection.add(id));
+      } else {
+        selectableIdsInGroup.forEach(id => newSelection.delete(id));
+      }
+      return newSelection;
+    });
+  };
+
   // --- Exportar Selecionados para Minha Lista ---
   const handleExportSelectedToMyList = () => {
     if (selectedItemIds.size === 0) {
@@ -266,10 +291,32 @@ const CustomListPage: React.FC = () => {
     }
 
     if (isSubtitle) {
+      const startIndex = items.findIndex(i => i.id === item.id);
+      let endIndex = items.findIndex((i, idx) => idx > startIndex && i.type === 'subtitle');
+      if (endIndex === -1) endIndex = items.length;
+
+      const groupSelectableItems = items.slice(startIndex, endIndex).filter(i => i.type === 'item');
+      const selectedInGroupCount = groupSelectableItems.filter(i => selectedItemIds.has(i.id)).length;
+
+      const isGroupAllSelected = groupSelectableItems.length > 0 && selectedInGroupCount === groupSelectableItems.length;
+      const isGroupIndeterminate = selectedInGroupCount > 0 && !isGroupAllSelected;
+
       return (
         <TableRow key={item.id} className="bg-accent/10 border-y border-primary/50">
-          <TableCell colSpan={4} className="text-left font-bold text-lg text-primary p-2">
+          <TableCell className="w-[40px] p-2">
+            {groupSelectableItems.length > 0 && (
+              <Checkbox
+                checked={isGroupAllSelected ? true : isGroupIndeterminate ? 'indeterminate' : false}
+                onCheckedChange={(checked) => handleSubtitleSelect(item, checked === true)}
+                aria-label={`Selecionar todos os itens em ${item.item_name}`}
+              />
+            )}
+          </TableCell>
+          <TableCell colSpan={2} className="text-left font-bold text-lg text-primary p-2">
             {item.item_name}
+          </TableCell>
+          <TableCell className="w-[70px] p-2 text-right">
+            {/* Ações para subtítulo podem ser adicionadas aqui se necessário */}
           </TableCell>
         </TableRow>
       );
