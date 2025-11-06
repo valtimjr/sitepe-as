@@ -12,6 +12,8 @@ import { useSession } from '@/components/SessionContextProvider';
 import { SimplePartItem } from '@/services/localDbService';
 import RelatedPartDisplay from './RelatedPartDisplay';
 import { ScrollArea } from './ui/scroll-area';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 
 interface PartItemFormProps {
   onItemAdded: () => void;
@@ -31,6 +33,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const [isLoadingParts, setIsLoadingParts] = useState(false);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -275,7 +278,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               <Label className="flex items-center gap-2">
                 <Tag className="h-4 w-4" /> Itens Relacionados da Peça
               </Label>
-              <ScrollArea className="h-24 w-full rounded-md border p-2">
+              <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
                 <div className="flex flex-col gap-2">
                   {selectedPart.itens_relacionados.map(relatedCode => {
                     const relatedPart = allAvailableParts.find(p => p.codigo === relatedCode);

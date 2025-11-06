@@ -360,13 +360,15 @@ const CustomListPage: React.FC = () => {
                   </PopoverTrigger>
                   <PopoverContent className="w-auto max-w-xs p-2">
                     <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                    <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
-                      {item.itens_relacionados.map(rel => (
-                        <li key={rel.codigo} className="list-none ml-0">
-                          <RelatedPartDisplay item={rel} />
-                        </li>
-                      ))}
-                    </ul>
+                    <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
+                      <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                        {item.itens_relacionados.map(rel => (
+                          <li key={rel.codigo} className="list-none ml-0">
+                            <RelatedPartDisplay item={rel} />
+                          </li>
+                        ))}
+                      </ul>
+                    </ScrollArea>
                   </PopoverContent>
                 </Popover>
               )}

@@ -76,15 +76,17 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
                   <Info className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
+              <TooltipContent className="max-w-xs p-2">
                 <p className="font-bold mb-1">Itens Relacionados:</p>
-                <ul className="list-disc list-inside">
-                  {item.itens_relacionados.map(rel => (
-                    <li key={rel.codigo} className="list-none ml-0">
-                      <RelatedPartDisplay item={rel} />
-                    </li>
-                  ))}
-                </ul>
+                <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
+                  <ul className="list-disc list-inside">
+                    {item.itens_relacionados.map(rel => (
+                      <li key={rel.codigo} className="list-none ml-0">
+                        <RelatedPartDisplay item={rel} />
+                      </li>
+                    ))}
+                  </ul>
+                </ScrollArea>
               </TooltipContent>
             </Tooltip>
           </div>

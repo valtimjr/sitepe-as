@@ -792,13 +792,15 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto max-w-xs p-2">
                                   <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                                  <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
-                                    {item.itens_relacionados.map(rel => (
-                                      <li key={rel.codigo} className="list-none ml-0">
-                                        <RelatedPartDisplay item={rel} />
-                                      </li>
-                                    ))}
-                                  </ul>
+                                  <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
+                                    <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                                      {item.itens_relacionados.map(rel => (
+                                        <li key={rel.codigo} className="list-none ml-0">
+                                          <RelatedPartDisplay item={rel} />
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </ScrollArea>
                                 </PopoverContent>
                               </Popover>
                             )}
@@ -991,7 +993,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   </Button>
                 </div>
               </div>
-              <ScrollArea className="h-24 w-full rounded-md border p-2">
+              <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
                 {formItensRelacionados.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
                 ) : (
