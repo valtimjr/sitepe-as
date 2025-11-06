@@ -332,30 +332,36 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     const siblings = [...items];
     const currentIndex = siblings.findIndex(i => i.id === item.id);
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-
+  
     if (targetIndex < 0 || targetIndex >= siblings.length) return;
-
+  
+    // Reordena o array localmente
     const [removed] = siblings.splice(currentIndex, 1);
     siblings.splice(targetIndex, 0, removed);
-
+  
+    // Re-indexa o array inteiro para garantir consistência
     const updatedItemsWithNewOrder = siblings.map((reorderedItem, index) => ({
       ...reorderedItem,
       order_index: index,
     }));
-    
+  
+    // Atualiza a UI imediatamente para feedback visual
     setItems(updatedItemsWithNewOrder);
-
+  
     const loadingToastId = showLoading('Reordenando itens...');
-
+  
     try {
+      // Envia o array completo e re-indexado para o Supabase em uma única operação
       await updateAllCustomListItems(list.id, updatedItemsWithNewOrder);
-
+  
       showSuccess('Ordem atualizada!');
-      await loadItems();
+      await loadItems(); // Recarrega do Supabase para garantir consistência
       onItemSaved?.();
     } catch (error) {
       console.error('Erro ao reordenar itens:', error);
       showError('Erro ao reordenar itens.');
+      // Reverte a UI para o estado anterior em caso de erro
+      loadItems();
     } finally {
       dismissToast(loadingToastId);
     }
