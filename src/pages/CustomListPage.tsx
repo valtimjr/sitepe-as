@@ -181,12 +181,16 @@ const CustomListPage: React.FC = () => {
   };
 
   // --- Seleção de Itens ---
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      const allItemIds = new Set(items.filter(i => i.type === 'item').map(item => item.id));
-      setSelectedItemIds(allItemIds);
-    } else {
+  const selectableItems = useMemo(() => items.filter(i => i.type === 'item'), [items]);
+  const isAllSelected = selectableItems.length > 0 && selectedItemIds.size === selectableItems.length;
+  const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
       setSelectedItemIds(new Set());
+    } else {
+      const allItemIds = new Set(selectableItems.map(item => item.id));
+      setSelectedItemIds(allItemIds);
     }
   };
 
@@ -201,10 +205,6 @@ const CustomListPage: React.FC = () => {
       return newSelection;
     });
   };
-
-  const selectableItems = useMemo(() => items.filter(i => i.type === 'item'), [items]);
-  const isAllSelected = selectableItems.length > 0 && selectedItemIds.size === selectableItems.length;
-  const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
 
   // --- Exportar Selecionados para Minha Lista ---
   const handleExportSelectedToMyList = () => {
@@ -434,7 +434,7 @@ const CustomListPage: React.FC = () => {
                       <TableHead className="w-[40px] p-2">
                         <Checkbox
                           checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-                          onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                          onCheckedChange={handleToggleSelectAll}
                           aria-label="Selecionar todos os itens"
                         />
                       </TableHead>
