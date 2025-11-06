@@ -185,12 +185,12 @@ const CustomListPage: React.FC = () => {
   const isAllSelected = selectableItems.length > 0 && selectedItemIds.size === selectableItems.length;
   const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
 
-  const handleToggleSelectAll = (checked: boolean | 'indeterminate') => {
-    if (checked === true) {
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedItemIds(new Set());
+    } else {
       const allItemIds = new Set(selectableItems.map(item => item.id));
       setSelectedItemIds(allItemIds);
-    } else {
-      setSelectedItemIds(new Set());
     }
   };
 
