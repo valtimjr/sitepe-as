@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,7 +34,7 @@ const CustomListPage: React.FC = () => {
   const [itemToEdit, setItemToEdit] = useState<CustomListItem | null>(null);
 
   // Estados para seleção e exportação
-  const [selectedItemIds, setSelectedItemIds] = new useState<Set<string>>(new Set());
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [afForExport, setAfForExport] = useState('');
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
@@ -95,12 +95,12 @@ const CustomListPage: React.FC = () => {
     document.title = `${listTitle} - AutoBoard`;
   }, [listTitle]);
 
-  const formatListText = () => {
-    if (items.length === 0) return '';
+  const formatListText = (itemsToFormat: CustomListItem[]) => {
+    if (itemsToFormat.length === 0) return '';
 
     let formattedText = `${listTitle}\n\n`;
 
-    items.forEach(item => {
+    itemsToFormat.forEach(item => {
       if (item.type === 'separator') {
         formattedText += '--------------------\n';
         return;
@@ -123,12 +123,16 @@ const CustomListPage: React.FC = () => {
   };
 
   const handleCopyList = async () => {
-    if (items.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de copiar.');
+    const itemsToProcess = selectedItemIds.size > 0
+      ? items.filter(item => selectedItemIds.has(item.id))
+      : items;
+
+    if (itemsToProcess.length === 0) {
+      showError('A lista está vazia ou nenhum item selecionado para copiar.');
       return;
     }
 
-    const textToCopy = formatListText();
+    const textToCopy = formatListText(itemsToProcess);
 
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -140,24 +144,31 @@ const CustomListPage: React.FC = () => {
   };
 
   const handleExportCsv = () => {
-    if (items.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de exportar.');
+    const itemsToExport = selectedItemIds.size > 0
+      ? items.filter(item => selectedItemIds.has(item.id))
+      : items;
+
+    if (itemsToExport.length === 0) {
+      showError('Nenhum item para exportar.');
       return;
     }
-    exportDataAsCsv(items, `${listTitle.replace(/\s/g, '_')}_itens.csv`);
+    exportDataAsCsv(itemsToExport, `${listTitle.replace(/\s/g, '_')}_itens.csv`);
     showSuccess('Lista exportada para CSV com sucesso!');
   };
 
-  const handleExportPdf = async () => { // Alterado para async
-    if (items.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de exportar.');
+  const handleExportPdf = async () => {
+    const itemsToExport = selectedItemIds.size > 0
+      ? items.filter(item => selectedItemIds.has(item.id))
+      : items;
+
+    if (itemsToExport.length === 0) {
+      showError('Nenhum item para exportar.');
       return;
     }
-    await lazyGenerateCustomListPdf(items, listTitle); // Usa a função lazy
+    await lazyGenerateCustomListPdf(itemsToExport, listTitle);
     showSuccess('PDF gerado com sucesso!');
   };
 
-  // CORRIGIDO: Definição da função handleEditItemClick
   const handleEditItemClick = (item: CustomListItem) => {
     setItemToEdit(item);
     setIsEditModalOpen(true);
@@ -172,8 +183,8 @@ const CustomListPage: React.FC = () => {
   // --- Seleção de Itens ---
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allVisibleItemIds = new Set(items.filter(i => i.type === 'item').map(item => item.id));
-      setSelectedItemIds(allVisibleItemIds);
+      const allItemIds = new Set(items.filter(i => i.type === 'item').map(item => item.id));
+      setSelectedItemIds(allItemIds);
     } else {
       setSelectedItemIds(new Set());
     }
@@ -191,8 +202,9 @@ const CustomListPage: React.FC = () => {
     });
   };
 
-  const isAllSelected = items.filter(i => i.type === 'item').length > 0 && selectedItemIds.size === items.filter(i => i.type === 'item').length;
-  const isIndeterminate = selectedItemIds.size > 0 && selectedItemIds.size < items.filter(i => i.type === 'item').length;
+  const selectableItems = useMemo(() => items.filter(i => i.type === 'item'), [items]);
+  const isAllSelected = selectableItems.length > 0 && selectedItemIds.size === selectableItems.length;
+  const isIndeterminate = selectedItemIds.size > 0 && selectedItemIds.size < selectableItems.length;
 
   // --- Exportar Selecionados para Minha Lista ---
   const handleExportSelectedToMyList = () => {
@@ -422,7 +434,6 @@ const CustomListPage: React.FC = () => {
                       <TableHead className="w-[40px] p-2">
                         <Checkbox
                           checked={isAllSelected}
-                          indeterminate={isIndeterminate ? true : undefined}
                           onCheckedChange={(checked) => handleSelectAll(checked === true)}
                           aria-label="Selecionar todos os itens"
                         />
