@@ -238,9 +238,13 @@ export const getCustomListItems = async (listId: string): Promise<CustomListItem
   if (!list || !list.items_data) {
     return [];
   }
-  // Garante que 'itens_relacionados' esteja presente em cada item
-  return list.items_data.map(item => ({ ...item, itens_relacionados: item.itens_relacionados || [] }))
-                        .sort((a, b) => a.order_index - b.order_index);
+  // Garante que 'itens_relacionados' e 'type' estejam presentes em cada item
+  return list.items_data.map(item => ({ 
+      ...item, 
+      type: item.type || 'item', // Adiciona 'item' como tipo padrão se ausente
+      itens_relacionados: item.itens_relacionados || [] 
+    }))
+    .sort((a, b) => a.order_index - b.order_index);
 };
 
 export const createCustomList = async (title: string, userId: string): Promise<CustomList> => {
