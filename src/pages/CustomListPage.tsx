@@ -95,6 +95,11 @@ const CustomListPage: React.FC = () => {
     document.title = `${listTitle} - AutoBoard`;
   }, [listTitle]);
 
+  // Log para monitorar a mudança no estado de seleção
+  useEffect(() => {
+    console.log(`[DEBUG] Estado de seleção atualizado. Total selecionado: ${selectedItemIds.size}`);
+  }, [selectedItemIds]);
+
   const formatListText = (itemsToFormat: CustomListItem[]) => {
     if (itemsToFormat.length === 0) return '';
 
@@ -186,11 +191,15 @@ const CustomListPage: React.FC = () => {
   const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
 
   const handleToggleSelectAll = () => {
-    // Se todos já estiverem selecionados, limpa a seleção.
-    // Caso contrário (se nenhum ou alguns estiverem selecionados), seleciona todos.
+    console.log("--- [DEBUG] handleToggleSelectAll triggered ---");
+    console.log(`[DEBUG] State before action: isAllSelected=${isAllSelected}, isIndeterminate=${isIndeterminate}`);
+    console.log(`[DEBUG] Selected items before: ${selectedItemIds.size} of ${selectableItems.length}`);
+
     if (isAllSelected) {
+      console.log("[DEBUG] Logic path: All items were selected. Clearing selection.");
       setSelectedItemIds(new Set());
     } else {
+      console.log("[DEBUG] Logic path: Not all items were selected. Selecting all items.");
       const allItemIds = new Set(selectableItems.map(item => item.id));
       setSelectedItemIds(allItemIds);
     }
@@ -435,7 +444,7 @@ const CustomListPage: React.FC = () => {
                     <TableRow>
                       <TableHead className="w-[40px] p-2">
                         <Checkbox
-                          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+                          checked={isAllSelected}
                           onCheckedChange={handleToggleSelectAll}
                           aria-label="Selecionar todos os itens"
                         />
