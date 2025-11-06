@@ -31,11 +31,11 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network'; // Importar Network
 import { format } from 'date-fns';
-import { DailyApontamento, MonthlyApontamento } from '@/types/supabase'; // Removido PartImage
+import { DailyApontamento, MonthlyApontamento, RelatedPart } from '@/types/supabase'; // Removido PartImage
 
 export interface Part extends LocalPart {
   name?: string; // Adicionado o campo 'name'
-  itens_relacionados?: string[]; // Adicionado o campo 'itens_relacionados'
+  itens_relacionados?: RelatedPart[]; // Adicionado o campo 'itens_relacionados'
 }
 export interface SimplePartItem extends LocalSimplePartItem {}
 export interface ServiceOrderItem extends LocalServiceOrderItem {}
@@ -981,8 +981,21 @@ export const batchUpdateRelations = async (codesToRelate: string[]): Promise<{ u
   // 2. Preparar as atualizações
   const updatedParts = foundParts.map(part => {
     const otherCodes = codesToRelate.filter(code => code !== part.codigo);
-    const existingRelations = part.itens_relacionados || [];
-    const newRelations = Array.from(new Set([...existingRelations, ...otherCodes])).sort();
+    const existingRelations = (part.itens_relacionados || []).map(r => r.codigo);
+    const newRelations = Array.from(new Set([...existingRelations, ...otherCodes]))
+      .map(code => {
+        const relatedPart = foundParts.find(p => p.codigo === code);
+        if (relatedPart) {
+          return {
+            codigo: relatedPart.codigo,
+            name: relatedPart.name || relatedPart.descricao,
+            desc: (relatedPart.name && relatedPart.name.trim() !== '' && relatedPart.descricao !== (relatedPart.name || '')) ? relatedPart.descricao : ''
+          };
+        }
+        return null;
+      })
+      .filter((p): p is RelatedPart => p !== null)
+      .sort((a, b) => a.codigo.localeCompare(b.codigo));
     
     return {
       ...part,

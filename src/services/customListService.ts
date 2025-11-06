@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
-import { CustomList, CustomListItem, MenuItem } from '@/types/supabase';
+import { CustomList, CustomListItem, MenuItem, RelatedPart, RelatedItem } from '@/types/supabase';
 
 // --- Constantes para a tabela app_config ---
 const APP_CONFIG_TABLE = 'app_config';
@@ -8,16 +8,32 @@ const MENU_STRUCTURE_KEY = 'menu_structure';
 
 // --- Funções Auxiliares para Menu Structure (JSONB) ---
 
+const parseRelatedItem = (item: RelatedItem): RelatedPart => {
+  if (typeof item === 'string') {
+    const parts = item.split('|');
+    return {
+      codigo: parts[0] || '',
+      name: parts[1] || '',
+      desc: parts[2] || '',
+    };
+  }
+  return item;
+};
+
 /**
  * Converte a lista plana de itens de menu em uma estrutura hierárquica.
- * Adiciona 'itens_relacionados' se ausente.
+ * Adiciona 'itens_relacionados' se ausente e converte strings para objetos.
  */
 const buildMenuHierarchy = (items: MenuItem[]): MenuItem[] => {
   const map: { [key: string]: MenuItem } = {};
   const roots: MenuItem[] = [];
 
   items.forEach(item => {
-    map[item.id] = { ...item, children: [], itens_relacionados: item.itens_relacionados || [] };
+    map[item.id] = { 
+      ...item, 
+      children: [], 
+      itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem)
+    };
   });
 
   items.forEach(item => {
@@ -44,14 +60,14 @@ const buildMenuHierarchy = (items: MenuItem[]): MenuItem[] => {
 
 /**
  * Converte a estrutura hierárquica de menu em uma lista plana.
- * Garante que 'itens_relacionados' esteja presente.
+ * Garante que 'itens_relacionados' esteja presente e no formato de objeto.
  */
 const flattenMenuHierarchy = (hierarchy: MenuItem[]): MenuItem[] => {
   const flatList: MenuItem[] = [];
   const traverse = (items: MenuItem[]) => {
     items.forEach(item => {
       const { children, ...rest } = item;
-      flatList.push({ ...rest, itens_relacionados: item.itens_relacionados || [] });
+      flatList.push({ ...rest, itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem) });
       if (children && children.length > 0) {
         traverse(children);
       }
@@ -108,7 +124,7 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
 
 /**
  * Retorna todos os itens de menu em uma lista plana.
- * Garante que 'itens_relacionados' esteja presente.
+ * Garante que 'itens_relacionados' esteja presente e no formato de objeto.
  */
 export const getAllMenuItemsFlat = async (): Promise<MenuItem[]> => {
   const hierarchy = await getMenuStructure();
@@ -134,7 +150,7 @@ export const createMenuItem = async (item: Omit<MenuItem, 'id' | 'created_at'>):
     ...item, 
     id: uuidv4(), 
     order_index: item.order_index ?? currentFlatItems.length,
-    itens_relacionados: item.itens_relacionados || [], // Garante o campo
+    itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem), // Garante o formato
   };
   const updatedFlatItems = [...currentFlatItems, newItem];
   await saveMenuStructure(updatedFlatItems);
@@ -144,7 +160,7 @@ export const createMenuItem = async (item: Omit<MenuItem, 'id' | 'created_at'>):
 export const updateMenuItem = async (item: MenuItem): Promise<void> => {
   const currentFlatItems = await getAllMenuItemsFlat();
   const updatedFlatItems = currentFlatItems.map(existingItem =>
-    existingItem.id === item.id ? { ...item, itens_relacionados: item.itens_relacionados || [] } : existingItem
+    existingItem.id === item.id ? { ...item, itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem) } : existingItem
   );
   await saveMenuStructure(updatedFlatItems);
 };
@@ -200,6 +216,7 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
             quantity: item.quantity,
             order_index: item.order_index,
             itens_relacionados: [], // Inicializa o novo campo
+            type: 'item', // Define o tipo padrão
           }));
           // Salva a lista com os itens migrados no novo formato
           await supabase
@@ -212,6 +229,13 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
       } catch (e) {
         // console.warn('Old custom_list_items table not found or error during migration attempt:', e);
       }
+    }
+    // Garante que os itens existentes também sejam padronizados
+    if (list.items_data) {
+      list.items_data = list.items_data.map(item => ({
+        ...item,
+        itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem)
+      }));
     }
     return list;
   }));
@@ -230,7 +254,15 @@ export const getCustomListById = async (listId: string): Promise<CustomList | nu
     throw new Error(`Erro ao buscar lista personalizada por ID: ${error.message}`);
   }
 
-  return data as CustomList || null;
+  const list = data as CustomList | null;
+  if (list && list.items_data) {
+    list.items_data = list.items_data.map(item => ({
+      ...item,
+      itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem)
+    }));
+  }
+
+  return list;
 };
 
 export const getCustomListItems = async (listId: string): Promise<CustomListItem[]> => {
@@ -242,7 +274,7 @@ export const getCustomListItems = async (listId: string): Promise<CustomListItem
   return list.items_data.map(item => ({ 
       ...item, 
       type: item.type || 'item', // Adiciona 'item' como tipo padrão se ausente
-      itens_relacionados: item.itens_relacionados || [] 
+      itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem)
     }))
     .sort((a, b) => a.order_index - b.order_index);
 };
@@ -287,7 +319,7 @@ export const updateCustomListItem = async (listId: string, item: CustomListItem)
   if (!currentList) throw new Error('Lista personalizada não encontrada.');
 
   const updatedItems = (currentList.items_data || []).map(existingItem =>
-    existingItem.id === item.id ? { ...item, list_id: listId, itens_relacionados: item.itens_relacionados || [] } : existingItem
+    existingItem.id === item.id ? { ...item, itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem) } : existingItem
   );
 
   await updateCustomList({ ...currentList, items_data: updatedItems });
@@ -306,8 +338,7 @@ export const updateAllCustomListItems = async (listId: string, updatedItems: Cus
   // Garante que todos os itens no array recebido tenham list_id e itens_relacionados
   const itemsToSave = updatedItems.map(item => ({
     ...item,
-    list_id: listId,
-    itens_relacionados: item.itens_relacionados || [],
+    itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem),
   }));
 
   await updateCustomList({ ...currentList, items_data: itemsToSave });
@@ -325,7 +356,7 @@ export const deleteCustomList = async (listId: string): Promise<void> => {
   }
 };
 
-export const addCustomListItem = async (listId: string, item: Omit<CustomListItem, 'id' | 'list_id'>): Promise<CustomListItem> => {
+export const addCustomListItem = async (listId: string, item: Omit<CustomListItem, 'id'>): Promise<CustomListItem> => {
   const currentList = await getCustomListById(listId);
   if (!currentList) throw new Error('Lista personalizada não encontrada.');
 
@@ -333,9 +364,8 @@ export const addCustomListItem = async (listId: string, item: Omit<CustomListIte
   const newItem: CustomListItem = { 
     ...item, 
     id: uuidv4(), 
-    list_id: listId, // Adiciona list_id ao item
     order_index: currentItems.length > 0 ? Math.max(...currentItems.map(i => i.order_index)) + 1 : 0,
-    itens_relacionados: item.itens_relacionados || [], // Garante o campo
+    itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem), // Garante o formato
   };
   const updatedItems = [...currentItems, newItem];
   

@@ -1,22 +1,27 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { RelatedPart, RelatedItem } from '@/types/supabase';
 
 interface RelatedPartDisplayProps {
-  formattedString: string;
+  item: RelatedItem;
 }
 
-/**
- * Desformata e exibe a string de item relacionado no formato:
- * • CÓDIGO - NOME/DESCRIÇÃO PRINCIPAL
- *   (Descrição Secundária, se houver)
- * 
- * Formato da string de entrada: CÓDIGO|NOME/DESCRIÇÃO PRINCIPAL|DESCRIÇÃO SECUNDÁRIA
- */
-const RelatedPartDisplay: React.FC<RelatedPartDisplayProps> = ({ formattedString }) => {
-  const parts = formattedString.split('|');
-  const codigo = parts[0];
-  const mainText = parts[1];
-  const subText = parts[2];
+const RelatedPartDisplay: React.FC<RelatedPartDisplayProps> = ({ item }) => {
+  let codigo: string;
+  let mainText: string;
+  let subText: string | undefined;
+
+  // Lida com ambos os formatos para compatibilidade durante a transição
+  if (typeof item === 'string') {
+    const parts = item.split('|');
+    codigo = parts[0] || '';
+    mainText = parts[1] || '';
+    subText = parts[2] || '';
+  } else {
+    codigo = item.codigo;
+    mainText = item.name;
+    subText = item.desc;
+  }
 
   return (
     <div className="flex flex-col items-start">
@@ -26,9 +31,8 @@ const RelatedPartDisplay: React.FC<RelatedPartDisplayProps> = ({ formattedString
       </span>
       {subText && subText.trim() !== '' && (
         <span className={cn(
-          "text-xs italic text-muted-foreground max-w-full whitespace-normal break-words pl-3", // Adicionado padding-left para alinhar
-          // Se o mainText for igual ao subText (caso de fallback), não exibe o subText
-          mainText.trim().toLowerCase() === subText.trim().toLowerCase() && 'hidden'
+          "text-xs italic text-muted-foreground max-w-full whitespace-normal break-words pl-3",
+          mainText && mainText.trim().toLowerCase() === subText.trim().toLowerCase() && 'hidden'
         )}>
           {subText}
         </span>

@@ -5,17 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Menu, List as ListIcon, ChevronRight, Loader2, Tag, Info } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { getMenuStructure } from '@/services/customListService';
-import { MenuItem, Part } from '@/types/supabase';
+import { MenuItem, Part, RelatedPart } from '@/types/supabase';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { getParts } from '@/services/partListService'; // Importar getParts
+import RelatedPartDisplay from '@/components/RelatedPartDisplay';
 
 interface MenuItemProps {
   item: MenuItem;
   level: number;
-  // Removido: allAvailableParts: Part[];
 }
 
 const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
@@ -79,7 +79,11 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
               <TooltipContent className="max-w-xs">
                 <p className="font-bold mb-1">Itens Relacionados:</p>
                 <ul className="list-disc list-inside">
-                  {item.itens_relacionados.map(rel => <li key={rel}>{rel}</li>)} {/* Exibe a string diretamente */}
+                  {item.itens_relacionados.map(rel => (
+                    <li key={rel.codigo} className="list-none ml-0">
+                      <RelatedPartDisplay item={rel} />
+                    </li>
+                  ))}
                 </ul>
               </TooltipContent>
             </Tooltip>
@@ -121,8 +125,6 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
 const CustomMenuOverview: React.FC = () => {
   const [menuHierarchy, setMenuHierarchy] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // Removido: [allAvailableParts, setAllAvailableParts]
-  // Removido: [isLoadingAllParts, setIsLoadingAllParts]
 
   useEffect(() => {
     document.title = "Catálogo de Peças - AutoBoard";

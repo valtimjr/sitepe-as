@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { CustomList, CustomListItem, Part } from '@/types/supabase';
+import { CustomList, CustomListItem, Part, RelatedPart } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, deleteCustomListItem as deleteCustomListItemService, updateAllCustomListItems } from '@/services/customListService';
 import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
@@ -66,7 +66,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [formPartCode, setFormPartCode] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formQuantity, setFormQuantity] = useState(1);
-  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]);
+  const [formItensRelacionados, setFormItensRelacionados] = useState<RelatedPart[]>([]);
   
   // Search states for main item form
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,7 +83,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   // Drag and Drop states
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
-  const [draggedRelatedItem, setDraggedRelatedItem] = useState<string | null>(null);
+  const [draggedRelatedItem, setDraggedRelatedItem] = useState<RelatedPart | null>(null);
 
   // State to control if the form is for a new item or editing an existing one
   const [isFormForNewItem, setIsFormForNewItem] = useState(false);
@@ -94,12 +94,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const isMobile = useIsMobile();
 
   // Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
-  const formatRelatedPartString = (part: Part): string => {
+  const formatRelatedPartObject = (part: Part): RelatedPart => {
     const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
     const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
-    
-    // Formato: CÓDIGO | NOME/DESCRIÇÃO PRINCIPAL | DESCRIÇÃO SECUNDÁRIA
-    return `${part.codigo}|${mainText}|${subText}`;
+    return { codigo: part.codigo, name: mainText, desc: subText };
   };
 
   const loadItems = useCallback(async () => {
@@ -252,15 +250,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
     // NOVO: Puxa os itens relacionados da peça principal (códigos)
     if (part.itens_relacionados && part.itens_relacionados.length > 0) {
-      const formattedRelatedItems = part.itens_relacionados
-        .map(code => {
-          const relatedPart = allAvailableParts.find(p => p.codigo === code);
-          return relatedPart ? formatRelatedPartString(relatedPart) : code;
-        })
-        .filter(Boolean);
+      const relatedItems = part.itens_relacionados;
       
       // Adiciona os novos itens relacionados, mantendo os existentes (se houver)
-      setFormItensRelacionados(prev => Array.from(new Set([...prev, ...formattedRelatedItems])));
+      setFormItensRelacionados(prev => {
+        const existingCodes = new Set(prev.map(p => p.codigo));
+        const newItems = relatedItems.filter(p => !existingCodes.has(p.codigo));
+        return [...prev, ...newItems];
+      });
       showSuccess(`Sugestões de itens relacionados da peça ${part.codigo} carregadas.`);
     }
   };
@@ -284,7 +281,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
     const finalItemName = trimmedItemName || trimmedDescription || (formType === 'separator' ? '---' : '');
 
-    const payload: Omit<CustomListItem, 'id' | 'list_id'> = {
+    const payload: Omit<CustomListItem, 'id'> = {
       type: formType,
       item_name: finalItemName,
       part_code: formType === 'item' ? trimmedPartCode || null : null,
@@ -298,7 +295,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     try {
       if (currentEditingItemId) {
         // Modo de edição: usa o ID do item em edição
-        await updateCustomListItem(list.id, { id: currentEditingItemId, list_id: list.id, ...payload });
+        await updateCustomListItem(list.id, { id: currentEditingItemId, ...payload });
         showSuccess('Item atualizado com sucesso!');
       } else {
         // Modo de adição: adiciona um novo item
@@ -493,10 +490,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   // --- End Drag and Drop Handlers (Itens da Lista Principal) ---
 
   // --- Drag and Drop Handlers (Itens Relacionados) ---
-  const handleRelatedDragStart = (e: React.DragEvent<HTMLDivElement>, item: string) => {
+  const handleRelatedDragStart = (e: React.DragEvent<HTMLDivElement>, item: RelatedPart) => {
     setDraggedRelatedItem(item);
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', item);
+    e.dataTransfer.setData('text/plain', item.codigo);
     e.currentTarget.classList.add('opacity-50');
   };
 
@@ -510,14 +507,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     e.currentTarget.classList.remove('border-primary');
   };
 
-  const handleRelatedDrop = (e: React.DragEvent<HTMLDivElement>, targetItem: string) => {
+  const handleRelatedDrop = (e: React.DragEvent<HTMLDivElement>, targetItem: RelatedPart) => {
     e.preventDefault();
     e.currentTarget.classList.remove('border-primary');
 
-    if (draggedRelatedItem && draggedRelatedItem !== targetItem) {
+    if (draggedRelatedItem && draggedRelatedItem.codigo !== targetItem.codigo) {
       const newRelatedItems = [...formItensRelacionados];
-      const draggedIndex = newRelatedItems.findIndex(item => item === draggedRelatedItem);
-      const targetIndex = newRelatedItems.findIndex(item => item === targetItem);
+      const draggedIndex = newRelatedItems.findIndex(item => item.codigo === draggedRelatedItem.codigo);
+      const targetIndex = newRelatedItems.findIndex(item => item.codigo === targetItem.codigo);
 
       if (draggedIndex !== -1 && targetIndex !== -1) {
         const [removed] = newRelatedItems.splice(draggedIndex, 1);
@@ -560,9 +557,9 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   };
 
   const handleAddRelatedPart = (part: Part) => {
-    const formattedPart = formatRelatedPartString(part); // Usa a string formatada
-    if (!formItensRelacionados.includes(formattedPart)) {
-      setFormItensRelacionados(prev => [...prev, formattedPart]);
+    const relatedPartObject = formatRelatedPartObject(part);
+    if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
+      setFormItensRelacionados(prev => [...prev, relatedPartObject]);
       setRelatedSearchQuery('');
       setSearchResultsRelated([]);
       showSuccess(`Peça '${part.codigo}' adicionada aos itens relacionados.`);
@@ -571,9 +568,9 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     }
   };
 
-  const handleRemoveRelatedPart = (formattedPartString: string) => {
-    setFormItensRelacionados(prev => prev.filter(c => c !== formattedPartString));
-    showSuccess(`Item ${formattedPartString.split('|')[0]} removido dos itens relacionados.`);
+  const handleRemoveRelatedPart = (codigo: string) => {
+    setFormItensRelacionados(prev => prev.filter(p => p.codigo !== codigo));
+    showSuccess(`Item ${codigo} removido dos itens relacionados.`);
   };
 
   const handleBulkAddRelatedParts = async () => {
@@ -588,24 +585,22 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     }
 
     const loadingToastId = showLoading('Buscando e adicionando peças relacionadas...');
-    const newRelatedItems: string[] = [];
+    const newRelatedItems: RelatedPart[] = [];
     let foundCount = 0;
 
     for (const code of codesToSearch) {
       const foundPart = allAvailableParts.find(p => p.codigo.toLowerCase() === code.toLowerCase());
 
       if (foundPart) {
-        const formattedPart = formatRelatedPartString(foundPart);
-        if (!formItensRelacionados.includes(formattedPart) && !newRelatedItems.includes(formattedPart)) {
-          newRelatedItems.push(formattedPart);
+        const relatedPartObject = formatRelatedPartObject(foundPart);
+        if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo) && !newRelatedItems.some(p => p.codigo === relatedPartObject.codigo)) {
+          newRelatedItems.push(relatedPartObject);
           foundCount++;
         }
       } else {
-        // Se não for encontrado no catálogo, adiciona o código puro para permitir personalização
-        // Formato: CÓDIGO | CÓDIGO | ''
-        const pureCode = `${code}|${code}|`;
-        if (!formItensRelacionados.includes(pureCode) && !newRelatedItems.includes(pureCode)) {
-          newRelatedItems.push(pureCode);
+        const pureCodeObject = { codigo: code, name: code, desc: '' };
+        if (!formItensRelacionados.some(p => p.codigo === pureCodeObject.codigo) && !newRelatedItems.some(p => p.codigo === pureCodeObject.codigo)) {
+          newRelatedItems.push(pureCodeObject);
           foundCount++;
         }
       }
@@ -799,8 +794,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                                   <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
                                   <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
                                     {item.itens_relacionados.map(rel => (
-                                      <li key={rel} className="list-none ml-0">
-                                        <RelatedPartDisplay formattedString={rel} />
+                                      <li key={rel.codigo} className="list-none ml-0">
+                                        <RelatedPartDisplay item={rel} />
                                       </li>
                                     ))}
                                   </ul>
@@ -1001,25 +996,25 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                   <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {formItensRelacionados.map((formattedString, index) => (
+                    {formItensRelacionados.map((item, index) => (
                       <div 
-                        key={formattedString} 
+                        key={item.codigo} 
                         className={cn(
                           "flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-transparent cursor-grab",
-                          draggedRelatedItem === formattedString && 'opacity-50',
+                          draggedRelatedItem?.codigo === item.codigo && 'opacity-50',
                           draggedRelatedItem && 'hover:border-primary'
                         )}
                         draggable
-                        onDragStart={(e) => handleRelatedDragStart(e, formattedString)}
+                        onDragStart={(e) => handleRelatedDragStart(e, item)}
                         onDragOver={handleRelatedDragOver}
-                        onDrop={(e) => handleRelatedDrop(e, formattedString)}
+                        onDrop={(e) => handleRelatedDrop(e, item)}
                         onDragLeave={handleRelatedDragLeave}
                         onDragEnd={handleRelatedDragEnd}
                       >
                         <div className="flex items-center gap-1 truncate">
                           <GripVertical className="h-3 w-3 shrink-0" />
                           <span className="truncate">
-                            <RelatedPartDisplay formattedString={formattedString} />
+                            <RelatedPartDisplay item={item} />
                           </span>
                         </div>
                         <Button
@@ -1027,7 +1022,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                           variant="ghost"
                           size="icon"
                           className="h-4 w-4 p-0 text-destructive shrink-0"
-                          onClick={() => handleRemoveRelatedPart(formattedString)}
+                          onClick={() => handleRemoveRelatedPart(item.codigo)}
                         >
                           <XCircle className="h-3 w-3" />
                         </Button>

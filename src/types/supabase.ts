@@ -16,13 +16,21 @@ export interface UserProfile {
   badge: string | null;
 }
 
+export interface RelatedPart {
+  codigo: string;
+  name: string;
+  desc: string;
+}
+
+export type RelatedItem = string | RelatedPart; // Para migração de dados legados
+
 export interface Part {
   id: string;
   codigo: string;
   descricao: string;
   tags?: string;
   name?: string; // NOVO CAMPO: Nome global da peça
-  itens_relacionados?: string[]; // NOVO CAMPO: Códigos de peças relacionadas
+  itens_relacionados?: RelatedPart[]; // ATUALIZADO para usar a nova interface
 }
 
 // Apontamento diário, agora parte de um array JSONB
@@ -63,7 +71,7 @@ export interface CustomListItem {
   description: string | null;
   quantity: number;
   order_index: number;
-  itens_relacionados: string[]; // NOVO: Array de códigos de peças relacionadas
+  itens_relacionados: RelatedPart[]; // ATUALIZADO para usar a nova interface
 }
 
 export interface MenuItem {
@@ -72,6 +80,6 @@ export interface MenuItem {
   title: string;
   order_index: number;
   list_id: string | null; // Se for um item final que aponta para uma lista
-  itens_relacionados: string[]; // NOVO: Array de códigos de peças relacionadas
+  itens_relacionados: RelatedPart[]; // ATUALIZADO para usar a nova interface
   children?: MenuItem[]; // Para a estrutura hierárquica
 }

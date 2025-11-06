@@ -9,7 +9,7 @@ import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info,
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
-import { CustomList, CustomListItem, Part } from '@/types/supabase';
+import { CustomList, CustomListItem, Part, RelatedPart } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts } from '@/services/partListService';
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -362,8 +362,8 @@ const CustomListPage: React.FC = () => {
                     <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
                     <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
                       {item.itens_relacionados.map(rel => (
-                        <li key={rel} className="list-none ml-0">
-                          <RelatedPartDisplay formattedString={rel} />
+                        <li key={rel.codigo} className="list-none ml-0">
+                          <RelatedPartDisplay item={rel} />
                         </li>
                       ))}
                     </ul>

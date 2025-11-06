@@ -98,8 +98,8 @@ const SearchParts = () => {
                                 <ScrollArea className="h-24">
                                   <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
                                     {part.itens_relacionados.map(rel => (
-                                      <li key={rel} className="list-none ml-0">
-                                        <RelatedPartDisplay formattedString={rel} />
+                                      <li key={rel.codigo} className="list-none ml-0">
+                                        <RelatedPartDisplay item={rel} />
                                       </li>
                                     ))}
                                   </ul>

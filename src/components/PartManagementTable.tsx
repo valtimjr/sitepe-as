@@ -41,6 +41,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import PartSearchInput from './PartSearchInput';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
+import { RelatedPart } from '@/types/supabase';
 
 // Função auxiliar para obter valor de uma linha, ignorando case e variações
 const getRowValue = (row: any, keys: string[]): string | undefined => {
@@ -70,7 +71,7 @@ const PartManagementTable: React.FC = () => {
   const [formDescricao, setFormDescricao] = useState('');
   const [formTags, setFormTags] = useState('');
   const [formName, setFormName] = useState('');
-  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]);
+  const [formItensRelacionados, setFormItensRelacionados] = useState<RelatedPart[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(() => new Set());
   
@@ -87,7 +88,7 @@ const PartManagementTable: React.FC = () => {
   const [relatedSearchQuery, setRelatedSearchQuery] = useState('');
   const [relatedSearchResults, setRelatedSearchResults] = useState<Part[]>([]);
   const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
-  const [draggedRelatedItem, setDraggedRelatedItem] = useState<string | null>(null);
+  const [draggedRelatedItem, setDraggedRelatedItem] = useState<RelatedPart | null>(null);
   const [isLoadingRelatedParts, setIsLoadingRelatedParts] = useState(false);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para busca de relacionados
 
@@ -98,12 +99,10 @@ const PartManagementTable: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
-  const formatRelatedPartString = (part: Part): string => {
+  const formatRelatedPartObject = (part: Part): RelatedPart => {
     const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
     const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
-    
-    // Formato: CÓDIGO | NOME/DESCRIÇÃO PRINCIPAL | DESCRIÇÃO SECUNDÁRIA
-    return `${part.codigo}|${mainText}|${subText}`;
+    return { codigo: part.codigo, name: mainText, desc: subText };
   };
 
   const loadParts = useCallback(async (query: string, page: number) => {
@@ -573,9 +572,9 @@ const PartManagementTable: React.FC = () => {
 
   // --- Handlers para Itens Relacionados ---
   const handleAddRelatedPart = (part: Part) => {
-    const formattedPart = formatRelatedPartString(part); // Usa a string formatada
-    if (!formItensRelacionados.includes(formattedPart)) {
-      setFormItensRelacionados(prev => [...prev, formattedPart]);
+    const relatedPartObject = formatRelatedPartObject(part);
+    if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
+      setFormItensRelacionados(prev => [...prev, relatedPartObject]);
       setRelatedSearchQuery('');
       setSearchResultsRelated([]);
       showSuccess(`Peça '${part.codigo}' adicionada aos itens relacionados.`);
@@ -584,9 +583,9 @@ const PartManagementTable: React.FC = () => {
     }
   };
 
-  const handleRemoveRelatedPart = (formattedPartString: string) => {
-    setFormItensRelacionados(prev => prev.filter(c => c !== formattedPartString));
-    showSuccess(`Item ${formattedPartString.split('|')[0]} removido dos itens relacionados.`);
+  const handleRemoveRelatedPart = (codigo: string) => {
+    setFormItensRelacionados(prev => prev.filter(p => p.codigo !== codigo));
+    showSuccess(`Item ${codigo} removido dos itens relacionados.`);
   };
 
   const handleBulkAddRelatedParts = async () => {
@@ -601,24 +600,22 @@ const PartManagementTable: React.FC = () => {
     }
 
     const loadingToastId = showLoading('Buscando e adicionando peças relacionadas...');
-    const newRelatedItems: string[] = [];
+    const newRelatedItems: RelatedPart[] = [];
     let foundCount = 0;
 
     for (const code of codesToSearch) {
       const foundPart = allAvailableParts.find(p => p.codigo.toLowerCase() === code.toLowerCase());
 
       if (foundPart) {
-        const formattedPart = formatRelatedPartString(foundPart);
-        if (!formItensRelacionados.includes(formattedPart) && !newRelatedItems.includes(formattedPart)) {
-          newRelatedItems.push(formattedPart);
+        const relatedPartObject = formatRelatedPartObject(foundPart);
+        if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo) && !newRelatedItems.some(p => p.codigo === relatedPartObject.codigo)) {
+          newRelatedItems.push(relatedPartObject);
           foundCount++;
         }
       } else {
-        // Se não for encontrado no catálogo, adiciona o código puro para permitir personalização
-        // Formato: CÓDIGO | CÓDIGO | ''
-        const pureCode = `${code}|${code}|`;
-        if (!formItensRelacionados.includes(pureCode) && !newRelatedItems.includes(pureCode)) {
-          newRelatedItems.push(pureCode);
+        const pureCodeObject = { codigo: code, name: code, desc: '' };
+        if (!formItensRelacionados.some(p => p.codigo === pureCodeObject.codigo) && !newRelatedItems.some(p => p.codigo === pureCodeObject.codigo)) {
+          newRelatedItems.push(pureCodeObject);
           foundCount++;
         }
       }
@@ -635,10 +632,10 @@ const PartManagementTable: React.FC = () => {
   };
 
   // Drag and Drop Handlers (Itens Relacionados)
-  const handleRelatedDragStart = (e: React.DragEvent<HTMLDivElement>, item: string) => {
+  const handleRelatedDragStart = (e: React.DragEvent<HTMLDivElement>, item: RelatedPart) => {
     setDraggedRelatedItem(item);
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', item);
+    e.dataTransfer.setData('text/plain', item.codigo);
     e.currentTarget.classList.add('opacity-50');
   };
 
@@ -652,14 +649,14 @@ const PartManagementTable: React.FC = () => {
     e.currentTarget.classList.remove('border-primary');
   };
 
-  const handleRelatedDrop = (e: React.DragEvent<HTMLDivElement>, targetItem: string) => {
+  const handleRelatedDrop = (e: React.DragEvent<HTMLDivElement>, targetItem: RelatedPart) => {
     e.preventDefault();
     e.currentTarget.classList.remove('border-primary');
 
-    if (draggedRelatedItem && draggedRelatedItem !== targetItem) {
+    if (draggedRelatedItem && draggedRelatedItem.codigo !== targetItem.codigo) {
       const newRelatedItems = [...formItensRelacionados];
-      const draggedIndex = newRelatedItems.findIndex(item => item === draggedRelatedItem);
-      const targetIndex = newRelatedItems.findIndex(item => item === targetItem);
+      const draggedIndex = newRelatedItems.findIndex(item => item.codigo === draggedRelatedItem.codigo);
+      const targetIndex = newRelatedItems.findIndex(item => item.codigo === targetItem.codigo);
 
       if (draggedIndex !== -1 && targetIndex !== -1) {
         const [removed] = newRelatedItems.splice(draggedIndex, 1);
@@ -1036,25 +1033,25 @@ const PartManagementTable: React.FC = () => {
                   <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {formItensRelacionados.map((formattedString, index) => (
+                    {formItensRelacionados.map((item, index) => (
                       <div 
-                        key={formattedString} 
+                        key={item.codigo} 
                         className={cn(
                           "flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-transparent cursor-grab",
-                          draggedRelatedItem === formattedString && 'opacity-50',
+                          draggedRelatedItem?.codigo === item.codigo && 'opacity-50',
                           draggedRelatedItem && 'hover:border-primary'
                         )}
                         draggable
-                        onDragStart={(e) => handleRelatedDragStart(e, formattedString)}
+                        onDragStart={(e) => handleRelatedDragStart(e, item)}
                         onDragOver={handleRelatedDragOver}
-                        onDrop={(e) => handleRelatedDrop(e, formattedString)}
+                        onDrop={(e) => handleRelatedDrop(e, item)}
                         onDragLeave={handleRelatedDragLeave}
                         onDragEnd={handleRelatedDragEnd}
                       >
                         <div className="flex items-center gap-1 truncate">
                           <GripVertical className="h-3 w-3 shrink-0" />
                           <span className="truncate">
-                            <RelatedPartDisplay formattedString={formattedString} />
+                            <RelatedPartDisplay item={item} />
                           </span>
                         </div>
                         <Button
@@ -1062,7 +1059,7 @@ const PartManagementTable: React.FC = () => {
                           variant="ghost"
                           size="icon"
                           className="h-4 w-4 p-0 text-destructive shrink-0"
-                          onClick={() => handleRemoveRelatedPart(formattedString)}
+                          onClick={() => handleRemoveRelatedPart(item.codigo)}
                         >
                           <XCircle className="h-3 w-3" />
                         </Button>
