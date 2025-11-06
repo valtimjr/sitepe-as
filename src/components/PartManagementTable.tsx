@@ -1028,7 +1028,7 @@ const PartManagementTable: React.FC = () => {
                   </Button>
                 </div>
               </div>
-              <ScrollArea className="h-24 w-full rounded-md border p-2">
+              <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
                 {formItensRelacionados.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
                 ) : (

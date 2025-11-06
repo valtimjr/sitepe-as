@@ -24,6 +24,7 @@ import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Importar Popover
 import { Separator } from '@/components/ui/separator';
 import RelatedPartDisplay from '@/components/RelatedPartDisplay'; // Importado o novo componente
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
