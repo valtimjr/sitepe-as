@@ -186,6 +186,8 @@ const CustomListPage: React.FC = () => {
   const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
 
   const handleToggleSelectAll = () => {
+    // Se todos já estiverem selecionados, limpa a seleção.
+    // Caso contrário (se nenhum ou alguns estiverem selecionados), seleciona todos.
     if (isAllSelected) {
       setSelectedItemIds(new Set());
     } else {
