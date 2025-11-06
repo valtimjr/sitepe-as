@@ -981,8 +981,10 @@ export const batchUpdateRelations = async (codesToRelate: string[]): Promise<{ u
   // 2. Preparar as atualizações
   const updatedParts = foundParts.map(part => {
     const otherCodes = codesToRelate.filter(code => code !== part.codigo);
-    const existingRelations = (part.itens_relacionados || []).map(r => r.codigo);
-    const newRelations = Array.from(new Set([...existingRelations, ...otherCodes]))
+    const existingRelatedCodes = (part.itens_relacionados || []).map(r => r.codigo);
+    const allRelatedCodes = Array.from(new Set([...existingRelatedCodes, ...otherCodes]));
+
+    const newRelations = allRelatedCodes
       .map(code => {
         const relatedPart = foundParts.find(p => p.codigo === code);
         if (relatedPart) {
@@ -991,6 +993,11 @@ export const batchUpdateRelations = async (codesToRelate: string[]): Promise<{ u
             name: relatedPart.name || relatedPart.descricao,
             desc: (relatedPart.name && relatedPart.name.trim() !== '' && relatedPart.descricao !== (relatedPart.name || '')) ? relatedPart.descricao : ''
           };
+        }
+        // Se uma relação existente não estiver no lote atual, busca-a na lista original da peça
+        const existingRelationObject = (part.itens_relacionados || []).find(r => r.codigo === code);
+        if (existingRelationObject) {
+          return existingRelationObject;
         }
         return null;
       })
