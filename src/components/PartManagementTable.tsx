@@ -8,9 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal, FileText, Loader2, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal, FileText, Loader2, ChevronLeft, ChevronRight, GripVertical, Link2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Part, addPart, updatePart, deletePart, searchPartsPaginated, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts, searchParts as searchPartsService, getParts } from '@/services/partListService';
+import { Part, addPart, updatePart, deletePart, searchPartsPaginated, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts, searchParts as searchPartsService, getParts, batchUpdateRelations } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -91,12 +91,16 @@ const PartManagementTable: React.FC = () => {
   const [isLoadingRelatedParts, setIsLoadingRelatedParts] = useState(false);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para busca de relacionados
 
+  // Estados para a nova funcionalidade de relação em lote
+  const [isBatchRelateOpen, setIsBatchRelateOpen] = useState(false);
+  const [batchRelateInput, setBatchRelateInput] = useState('');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
   const formatRelatedPartString = (part: Part): string => {
     const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
-    const subText = part.name && part.name.trim() !== '' ? part.descricao : '';
+    const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
     
     // Formato: CÓDIGO | NOME/DESCRIÇÃO PRINCIPAL | DESCRIÇÃO SECUNDÁRIA
     return `${part.codigo}|${mainText}|${subText}`;
@@ -569,14 +573,14 @@ const PartManagementTable: React.FC = () => {
 
   // --- Handlers para Itens Relacionados ---
   const handleAddRelatedPart = (part: Part) => {
-    const formattedPart = formatRelatedPartString(part);
+    const formattedPart = formatRelatedPartString(part); // Usa a string formatada
     if (!formItensRelacionados.includes(formattedPart)) {
       setFormItensRelacionados(prev => [...prev, formattedPart]);
       setRelatedSearchQuery('');
-      setRelatedSearchResults([]);
-      showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
+      setSearchResultsRelated([]);
+      showSuccess(`Peça '${part.codigo}' adicionada aos itens relacionados.`);
     } else {
-      showError(`Peça ${part.codigo} já está na lista de itens relacionados.`);
+      showError(`Peça '${part.codigo}' já está na lista de itens relacionados.`);
     }
   };
 
@@ -585,14 +589,14 @@ const PartManagementTable: React.FC = () => {
     showSuccess(`Item ${formattedPartString.split('|')[0]} removido dos itens relacionados.`);
   };
 
-  const handleBulkAddRelatedParts = () => {
+  const handleBulkAddRelatedParts = async () => {
     const codesToSearch = bulkRelatedPartsInput
       .split(';')
       .map(code => code.trim())
       .filter(code => code.length > 0);
 
     if (codesToSearch.length === 0) {
-      showError('Nenhum código válido encontrado para adicionar.');
+      showError('Nenhum código válido encontrado para adicionar em massa.');
       return;
     }
 
@@ -672,6 +676,32 @@ const PartManagementTable: React.FC = () => {
   };
   // --- Fim Handlers para Itens Relacionados ---
 
+  // --- Handlers para Relação em Lote ---
+  const handleBatchRelateSave = async () => {
+    const codesToRelate = Array.from(new Set(batchRelateInput.split(';').map(c => c.trim()).filter(Boolean)));
+    if (codesToRelate.length < 2) {
+      showError('Por favor, insira pelo menos dois códigos de peça separados por ";".');
+      return;
+    }
+
+    const loadingToastId = showLoading('Criando relações em lote...');
+    try {
+      const { updatedCount, notFoundCodes } = await batchUpdateRelations(codesToRelate);
+      let successMessage = `${updatedCount} peças foram relacionadas entre si com sucesso!`;
+      if (notFoundCodes.length > 0) {
+        successMessage += ` Códigos não encontrados: ${notFoundCodes.join(', ')}.`;
+      }
+      showSuccess(successMessage);
+      setIsBatchRelateOpen(false);
+      setBatchRelateInput('');
+      loadParts(searchQuery, currentPage);
+    } catch (error: any) {
+      showError(`Erro ao criar relações: ${error.message}`);
+    } finally {
+      dismissToast(loadingToastId);
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
@@ -722,12 +752,42 @@ const PartManagementTable: React.FC = () => {
               </AlertDialog>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button onClick={() => setIsBatchRelateOpen(prev => !prev)} variant="outline" className="flex items-center gap-2">
+            <Link2 className="h-4 w-4" /> Criar Relação em Lotes
+          </Button>
           <Button onClick={handleAddPart} className="flex items-center gap-2">
             <PlusCircle className="h-4 w-4" /> Adicionar Peça
           </Button>
         </div>
       </CardHeader>
       <CardContent>
+        {isBatchRelateOpen && (
+          <Card className="mb-4 bg-muted/50">
+            <CardHeader>
+              <CardTitle className="text-lg">Criar Relação de Peças em Lote</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="batch-relate-input">Códigos das Peças</Label>
+                <Textarea
+                  id="batch-relate-input"
+                  value={batchRelateInput}
+                  onChange={(e) => setBatchRelateInput(e.target.value)}
+                  placeholder="Digite os códigos das peças separados por ponto e vírgula (;)"
+                  rows={3}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Todas as peças listadas aqui serão relacionadas entre si.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => setIsBatchRelateOpen(false)}>Cancelar</Button>
+                <Button onClick={handleBatchRelateSave}>Salvar Relações</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Input de arquivo oculto */}
         <input
           type="file"

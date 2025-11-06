@@ -525,7 +525,12 @@ export const updateSimplePartItem = async (updatedItem: SimplePartItem): Promise
 };
 
 export const deleteSimplePartItem = async (id: string): Promise<void> => {
-  await deleteLocalSimplePartItem(id);
+  try {
+    await deleteLocalSimplePartItem(id);
+  } catch (error) {
+    console.error('localDbService: Error deleting item with ID:', id, error);
+    throw error; // Re-lança o erro para que o chamador possa tratá-lo
+  }
 };
 
 export const clearSimplePartsList = async (): Promise<void> => {
@@ -558,8 +563,7 @@ export const clearServiceOrderList = async (): Promise<void> => {
 
 export const getLocalUniqueAfs = async (): Promise<string[]> => {
   const afs = await localDb.afs.toArray();
-  const uniqueAfs = afs.map(af => af.af_number).sort();
-  return uniqueAfs;
+  return afs.map(af => af.af_number).sort();
 };
 
 // --- Monthly Apontamentos Management (IndexedDB) ---
@@ -957,4 +961,50 @@ export const cleanupEmptyParts = async (): Promise<number> => {
   }
 
   return deletedCount;
+};
+
+// NOVO: Função para criar relações em lote
+export const batchUpdateRelations = async (codesToRelate: string[]): Promise<{ updatedCount: number, notFoundCodes: string[] }> => {
+  // 1. Buscar todas as peças envolvidas
+  const { data: foundParts, error: fetchError } = await supabase
+    .from('parts')
+    .select('*')
+    .in('codigo', codesToRelate);
+
+  if (fetchError) {
+    throw new Error(`Erro ao buscar peças: ${fetchError.message}`);
+  }
+
+  const foundCodes = new Set(foundParts.map(p => p.codigo));
+  const notFoundCodes = codesToRelate.filter(code => !foundCodes.has(code));
+
+  // 2. Preparar as atualizações
+  const updatedParts = foundParts.map(part => {
+    const otherCodes = codesToRelate.filter(code => code !== part.codigo);
+    const existingRelations = part.itens_relacionados || [];
+    const newRelations = Array.from(new Set([...existingRelations, ...otherCodes])).sort();
+    
+    return {
+      ...part,
+      itens_relacionados: newRelations,
+    };
+  });
+
+  if (updatedParts.length === 0) {
+    return { updatedCount: 0, notFoundCodes };
+  }
+
+  // 3. Atualizar no Supabase
+  const { error: upsertError } = await supabase
+    .from('parts')
+    .upsert(updatedParts, { onConflict: 'id' });
+
+  if (upsertError) {
+    throw new Error(`Erro ao atualizar relações: ${upsertError.message}`);
+  }
+
+  // 4. Atualizar no IndexedDB
+  await bulkPutLocalParts(updatedParts);
+
+  return { updatedCount: updatedParts.length, notFoundCodes };
 };
