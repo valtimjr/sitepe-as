@@ -42,6 +42,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/com
 import PartSearchInput from './PartSearchInput';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 import { RelatedPart } from '@/types/supabase';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Função auxiliar para obter valor de uma linha, ignorando case e variações
 const getRowValue = (row: any, keys: string[]): string | undefined => {
@@ -97,6 +98,7 @@ const PartManagementTable: React.FC = () => {
   const [batchRelateInput, setBatchRelateInput] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile();
 
   // Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
   const formatRelatedPartObject = (part: Part): RelatedPart => {
@@ -576,7 +578,7 @@ const PartManagementTable: React.FC = () => {
     if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
       setFormItensRelacionados(prev => [...prev, relatedPartObject]);
       setRelatedSearchQuery('');
-      setSearchResultsRelated([]);
+      setRelatedSearchResults([]);
       showSuccess(`Peça '${part.codigo}' adicionada aos itens relacionados.`);
     } else {
       showError(`Peça '${part.codigo}' já está na lista de itens relacionados.`);
