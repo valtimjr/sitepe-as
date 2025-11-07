@@ -134,7 +134,7 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
   }
 
   // Injeta os subtítulos como subitens
-  const itemsWithList = flatItems.filter(item => item.list_id && !item.parent_id); // Apenas itens raiz com lista
+  const itemsWithList = flatItems.filter(item => item.list_id); // CORRIGIDO: Pega TODOS os itens com lista
   if (itemsWithList.length > 0) {
     const listIds = itemsWithList.map(item => item.list_id!);
     const { data: lists, error: listsError } = await supabase
