@@ -186,7 +186,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       }
     };
     const handler = setTimeout(() => {
-      fetchSearchResults();
+      fetchRelatedSearchResults();
     }, 300);
     return () => clearTimeout(handler);
   }, [relatedSearchQuery]);
