@@ -78,6 +78,20 @@ const flattenMenuHierarchy = (hierarchy: MenuItem[]): MenuItem[] => {
 };
 
 /**
+ * Salva a estrutura completa do menu no Supabase (uma única linha JSONB).
+ * @param flatItems A flat array of all menu items.
+ */
+export const saveAllMenuItems = async (flatItems: MenuItem[]): Promise<void> => {
+  const { error } = await supabase
+    .from(APP_CONFIG_TABLE)
+    .upsert({ key: MENU_STRUCTURE_KEY, value: flatItems, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+
+  if (error) {
+    throw new Error(`Erro ao salvar estrutura do menu: ${error.message}`);
+  }
+};
+
+/**
  * Busca a estrutura completa do menu do Supabase (uma única linha JSONB).
  * Se não existir, tenta migrar de uma estrutura antiga ou retorna um array vazio.
  */
@@ -112,7 +126,7 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
           itens_relacionados: [], // Inicializa o novo campo
         }));
         // Salva a estrutura migrada no novo formato
-        await saveMenuStructure(flatItems);
+        await saveAllMenuItems(flatItems);
       }
     } catch (e) {
       // console.warn('Old menu_structure table not found or error during migration attempt:', e);
@@ -131,19 +145,6 @@ export const getAllMenuItemsFlat = async (): Promise<MenuItem[]> => {
   return flattenMenuHierarchy(hierarchy);
 };
 
-/**
- * Salva a estrutura completa do menu no Supabase (uma única linha JSONB).
- */
-const saveMenuStructure = async (flatItems: MenuItem[]): Promise<void> => {
-  const { error } = await supabase
-    .from(APP_CONFIG_TABLE)
-    .upsert({ key: MENU_STRUCTURE_KEY, value: flatItems, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-
-  if (error) {
-    throw new Error(`Erro ao salvar estrutura do menu: ${error.message}`);
-  }
-};
-
 export const createMenuItem = async (item: Omit<MenuItem, 'id' | 'created_at'>): Promise<MenuItem> => {
   const currentFlatItems = await getAllMenuItemsFlat();
   const newItem: MenuItem = { 
@@ -153,7 +154,7 @@ export const createMenuItem = async (item: Omit<MenuItem, 'id' | 'created_at'>):
     itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem), // Garante o formato
   };
   const updatedFlatItems = [...currentFlatItems, newItem];
-  await saveMenuStructure(updatedFlatItems);
+  await saveAllMenuItems(updatedFlatItems);
   return newItem;
 };
 
@@ -162,7 +163,7 @@ export const updateMenuItem = async (item: MenuItem): Promise<void> => {
   const updatedFlatItems = currentFlatItems.map(existingItem =>
     existingItem.id === item.id ? { ...item, itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem) } : existingItem
   );
-  await saveMenuStructure(updatedFlatItems);
+  await saveAllMenuItems(updatedFlatItems);
 };
 
 export const deleteMenuItem = async (itemId: string): Promise<void> => {
@@ -180,7 +181,7 @@ export const deleteMenuItem = async (itemId: string): Promise<void> => {
   findChildrenToDelete(itemId);
 
   const updatedFlatItems = currentFlatItems.filter(item => !itemsToDelete.has(item.id));
-  await saveMenuStructure(updatedFlatItems);
+  await saveAllMenuItems(updatedFlatItems);
 };
 
 // --- Custom Lists Management ---

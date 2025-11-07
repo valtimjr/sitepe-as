@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, Tag, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { MenuItem, CustomList, Part } from '@/types/supabase';
-import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists } from '@/services/customListService';
+import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists, saveAllMenuItems } from '@/services/customListService';
 import { getParts, searchParts as searchPartsService } from '@/services/partListService';
 import {
   Select,
@@ -228,22 +228,29 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     if (!currentItem || !targetItem) return;
 
     const loadingToastId = showLoading('Reordenando itens...');
-    console.time('MenuStructureEditor: handleMoveItem');
 
     try {
-      await Promise.all([
-        updateMenuItem({ ...currentItem, order_index: targetItem.order_index }),
-        updateMenuItem({ ...targetItem, order_index: currentItem.order_index }),
-      ]);
+      // Create a new array with the swapped order_index values
+      const updatedFlatItems = flatMenuItems.map(i => {
+        if (i.id === currentItem.id) {
+          return { ...i, order_index: targetItem.order_index };
+        }
+        if (i.id === targetItem.id) {
+          return { ...i, order_index: currentItem.order_index };
+        }
+        return i;
+      });
+
+      // Save the entire updated structure in one go
+      await saveAllMenuItems(updatedFlatItems);
 
       showSuccess('Ordem atualizada!');
-      await loadData();
+      await loadData(); // Reload data to reflect changes
       onMenuUpdated();
     } catch (error) {
       showError('Erro ao reordenar itens.');
     } finally {
       dismissToast(loadingToastId);
-      console.timeEnd('MenuStructureEditor: handleMoveItem');
     }
   };
 
