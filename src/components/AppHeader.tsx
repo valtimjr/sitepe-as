@@ -77,10 +77,16 @@ const AppHeader: React.FC = () => {
         );
       }
       
-      // Item final que aponta para uma lista
+      // Item final que aponta para uma lista (com ou sem âncora)
       if (item.list_id) {
         return (
-          <Link to={`/custom-list/${item.list_id}`} key={item.id}>
+          <Link 
+            to={{
+              pathname: `/custom-list/${item.list_id}`,
+              hash: item.hash ? `#${item.hash}` : ''
+            }} 
+            key={item.id}
+          >
             <DropdownMenuItem>
               <List className="h-4 w-4 mr-2" /> {item.title}
             </DropdownMenuItem>
@@ -100,7 +106,7 @@ const AppHeader: React.FC = () => {
   // Função para renderizar itens de nível raiz no cabeçalho (desktop)
   const renderRootItem = (item: MenuItem) => {
     // Se for um link direto para uma lista
-    if (item.list_id) {
+    if (item.list_id && (!item.children || item.children.length === 0)) {
       return (
         <Link to={`/custom-list/${item.list_id}`} key={item.id}>
           <Button variant="ghost" className="flex items-center gap-1">

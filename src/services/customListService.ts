@@ -133,6 +133,43 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
     }
   }
 
+  // Injeta os subtítulos como subitens
+  const itemsWithList = flatItems.filter(item => item.list_id && !item.parent_id); // Apenas itens raiz com lista
+  if (itemsWithList.length > 0) {
+    const listIds = itemsWithList.map(item => item.list_id!);
+    const { data: lists, error: listsError } = await supabase
+      .from('custom_lists')
+      .select('id, items_data')
+      .in('id', listIds);
+
+    if (listsError) {
+      console.error('Error fetching custom lists for menu subtitles:', listsError);
+    } else if (lists) {
+      const subtitlesToAdd: MenuItem[] = [];
+      itemsWithList.forEach(menuItem => {
+        const list = lists.find(l => l.id === menuItem.list_id);
+        if (list && list.items_data) {
+          const subtitles = list.items_data
+            .filter(item => item.type === 'subtitle')
+            .sort((a, b) => a.order_index - b.order_index);
+          
+          subtitles.forEach((subtitle, index) => {
+            subtitlesToAdd.push({
+              id: `${menuItem.id}-${subtitle.id}`, // ID único para o subitem
+              parent_id: menuItem.id,
+              title: subtitle.item_name,
+              order_index: index,
+              list_id: menuItem.list_id,
+              hash: subtitle.id, // A âncora para o scroll
+              itens_relacionados: [],
+            });
+          });
+        }
+      });
+      flatItems = [...flatItems, ...subtitlesToAdd];
+    }
+  }
+
   return buildMenuHierarchy(flatItems);
 };
 

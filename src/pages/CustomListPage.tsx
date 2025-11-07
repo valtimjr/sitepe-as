@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -28,6 +28,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
+  const location = useLocation();
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [listTitle, setListTitle] = useState('Carregando Lista...');
   const [isLoading, setIsLoading] = useState(true);
@@ -95,6 +96,19 @@ const CustomListPage: React.FC = () => {
   useEffect(() => {
     document.title = `${listTitle} - AutoBoard`;
   }, [listTitle]);
+
+  // Efeito para rolar para a âncora
+  useEffect(() => {
+    if (!isLoading && location.hash) {
+      const id = location.hash.substring(1);
+      const element = document.getElementById(id);
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100); // Pequeno atraso para garantir que a renderização esteja completa
+      }
+    }
+  }, [isLoading, location.hash, items]);
 
   const formatListText = (itemsToFormat: CustomListItem[]) => {
     if (itemsToFormat.length === 0) return '';
@@ -283,7 +297,7 @@ const CustomListPage: React.FC = () => {
 
     if (isSeparator) {
       return (
-        <TableRow key={item.id} className="bg-muted/50 border-y border-dashed">
+        <TableRow key={item.id} id={item.id} className="bg-muted/50 border-y border-dashed">
           <TableCell colSpan={4} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
             <Separator className="my-0 bg-foreground/50 h-px" />
           </TableCell>
@@ -303,7 +317,7 @@ const CustomListPage: React.FC = () => {
       const isGroupIndeterminate = selectedInGroupCount > 0 && !isGroupAllSelected;
 
       return (
-        <TableRow key={item.id} className="bg-accent/10 border-y border-primary/50">
+        <TableRow key={item.id} id={item.id} className="bg-accent/10 border-y border-primary/50">
           <TableCell className="w-[40px] p-2">
             {groupSelectableItems.length > 0 && (
               <Checkbox
@@ -325,7 +339,7 @@ const CustomListPage: React.FC = () => {
 
     // Item de peça normal
     return (
-      <TableRow key={item.id}>
+      <TableRow key={item.id} id={item.id}>
         <TableCell className="w-[40px] p-2">
           <Checkbox
             checked={selectedItemIds.has(item.id)}
@@ -347,7 +361,7 @@ const CustomListPage: React.FC = () => {
                 <Popover 
                   key={`popover-${item.id}`}
                   open={isRelatedItemsPopoverOpen === item.id} 
-                  onOpenChange={(open) => setIsRelatedItemsPopoverOpen(open ? item.id : null)}
+                  onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
                   modal={false}
                 >
                   <PopoverTrigger asChild>

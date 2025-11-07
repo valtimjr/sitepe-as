@@ -81,5 +81,6 @@ export interface MenuItem {
   order_index: number;
   list_id: string | null; // Se for um item final que aponta para uma lista
   itens_relacionados: RelatedPart[]; // ATUALIZADO para usar a nova interface
+  hash?: string; // NOVO: Para links de âncora
   children?: MenuItem[]; // Para a estrutura hierárquica
 }
