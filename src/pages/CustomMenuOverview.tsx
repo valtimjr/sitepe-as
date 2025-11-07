@@ -12,6 +12,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { getParts } from '@/services/partListService'; // Importar getParts
 import RelatedPartDisplay from '@/components/RelatedPartDisplay';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface MenuItemProps {
   item: MenuItem;
@@ -27,7 +29,11 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
 
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
-  const toggleExpand = () => {
+  const toggleExpand = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (hasChildren) {
       setIsExpanded(prev => !prev);
     }
@@ -108,7 +114,7 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
           {content}
         </Link>
       ) : (
-        <div onClick={toggleExpand} className="cursor-pointer">
+        <div onClick={() => toggleExpand()} className="cursor-pointer">
           {content}
         </div>
       )}

@@ -361,7 +361,7 @@ const CustomListPage: React.FC = () => {
                 <Popover 
                   key={`popover-${item.id}`}
                   open={isRelatedItemsPopoverOpen === item.id} 
-                  onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
+                  onOpenChange={(open) => setOpenRelatedItemsPopoverOpen(open ? item.id : null)}
                   modal={false}
                 >
                   <PopoverTrigger asChild>
