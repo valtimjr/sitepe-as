@@ -180,21 +180,19 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         margin: { top: 10, left: 14, right: 14 },
         columnStyles: columnStyles,
         didParseCell: (data: any) => {
-          if (data.cell.raw && data.cell.raw.__isStyled) {
+          if (data.section === 'body' && data.cell.raw && data.cell.raw.__isStyled) {
             const { name, desc, code } = data.cell.raw;
-            const cellContent = [];
+            const cellText = [];
             if (code) {
-              cellContent.push({ content: `Cód.: ${code}`, styles: { fontStyle: 'bold' } });
+              cellText.push({ content: `Cód.: ${code}`, styles: { fontStyle: 'bold', fontSize: 9 } });
             }
             if (name) {
-              if (code) { cellContent.push({ content: '\n', styles: { fontSize: 4 } }); }
-              cellContent.push({ content: name, styles: { fontStyle: 'normal' } });
+              cellText.push({ content: name, styles: { fontStyle: 'normal', fontSize: 9 } });
             }
             if (desc) {
-              if (code || name) { cellContent.push({ content: '\n', styles: { fontSize: 4 } }); }
-              cellContent.push({ content: desc, styles: { fontStyle: 'italic', fontSize: 8 } });
+              cellText.push({ content: desc, styles: { fontStyle: 'italic', fontSize: 8 } });
             }
-            data.cell.content = cellContent;
+            data.cell.text = cellText;
           }
         }
       });
@@ -217,6 +215,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
     if (item.type === 'subtitle') {
       renderGroup();
+      currentY += 5; // Adiciona margem antes do subtítulo
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
       doc.setTextColor(37, 99, 235); // primary color
