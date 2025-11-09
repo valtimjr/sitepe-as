@@ -31,7 +31,7 @@ import ServiceOrderForm from './ServiceOrderForm'; // Importar o formulário
 import { cn } from '@/lib/utils'; // Importar cn
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Part } from '@/types/supabase';
+import { Part, RelatedPart } from '@/types/supabase';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 
 interface ServiceOrderDetails {
@@ -72,7 +72,7 @@ interface ServiceOrderListDisplayProps {
   onListChanged: () => void;
   isLoading: boolean;
   onEditServiceOrder: (details: ServiceOrderDetails & { mode: FormMode }) => void; // Atualizado para incluir 'mode'
-  editingServiceOrder: ServiceOrderDetails | null;
+  editingServiceOrder: (ServiceOrderDetails & { mode?: FormMode }) | null;
   sortOrder: SortOrder;
   onSortOrderChange: (order: SortOrder) => void;
 }
@@ -107,7 +107,7 @@ const compareTimeStrings = (t1: string | undefined, t2: string | undefined): num
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder, sortOrder, onSortOrderChange }) => {
   const [groupedServiceOrders, setGroupedServiceOrders] = useState<ServiceOrderGroup[]>([]);
   const [draggedGroup, setDraggedGroup] = useState<ServiceOrderGroup | null>(null);
-  const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, string[]>>(new Map());
+  const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, RelatedPart[]>>(new Map());
 
   const isMobile = useIsMobile(); // Hook para detectar mobile
 
@@ -121,7 +121,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
   const loadRelatedPartsCache = useCallback(async () => {
     try {
       const allParts = await getParts();
-      const newCache = new Map<string, string[]>();
+      const newCache = new Map<string, RelatedPart[]>();
       allParts.forEach(part => {
         if (part.codigo && part.itens_relacionados && part.itens_relacionados.length > 0) {
           newCache.set(part.codigo, part.itens_relacionados);
@@ -631,7 +631,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                     (editingServiceOrder.os === group.os || (editingServiceOrder.os === undefined && group.os === undefined)) &&
                     (editingServiceOrder.hora_inicio === group.hora_inicio || (editingServiceOrder.hora_inicio === undefined && group.hora_inicio === undefined)) &&
                     (editingServiceOrder.hora_final === group.hora_final || (editingServiceOrder.hora_final === undefined && group.hora_final === undefined)) &&
-                    (editingServiceOrder.servico_executado === group.servico_executado || (editingServiceOrder.servico_executado === undefined && item.servico_executado === undefined));
+                    (editingServiceOrder.servico_executado === group.servico_executado || (editingServiceOrder.servico_executado === undefined && group.servico_executado === undefined));
 
                   const timeDisplay = (group.hora_inicio || group.hora_final) 
                     ? (group.hora_inicio || '??') + ' - ' + (group.hora_final || '??')
@@ -749,8 +749,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                       <ScrollArea className="h-24">
                                         <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
                                           {relatedItems.map(rel => (
-                                            <li key={rel} className="list-none ml-0">
-                                              <RelatedPartDisplay formattedString={rel} />
+                                            <li key={rel.codigo} className="list-none ml-0">
+                                              <RelatedPartDisplay item={rel} />
                                             </li>
                                           ))}
                                         </ul>
@@ -772,7 +772,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                   <TooltipContent>Editar item</TooltipContent>
                                 </Tooltip>
                                 <AlertDialog>
-                                  <Tooltip>
+                                  <Tooltip> {/* Tooltip envolve o AlertDialogTrigger */}
                                     <TooltipTrigger asChild>
                                       <AlertDialogTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
@@ -780,7 +780,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                         </Button>
                                       </AlertDialogTrigger>
                                     </TooltipTrigger>
-                                    <TooltipContent>Remover item</TooltipContent>
+                                    <TooltipContent>Remover Item</TooltipContent>
                                   </Tooltip>
                                   <AlertDialogContent>
                                     <AlertDialogHeader>
@@ -842,11 +842,11 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
               <ServiceOrderForm
                 mode={partFormMode}
                 onItemAdded={handlePartFormClose}
-                onClose={handlePartFormClose}
-                initialPartData={partToEdit}
-                initialSoData={soGroupForPartForm}
                 onNewServiceOrder={() => {}}
                 listItems={listItems}
+                initialPartData={partToEdit}
+                initialSoData={soGroupForPartForm}
+                onClose={handlePartFormClose}
               />
             </div>
           </SheetContent>

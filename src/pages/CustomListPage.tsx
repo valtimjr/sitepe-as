@@ -361,7 +361,7 @@ const CustomListPage: React.FC = () => {
                 <Popover 
                   key={`popover-${item.id}`}
                   open={isRelatedItemsPopoverOpen === item.id} 
-                  onOpenChange={(open) => setOpenRelatedItemsPopoverOpen(open ? item.id : null)}
+                  onOpenChange={(open) => setIsRelatedItemsPopoverOpen(open ? item.id : null)}
                   modal={false}
                 >
                   <PopoverTrigger asChild>
@@ -498,7 +498,7 @@ const CustomListPage: React.FC = () => {
                       <TableHead className="w-[40px] p-2">
                         <Checkbox
                           checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-                          onCheckedChange={handleToggleSelectAll}
+                          onCheckedChange={(checked) => handleToggleSelectAll(checked === true)}
                           aria-label="Selecionar todos os itens"
                         />
                       </TableHead>
