@@ -5,38 +5,24 @@ import { useParams, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle, XCircle, FileDown, Minus, Trash2, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Tag, Info, Loader2, FileDown, Check, PlusCircle } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { getCustomListItems, getCustomListById, updateAllCustomListItems } from '@/services/customListService';
+import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
-import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts } from '@/services/partListService';
+import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af } from '@/services/partListService';
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
-import CustomListEditor from '@/components/CustomListEditor';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import AfSearchInput from '@/components/AfSearchInput';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Importar Popover
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
-import RelatedPartDisplay from '@/components/RelatedPartDisplay'; // Importado o novo componente
+import RelatedPartDisplay from '@/components/RelatedPartDisplay';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import CustomListItemForm from '@/components/CustomListItemForm'; // Importar o formulário de item
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -44,27 +30,20 @@ const CustomListPage: React.FC = () => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [listTitle, setListTitle] = useState('Carregando Lista...');
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [itemToEdit, setItemToEdit] = useState<CustomListItem | null>(null);
 
-  // Estados para seleção e exportação
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [afForExport, setAfForExport] = useState('');
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para passar ao editor
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
 
-  // Estado para controlar o Popover de itens relacionados
   const [openRelatedItemsPopoverId, setOpenRelatedItemsPopoverId] = useState<string | null>(null);
-  const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
 
-  const isMobile = useIsMobile(); // Usar o hook useIsMobile
+  const isMobile = useIsMobile();
 
   const loadList = useCallback(async () => {
-    if (!listId) {
-      return; // Adicionado para evitar chamadas desnecessárias
-    }
+    if (!listId) return;
     setIsLoading(true);
     try {
       const listData = await getCustomListById(listId);
@@ -76,7 +55,6 @@ const CustomListPage: React.FC = () => {
         setIsLoading(false);
         return;
       }
-
       const fetchedItems = await getCustomListItems(listId);
       setItems(fetchedItems);
     } catch (error) {
@@ -110,7 +88,6 @@ const CustomListPage: React.FC = () => {
     document.title = `${listTitle} - AutoBoard`;
   }, [listTitle]);
 
-  // Efeito para rolar para a âncora
   useEffect(() => {
     if (!isLoading && location.hash) {
       const id = location.hash.substring(1);
@@ -118,16 +95,14 @@ const CustomListPage: React.FC = () => {
       if (element) {
         setTimeout(() => {
           element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100); // Pequeno atraso para garantir que a renderização esteja completa
+        }, 100);
       }
     }
   }, [isLoading, location.hash, items]);
 
   const formatListText = (itemsToFormat: CustomListItem[]) => {
     if (itemsToFormat.length === 0) return '';
-
     let formattedText = `${listTitle}\n\n`;
-
     itemsToFormat.forEach(item => {
       if (item.type === 'separator') {
         formattedText += '--------------------\n';
@@ -137,7 +112,6 @@ const CustomListPage: React.FC = () => {
         formattedText += `\n--- ${item.item_name.toUpperCase()} ---\n`;
         return;
       }
-      
       if (item.type === 'mangueira' && item.mangueira_data) {
         const data = item.mangueira_data;
         formattedText += `1 - Mangueira: ${data.mangueira.name || data.mangueira.codigo} (Cód: ${data.mangueira.codigo}) - Corte: ${data.corte_cm} cm\n`;
@@ -145,16 +119,12 @@ const CustomListPage: React.FC = () => {
         formattedText += `    Conexão 2: ${data.conexao2.name || data.conexao2.codigo} (Cód: ${data.conexao2.codigo})\n`;
         return;
       }
-
       const quantidade = item.quantity;
       const nome = item.item_name || '';
       const codigo = item.part_code ? ` (Cód: ${item.part_code})` : '';
       const descricao = item.description || '';
-      
-      // Formato: [QUANTIDADE] - [NOME PERSONALIZADO] [DESCRIÇÃO] (Cód: [CÓDIGO])
       formattedText += `${quantidade} - ${nome} ${descricao}${codigo}`.trim() + '\n';
     });
-
     return formattedText.trim();
   };
 
@@ -162,14 +132,11 @@ const CustomListPage: React.FC = () => {
     const itemsToProcess = selectedItemIds.size > 0
       ? items.filter(item => selectedItemIds.has(item.id))
       : items;
-
     if (itemsToProcess.length === 0) {
       showError('A lista está vazia ou nenhum item selecionado para copiar.');
       return;
     }
-
     const textToCopy = formatListText(itemsToProcess);
-
     try {
       await navigator.clipboard.writeText(textToCopy);
       showSuccess('Lista de peças copiada para a área de transferência!');
@@ -183,7 +150,6 @@ const CustomListPage: React.FC = () => {
     const itemsToExport = selectedItemIds.size > 0
       ? items.filter(item => selectedItemIds.has(item.id))
       : items;
-
     if (itemsToExport.length === 0) {
       showError('Nenhum item para exportar.');
       return;
@@ -196,7 +162,6 @@ const CustomListPage: React.FC = () => {
     const itemsToExport = selectedItemIds.size > 0
       ? items.filter(item => selectedItemIds.has(item.id))
       : items;
-
     if (itemsToExport.length === 0) {
       showError('Nenhum item para exportar.');
       return;
@@ -205,18 +170,6 @@ const CustomListPage: React.FC = () => {
     showSuccess('PDF gerado com sucesso!');
   };
 
-  const handleEditItemClick = (item: CustomListItem) => {
-    setItemToEdit(item);
-    setIsEditModalOpen(true);
-  };
-
-  const handleItemSavedOrClosed = () => {
-    setIsEditModalOpen(false);
-    setItemToEdit(null);
-    loadList();
-  };
-
-  // --- Seleção de Itens ---
   const selectableItems = useMemo(() => items.filter(i => i.type === 'item' || i.type === 'mangueira'), [items]);
   const isAllSelected = selectableItems.length > 0 && selectedItemIds.size === selectableItems.length;
   const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
@@ -245,17 +198,14 @@ const CustomListPage: React.FC = () => {
   const handleSubtitleSelect = (subtitleItem: CustomListItem, isChecked: boolean) => {
     const startIndex = items.findIndex(i => i.id === subtitleItem.id);
     if (startIndex === -1) return;
-
     let endIndex = items.findIndex((i, idx) => idx > startIndex && i.type === 'subtitle');
     if (endIndex === -1) {
       endIndex = items.length;
     }
-
     const itemsInGroup = items.slice(startIndex, endIndex);
     const selectableIdsInGroup = itemsInGroup
       .filter(i => i.type === 'item' || i.type === 'mangueira')
       .map(item => item.id);
-
     setSelectedItemIds(prev => {
       const newSelection = new Set(prev);
       if (isChecked) {
@@ -267,13 +217,12 @@ const CustomListPage: React.FC = () => {
     });
   };
 
-  // --- Exportar Selecionados para Minha Lista ---
   const handleExportSelectedToMyList = () => {
     if (selectedItemIds.size === 0) {
       showError('Nenhum item selecionado para exportar.');
       return;
     }
-    setAfForExport(''); // Limpa o AF anterior
+    setAfForExport('');
     setIsExportSheetOpen(true);
   };
 
@@ -282,43 +231,34 @@ const CustomListPage: React.FC = () => {
       showError('Por favor, selecione um AF para os itens exportados.');
       return;
     }
-
     const itemsToExport = items.filter(item => selectedItemIds.has(item.id));
     if (itemsToExport.length === 0) {
       showError('Nenhum item selecionado para exportar.');
       return;
     }
-
     const loadingToastId = showLoading(`Exportando ${itemsToExport.length} itens...`);
     try {
       for (const item of itemsToExport) {
         if (item.type === 'mangueira' && item.mangueira_data) {
           const data = item.mangueira_data;
-          
-          // Exporta a Mangueira como item simples (1 unidade)
           await addSimplePartItem({
             codigo_peca: data.mangueira.codigo || '',
             descricao: `Mangueira: ${data.mangueira.name || data.mangueira.codigo} - Corte: ${data.corte_cm} cm`,
             quantidade: 1,
             af: afForExport.trim(),
           });
-
-          // Exporta Conexão 1
           await addSimplePartItem({
             codigo_peca: data.conexao1.codigo || '',
             descricao: `Conexão 1: ${data.conexao1.name || data.conexao1.codigo}`,
             quantidade: 1,
             af: afForExport.trim(),
           });
-
-          // Exporta Conexão 2
           await addSimplePartItem({
             codigo_peca: data.conexao2.codigo || '',
             descricao: `Conexão 2: ${data.conexao2.name || data.conexao2.codigo}`,
             quantidade: 1,
             af: afForExport.trim(),
           });
-
         } else if (item.type === 'item') {
           await addSimplePartItem({
             codigo_peca: item.part_code || '',
@@ -340,115 +280,19 @@ const CustomListPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (itemId: string) => {
-    // Esta função é necessária para o AlertDialog
-    showError('A exclusão de itens deve ser feita no Gerenciador de Menus e Listas.');
-  };
-
-  const handleMoveItem = async (item: CustomListItem, direction: 'up' | 'down') => {
-    const siblings = [...items];
-    const currentIndex = siblings.findIndex(i => i.id === item.id);
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-  
-    if (targetIndex < 0 || targetIndex >= siblings.length) return;
-  
-    const [removed] = siblings.splice(currentIndex, 1);
-    siblings.splice(targetIndex, 0, removed);
-  
-    const updatedItemsWithNewOrder = siblings.map((reorderedItem, index) => ({
-      ...reorderedItem,
-      order_index: index,
-    }));
-    
-    setItems(updatedItemsWithNewOrder);
-
-    const loadingToastId = showLoading('Reordenando itens...');
-
-    try {
-      if (!listId) throw new Error("List ID is missing");
-      await updateAllCustomListItems(listId, updatedItemsWithNewOrder);
-      showSuccess('Ordem atualizada!');
-      await loadList();
-    } catch (error) {
-      console.error('Erro ao reordenar itens:', error);
-      showError('Erro ao reordenar itens.');
-      loadList();
-    } finally {
-      dismissToast(loadingToastId);
-    }
-  };
-
-  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: CustomListItem) => {
-    setDraggedItem(item);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', item.id);
-    e.currentTarget.classList.add('opacity-50');
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    e.currentTarget.classList.add('border-t-2', 'border-primary');
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.currentTarget.classList.remove('border-t-2', 'border-primary');
-  };
-
-  const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, targetItem: CustomListItem) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('opacity-50');
-
-    if (draggedItem && draggedItem.id !== targetItem.id) {
-      const currentItemsCopy = [...items];
-      const draggedIndex = currentItemsCopy.findIndex(item => item.id === draggedItem.id);
-      const targetIndex = currentItemsCopy.findIndex(item => item.id === targetItem.id);
-
-      if (draggedIndex !== -1 && targetIndex !== -1) {
-        const [removed] = currentItemsCopy.splice(draggedIndex, 1);
-        currentItemsCopy.splice(targetIndex, 0, removed);
-        
-        const updatedItemsWithNewOrder = currentItemsCopy.map((reorderedItem, index) => ({
-          ...reorderedItem,
-          order_index: index,
-        }));
-        
-        setItems(updatedItemsWithNewOrder);
-
-        const loadingToastId = showLoading('Reordenando itens...');
-
-        try {
-          if (!listId) throw new Error("List ID is missing");
-          await updateAllCustomListItems(listId, updatedItemsWithNewOrder);
-          showSuccess('Ordem atualizada com sucesso!');
-          await loadList();
-        } catch (error) {
-          console.error('Erro ao reordenar itens:', error);
-          showError('Erro ao reordenar itens.');
-          loadList();
-        } finally {
-          dismissToast(loadingToastId);
-        }
-      }
-    }
-    setDraggedItem(null);
-  };
-
-  const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.currentTarget.classList.remove('opacity-50');
-    setDraggedItem(null);
-  };
-
   const renderItemRow = (item: CustomListItem, index: number) => {
     const isSeparator = item.type === 'separator';
     const isSubtitle = item.type === 'subtitle';
     const isMangueira = item.type === 'mangueira';
     const isItem = item.type === 'item';
 
+    const previousItem = index > 0 ? items[index - 1] : null;
+    const showMangueiraHeader = isMangueira && (!previousItem || previousItem.type !== 'mangueira');
+
     if (isSeparator) {
       return (
         <TableRow key={item.id} id={item.id} className="bg-muted/50 border-y border-dashed">
-          <TableCell colSpan={6} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
+          <TableCell colSpan={isMobile ? 4 : 6} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
             <Separator className="my-0 bg-foreground/50 h-px" />
           </TableCell>
         </TableRow>
@@ -459,43 +303,22 @@ const CustomListPage: React.FC = () => {
       const startIndex = items.findIndex(i => i.id === item.id);
       let endIndex = items.findIndex((i, idx) => idx > startIndex && i.type === 'subtitle');
       if (endIndex === -1) endIndex = items.length;
-
       const groupSelectableItems = items.slice(startIndex, endIndex).filter(i => i.type === 'item' || i.type === 'mangueira');
       const selectedInGroupCount = groupSelectableItems.filter(i => selectedItemIds.has(i.id)).length;
-
       const isGroupAllSelected = groupSelectableItems.length > 0 && selectedInGroupCount === groupSelectableItems.length;
       const isGroupIndeterminate = selectedInGroupCount > 0 && !isGroupAllSelected;
 
       return (
-        <TableRow 
-          key={item.id} 
-          id={item.id} 
-          className="bg-accent/10 hover:bg-accent/50 border-y-2 border-primary/50"
-          draggable
-          onDragStart={(e) => handleDragStart(e, item)}
-          onDragOver={handleDragOver}
-          onDrop={(e) => handleDrop(e, item)}
-          onDragLeave={handleDragLeave}
-          onDragEnd={handleDragEnd}
-          data-id={item.id}
-        >
-          <TableCell className="w-[30px] p-2 cursor-grab"><GripVertical className="h-4 w-4" /></TableCell>
-          <TableCell colSpan={4} className="text-left font-bold text-lg text-primary p-2">
-            {item.item_name}
+        <TableRow key={item.id} id={item.id} className="bg-accent/10 hover:bg-accent/50 border-y-2 border-primary/50">
+          <TableCell className="w-[40px] p-2">
+            <Checkbox
+              checked={isGroupAllSelected ? true : isGroupIndeterminate ? 'indeterminate' : false}
+              onCheckedChange={(checked) => handleSubtitleSelect(item, checked === true)}
+              aria-label={`Selecionar todos os itens em ${item.item_name}`}
+            />
           </TableCell>
-          <TableCell className="w-[70px] p-2 text-right">
-            <div className="flex justify-end items-center gap-1">
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-              <AlertDialog>
-                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o subtítulo "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
+          <TableCell colSpan={isMobile ? 3 : 5} className="text-left font-bold text-lg text-primary p-2">
+            {item.item_name}
           </TableCell>
         </TableRow>
       );
@@ -506,116 +329,92 @@ const CustomListPage: React.FC = () => {
       if (!data) return null;
 
       return (
-        <TableRow 
-          key={item.id}
-          id={item.id}
-          draggable
-          onDragStart={(e) => handleDragStart(e, item)}
-          onDragOver={handleDragOver}
-          onDrop={(e) => handleDrop(e, item)}
-          onDragLeave={handleDragLeave}
-          onDragEnd={handleDragEnd}
-          data-id={item.id}
-        >
-          <TableCell className="w-[40px] p-2">
-            <div className="flex items-center gap-2">
-              <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" />
+        <React.Fragment key={item.id}>
+          {showMangueiraHeader && (
+            <TableRow className="bg-muted/50 border-y border-primary/50">
+              <TableHead className="w-[40px] p-2"></TableHead>
+              <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
+              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
+              <TableHead className="w-[6rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
+              {isMobile ? (
+                <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm" colSpan={2}>Conexões</TableHead>
+              ) : (
+                <>
+                  <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 1</TableHead>
+                  <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 2</TableHead>
+                </>
+              )}
+            </TableRow>
+          )}
+          <TableRow key={item.id} id={item.id}>
+            <TableCell className="w-[40px] p-2">
               <Checkbox
                 checked={selectedItemIds.has(item.id)}
                 onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
                 aria-label={`Selecionar item ${item.item_name}`}
               />
-            </div>
-          </TableCell>
-          <TableCell className="w-[4rem] p-2 text-center font-medium">1</TableCell>
-          <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-            <div className="flex flex-col items-start">
-              <span className="font-medium text-sm text-primary whitespace-normal break-words">{data.mangueira.name || data.mangueira.codigo}</span>
-              {data.mangueira.description && (
-                <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.mangueira.description}</span>
-              )}
-              <span className="text-xs text-muted-foreground mt-1">Cód: {data.mangueira.codigo}</span>
-            </div>
-          </TableCell>
-          <TableCell className="w-[6rem] p-2 text-center font-medium text-lg">
-            {data.corte_cm}
-          </TableCell>
-          {isMobile ? (
-            <TableCell className="w-auto p-2" colSpan={2}>
-              <div className="flex flex-col items-start space-y-2">
-                <div>
-                  <span className="font-medium text-sm">C1: {data.conexao1.name || data.conexao1.codigo}</span>
-                  <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao1.codigo}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-sm">C2: {data.conexao2.name || data.conexao2.codigo}</span>
-                  <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao2.codigo}</span>
-                </div>
+            </TableCell>
+            <TableCell className="w-[4rem] p-2 text-center font-medium">1</TableCell>
+            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
+              <div className="flex flex-col items-start">
+                <span className="font-medium text-sm text-primary whitespace-normal break-words">{data.mangueira.name || data.mangueira.codigo}</span>
+                {data.mangueira.description && (
+                  <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.mangueira.description}</span>
+                )}
+                <span className="text-xs text-muted-foreground mt-1">Cód: {data.mangueira.codigo}</span>
               </div>
             </TableCell>
-          ) : (
-            <>
-              <TableCell className="w-auto p-2">
-                <div className="flex flex-col items-start">
-                  <span className="font-medium text-sm whitespace-normal break-words">{data.conexao1.name || data.conexao1.codigo}</span>
-                  {data.conexao1.description && (
-                    <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.conexao1.description}</span>
-                  )}
-                  <span className="text-xs text-muted-foreground mt-1">Cód: {data.conexao1.codigo}</span>
+            <TableCell className="w-[6rem] p-2 text-center font-medium text-lg">
+              {data.corte_cm}
+            </TableCell>
+            {isMobile ? (
+              <TableCell className="w-auto p-2" colSpan={2}>
+                <div className="flex flex-col items-start space-y-2">
+                  <div>
+                    <span className="font-medium text-sm">C1: {data.conexao1.name || data.conexao1.codigo}</span>
+                    <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao1.codigo}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-sm">C2: {data.conexao2.name || data.conexao2.codigo}</span>
+                    <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao2.codigo}</span>
+                  </div>
                 </div>
               </TableCell>
-              <TableCell className="w-auto p-2">
-                <div className="flex flex-col items-start">
-                  <span className="font-medium text-sm whitespace-normal break-words">{data.conexao2.name || data.conexao2.codigo}</span>
-                  {data.conexao2.description && (
-                    <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.conexao2.description}</span>
-                  )}
-                  <span className="text-xs text-muted-foreground mt-1">Cód: {data.conexao2.codigo}</span>
-                </div>
-              </TableCell>
-            </>
-          )}
-          <TableCell className="w-[70px] p-2 text-right">
-            <div className="flex justify-end items-center gap-1">
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-              <AlertDialog>
-                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o item "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </TableCell>
-        </TableRow>
+            ) : (
+              <>
+                <TableCell className="w-auto p-2">
+                  <div className="flex flex-col items-start">
+                    <span className="font-medium text-sm whitespace-normal break-words">{data.conexao1.name || data.conexao1.codigo}</span>
+                    {data.conexao1.description && (
+                      <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.conexao1.description}</span>
+                    )}
+                    <span className="text-xs text-muted-foreground mt-1">Cód: {data.conexao1.codigo}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="w-auto p-2">
+                  <div className="flex flex-col items-start">
+                    <span className="font-medium text-sm whitespace-normal break-words">{data.conexao2.name || data.conexao2.codigo}</span>
+                    {data.conexao2.description && (
+                      <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.conexao2.description}</span>
+                    )}
+                    <span className="text-xs text-muted-foreground mt-1">Cód: {data.conexao2.codigo}</span>
+                  </div>
+                </TableCell>
+              </>
+            )}
+          </TableRow>
+        </React.Fragment>
       );
     }
 
-    // Item de peça normal
     return (
-      <TableRow 
-        key={item.id}
-        id={item.id}
-        draggable
-        onDragStart={(e) => handleDragStart(e, item)}
-        onDragOver={handleDragOver}
-        onDrop={(e) => handleDrop(e, item)}
-        onDragLeave={handleDragLeave}
-        onDragEnd={handleDragEnd}
-        data-id={item.id}
-        className="relative"
-      >
+      <TableRow key={item.id} id={item.id}>
         <TableCell className="w-[40px] p-2">
-          <div className="flex items-center gap-2">
-            <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" />
-            <Checkbox
-              checked={selectedItemIds.has(item.id)}
-              onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
-              aria-label={`Selecionar item ${item.item_name}`}
-            />
-          </div>
+          <Checkbox
+            checked={selectedItemIds.has(item.id)}
+            onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
+            aria-label={`Selecionar item ${item.item_name}`}
+          />
         </TableCell>
         <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
         <TableCell className="w-auto whitespace-normal break-words p-2 text-left" colSpan={isMobile ? 4 : 3}>
@@ -659,20 +458,6 @@ const CustomListPage: React.FC = () => {
             )}
           </div>
         </TableCell>
-        <TableCell className="w-[70px] p-2 text-right">
-          <div className="flex justify-end items-center gap-1">
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-            <AlertDialog>
-              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o item "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </TableCell>
       </TableRow>
     );
   };
@@ -687,8 +472,7 @@ const CustomListPage: React.FC = () => {
         />
       </TableHead>
       <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
-      <TableHead className="w-auto p-2 text-left font-bold text-sm" colSpan={3}>Item / Código / Descrição</TableHead>
-      <TableHead className="w-[70px] p-2 text-right"></TableHead>
+      <TableHead className="w-auto p-2 text-left font-bold text-sm" colSpan={isMobile ? 4 : 3}>Item / Código / Descrição</TableHead>
     </TableRow>
   );
 
@@ -712,7 +496,6 @@ const CustomListPage: React.FC = () => {
           <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 2</TableHead>
         </>
       )}
-      <TableHead className="w-[70px] p-2 text-right"></TableHead>
     </TableRow>
   );
 
@@ -811,7 +594,7 @@ const CustomListPage: React.FC = () => {
 
                       if (currentItemType === 'subtitle' || currentItemType === 'separator') {
                         rows.push(renderItemRow(item, index));
-                        lastItemType = null; // Reseta o tipo para o próximo grupo
+                        lastItemType = null;
                         return;
                       }
 
@@ -837,28 +620,6 @@ const CustomListPage: React.FC = () => {
       </Card>
       <MadeWithDyad />
 
-      {/* Sheet de Edição (mantido para o botão de lápis) */}
-      <Sheet open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Editar Item da Lista</SheetTitle>
-            <SheetDescription>
-              Edite os detalhes do item da lista.
-            </SheetDescription>
-          </SheetHeader>
-          {itemToEdit && listId && (
-            <CustomListItemForm
-              list={{ id: listId, title: listTitle, user_id: '' }}
-              onClose={handleItemSavedOrClosed}
-              editingItem={itemToEdit}
-              onItemSaved={handleItemSavedOrClosed}
-              allAvailableParts={allAvailableParts}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* Sheet para Exportar Selecionados com AF */}
       <Sheet open={isExportSheetOpen} onOpenChange={setIsExportSheetOpen}>
         <SheetContent side="right" className="sm:max-w-md">
           <SheetHeader>
