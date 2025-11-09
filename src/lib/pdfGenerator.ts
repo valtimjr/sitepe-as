@@ -215,17 +215,17 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
     if (item.type === 'mangueira' && item.mangueira_data) {
       const data = item.mangueira_data;
       const createContent = (partData: MangueiraPartDetails) => {
-        const content = [];
+        let content = '';
         if (partData.codigo) {
-          content.push({ content: `Cód.: ${partData.codigo}`, styles: { fontStyle: 'normal', fontSize: 9, textColor: [37, 99, 235] } });
+          content += `Cód.: ${partData.codigo}\n`;
         }
         if (partData.name) {
-          content.push({ content: partData.name, styles: { fontStyle: 'normal', fontSize: 9 } });
+          content += `${partData.name}\n`;
         }
         if (partData.description) {
-          content.push({ content: partData.description, styles: { fontStyle: 'italic', fontSize: 8 } });
+          content += `${partData.description}`;
         }
-        return content;
+        return content.trim();
       };
 
       currentGroupRows.push([
@@ -236,18 +236,18 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         createContent(data.conexao2),
       ]);
     } else if (item.type === 'item') {
-      const descriptionContent = [];
+      let descriptionContent = '';
       if (item.item_name) {
-        descriptionContent.push({ content: item.item_name, styles: { fontStyle: 'normal', fontSize: 9 } });
+        descriptionContent += item.item_name;
       }
       if (item.description) {
-        descriptionContent.push({ content: item.description, styles: { fontStyle: 'italic', fontSize: 8 } });
+        descriptionContent += `\n${item.description}`;
       }
 
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
-        item.part_code ? { content: `Cód.: ${item.part_code}`, styles: { textColor: [37, 99, 235] } } : '',
-        descriptionContent,
+        item.part_code ? `Cód.: ${item.part_code}` : '',
+        descriptionContent.trim(),
       ]);
     }
   });
