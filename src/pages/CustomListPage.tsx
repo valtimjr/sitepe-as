@@ -609,104 +609,82 @@ const CustomListPage: React.FC = () => {
     const isGroupIndeterminate = selectedInGroupCount > 0 && !isGroupAllSelected;
 
     return (
-      <div 
+      <TableRow 
         key={item.id} 
         id={item.id} 
-        className="bg-accent/10 p-2 rounded-md flex items-center justify-between border-l-4 border-primary my-4"
+        className="bg-accent/10 hover:bg-accent/50 border-y-2 border-primary/50"
+        draggable
+        onDragStart={(e) => handleDragStart(e, item)}
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, item)}
+        onDragLeave={handleDragLeave}
+        onDragEnd={handleDragEnd}
+        data-id={item.id}
       >
-        <div className="flex items-center gap-2">
-          {groupSelectableItems.length > 0 && (
-            <Checkbox
-              checked={isGroupAllSelected ? true : isGroupIndeterminate ? 'indeterminate' : false}
-              onCheckedChange={(checked) => handleSubtitleSelect(item, checked === true)}
-              aria-label={`Selecionar todos os itens em ${item.item_name}`}
-            />
-          )}
-          <h3 className="font-bold text-lg text-primary">{item.item_name}</h3>
-        </div>
-        <div className="flex items-center gap-1">
-          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-          <AlertDialog>
-            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o subtítulo "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-              <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </div>
+        <TableCell className="w-[40px] p-2">
+          <div className="flex items-center gap-2">
+            <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" />
+            {groupSelectableItems.length > 0 && (
+              <Checkbox
+                checked={isGroupAllSelected ? true : isGroupIndeterminate ? 'indeterminate' : false}
+                onCheckedChange={(checked) => handleSubtitleSelect(item, checked === true)}
+                aria-label={`Selecionar todos os itens em ${item.item_name}`}
+              />
+            )}
+          </div>
+        </TableCell>
+        <TableCell colSpan={4} className="text-left font-bold text-lg text-primary p-2">
+          {item.item_name}
+        </TableCell>
+        <TableCell className="w-[70px] p-2 text-right">
+          <div className="flex justify-end items-center gap-1">
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
+            <AlertDialog>
+              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o subtítulo "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </TableCell>
+      </TableRow>
     );
   };
 
-  const groupedItems = useMemo(() => {
-    if (items.length === 0) return [];
-
-    const groups: (CustomListItem | CustomListItem[])[] = [];
-    let currentGroup: CustomListItem[] = [];
-
-    for (const item of items) {
-      if (item.type === 'subtitle' || item.type === 'separator') {
-        if (currentGroup.length > 0) {
-          groups.push(currentGroup);
-        }
-        groups.push(item);
-        currentGroup = [];
-      } else {
-        if (currentGroup.length === 0) {
-          currentGroup.push(item);
-        } else {
-          if (currentGroup[currentGroup.length - 1].type === item.type) {
-            currentGroup.push(item);
-          } else {
-            groups.push(currentGroup);
-            currentGroup = [item];
-          }
-        }
-      }
-    }
-
-    if (currentGroup.length > 0) {
-      groups.push(currentGroup);
-    }
-
-    return groups;
-  }, [items]);
-
   const SimpleItemHeader = () => (
-    <TableHeader>
-      <TableRow className="bg-muted/50 border-y border-primary/50">
-        <TableHead className="w-[40px] p-2">
-          <Checkbox
-            checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-            onCheckedChange={handleToggleSelectAll}
-            aria-label="Selecionar todos os itens"
-          />
-        </TableHead>
-        <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
-        <TableHead className="w-auto p-2 text-left font-bold text-sm" colSpan={2}>Item / Código / Descrição</TableHead>
-        <TableHead className="w-auto p-2 text-left font-bold text-sm">Detalhes</TableHead>
-        <TableHead className="w-[70px] p-2 text-right"></TableHead>
-      </TableRow>
-    </TableHeader>
+    <TableRow className="bg-muted/50 border-y border-primary/50">
+      <TableHead className="w-[40px] p-2">
+        <Checkbox
+          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+          onCheckedChange={handleToggleSelectAll}
+          aria-label="Selecionar todos os itens"
+        />
+      </TableHead>
+      <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
+      <TableHead className="w-auto p-2 text-left font-bold text-sm" colSpan={2}>Item / Código / Descrição</TableHead>
+      <TableHead className="w-auto p-2 text-left font-bold text-sm">Detalhes</TableHead>
+      <TableHead className="w-[70px] p-2 text-right"></TableHead>
+    </TableRow>
   );
 
   const MangueiraHeader = () => (
-    <TableHeader>
-      <TableRow className="bg-muted/50 border-y border-primary/50">
-        <TableHead className="w-[40px] p-2">
-          <Checkbox
-            checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-            onCheckedChange={handleToggleSelectAll}
-            aria-label="Selecionar todos os itens"
-          />
-        </TableHead>
-        <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
-        <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
-        <TableHead className="w-[6rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
-        <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexões</TableHead>
-        <TableHead className="w-[70px] p-2 text-right"></TableHead>
-      </TableRow>
-    </TableHeader>
+    <TableRow className="bg-muted/50 border-y border-primary/50">
+      <TableHead className="w-[40px] p-2">
+        <Checkbox
+          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+          onCheckedChange={handleToggleSelectAll}
+          aria-label="Selecionar todos os itens"
+        />
+      </TableHead>
+      <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
+      <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
+      <TableHead className="w-[6rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
+      <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexões</TableHead>
+      <TableHead className="w-[70px] p-2 text-right"></TableHead>
+    </TableRow>
   );
 
   return (
@@ -792,30 +770,38 @@ const CustomListPage: React.FC = () => {
           ) : items.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
           ) : (
-            <div className="space-y-4">
-              {groupedItems.map((group, groupIndex) => {
-                if (Array.isArray(group)) {
-                  const groupType = group[0].type;
-                  return (
-                    <Table key={`group-${groupIndex}`} className="border">
-                      {groupType === 'item' && <SimpleItemHeader />}
-                      {groupType === 'mangueira' && <MangueiraHeader />}
-                      <TableBody>
-                        {group.map((item) => renderItemRow(item, items.findIndex(i => i.id === item.id)))}
-                      </TableBody>
-                    </Table>
-                  );
-                } else {
-                  const item = group;
-                  if (item.type === 'separator') {
-                    return <Separator key={item.id} className="my-2" />;
-                  }
-                  if (item.type === 'subtitle') {
-                    return renderSubtitleRow(item, items.findIndex(i => i.id === item.id));
-                  }
-                }
-                return null;
-              })}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableBody>
+                  {(() => {
+                    let lastItemType: string | null = null;
+                    const rows: React.ReactNode[] = [];
+
+                    items.forEach((item, index) => {
+                      const currentItemType = item.type;
+
+                      if (currentItemType === 'subtitle' || currentItemType === 'separator') {
+                        rows.push(renderItemRow(item, index));
+                        lastItemType = null; // Reseta o tipo para o próximo grupo
+                        return;
+                      }
+
+                      if (currentItemType !== lastItemType) {
+                        if (currentItemType === 'mangueira') {
+                          rows.push(<MangueiraHeader key={`header-mangueira-${index}`} />);
+                        } else if (currentItemType === 'item') {
+                          rows.push(<SimpleItemHeader key={`header-item-${index}`} />);
+                        }
+                        lastItemType = currentItemType;
+                      }
+
+                      rows.push(renderItemRow(item, index));
+                    });
+
+                    return rows;
+                  })()}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
