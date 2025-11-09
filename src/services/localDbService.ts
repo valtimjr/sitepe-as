@@ -354,7 +354,7 @@ export const getLocalUniqueAfs = async (): Promise<string[]> => {
 
 // --- Monthly Apontamentos Management (IndexedDB) ---
 
-export const getLocalMonthlyApontamentoFromDb = async (userId: string, monthYear: string): Promise<MonthlyApontamento | undefined> => {
+export const getLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<MonthlyApontamento | undefined> => {
   return localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).first();
 };
 

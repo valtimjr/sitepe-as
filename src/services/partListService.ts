@@ -23,9 +23,9 @@ import {
   deleteLocalServiceOrderItem,
   clearLocalServiceOrderItems,
   isOnline,
-  getLocalMonthlyApontamentoFromDb, // Renomeado para evitar conflito
-  putLocalMonthlyApontamento, // AGORA EXPORTADO
-  deleteLocalMonthlyApontamento // AGORA EXPORTADO
+  getLocalMonthlyApontamento, // Importa diretamente
+  putLocalMonthlyApontamento, 
+  deleteLocalMonthlyApontamento 
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network'; // Importar Network
@@ -39,7 +39,7 @@ export interface Af extends LocalAf {}
 export type Apontamento = DailyApontamento; // Apontamento agora é o DailyApontamento
 
 // Re-exportar getLocalMonthlyApontamento para que outros módulos possam importá-lo de partListService
-export const getLocalMonthlyApontamento = getLocalMonthlyApontamentoFromDb;
+// REMOVIDO: export const getLocalMonthlyApontamento = getLocalMonthlyApontamentoFromDb;
 
 // Helper para garantir que DailyApontamento objetos não contenham um campo 'id' ou 'user_id'
 const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
@@ -573,12 +573,12 @@ export const getLocalUniqueAfs = async (): Promise<string[]> => {
 
 // --- Monthly Apontamentos Management (IndexedDB) ---
 
-export const getLocalMonthlyApontamento = getLocalMonthlyApontamentoFromDb;
+export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;
 
 // Sincroniza dados do Supabase para o IndexedDB
 export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
   
-  const localMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+  const localMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
 
   const { data, error } = await supabase
     .from('monthly_apontamentos')
@@ -683,7 +683,7 @@ export const getApontamentos = async (userId: string, monthYear: string): Promis
     monthlyApontamento = await syncMonthlyApontamentosFromSupabase(userId, monthYear);
   } else {
     // Se offline, tenta do cache local
-    monthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+    monthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
   }
 
   return monthlyApontamento?.data || [];
@@ -692,7 +692,7 @@ export const getApontamentos = async (userId: string, monthYear: string): Promis
 // Atualiza um apontamento diário dentro do blob JSON mensal
 export const updateApontamento = async (userId: string, monthYear: string, dailyApontamento: DailyApontamento): Promise<DailyApontamento> => {
   const online = await isOnline();
-  let currentMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+  let currentMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
 
   if (!currentMonthlyApontamento) {
     // Se não existe localmente, tenta buscar do Supabase (se online)
@@ -755,7 +755,7 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
 // Deleta um apontamento diário dentro do blob JSON mensal
 export const deleteApontamento = async (userId: string, monthYear: string, dailyApontamentoDate: string): Promise<void> => {
   const online = await isOnline();
-  let currentMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+  let currentMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
 
   if (!currentMonthlyApontamento) {
     // Se não existe localmente, não há o que deletar

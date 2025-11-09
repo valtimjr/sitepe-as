@@ -8,7 +8,7 @@ import { Capacitor, PluginListenerHandle } from '@capacitor/core'; // Importar C
 import { supabase } from '@/integrations/supabase/client'; // Adicionado: Importa a instância supabase
 import { 
   localDb, // Adicionado: Importa a instância localDb
-  getLocalMonthlyApontamento, 
+  getLocalMonthlyApontamento, // Importa a função correta
   putLocalMonthlyApontamento, // AGORA EXPORTADO
   bulkPutLocalMonthlyApontamentos, // AGORA EXPORTADO
 } from '@/services/localDbService';
