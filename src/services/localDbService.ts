@@ -1,18 +1,13 @@
 import Dexie, { Table } from 'dexie';
 import { v4 as uuidv4 } from 'uuid';
-import { DailyApontamento, MonthlyApontamento, RelatedPart } from '@/types/supabase'; // Importar novos tipos
+import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, Af as SupabaseAf } from '@/types/supabase'; // Importar novos tipos
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network';
 import Papa from 'papaparse';
 
-export interface Part {
-  id: string;
-  codigo: string;
-  descricao: string;
-  tags?: string;
-  name?: string; // Adicionado o campo 'name'
-  itens_relacionados?: RelatedPart[]; // ATUALIZADO para usar a nova interface
-}
+// Use the strict types from supabase.ts for local storage interfaces
+export interface Part extends SupabasePart {}
+export interface Af extends SupabaseAf {}
 
 export interface SimplePartItem {
   id: string;
@@ -34,12 +29,6 @@ export interface ServiceOrderItem {
   hora_final?: string;
   servico_executado?: string;
   created_at?: Date;
-}
-
-export interface Af {
-  id: string;
-  af_number: string;
-  descricao?: string; // NOVO CAMPO
 }
 
 // A interface Apontamento agora é DailyApontamento, mas para compatibilidade
@@ -365,29 +354,7 @@ export const getLocalUniqueAfs = async (): Promise<string[]> => {
 
 // --- Monthly Apontamentos Management (IndexedDB) ---
 
-export const getLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<MonthlyApontamento | undefined> => {
-  const apontamento = await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).first();
-  return apontamento;
-};
-
-export const putLocalMonthlyApontamento = async (monthlyApontamento: MonthlyApontamento): Promise<void> => {
-  await localDb.monthlyApontamentos.put(monthlyApontamento);
-};
-
-export const bulkPutLocalMonthlyApontamentos = async (monthlyApontamentos: MonthlyApontamento[]): Promise<void> => {
-  await localDb.monthlyApontamentos.bulkPut(monthlyApontamentos);
-};
-
-export const clearLocalMonthlyApontamentos = async (userId: string): Promise<void> => {
-  const idsToDelete = await localDb.monthlyApontamentos.where('user_id').equals(userId).keys();
-  await localDb.monthlyApontamentos.bulkDelete(idsToDelete);
-};
-
-export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<void> => {
-  await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).delete();
-};
-
-// --- Funções para Apontamentos (Time Tracking) ---
+export const getLocalMonthlyApontamento = getLocalMonthlyApontamentoFromDb;
 
 // Sincroniza dados do Supabase para o IndexedDB
 export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
@@ -724,6 +691,8 @@ export const cleanupEmptyParts = async (): Promise<number> => {
     } else {
       hasMoreToFetch = false;
     }
+    // Adicionado: Pequeno atraso para evitar sobrecarga da API em loops grandes
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
 
   if (allIdsToDelete.length > 0) {
@@ -747,4 +716,70 @@ export const cleanupEmptyParts = async (): Promise<number> => {
   }
 
   return deletedCount;
+};
+
+// NOVO: Função para criar relações em lote
+export const batchUpdateRelations = async (codesToRelate: string[]): Promise<{ updatedCount: number, notFoundCodes: string[] }> => {
+  // 1. Buscar todas as peças envolvidas
+  const { data: foundParts, error: fetchError } = await supabase
+    .from('parts')
+    .select('*')
+    .in('codigo', codesToRelate);
+
+  if (fetchError) {
+    throw new Error(`Erro ao buscar peças: ${fetchError.message}`);
+  }
+
+  const foundCodes = new Set(foundParts.map(p => p.codigo));
+  const notFoundCodes = codesToRelate.filter(code => !foundCodes.has(code));
+
+  // 2. Preparar as atualizações
+  const updatedParts = foundParts.map(part => {
+    const otherCodes = codesToRelate.filter(code => code !== part.codigo);
+    const existingRelatedCodes = (part.itens_relacionados || []).map(r => r.codigo);
+    const allRelatedCodes = Array.from(new Set([...existingRelatedCodes, ...otherCodes]));
+
+    const newRelations = allRelatedCodes
+      .map(code => {
+        const relatedPart = foundParts.find(p => p.codigo === code);
+        if (relatedPart) {
+          return {
+            codigo: relatedPart.codigo,
+            name: relatedPart.name || relatedPart.descricao,
+            desc: (relatedPart.name && relatedPart.name.trim() !== '' && relatedPart.descricao !== (relatedPart.name || '')) ? relatedPart.descricao : ''
+          };
+        }
+        // Se uma relação existente não estiver no lote atual, busca-a na lista original da peça
+        const existingRelationObject = (part.itens_relacionados || []).find(r => r.codigo === code);
+        if (existingRelationObject) {
+          return existingRelationObject;
+        }
+        return null;
+      })
+      .filter((p): p is RelatedPart => p !== null)
+      .sort((a, b) => a.codigo.localeCompare(b.codigo));
+    
+    return {
+      ...part,
+      itens_relacionados: newRelations,
+    };
+  });
+
+  if (updatedParts.length === 0) {
+    return { updatedCount: 0, notFoundCodes };
+  }
+
+  // 3. Atualizar no Supabase
+  const { error: upsertError } = await supabase
+    .from('parts')
+    .upsert(updatedParts, { onConflict: 'id' });
+
+  if (upsertError) {
+    throw new Error(`Erro ao atualizar relações: ${upsertError.message}`);
+  }
+
+  // 4. Atualizar no IndexedDB
+  await bulkPutLocalParts(updatedParts);
+
+  return { updatedCount: updatedParts.length, notFoundCodes };
 };

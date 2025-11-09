@@ -24,13 +24,19 @@ export interface RelatedPart {
 
 export type RelatedItem = string | RelatedPart; // Para migração de dados legados
 
+export interface Af {
+  id: string;
+  af_number: string;
+  descricao: string; // Tornada obrigatória
+}
+
 export interface Part {
   id: string;
   codigo: string;
   descricao: string;
-  tags: string; // Alterado para ser sempre uma string
-  name: string; // Alterado para ser sempre uma string
-  itens_relacionados: RelatedPart[]; // Alterado para ser sempre um array
+  tags: string; // Tornada obrigatória
+  name: string; // Tornada obrigatória
+  itens_relacionados: RelatedPart[]; // Tornada obrigatória
 }
 
 // Apontamento diário, agora parte de um array JSONB
