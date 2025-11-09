@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { CustomList, CustomListItem, Part, RelatedPart } from '@/types/supabase';
+import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
 import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, deleteCustomListItem as deleteCustomListItemService, updateAllCustomListItems } from '@/services/customListService';
 import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
@@ -53,6 +53,13 @@ interface CustomListEditorProps {
   allAvailableParts: Part[];
 }
 
+// Interface para o estado de busca de sub-peças
+interface SubPartSearchState {
+  query: string;
+  results: Part[];
+  isLoading: boolean;
+}
+
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, editingItem, onItemSaved, allAvailableParts }) => {
   const { user } = useSession();
   const [items, setItems] = useState<CustomListItem[]>([]);
@@ -61,7 +68,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   const [currentEditingItemId, setCurrentEditingItemId] = useState<string | null>(null);
 
   // Form states for main item
-  const [formType, setFormType] = useState<'item' | 'subtitle' | 'separator'>('item');
+  const [formType, setFormType] = useState<'item' | 'subtitle' | 'separator' | 'mangueira'>('item');
   const [formItemName, setFormItemName] = useState('');
   const [formPartCode, setFormPartCode] = useState('');
   const [formDescription, setFormDescription] = useState('');
@@ -93,6 +100,17 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const isMobile = useIsMobile();
 
+  // NOVO: Estados para Mangueira
+  const [formMangueiraPart, setFormMangueiraPart] = useState<Part | null>(null);
+  const [formConexao1Part, setFormConexao1Part] = useState<Part | null>(null);
+  const [formConexao2Part, setFormConexao2Part] = useState<Part | null>(null);
+  const [formCorteCm, setFormCorteCm] = useState<number>(0);
+  
+  // NOVO: Search states para Mangueira sub-peças
+  const [mangueiraSearch, setMangueiraSearch] = useState<SubPartSearchState>({ query: '', results: [], isLoading: false });
+  const [conexao1Search, setConexao1Search] = useState<SubPartSearchState>({ query: '', results: [], isLoading: false });
+  const [conexao2Search, setConexao2Search] = useState<SubPartSearchState>({ query: '', results: [], isLoading: false });
+
   // Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
   const formatRelatedPartObject = (part: Part): RelatedPart => {
     const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
@@ -120,42 +138,120 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     loadItems();
   }, [loadItems]);
 
+  // Helper to handle search for a specific sub-part
+  const handleSubPartSearch = useCallback(async (query: string, setState: React.Dispatch<React.SetStateAction<SubPartSearchState>>) => {
+    setState(prev => ({ ...prev, query, isLoading: true }));
+    if (query.length > 1) {
+      const results = await searchPartsService(query);
+      setState(prev => ({ ...prev, results, isLoading: false }));
+    } else {
+      setState(prev => ({ ...prev, results: [], isLoading: false }));
+    }
+  }, []);
+
+  // Effect for Mangueira sub-part searches
+  useEffect(() => {
+    const handler1 = setTimeout(() => {
+      if (mangueiraSearch.query.length > 1) handleSubPartSearch(mangueiraSearch.query, setMangueiraSearch);
+    }, 300);
+    const handler2 = setTimeout(() => {
+      if (conexao1Search.query.length > 1) handleSubPartSearch(conexao1Search.query, setConexao1Search);
+    }, 300);
+    const handler3 = setTimeout(() => {
+      if (conexao2Search.query.length > 1) handleSubPartSearch(conexao2Search.query, setConexao2Search);
+    }, 300);
+    return () => {
+      clearTimeout(handler1);
+      clearTimeout(handler2);
+      clearTimeout(handler3);
+    };
+  }, [mangueiraSearch.query, conexao1Search.query, conexao2Search.query, handleSubPartSearch]);
+
+
+  // Helper to reset Mangueira specific fields
+  const resetMangueiraFields = () => {
+    setFormMangueiraPart(null);
+    setFormConexao1Part(null);
+    setFormConexao2Part(null);
+    setFormCorteCm(0);
+    setMangueiraSearch({ query: '', results: [], isLoading: false });
+    setConexao1Search({ query: '', results: [], isLoading: false });
+    setConexao2Search({ query: '', results: [], isLoading: false });
+  };
+
+  const resetForm = () => {
+    setFormType('item');
+    setFormItemName('');
+    setFormPartCode('');
+    setFormDescription('');
+    setFormQuantity(1);
+    setFormItensRelacionados([]);
+    setSearchQuery('');
+    setSearchResults([]);
+    setSelectedPartFromSearch(null);
+    setBulkRelatedPartsInput('');
+    setRelatedSearchQuery('');
+    setSearchResultsRelated([]);
+    resetMangueiraFields(); // Inclui reset de Mangueira
+  };
+
   // Efeito para preencher o formulário quando `editingItem` muda
   useEffect(() => {
     const initializeFormForEdit = async () => {
+      resetForm(); // Começa sempre limpando
+
       if (editingItem) {
         setIsFormForNewItem(false);
         setCurrentEditingItemId(editingItem.id);
         setFormType(editingItem.type || 'item');
         setFormItemName(editingItem.item_name);
-        setFormPartCode(editingItem.part_code || '');
-        setFormDescription(editingItem.description || '');
-        setFormQuantity(editingItem.quantity);
-        setFormItensRelacionados(editingItem.itens_relacionados || []);
-        setSearchQuery('');
-        setSearchResults([]);
-        setBulkRelatedPartsInput('');
-        setRelatedSearchQuery('');
-        setSearchResultsRelated([]);
+        setFormOrderIndex(editingItem.order_index);
+        
+        if (editingItem.type === 'mangueira' && editingItem.mangueira_data) {
+          const data = editingItem.mangueira_data;
+          
+          // Helper to find part by code
+          const findPart = (code: string) => allAvailableParts.find(p => p.codigo === code) || null;
 
-        if (editingItem.part_code) {
-          const results = await searchPartsService(editingItem.part_code);
-          const part = results.find(p => p.codigo.toLowerCase() === editingItem.part_code!.toLowerCase());
-          setSelectedPartFromSearch(part || null);
-        } else {
-          setSelectedPartFromSearch(null);
+          setFormCorteCm(data.corte_cm);
+          
+          // Find and set the three parts
+          const mangueiraPart = findPart(data.mangueira.codigo);
+          const conexao1Part = findPart(data.conexao1.codigo);
+          const conexao2Part = findPart(data.conexao2.codigo);
+
+          setFormMangueiraPart(mangueiraPart);
+          setFormConexao1Part(conexao1Part);
+          setFormConexao2Part(conexao2Part);
+
+          setFormItemName(data.mangueira.name || data.mangueira.description || 'Mangueira');
+
+          // Set search queries for display
+          setMangueiraSearch(prev => ({ ...prev, query: data.mangueira.codigo }));
+          setConexao1Search(prev => ({ ...prev, query: data.conexao1.codigo }));
+          setConexao2Search(prev => ({ ...prev, query: data.conexao2.codigo }));
+
+        } else if (editingItem.type === 'item') {
+          setFormPartCode(editingItem.part_code || '');
+          setFormDescription(editingItem.description || '');
+          setFormQuantity(editingItem.quantity);
+          setFormItensRelacionados(editingItem.itens_relacionados || []);
+          
+          if (editingItem.part_code) {
+            const results = await searchPartsService(editingItem.part_code);
+            const part = results.find(p => p.codigo.toLowerCase() === editingItem.part_code!.toLowerCase());
+            setSelectedPartFromSearch(part || null);
+          }
         }
       } else {
-        // Se não houver editingItem, o formulário deve estar no modo de adição
         setIsFormForNewItem(true);
         setCurrentEditingItemId(null);
         resetForm();
-        setSelectedPartFromSearch(null);
       }
     };
 
     initializeFormForEdit();
-  }, [editingItem]);
+  }, [editingItem, allAvailableParts]);
 
 
   useEffect(() => {
@@ -192,21 +288,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
   }, [relatedSearchQuery]);
 
 
-  const resetForm = () => {
-    setFormType('item');
-    setFormItemName('');
-    setFormPartCode('');
-    setFormDescription('');
-    setFormQuantity(1);
-    setFormItensRelacionados([]);
-    setSearchQuery('');
-    setSearchResults([]);
-    setSelectedPartFromSearch(null);
-    setBulkRelatedPartsInput('');
-    setRelatedSearchQuery('');
-    setSearchResultsRelated([]);
-  };
-
   const handleAdd = () => {
     setIsFormForNewItem(true);
     setCurrentEditingItemId(null);
@@ -215,52 +296,58 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   // CORRIGIDO: Função para editar item da tabela (preenche o formulário)
   const handleEditItemClick = (item: CustomListItem) => {
-    setIsFormForNewItem(false);
-    setCurrentEditingItemId(item.id);
-    
-    setFormType(item.type || 'item');
-    setFormItemName(item.item_name);
-    setFormPartCode(item.part_code || '');
-    setFormDescription(item.description || '');
-    setFormQuantity(item.quantity);
-    setFormItensRelacionados(item.itens_relacionados || []);
-    setSearchQuery('');
-    setSearchResults([]);
-    setBulkRelatedPartsInput('');
-    setRelatedSearchQuery('');
-    setSearchResultsRelated([]);
-
-    if (item.part_code) {
-      searchPartsService(item.part_code).then(results => {
-        const part = results.find(p => p.codigo.toLowerCase() === item.part_code!.toLowerCase());
-        setSelectedPartFromSearch(part || null);
-      });
-    } else {
-      setSelectedPartFromSearch(null);
-    }
+    setItemToEdit(item); // Define o item para o useEffect inicializar o formulário
   };
 
   const handleSelectPart = (part: Part) => {
-    setSelectedPartFromSearch(part);
-    setFormPartCode(part.codigo);
-    setFormDescription(part.descricao);
-    setFormItemName(part.name || part.descricao || '');
-    setSearchQuery('');
-    setSearchResults([]);
-
-    // NOVO: Puxa os itens relacionados da peça principal (códigos)
-    if (part.itens_relacionados && part.itens_relacionados.length > 0) {
-      const relatedItems = part.itens_relacionados;
+    // Lógica para tipo 'item'
+    if (formType === 'item') {
+      setSelectedPartFromSearch(part);
+      setFormPartCode(part.codigo);
+      setFormDescription(part.descricao);
+      setFormItemName(part.name || part.descricao || '');
+      setSearchQuery('');
+      setSearchResults([]);
       
-      // Adiciona os novos itens relacionados, mantendo os existentes (se houver)
-      setFormItensRelacionados(prev => {
-        const existingCodes = new Set(prev.map(p => p.codigo));
-        const newItems = relatedItems.filter(p => !existingCodes.has(p.codigo));
-        return [...prev, ...newItems];
-      });
-      showSuccess(`Sugestões de itens relacionados da peça ${part.codigo} carregadas.`);
+      if (part.itens_relacionados && part.itens_relacionados.length > 0) {
+        const relatedItems = part.itens_relacionados;
+        setFormItensRelacionados(prev => {
+          const existingCodes = new Set(prev.map(p => p.codigo));
+          const newItems = relatedItems.filter(p => !existingCodes.has(p.codigo));
+          return [...prev, ...newItems];
+        });
+        showSuccess(`Sugestões de itens relacionados da peça ${part.codigo} carregadas.`);
+      }
     }
   };
+
+  // New handlers for the three sub-parts search inputs
+  const handleSelectMangueiraPart = (part: Part | null) => {
+    setFormMangueiraPart(part);
+    if (part) {
+      setFormItemName(part.name || part.descricao || 'Mangueira');
+      setMangueiraSearch(prev => ({ ...prev, query: part.codigo }));
+    } else {
+      setMangueiraSearch(prev => ({ ...prev, query: '' }));
+    }
+  };
+  const handleSelectConexao1Part = (part: Part | null) => {
+    setFormConexao1Part(part);
+    if (part) {
+      setConexao1Search(prev => ({ ...prev, query: part.codigo }));
+    } else {
+      setConexao1Search(prev => ({ ...prev, query: '' }));
+    }
+  };
+  const handleSelectConexao2Part = (part: Part | null) => {
+    setFormConexao2Part(part);
+    if (part) {
+      setConexao2Search(prev => ({ ...prev, query: part.codigo }));
+    } else {
+      setConexao2Search(prev => ({ ...prev, query: '' }));
+    }
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -273,38 +360,66 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       showError('A quantidade deve ser maior que zero para itens de peça.');
       return;
     }
+    
+    if (formType === 'mangueira') {
+      if (!formMangueiraPart || !formConexao1Part || !formConexao2Part || formCorteCm <= 0) {
+        showError('Preencha todos os campos da Mangueira (Peças e Corte em cm > 0).');
+        return;
+      }
+    }
 
-    if (formType !== 'separator' && !trimmedItemName && !trimmedDescription) {
+    if (formType !== 'separator' && !trimmedItemName && formType !== 'mangueira') {
       showError('O Nome ou a Descrição deve ser preenchido.');
       return;
     }
 
     const finalItemName = trimmedItemName || trimmedDescription || (formType === 'separator' ? '---' : '');
 
-    const payload: Omit<CustomListItem, 'id'> = {
-      type: formType,
-      item_name: finalItemName,
-      part_code: formType === 'item' ? trimmedPartCode || null : null,
-      description: formType === 'item' ? trimmedDescription || null : null,
-      quantity: formType === 'item' ? formQuantity : 0,
-      // Se for edição, o order_index é mantido. Se for novo, usa o tamanho atual da lista.
-      order_index: currentEditingItemId ? items.find(i => i.id === currentEditingItemId)?.order_index ?? items.length : items.length,
-      itens_relacionados: formType === 'item' ? formItensRelacionados : [],
-    };
+    let payload: Omit<CustomListItem, 'id'>;
+
+    if (formType === 'mangueira') {
+      const mangueiraData: MangueiraItemData = {
+        mangueira: formatRelatedPartObject(formMangueiraPart!),
+        conexao1: formatRelatedPartObject(formConexao1Part!),
+        conexao2: formatRelatedPartObject(formConexao2Part!),
+        corte_cm: formCorteCm,
+      };
+      
+      payload = {
+        type: 'mangueira',
+        item_name: finalItemName,
+        order_index: currentEditingItemId ? items.find(i => i.id === currentEditingItemId)?.order_index ?? items.length : items.length,
+        part_code: null,
+        description: null,
+        quantity: 0,
+        itens_relacionados: [],
+        mangueira_data: mangueiraData,
+      };
+    } else {
+      // Existing logic for 'item', 'subtitle', 'separator'
+      payload = {
+        type: formType,
+        item_name: finalItemName,
+        part_code: formType === 'item' ? trimmedPartCode || null : null,
+        description: formType === 'item' ? trimmedDescription || null : null,
+        quantity: formType === 'item' ? formQuantity : 0,
+        order_index: currentEditingItemId ? items.find(i => i.id === currentEditingItemId)?.order_index ?? items.length : items.length,
+        itens_relacionados: formType === 'item' ? formItensRelacionados : [],
+        mangueira_data: undefined,
+      };
+    }
 
     try {
       if (currentEditingItemId) {
-        // Modo de edição: usa o ID do item em edição
-        await updateCustomListItem(list.id, { id: currentEditingItemId, ...payload });
+        await updateCustomListItem(list.id, { id: currentEditingItemId, ...payload } as CustomListItem);
         showSuccess('Item atualizado com sucesso!');
       } else {
-        // Modo de adição: adiciona um novo item
         await addCustomListItem(list.id, payload);
         showSuccess('Item adicionado com sucesso!');
       }
       
       resetForm();
-      setCurrentEditingItemId(null); // Limpa o ID após salvar
+      setCurrentEditingItemId(null);
       loadItems();
       onItemSaved?.();
     } catch (error) {
@@ -376,6 +491,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
       }
       if (item.type === 'subtitle') {
         formattedText += `\n--- ${item.item_name.toUpperCase()} ---\n`;
+        return;
+      }
+      
+      if (item.type === 'mangueira' && item.mangueira_data) {
+        const data = item.mangueira_data;
+        formattedText += `1 - Mangueira: ${data.mangueira.name || data.mangueira.codigo} (Cód: ${data.mangueira.codigo}) - Corte: ${data.corte_cm} cm\n`;
+        formattedText += `    Conexão 1: ${data.conexao1.name || data.conexao1.codigo} (Cód: ${data.conexao1.codigo})\n`;
+        formattedText += `    Conexão 2: ${data.conexao2.name || data.conexao2.codigo} (Cód: ${data.conexao2.codigo})\n`;
         return;
       }
 
@@ -475,6 +598,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
         } catch (error) {
           console.error('Erro ao reordenar itens:', error);
           showError('Erro ao reordenar itens.');
+          // Reverte a UI para o estado anterior em caso de erro
+          loadItems();
         } finally {
           dismissToast(loadingToastId);
         }
@@ -608,7 +733,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
     if (newRelatedItems.length > 0) {
       setFormItensRelacionados(prev => Array.from(new Set([...prev, ...newRelatedItems])));
-      showSuccess(`${foundCount} item(s) adicionado(s) em massa aos itens relacionados.`);
+      showSuccess(`${newRelatedItems.length} item(s) adicionado(s) em massa aos itens relacionados.`);
     } else {
       showError('Nenhum novo item válido encontrado ou adicionado em massa.');
     }
@@ -616,441 +741,355 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
     dismissToast(loadingToastId);
   };
 
-  return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-col space-y-2 pb-2">
-        <div className="flex justify-between items-center">
-          <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
-            <ArrowLeft className="h-4 w-4" /> Voltar
-          </Button>
-          <Button onClick={handleAdd} className="flex items-center gap-2 shrink-0">
-            <PlusCircle className="h-4 w-4" /> Novo Item
-          </Button>
-        </div>
-        
-        <CardTitle className="text-2xl font-bold text-center pt-2">
-          {list.title}
-        </CardTitle>
-        
-        <div className="flex flex-wrap justify-end gap-2 pt-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                onClick={handleCopyList} 
-                disabled={items.length === 0} 
-                variant="secondary" 
-                size="icon"
-                className="sm:w-auto sm:px-4"
-              >
-                <Copy className="h-4 w-4" /> 
-                <span className="hidden sm:inline ml-2">Copiar Lista</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Copiar Lista</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                onClick={handleExportCsv} 
-                disabled={items.length === 0} 
-                variant="outline" 
-                size="icon"
-                className="sm:w-auto sm:px-4"
-              >
-                <Download className="h-4 w-4" /> 
-                <span className="hidden sm:inline ml-2">Exportar CSV</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Exportar CSV</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" /> Exportar PDF
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Exportar PDF</TooltipContent>
-          </Tooltip>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
-        ) : items.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[30px] p-2">
-                    <GripVertical className="h-4 w-4" />
-                  </TableHead>
-                  <TableHead className="w-[3rem] p-2">Qtd</TableHead>
-                  <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                  <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item, index) => {
-                  const isSeparator = item.type === 'separator';
-                  const isSubtitle = item.type === 'subtitle';
-                  
-                  if (isSeparator) {
-                    return (
-                      <TableRow key={item.id} className="bg-muted/50 border-y-2 border-dashed" draggable onDragStart={(e) => handleDragStart(e, item)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, item)} onDragLeave={handleDragLeave} onDragEnd={handleDragEnd} data-id={item.id}>
-                        <TableCell className="w-[30px] p-2 cursor-grab"><GripVertical className="h-4 w-4" /></TableCell>
-                        <TableCell colSpan={2} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
-                          <Separator className="my-0 bg-foreground/50 h-px" />
-                        </TableCell>
-                        <TableCell className="w-[70px] p-2 text-right">
-                          <div className="flex justify-end items-center gap-1">
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o separador. Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  }
+  const renderItemRow = (item: CustomListItem, index: number) => {
+    const isSeparator = item.type === 'separator';
+    const isSubtitle = item.type === 'subtitle';
+    const isMangueira = item.type === 'mangueira';
+    const isItem = item.type === 'item';
 
-                  if (isSubtitle) {
-                    return (
-                      <TableRow key={item.id} className="bg-accent/10 hover:bg-accent/50 border-y-2 border-primary/50" draggable onDragStart={(e) => handleDragStart(e, item)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, item)} onDragLeave={handleDragLeave} onDragEnd={handleDragEnd} data-id={item.id}>
-                        <TableCell className="w-[30px] p-2 cursor-grab"><GripVertical className="h-4 w-4" /></TableCell>
-                        <TableCell colSpan={2} className="text-left font-bold text-lg text-primary p-2">
-                          {item.item_name}
-                        </TableCell>
-                        <TableCell className="w-[70px] p-2 text-right">
-                          <div className="flex justify-end items-center gap-1">
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o subtítulo "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  }
+    // Logic for Mangueira Header
+    const previousItem = index > 0 ? items[index - 1] : null;
+    const showMangueiraHeader = isMangueira && (!previousItem || previousItem.type !== 'mangueira');
 
-                  // Item de peça normal
-                  return (
-                    <TableRow 
-                      key={item.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, item)}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, item)}
-                      onDragLeave={handleDragLeave}
-                      onDragEnd={handleDragEnd}
-                      data-id={item.id}
-                      className="relative"
-                    >
-                      <TableCell className="w-[30px] p-2 cursor-grab">
-                        <GripVertical className="h-4 w-4" />
-                      </TableCell>
-                      <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-                      <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-                          <div className="flex flex-col items-start">
-                            {item.part_code && (
-                              <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
-                            )}
-                            <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
-                            {item.description && (
-                              <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
-                            )}
-                            {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                              <Popover 
-                                key={`popover-${item.id}`}
-                                open={openRelatedItemsPopoverId === item.id} 
-                                onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
-                                modal={false}
-                              >
-                                <PopoverTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
-                                  >
-                                    <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto max-w-xs p-2">
-                                  <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                                  <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
-                                    <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
-                                      {item.itens_relacionados.map(rel => (
-                                        <li key={rel.codigo} className="list-none ml-0">
-                                          <RelatedPartDisplay item={rel} />
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </ScrollArea>
-                                </PopoverContent>
-                              </Popover>
-                            )}
-                          </div>
-                      </TableCell>
-                      <TableCell className="w-[70px] p-2 text-right">
-                        <div className="flex justify-end items-center gap-1">
-                          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
-                          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
-                          <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o item "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                              <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
+    if (isSeparator) {
+      return (
+        <TableRow key={item.id} id={item.id} className="bg-muted/50 border-y border-dashed">
+          <TableCell colSpan={6} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
+            <Separator className="my-0 bg-foreground/50 h-px" />
+          </TableCell>
+        </TableRow>
+      );
+    }
 
-      {/* Formulário de Adicionar/Editar Item */}
-      <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-        <h3 className="text-xl font-semibold">
-          {currentEditingItemId ? 'Editar Item' : 'Adicionar Novo Item'}
-        </h3>
-        
-        <div className="space-y-2">
-          <Label htmlFor="item-type">Tipo de Item</Label>
-          <Select
-            value={formType}
-            onValueChange={(value: 'item' | 'subtitle' | 'separator') => {
-              setFormType(value);
-              // Limpa campos irrelevantes ao mudar o tipo
-              if (value !== 'item') {
-                setFormPartCode('');
-                setFormDescription('');
-                setFormQuantity(0);
-                setFormItensRelacionados([]);
-                setSelectedPartFromSearch(null);
-              }
-              if (value === 'separator') {
-                setFormItemName('--- SEPARADOR ---');
-              } else if (value === 'subtitle') {
-                setFormItemName('');
-              }
-            }}
-          >
-            <SelectTrigger id="item-type">
-              <SelectValue placeholder="Selecione o Tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="item">Item de Peça</SelectItem>
-              <SelectItem value="subtitle">Subtítulo</SelectItem>
-              <SelectItem value="separator">Separador</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+    if (isSubtitle) {
+      const startIndex = items.findIndex(i => i.id === item.id);
+      let endIndex = items.findIndex((i, idx) => idx > startIndex && i.type === 'subtitle');
+      if (endIndex === -1) endIndex = items.length;
 
-        {formType !== 'separator' && (
-          <div className="space-y-2">
-            <Label htmlFor="item-name">
-              {formType === 'subtitle' ? 'Texto do Subtítulo' : 'Nome Personalizado'}
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="item-name"
-                value={formItemName}
-                onChange={(e) => setFormItemName(e.target.value)}
-                placeholder={formType === 'subtitle' ? 'Ex: Peças do Motor' : 'Ex: Kit de Reparo do Motor'}
-                className="flex-1"
-                required={formType === 'item' || formType === 'subtitle'}
+      const groupSelectableItems = items.slice(startIndex, endIndex).filter(i => i.type === 'item' || i.type === 'mangueira');
+      const selectedInGroupCount = groupSelectableItems.filter(i => selectedItemIds.has(i.id)).length;
+
+      const isGroupAllSelected = groupSelectableItems.length > 0 && selectedInGroupCount === groupSelectableItems.length;
+      const isGroupIndeterminate = selectedInGroupCount > 0 && !isGroupAllSelected;
+
+      return (
+        <TableRow key={item.id} id={item.id} className="bg-accent/10 border-y border-primary/50">
+          <TableCell className="w-[40px] p-2">
+            {groupSelectableItems.length > 0 && (
+              <Checkbox
+                checked={isGroupAllSelected ? true : isGroupIndeterminate ? 'indeterminate' : false}
+                onCheckedChange={(checked) => handleSubtitleSelect(item, checked === true)}
+                aria-label={`Selecionar todos os itens em ${item.item_name}`}
               />
-              {formPartCode && formType === 'item' && ( 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleSaveGlobalPartName}
-                      disabled={
-                        !selectedPartFromSearch || 
-                        formItemName.trim().toLowerCase() === (selectedPartFromSearch.name || selectedPartFromSearch.descricao || '').trim().toLowerCase() ||
-                        !formItemName.trim()
-                      }
-                    >
-                      <Save className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Salvar este nome como o nome global da peça "{selectedPartFromSearch?.codigo || 'N/A'}"
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-          </div>
-        )}
+            )}
+          </TableCell>
+          <TableCell colSpan={4} className="text-left font-bold text-lg text-primary p-2">
+            {item.item_name}
+          </TableCell>
+          <TableCell className="w-[70px] p-2 text-right">
+            {/* Ações para subtítulo podem ser adicionadas aqui se necessário */}
+          </TableCell>
+        </TableRow>
+      );
+    }
 
-        {formType === 'item' && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="search-part">Buscar Peça (Opcional)</Label>
-              <PartSearchInput
-                onSearch={setSearchQuery}
-                searchResults={searchResults}
-                onSelectPart={handleSelectPart}
-                searchQuery={searchQuery}
-                isLoading={isLoadingParts}
+    if (isMangueira) {
+      const data = item.mangueira_data;
+      if (!data) return null;
+
+      return (
+        <React.Fragment key={item.id}>
+          {showMangueiraHeader && (
+            <TableRow className="bg-muted/50 border-y border-primary/50">
+              <TableHead className="w-[40px] p-2"></TableHead>
+              <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
+              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
+              <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
+              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexões</TableHead>
+              <TableHead className="w-[70px] p-2 text-right"></TableHead>
+            </TableRow>
+          )}
+          <TableRow key={item.id} id={item.id}>
+            <TableCell className="w-[40px] p-2">
+              <Checkbox
+                checked={selectedItemIds.has(item.id)}
+                onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
+                aria-label={`Selecionar item ${item.item_name}`}
               />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="part-code">Cód. Peça (Opcional)</Label>
-                <Input
-                  id="part-code"
-                  value={formPartCode}
-                  onChange={(e) => setFormPartCode(e.target.value)}
-                  placeholder="Código da peça"
-                  className="w-full"
-                />
-              </div>
-              
-              <div className="space-y-2 md:col-span-1">
-                <Label htmlFor="quantity">Quantidade</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  value={formQuantity}
-                  onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
-                  min="1"
-                  required
-                  className="w-full"
-                />
-              </div>
-            </div>
+            </TableCell>
+            <TableCell className="font-medium p-2 text-center">1</TableCell> {/* Quantidade é sempre 1 para Mangueira */}
             
-            <div className="space-y-2">
-              <Label htmlFor="description">Descrição (Opcional)</Label>
-              <Input
-                id="description"
-                value={formDescription}
-                onChange={(e) => setFormDescription(e.target.value)}
-                placeholder="Descrição da peça"
-                className="w-full"
-              />
-            </div>
-
-            <div className="space-y-2 border-t pt-4">
-              <Label className="flex items-center gap-2">
-                <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
-              </Label>
-              <PartSearchInput
-                onSearch={setRelatedSearchQuery}
-                searchResults={relatedSearchResults}
-                onSelectPart={handleAddRelatedPart}
-                searchQuery={relatedSearchQuery}
-                isLoading={isLoadingParts}
-              />
-              <div className="space-y-2">
-                <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
-                  Adicionar múltiplos códigos (separados por ';')
-                </Label>
-                <div className="flex gap-2">
-                  <Textarea
-                    id="bulk-related-parts"
-                    value={bulkRelatedPartsInput}
-                    onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
-                    placeholder="Ex: COD1; COD2; COD3"
-                    rows={2}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleBulkAddRelatedParts}
-                    disabled={bulkRelatedPartsInput.trim().length === 0}
-                    variant="outline"
-                    size="icon"
-                    aria-label="Adicionar em massa"
-                  >
-                    <PlusCircle className="h-4 w-4" />
-                  </Button>
+            {/* Coluna 1: Mangueira (Nome/Desc/Cód) */}
+            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
+              <div className="flex flex-col items-start">
+                <span className="font-medium text-sm text-primary whitespace-normal break-words">{data.mangueira.name || data.mangueira.codigo}</span>
+                {data.mangueira.description && (
+                  <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.mangueira.description}</span>
+                )}
+                <span className="text-xs text-muted-foreground mt-1">Cód: {data.mangueira.codigo}</span>
+              </div>
+            </TableCell>
+            
+            {/* Coluna 2: Corte (cm) */}
+            <TableCell className="w-[4rem] p-2 text-center font-medium text-lg">
+              {data.corte_cm}
+            </TableCell>
+            
+            {/* Coluna 3: Conexões (Mescladas) */}
+            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
+              <div className="flex flex-col items-start space-y-2">
+                <div className="flex flex-col items-start">
+                  <span className="font-medium text-sm">Conexão 1: {data.conexao1.name || data.conexao1.codigo}</span>
+                  <span className="text-xs text-muted-foreground italic">Cód: {data.conexao1.codigo}</span>
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="font-medium text-sm">Conexão 2: {data.conexao2.name || data.conexao2.codigo}</span>
+                  <span className="text-xs text-muted-foreground italic">Cód: {data.conexao2.codigo}</span>
                 </div>
               </div>
-              <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
-                {formItensRelacionados.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {formItensRelacionados.map((item, index) => (
-                      <div 
-                        key={item.codigo} 
-                        className={cn(
-                          "flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-transparent cursor-grab",
-                          draggedRelatedItem?.codigo === item.codigo && 'opacity-50',
-                          draggedRelatedItem && 'hover:border-primary'
-                        )}
-                        draggable
-                        onDragStart={(e) => handleRelatedDragStart(e, item)}
-                        onDragOver={handleRelatedDragOver}
-                        onDrop={(e) => handleRelatedDrop(e, item)}
-                        onDragLeave={handleRelatedDragLeave}
-                        onDragEnd={handleRelatedDragEnd}
-                      >
-                        <div className="flex items-center gap-1 truncate">
-                          <GripVertical className="h-3 w-3 shrink-0" />
-                          <span className="truncate">
-                            <RelatedPartDisplay item={item} />
-                          </span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-4 w-4 p-0 text-destructive shrink-0"
-                          onClick={() => handleRemoveRelatedPart(item.codigo)}
-                        >
-                          <XCircle className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-              <p className="text-sm text-muted-foreground">
-                Arraste e solte os códigos acima para reordenar.
-              </p>
-            </div>
-          </>
-        )}
+            </TableCell>
 
-        <SheetFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            <XCircle className="h-4 w-4 mr-2" /> Cancelar
-          </Button>
-          <Button type="submit">
-            <Save className="h-4 w-4 mr-2" /> {currentEditingItemId ? 'Salvar Alterações' : 'Adicionar Item'}
-          </Button>
-        </SheetFooter>
-      </form>
-    </Card>
+            {/* Coluna 4: Ações (Vazia) */}
+            <TableCell className="w-[70px] p-2 text-right">
+              {/* Botão de Edição Removido */}
+            </TableCell>
+          </TableRow>
+        </React.Fragment>
+      );
+    }
+
+    // Item de peça normal (Existing logic)
+    if (isItem) {
+      return (
+        <TableRow key={item.id} id={item.id}>
+          <TableCell className="w-[40px] p-2">
+            <Checkbox
+              checked={selectedItemIds.has(item.id)}
+              onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
+              aria-label={`Selecionar item ${item.item_name}`}
+            />
+          </TableCell>
+          <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
+          <TableCell colSpan={3} className="w-auto whitespace-normal break-words p-2 text-left"> {/* ColSpan 3 */}
+              <div className="flex flex-col items-start">
+                {item.part_code && (
+                  <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
+                )}
+                <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
+                {item.description && (
+                  <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
+                )}
+                {item.itens_relacionados && item.itens_relacionados.length > 0 && (
+                  <Popover 
+                    key={`popover-${item.id}`}
+                    open={isRelatedItemsPopoverOpen === item.id} 
+                    onOpenChange={(open) => setIsRelatedItemsPopoverId(open ? item.id : null)}
+                    modal={false}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
+                      >
+                        <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto max-w-xs p-2">
+                      <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                      <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
+                        <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                          {item.itens_relacionados.map(rel => (
+                            <li key={rel.codigo} className="list-none ml-0">
+                              <RelatedPartDisplay item={rel} />
+                            </li>
+                          ))}
+                        </ul>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
+          </TableCell>
+          <TableCell className="w-[70px] p-2 text-right">
+            {/* Botão de Edição Removido */}
+          </TableCell>
+        </TableRow>
+      );
+    }
+    
+    return null;
+  };
+
+  return (
+    <React.Fragment>
+      <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
+        <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
+          <Link to="/custom-menu-view">
+            <Button variant="outline" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" /> Voltar ao Catálogo
+            </Button>
+          </Link>
+          {/* NOVO BOTÃO: Minha Lista de Peças */}
+          <Link to="/parts-list">
+            <Button variant="outline" className="flex items-center gap-2">
+              <ListIcon className="h-4 w-4" /> Minha Lista de Peças
+            </Button>
+          </Link>
+        </div>
+        
+        <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
+          <ListIcon className="h-8 w-8 text-primary" />
+          {listTitle}
+        </h1>
+
+        <Card className="w-full max-w-4xl mx-auto mb-8">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl font-bold text-center pt-2">
+              Itens da Lista
+            </CardTitle>
+            <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2">
+              {selectedItemIds.size > 0 && (
+                <Button 
+                  onClick={handleExportSelectedToMyList} 
+                  className="flex-1 sm:w-auto"
+                  disabled={isLoadingAfs}
+                >
+                  <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
+                </Button>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleCopyList} 
+                    disabled={items.length === 0} 
+                    variant="secondary" 
+                    size="icon"
+                    className="sm:w-auto sm:px-4"
+                  >
+                    <Copy className="h-4 w-4" /> 
+                    <span className="hidden sm:inline ml-2">Copiar Lista</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Copiar Lista</TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleExportCsv} 
+                    disabled={items.length === 0} 
+                    variant="outline" 
+                    size="icon"
+                    className="sm:w-auto sm:px-4"
+                  >
+                    <Download className="h-4 w-4" /> 
+                    <span className="hidden sm:inline ml-2">Exportar CSV</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Exportar CSV</TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+                    <FileDown className="h-4 w-4" /> Exportar PDF
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Exportar PDF</TooltipContent>
+              </Tooltip>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
+            ) : items.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40px] p-2">
+                        <Checkbox
+                          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+                          onCheckedChange={handleToggleSelectAll}
+                          aria-label="Selecionar todos os itens"
+                        />
+                      </TableHead>
+                      <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                      <TableHead colSpan={3} className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead> {/* ColSpan 3 */}
+                      <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((item, index) => renderItemRow(item, index))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <MadeWithDyad />
+
+        {/* Sheet de Edição (mantido para o botão de lápis) */}
+        <Sheet open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+          <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Editar Item da Lista</SheetTitle>
+              <SheetDescription>
+                Edite os detalhes do item da lista.
+              </SheetDescription>
+            </SheetHeader>
+            {itemToEdit && listId && (
+              <CustomListEditor
+                list={{ id: listId, title: listTitle, user_id: '' }}
+                onClose={handleItemSavedOrClosed}
+                editingItem={itemToEdit}
+                onItemSaved={handleItemSavedOrClosed}
+                allAvailableParts={allAvailableParts}
+              />
+            )}
+          </SheetContent>
+        </Sheet>
+
+        {/* Sheet para Exportar Selecionados com AF */}
+        <Sheet open={isExportSheetOpen} onOpenChange={setIsExportSheetOpen}>
+          <SheetContent side="right" className="sm:max-w-md">
+            <SheetHeader>
+              <SheetTitle>Exportar Itens para Minha Lista</SheetTitle>
+              <SheetDescription>
+                Selecione um AF (Número de Frota) para aplicar a todos os {selectedItemIds.size} itens selecionados antes de exportar para "Minha Lista de Peças".
+              </SheetDescription>
+            </SheetHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="af-for-export">AF (Número de Frota)</Label>
+                {isLoadingAfs ? (
+                  <Input value="Carregando AFs..." readOnly className="bg-muted" />
+                ) : (
+                  <AfSearchInput
+                    value={afForExport}
+                    onChange={setAfForExport}
+                    availableAfs={allAvailableAfs}
+                    onSelectAf={setAfForExport}
+                  />
+                )}
+              </div>
+            </div>
+            <SheetFooter>
+              <Button type="button" variant="outline" onClick={() => setIsExportSheetOpen(false)}>
+                <XCircle className="h-4 w-4 mr-2" /> Cancelar
+              </Button>
+              <Button type="button" onClick={handleConfirmExport} disabled={!afForExport.trim() || isLoadingAfs}>
+                <Check className="h-4 w-4 mr-2" /> Confirmar Exportação
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </React.Fragment>
   );
 };
 
-export default CustomListEditor;
+export default CustomListPage;

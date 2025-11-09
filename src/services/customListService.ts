@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
-import { CustomList, CustomListItem, MenuItem, RelatedPart, RelatedItem } from '@/types/supabase';
+import { CustomList, CustomListItem, MenuItem, RelatedPart, RelatedItem, MangueiraItemData } from '@/types/supabase';
 
 // --- Constantes para a tabela app_config ---
 const APP_CONFIG_TABLE = 'app_config';
@@ -356,8 +356,20 @@ export const updateCustomListItem = async (listId: string, item: CustomListItem)
   const currentList = await getCustomListById(listId);
   if (!currentList) throw new Error('Lista personalizada não encontrada.');
 
+  // Normaliza campos baseados no tipo
+  const normalizedItem: CustomListItem = {
+    ...item,
+    itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem),
+    // Limpa campos de item simples se for mangueira
+    part_code: item.type === 'item' ? item.part_code : null,
+    description: item.type === 'item' ? item.description : null,
+    quantity: item.type === 'item' ? item.quantity : 0,
+    // Limpa campos de mangueira se não for mangueira
+    mangueira_data: item.type === 'mangueira' ? item.mangueira_data : undefined,
+  };
+
   const updatedItems = (currentList.items_data || []).map(existingItem =>
-    existingItem.id === item.id ? { ...item, itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem) } : existingItem
+    existingItem.id === item.id ? normalizedItem : existingItem
   );
 
   await updateCustomList({ ...currentList, items_data: updatedItems });
@@ -399,11 +411,23 @@ export const addCustomListItem = async (listId: string, item: Omit<CustomListIte
   if (!currentList) throw new Error('Lista personalizada não encontrada.');
 
   const currentItems = currentList.items_data || [];
-  const newItem: CustomListItem = { 
-    ...item, 
-    id: uuidv4(), 
+  
+  // Normaliza campos baseados no tipo
+  const normalizedItem: Omit<CustomListItem, 'id'> = {
+    ...item,
     order_index: currentItems.length > 0 ? Math.max(...currentItems.map(i => i.order_index)) + 1 : 0,
-    itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem), // Garante o formato
+    itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem),
+    // Limpa campos de item simples se for mangueira
+    part_code: item.type === 'item' ? item.part_code : null,
+    description: item.type === 'item' ? item.description : null,
+    quantity: item.type === 'item' ? item.quantity : 0,
+    // Limpa campos de mangueira se não for mangueira
+    mangueira_data: item.type === 'mangueira' ? item.mangueira_data : undefined,
+  };
+
+  const newItem: CustomListItem = { 
+    ...normalizedItem, 
+    id: uuidv4(), 
   };
   const updatedItems = [...currentItems, newItem];
   

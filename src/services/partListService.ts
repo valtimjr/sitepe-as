@@ -503,17 +503,17 @@ export const updateAf = async (updatedAf: Af): Promise<void> => {
 export const deleteAf = async (id: string): Promise<void> => {
   // Deleta no Supabase
   const { error: supabaseError } = await supabase
-    .from('parts')
+    .from('afs')
     .delete()
     .eq('id', id);
 
   if (supabaseError) {
-    console.error('[deletePart] Erro ao deletar peça do Supabase:', supabaseError);
-    throw new Error(`Erro ao excluir peça do Supabase: ${supabaseError.message}`);
+    console.error('[deleteAf] Erro ao deletar AF do Supabase:', supabaseError);
+    throw new Error(`Erro ao excluir AF do Supabase: ${supabaseError.message}`);
   }
 
   // Deleta no IndexedDB
-  await localDb.parts.delete(id);
+  await localDb.afs.delete(id);
 };
 
 // --- Funções para SimplePartItem (Lista de Peças Simples) ---

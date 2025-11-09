@@ -44,7 +44,7 @@ const CustomListPage: React.FC = () => {
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para passar ao editor
 
   // Estado para controlar o Popover de itens relacionados
-  const [isRelatedItemsPopoverOpen, setIsRelatedItemsPopoverOpen] = useState<string | null>(null);
+  const [isRelatedItemsPopoverOpen, setIsRelatedItemsPopoverId] = useState<string | null>(null);
 
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
@@ -124,6 +124,14 @@ const CustomListPage: React.FC = () => {
         formattedText += `\n--- ${item.item_name.toUpperCase()} ---\n`;
         return;
       }
+      
+      if (item.type === 'mangueira' && item.mangueira_data) {
+        const data = item.mangueira_data;
+        formattedText += `1 - Mangueira: ${data.mangueira.name || data.mangueira.codigo} (Cód: ${data.mangueira.codigo}) - Corte: ${data.corte_cm} cm\n`;
+        formattedText += `    Conexão 1: ${data.conexao1.name || data.conexao1.codigo} (Cód: ${data.conexao1.codigo})\n`;
+        formattedText += `    Conexão 2: ${data.conexao2.name || data.conexao2.codigo} (Cód: ${data.conexao2.codigo})\n`;
+        return;
+      }
 
       const quantidade = item.quantity;
       const nome = item.item_name || '';
@@ -196,7 +204,7 @@ const CustomListPage: React.FC = () => {
   };
 
   // --- Seleção de Itens ---
-  const selectableItems = useMemo(() => items.filter(i => i.type === 'item'), [items]);
+  const selectableItems = useMemo(() => items.filter(i => i.type === 'item' || i.type === 'mangueira'), [items]);
   const isAllSelected = selectableItems.length > 0 && selectedItemIds.size === selectableItems.length;
   const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
 
@@ -222,17 +230,17 @@ const CustomListPage: React.FC = () => {
   };
 
   const handleSubtitleSelect = (subtitleItem: CustomListItem, isChecked: boolean) => {
-    const startIndex = items.findIndex(item => item.id === subtitleItem.id);
+    const startIndex = items.findIndex(i => i.id === subtitleItem.id);
     if (startIndex === -1) return;
 
-    let endIndex = items.findIndex((item, index) => index > startIndex && item.type === 'subtitle');
+    let endIndex = items.findIndex((i, idx) => idx > startIndex && i.type === 'subtitle');
     if (endIndex === -1) {
       endIndex = items.length;
     }
 
     const itemsInGroup = items.slice(startIndex, endIndex);
     const selectableIdsInGroup = itemsInGroup
-      .filter(item => item.type === 'item')
+      .filter(i => i.type === 'item' || i.type === 'mangueira')
       .map(item => item.id);
 
     setSelectedItemIds(prev => {
@@ -271,14 +279,43 @@ const CustomListPage: React.FC = () => {
     const loadingToastId = showLoading(`Exportando ${itemsToExport.length} itens...`);
     try {
       for (const item of itemsToExport) {
-        await addSimplePartItem({
-          codigo_peca: item.part_code || '',
-          descricao: item.description || item.item_name,
-          quantidade: item.quantity,
-          af: afForExport.trim(),
-        });
+        if (item.type === 'mangueira' && item.mangueira_data) {
+          const data = item.mangueira_data;
+          
+          // Exporta a Mangueira como item simples (1 unidade)
+          await addSimplePartItem({
+            codigo_peca: data.mangueira.codigo || '',
+            descricao: `Mangueira: ${data.mangueira.name || data.mangueira.codigo} - Corte: ${data.corte_cm} cm`,
+            quantidade: 1,
+            af: afForExport.trim(),
+          });
+
+          // Exporta Conexão 1
+          await addSimplePartItem({
+            codigo_peca: data.conexao1.codigo || '',
+            descricao: `Conexão 1: ${data.conexao1.name || data.conexao1.codigo}`,
+            quantidade: 1,
+            af: afForExport.trim(),
+          });
+
+          // Exporta Conexão 2
+          await addSimplePartItem({
+            codigo_peca: data.conexao2.codigo || '',
+            descricao: `Conexão 2: ${data.conexao2.name || data.conexao2.codigo}`,
+            quantidade: 1,
+            af: afForExport.trim(),
+          });
+
+        } else if (item.type === 'item') {
+          await addSimplePartItem({
+            codigo_peca: item.part_code || '',
+            descricao: item.description || item.item_name,
+            quantidade: item.quantity,
+            af: afForExport.trim(),
+          });
+        }
       }
-      showSuccess(`${itemsToExport.length} itens exportados para 'Minha Lista de Peças' com sucesso!`);
+      showSuccess(`${itemsToExport.length} item(s) exportado(s) para 'Minha Lista de Peças' com sucesso!`);
       setSelectedItemIds(new Set());
       setIsExportSheetOpen(false);
       setAfForExport('');
@@ -290,15 +327,20 @@ const CustomListPage: React.FC = () => {
     }
   };
 
-  const renderItemRow = (item: CustomListItem) => {
+  const renderItemRow = (item: CustomListItem, index: number) => {
     const isSeparator = item.type === 'separator';
     const isSubtitle = item.type === 'subtitle';
+    const isMangueira = item.type === 'mangueira';
     const isItem = item.type === 'item';
+
+    // Logic for Mangueira Header
+    const previousItem = index > 0 ? items[index - 1] : null;
+    const showMangueiraHeader = isMangueira && (!previousItem || previousItem.type !== 'mangueira');
 
     if (isSeparator) {
       return (
         <TableRow key={item.id} id={item.id} className="bg-muted/50 border-y border-dashed">
-          <TableCell colSpan={4} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
+          <TableCell colSpan={6} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
             <Separator className="my-0 bg-foreground/50 h-px" />
           </TableCell>
         </TableRow>
@@ -310,7 +352,7 @@ const CustomListPage: React.FC = () => {
       let endIndex = items.findIndex((i, idx) => idx > startIndex && i.type === 'subtitle');
       if (endIndex === -1) endIndex = items.length;
 
-      const groupSelectableItems = items.slice(startIndex, endIndex).filter(i => i.type === 'item');
+      const groupSelectableItems = items.slice(startIndex, endIndex).filter(i => i.type === 'item' || i.type === 'mangueira');
       const selectedInGroupCount = groupSelectableItems.filter(i => selectedItemIds.has(i.id)).length;
 
       const isGroupAllSelected = groupSelectableItems.length > 0 && selectedInGroupCount === groupSelectableItems.length;
@@ -327,7 +369,7 @@ const CustomListPage: React.FC = () => {
               />
             )}
           </TableCell>
-          <TableCell colSpan={2} className="text-left font-bold text-lg text-primary p-2">
+          <TableCell colSpan={4} className="text-left font-bold text-lg text-primary p-2">
             {item.item_name}
           </TableCell>
           <TableCell className="w-[70px] p-2 text-right">
@@ -337,73 +379,132 @@ const CustomListPage: React.FC = () => {
       );
     }
 
-    // Item de peça normal
-    return (
-      <TableRow key={item.id} id={item.id}>
-        <TableCell className="w-[40px] p-2">
-          <Checkbox
-            checked={selectedItemIds.has(item.id)}
-            onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
-            aria-label={`Selecionar item ${item.item_name}`}
-          />
-        </TableCell>
-        <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-        <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-            <div className="flex flex-col items-start">
-              {item.part_code && (
-                <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
-              )}
-              <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
-              {item.description && (
-                <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
-              )}
-              {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                <Popover 
-                  key={`popover-${item.id}`}
-                  open={isRelatedItemsPopoverOpen === item.id} 
-                  onOpenChange={(open) => setIsRelatedItemsPopoverOpen(open ? item.id : null)}
-                  modal={false}
-                >
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
-                    >
-                      <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto max-w-xs p-2">
-                    <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                    <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
-                      <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
-                        {item.itens_relacionados.map(rel => (
-                          <li key={rel.codigo} className="list-none ml-0">
-                            <RelatedPartDisplay item={rel} />
-                          </li>
-                        ))}
-                      </ul>
-                    </ScrollArea>
-                  </PopoverContent>
-                </Popover>
-              )}
-            </div>
-        </TableCell>
-        <TableCell className="w-[70px] p-2 text-right">
-          {/* Botão de Edição Removido */}
-          {/* <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8">
-                  <Edit className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Editar Item</TooltipContent>
-            </Tooltip>
-          </div> */}
-        </TableCell>
-      </TableRow>
-    );
+    if (isMangueira) {
+      const data = item.mangueira_data;
+      if (!data) return null;
+
+      return (
+        <React.Fragment key={item.id}>
+          {showMangueiraHeader && (
+            <TableRow className="bg-muted/50 border-y border-primary/50">
+              <TableHead className="w-[40px] p-2"></TableHead>
+              <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
+              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
+              <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
+              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexões</TableHead>
+              <TableHead className="w-[70px] p-2 text-right"></TableHead>
+            </TableRow>
+          )}
+          <TableRow key={item.id} id={item.id}>
+            <TableCell className="w-[40px] p-2">
+              <Checkbox
+                checked={selectedItemIds.has(item.id)}
+                onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
+                aria-label={`Selecionar item ${item.item_name}`}
+              />
+            </TableCell>
+            <TableCell className="font-medium p-2 text-center">1</TableCell> {/* Quantidade é sempre 1 para Mangueira */}
+            
+            {/* Coluna 1: Mangueira (Nome/Desc/Cód) */}
+            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
+              <div className="flex flex-col items-start">
+                <span className="font-medium text-sm text-primary whitespace-normal break-words">{data.mangueira.name || data.mangueira.codigo}</span>
+                {data.mangueira.description && (
+                  <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.mangueira.description}</span>
+                )}
+                <span className="text-xs text-muted-foreground mt-1">Cód: {data.mangueira.codigo}</span>
+              </div>
+            </TableCell>
+            
+            {/* Coluna 2: Corte (cm) */}
+            <TableCell className="w-[4rem] p-2 text-center font-medium text-lg">
+              {data.corte_cm}
+            </TableCell>
+            
+            {/* Coluna 3: Conexões (Mescladas) */}
+            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
+              <div className="flex flex-col items-start space-y-2">
+                <div className="flex flex-col items-start">
+                  <span className="font-medium text-sm">Conexão 1: {data.conexao1.name || data.conexao1.codigo}</span>
+                  <span className="text-xs text-muted-foreground italic">Cód: {data.conexao1.codigo}</span>
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="font-medium text-sm">Conexão 2: {data.conexao2.name || data.conexao2.codigo}</span>
+                  <span className="text-xs text-muted-foreground italic">Cód: {data.conexao2.codigo}</span>
+                </div>
+              </div>
+            </TableCell>
+
+            {/* Coluna 4: Ações (Vazia) */}
+            <TableCell className="w-[70px] p-2 text-right">
+              {/* Botão de Edição Removido */}
+            </TableCell>
+          </TableRow>
+        </React.Fragment>
+      );
+    }
+
+    // Item de peça normal (Existing logic)
+    if (isItem) {
+      return (
+        <TableRow key={item.id} id={item.id}>
+          <TableCell className="w-[40px] p-2">
+            <Checkbox
+              checked={selectedItemIds.has(item.id)}
+              onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
+              aria-label={`Selecionar item ${item.item_name}`}
+            />
+          </TableCell>
+          <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
+          <TableCell colSpan={3} className="w-auto whitespace-normal break-words p-2 text-left"> {/* ColSpan 3 */}
+              <div className="flex flex-col items-start">
+                {item.part_code && (
+                  <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
+                )}
+                <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
+                {item.description && (
+                  <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
+                )}
+                {item.itens_relacionados && item.itens_relacionados.length > 0 && (
+                  <Popover 
+                    key={`popover-${item.id}`}
+                    open={isRelatedItemsPopoverOpen === item.id} 
+                    onOpenChange={(open) => setIsRelatedItemsPopoverId(open ? item.id : null)}
+                    modal={false}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
+                      >
+                        <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto max-w-xs p-2">
+                      <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                      <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
+                        <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                          {item.itens_relacionados.map(rel => (
+                            <li key={rel.codigo} className="list-none ml-0">
+                              <RelatedPartDisplay item={rel} />
+                            </li>
+                          ))}
+                        </ul>
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
+          </TableCell>
+          <TableCell className="w-[70px] p-2 text-right">
+            {/* Botão de Edição Removido */}
+          </TableCell>
+        </TableRow>
+      );
+    }
+    
+    return null;
   };
 
   return (
@@ -503,12 +604,12 @@ const CustomListPage: React.FC = () => {
                         />
                       </TableHead>
                       <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                      <TableHead className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                      <TableHead colSpan={3} className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead> {/* ColSpan 3 */}
                       <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {items.map((item) => renderItemRow(item))}
+                    {items.map((item, index) => renderItemRow(item, index))}
                   </TableBody>
                 </Table>
               </div>

@@ -59,6 +59,20 @@ export interface MonthlyApontamento {
   updated_at?: string;
 }
 
+// New structure for the Mangueira item components
+export interface MangueiraPartDetails {
+  codigo: string;
+  name: string;
+  description: string;
+}
+
+export interface MangueiraItemData {
+  mangueira: MangueiraPartDetails;
+  conexao1: MangueiraPartDetails;
+  conexao2: MangueiraPartDetails;
+  corte_cm: number; // New field for cut length
+}
+
 // NOVOS TIPOS PARA LISTAS PERSONALIZADAS E MENU
 export interface CustomList {
   id: string;
@@ -71,13 +85,18 @@ export interface CustomList {
 
 export interface CustomListItem {
   id: string; // UUID gerado no frontend
-  type: 'item' | 'subtitle' | 'separator'; // NOVO: Tipo do item
+  type: 'item' | 'subtitle' | 'separator' | 'mangueira'; // ATUALIZADO: Adicionado 'mangueira'
   item_name: string;
+  order_index: number;
+  
+  // Fields specific to type 'item' (legacy/simple part)
   part_code: string | null;
   description: string | null;
   quantity: number;
-  order_index: number;
-  itens_relacionados: RelatedPart[]; // ATUALIZADO para usar a nova interface
+  itens_relacionados: RelatedPart[]; 
+
+  // Fields specific to type 'mangueira'
+  mangueira_data?: MangueiraItemData; // NOVO: Dados complexos para Mangueira
 }
 
 export interface MenuItem {
