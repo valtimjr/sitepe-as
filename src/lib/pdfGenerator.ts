@@ -179,22 +179,6 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         alternateRowStyles: { fillColor: [248, 249, 250] },
         margin: { top: 10, left: 14, right: 14 },
         columnStyles: columnStyles,
-        didParseCell: (data: any) => {
-          if (data.section === 'body' && data.cell.raw && data.cell.raw.__isStyled) {
-            const { name, desc, code } = data.cell.raw;
-            const cellText = [];
-            if (code) {
-              cellText.push({ content: `Cód.: ${code}`, styles: { fontStyle: 'bold', fontSize: 9 } });
-            }
-            if (name) {
-              cellText.push({ content: name, styles: { fontStyle: 'normal', fontSize: 9 } });
-            }
-            if (desc) {
-              cellText.push({ content: desc, styles: { fontStyle: 'italic', fontSize: 8 } });
-            }
-            data.cell.text = cellText;
-          }
-        }
       });
       currentY = (doc as any).lastAutoTable.finalY;
     }
@@ -215,12 +199,12 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
     if (item.type === 'subtitle') {
       renderGroup();
-      currentY += 5; // Adiciona margem antes do subtítulo
+      currentY += 8; // Aumentado para 8 para mais espaço
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
       doc.setTextColor(37, 99, 235); // primary color
       doc.text(item.item_name.toUpperCase(), 14, currentY);
-      currentY += 7;
+      currentY += 8; // Aumentado para 8 para mais espaço
       return;
     }
 
@@ -231,26 +215,44 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
     if (item.type === 'mangueira' && item.mangueira_data) {
       const data = item.mangueira_data;
-      const createContentObject = (partData: MangueiraPartDetails) => ({
-        __isStyled: true,
-        code: partData.codigo,
-        name: partData.name,
-        desc: partData.description
-      });
+      const createContent = (partData: MangueiraPartDetails) => {
+        const content = [];
+        if (partData.codigo) {
+          content.push({ content: `Cód.: ${partData.codigo}`, styles: { fontStyle: 'bold' } });
+        }
+        if (partData.name) {
+          if (partData.codigo) { content.push({ content: '\n', styles: { fontSize: 4 } }); }
+          content.push({ content: partData.name, styles: { fontStyle: 'normal' } });
+        }
+        if (partData.description) {
+          if (partData.codigo || partData.name) { content.push({ content: '\n', styles: { fontSize: 4 } }); }
+          content.push({ content: partData.description, styles: { fontStyle: 'italic', fontSize: 8 } });
+        }
+        return content;
+      };
 
       currentGroupRows.push([
         { content: '1', styles: { halign: 'center' } },
-        createContentObject(data.mangueira),
+        createContent(data.mangueira),
         { content: `${data.corte_cm} cm`, styles: { halign: 'center' } },
-        createContentObject(data.conexao1),
-        createContentObject(data.conexao2),
+        createContent(data.conexao1),
+        createContent(data.conexao2),
       ]);
     } else if (item.type === 'item') {
-      const descriptionContent = {
-        __isStyled: true,
-        name: item.item_name,
-        desc: item.description
-      };
+      const descriptionContent = [];
+      if (item.item_name) {
+        descriptionContent.push({
+          content: item.item_name,
+          styles: { fontStyle: 'normal', fontSize: 9 }
+        });
+      }
+      if (item.description) {
+        if (item.item_name) { descriptionContent.push({ content: '\n', styles: { fontSize: 4 } }); }
+        descriptionContent.push({
+          content: item.description,
+          styles: { fontStyle: 'italic', fontSize: 8 }
+        });
+      }
 
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
