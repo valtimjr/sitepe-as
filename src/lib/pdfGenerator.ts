@@ -179,6 +179,24 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         alternateRowStyles: { fillColor: [248, 249, 250] },
         margin: { top: 10, left: 14, right: 14 },
         columnStyles: columnStyles,
+        didParseCell: (data: any) => {
+          if (data.cell.raw && data.cell.raw.__isStyled) {
+            const { name, desc, code } = data.cell.raw;
+            const cellContent = [];
+            if (code) {
+              cellContent.push({ content: `Cód.: ${code}`, styles: { fontStyle: 'bold' } });
+            }
+            if (name) {
+              if (code) { cellContent.push({ content: '\n', styles: { fontSize: 4 } }); }
+              cellContent.push({ content: name, styles: { fontStyle: 'normal' } });
+            }
+            if (desc) {
+              if (code || name) { cellContent.push({ content: '\n', styles: { fontSize: 4 } }); }
+              cellContent.push({ content: desc, styles: { fontStyle: 'italic', fontSize: 8 } });
+            }
+            data.cell.content = cellContent;
+          }
+        }
       });
       currentY = (doc as any).lastAutoTable.finalY;
     }
@@ -214,42 +232,26 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
     if (item.type === 'mangueira' && item.mangueira_data) {
       const data = item.mangueira_data;
-      const createContent = (partData: MangueiraPartDetails) => {
-        const content = [];
-        if (partData.codigo) {
-          content.push({ content: `Cód.: ${partData.codigo}`, styles: { fontStyle: 'bold' } });
-        }
-        if (partData.name) {
-          content.push({ content: partData.name, styles: { fontStyle: 'normal' } });
-        }
-        if (partData.description) {
-          content.push({ content: partData.description, styles: { fontStyle: 'italic', fontSize: 8 } });
-        }
-        return content;
-      };
+      const createContentObject = (partData: MangueiraPartDetails) => ({
+        __isStyled: true,
+        code: partData.codigo,
+        name: partData.name,
+        desc: partData.description
+      });
 
       currentGroupRows.push([
         { content: '1', styles: { halign: 'center' } },
-        createContent(data.mangueira),
+        createContentObject(data.mangueira),
         { content: `${data.corte_cm} cm`, styles: { halign: 'center' } },
-        createContent(data.conexao1),
-        createContent(data.conexao2),
+        createContentObject(data.conexao1),
+        createContentObject(data.conexao2),
       ]);
     } else if (item.type === 'item') {
-      const descriptionContent = [];
-      if (item.item_name) {
-        descriptionContent.push({
-          content: item.item_name,
-          styles: { fontStyle: 'normal', fontSize: 9 }
-        });
-      }
-      if (item.description) {
-        const prefix = item.item_name ? '\n' : '';
-        descriptionContent.push({
-          content: prefix + item.description,
-          styles: { fontStyle: 'italic', fontSize: 8 }
-        });
-      }
+      const descriptionContent = {
+        __isStyled: true,
+        name: item.item_name,
+        desc: item.description
+      };
 
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
