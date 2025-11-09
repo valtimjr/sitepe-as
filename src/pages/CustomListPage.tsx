@@ -618,7 +618,7 @@ const CustomListPage: React.FC = () => {
           </div>
         </TableCell>
         <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-        <TableCell className="w-auto whitespace-normal break-words p-2 text-left" colSpan={isMobile ? 4 : 4}>
+        <TableCell className="w-auto whitespace-normal break-words p-2 text-left" colSpan={isMobile ? 4 : 3}>
           <div className="flex flex-col items-start">
             {item.part_code && (
               <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
@@ -687,7 +687,7 @@ const CustomListPage: React.FC = () => {
         />
       </TableHead>
       <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
-      <TableHead className="w-auto p-2 text-left font-bold text-sm" colSpan={isMobile ? 4 : 4}>Item / Código / Descrição / Relacionados</TableHead>
+      <TableHead className="w-auto p-2 text-left font-bold text-sm" colSpan={3}>Item / Código / Descrição</TableHead>
       <TableHead className="w-[70px] p-2 text-right"></TableHead>
     </TableRow>
   );

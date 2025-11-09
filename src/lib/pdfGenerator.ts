@@ -216,13 +216,9 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         `${data.conexao2.name || data.conexao2.codigo}\nCód: ${data.conexao2.codigo}`,
       ]);
     } else if (item.type === 'item') {
-      const relatedItemsText = (item.itens_relacionados || [])
-        .map(rel => `${rel.codigo} - ${rel.name}`)
-        .join('\n');
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
-        { content: `${item.item_name}\n${item.part_code ? `Cód: ${item.part_code}` : ''}\n${item.description || ''}`.trim(), colSpan: 2 },
-        { content: relatedItemsText, colSpan: 2 },
+        { content: `${item.item_name}\n${item.part_code ? `Cód: ${item.part_code}` : ''}\n${item.description || ''}`.trim(), colSpan: 4 },
       ]);
     }
   });
@@ -292,9 +288,22 @@ Serviço: ${group.servico_executado}`;
     didDrawCell: (data: any) => {
       // Add a thicker separator line before each new group
       if (data.section === 'body' && data.row.index > 0 && data.row.cells[0] && data.row.cells[0].rowSpan) {
-        doc.setLineWidth(0.5);
-        doc.setDrawColor(40, 40, 40); // Dark gray
-        doc.line(data.cell.x, data.cell.y, data.cell.x + data.table.width, data.cell.y);
+        // Only draw the line once per row, on the first cell
+        if (data.column.index === 0) {
+            const doc = data.doc;
+            const table = data.table;
+            const cell = data.cell;
+            
+            const tableX = table.x;
+            const tableWidth = table.width;
+            const y = cell.y;
+
+            if (typeof tableX === 'number' && typeof y === 'number' && typeof tableWidth === 'number') {
+                doc.setLineWidth(0.5);
+                doc.setDrawColor(40, 40, 40); // Dark gray
+                doc.line(tableX, y, tableX + tableWidth, y);
+            }
+        }
       }
     }
   });
