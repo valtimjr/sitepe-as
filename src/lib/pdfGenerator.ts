@@ -199,12 +199,11 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
     if (item.type === 'subtitle') {
       renderGroup();
-      currentY += 8; // Aumentado para 8 para mais espaço
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
       doc.setTextColor(37, 99, 235); // primary color
       doc.text(item.item_name.toUpperCase(), 14, currentY);
-      currentY += 8; // Aumentado para 8 para mais espaço
+      currentY += 7;
       return;
     }
 
@@ -216,19 +215,17 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
     if (item.type === 'mangueira' && item.mangueira_data) {
       const data = item.mangueira_data;
       const createContent = (partData: MangueiraPartDetails) => {
-        const content = [];
+        let content = '';
         if (partData.codigo) {
-          content.push({ content: `Cód.: ${partData.codigo}`, styles: { fontStyle: 'bold' } });
+          content += `Cód.: ${partData.codigo}\n`;
         }
         if (partData.name) {
-          if (partData.codigo) { content.push({ content: '\n', styles: { fontSize: 4 } }); }
-          content.push({ content: partData.name, styles: { fontStyle: 'normal' } });
+          content += `${partData.name}\n`;
         }
         if (partData.description) {
-          if (partData.codigo || partData.name) { content.push({ content: '\n', styles: { fontSize: 4 } }); }
-          content.push({ content: partData.description, styles: { fontStyle: 'italic', fontSize: 8 } });
+          content += `${partData.description}`;
         }
-        return content;
+        return content.trim();
       };
 
       currentGroupRows.push([
@@ -239,25 +236,18 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         createContent(data.conexao2),
       ]);
     } else if (item.type === 'item') {
-      const descriptionContent = [];
+      let descriptionContent = '';
       if (item.item_name) {
-        descriptionContent.push({
-          content: item.item_name,
-          styles: { fontStyle: 'normal', fontSize: 9 }
-        });
+        descriptionContent += item.item_name;
       }
       if (item.description) {
-        if (item.item_name) { descriptionContent.push({ content: '\n', styles: { fontSize: 4 } }); }
-        descriptionContent.push({
-          content: item.description,
-          styles: { fontStyle: 'italic', fontSize: 8 }
-        });
+        descriptionContent += `\n${item.description}`;
       }
 
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
         item.part_code ? `Cód.: ${item.part_code}` : '',
-        descriptionContent,
+        descriptionContent.trim(),
       ]);
     }
   });
