@@ -455,6 +455,8 @@ const CustomListPage: React.FC = () => {
             {/* Coluna 4: Ações (Vazia) */}
             <TableCell className="w-[70px] p-2 text-right">
               <div className="flex justify-end items-center gap-1">
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
                 <AlertDialog>
                   <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
@@ -470,205 +472,196 @@ const CustomListPage: React.FC = () => {
       );
     }
 
-    // Item de peça normal (Existing logic)
-    if (isItem) {
-      return (
-        <TableRow key={item.id} id={item.id}>
-          <TableCell className="w-[40px] p-2">
-            <Checkbox
-              checked={selectedItemIds.has(item.id)}
-              onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
-              aria-label={`Selecionar item ${item.item_name}`}
-            />
-          </TableCell>
-          <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-          <TableCell colSpan={3} className="w-auto whitespace-normal break-words p-2 text-left"> {/* ColSpan 3 */}
-              <div className="flex flex-col items-start">
-                {item.part_code && (
-                  <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
-                )}
-                <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
-                {item.description && (
-                  <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
-                )}
-                {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                  <Popover 
-                    key={`popover-${item.id}`}
-                    open={isRelatedItemsPopoverOpen === item.id} 
-                    onOpenChange={(open) => setIsRelatedItemsPopoverId(open ? item.id : null)}
-                    modal={false}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
-                      >
-                        <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto max-w-xs p-2">
-                      <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                      <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
-                        <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
-                          {item.itens_relacionados.map(rel => (
-                            <li key={rel.codigo} className="list-none ml-0">
-                              <RelatedPartDisplay item={rel} />
-                            </li>
-                          ))}
-                        </ul>
-                      </ScrollArea>
-                    </PopoverContent>
-                  </Popover>
-                )}
-              </div>
-          </TableCell>
-          <TableCell className="w-[70px] p-2 text-right">
-            <div className="flex justify-end items-center gap-1">
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-              <AlertDialog>
-                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o item "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+    // Item de peça normal
+    return (
+      <TableRow 
+        key={item.id}
+        draggable
+        onDragStart={(e) => handleDragStart(e, item)}
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, item)}
+        onDragLeave={handleDragLeave}
+        onDragEnd={handleDragEnd}
+        data-id={item.id}
+        className="relative"
+      >
+        <TableCell className="w-[30px] p-2 cursor-grab">
+          <GripVertical className="h-4 w-4" />
+        </TableCell>
+        <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
+        <TableCell colSpan={3} className="w-auto whitespace-normal break-words p-2 text-left">
+            <div className="flex flex-col items-start">
+              {item.part_code && (
+                <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
+              )}
+              <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
+              {item.description && (
+                <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
+              )}
+              {item.itens_relacionados && item.itens_relacionados.length > 0 && (
+                <Popover 
+                  key={`popover-${item.id}`}
+                  open={openRelatedItemsPopoverId === item.id} 
+                  onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
+                  modal={false}
+                >
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
+                    >
+                      <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto max-w-xs p-2">
+                    <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                    <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
+                      <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                        {item.itens_relacionados.map(rel => (
+                          <li key={rel.codigo} className="list-none ml-0">
+                            <RelatedPartDisplay item={rel} />
+                          </li>
+                        ))}
+                      </ul>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
-          </TableCell>
-        </TableRow>
-      );
-    }
-    
-    return null;
+        </TableCell>
+        <TableCell className="w-[70px] p-2 text-right">
+          <div className="flex justify-end items-center gap-1">
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
+            <AlertDialog>
+              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o item "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
-        <Link to="/custom-menu-view">
-          <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar ao Catálogo
+    <Card className="w-full">
+      <CardHeader className="flex flex-col space-y-2 pb-2">
+        <div className="flex justify-between items-center">
+          <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
+            <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
-        </Link>
-        <Link to="/parts-list">
-          <Button variant="outline" className="flex items-center gap-2">
-            <ListIcon className="h-4 w-4" /> Minha Lista de Peças
+          <Button onClick={handleAdd} className="flex items-center gap-2 shrink-0">
+            <PlusCircle className="h-4 w-4" /> Novo Item
           </Button>
-        </Link>
-      </div>
-      
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <ListIcon className="h-8 w-8 text-primary" />
-        {listTitle}
-      </h1>
-
-      <Card className="w-full max-w-4xl mx-auto mb-8">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl font-bold text-center pt-2">
-            Itens da Lista
-          </CardTitle>
-          <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2">
-            {selectedItemIds.size > 0 && (
-              <Button 
-                onClick={handleExportSelectedToMyList} 
-                className="flex-1 sm:w-auto"
-                disabled={isLoadingAfs}
-              >
-                <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
-              </Button>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  onClick={handleCopyList} 
-                  disabled={items.length === 0} 
-                  variant="secondary" 
-                  size="icon"
-                  className="sm:w-auto sm:px-4"
-                >
-                  <Copy className="h-4 w-4" /> 
-                  <span className="hidden sm:inline ml-2">Copiar Lista</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Copiar Lista</TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  onClick={handleExportCsv} 
-                  disabled={items.length === 0} 
-                  variant="outline" 
-                  size="icon"
-                  className="sm:w-auto sm:px-4"
-                >
-                  <Download className="h-4 w-4" /> 
-                  <span className="hidden sm:inline ml-2">Exportar CSV</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Exportar CSV</TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-                  <FileDown className="h-4 w-4" /> Exportar PDF
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Exportar PDF</TooltipContent>
-            </Tooltip>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
-          ) : items.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[40px] p-2">
-                      <Checkbox
-                        checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-                        onCheckedChange={handleToggleSelectAll}
-                        aria-label="Selecionar todos os itens"
-                      />
-                    </TableHead>
-                    <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                    <TableHead colSpan={3} className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                    <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item, index) => renderItemRow(item, index))}
-                </TableBody>
-              </Table>
-            </div>
+        </div>
+        
+        <CardTitle className="text-2xl font-bold text-center pt-2">
+          {list.title}
+        </CardTitle>
+        
+        <div className="flex flex-wrap justify-end gap-2 pt-2">
+          {selectedItemIds.size > 0 && (
+            <Button 
+              onClick={handleExportSelectedToMyList} 
+              className="flex-1 sm:w-auto"
+              disabled={isLoadingAfs}
+            >
+              <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
+            </Button>
           )}
-        </CardContent>
-      </Card>
-      <MadeWithDyad />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={handleCopyList} 
+                disabled={items.length === 0} 
+                variant="secondary" 
+                size="icon"
+                className="sm:w-auto sm:px-4"
+              >
+                <Copy className="h-4 w-4" /> 
+                <span className="hidden sm:inline ml-2">Copiar Lista</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copiar Lista</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={handleExportCsv} 
+                disabled={items.length === 0} 
+                variant="outline" 
+                size="icon"
+                className="sm:w-auto sm:px-4"
+              >
+                <Download className="h-4 w-4" /> 
+                <span className="hidden sm:inline ml-2">Exportar CSV</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Exportar CSV</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+                <FileDown className="h-4 w-4" /> Exportar PDF
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Exportar PDF</TooltipContent>
+          </Tooltip>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
+        ) : items.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[40px] p-2">
+                    <Checkbox
+                      checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+                      onCheckedChange={handleToggleSelectAll}
+                      aria-label="Selecionar todos os itens"
+                    />
+                  </TableHead>
+                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                  <TableHead colSpan={3} className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                  <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item, index) => renderItemRow(item, index))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
 
-      {/* Sheet de Edição (mantido para o botão de lápis) */}
-      <Sheet open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+      {/* Sheet para Adicionar/Editar Item */}
+      <Sheet open={isFormSheetOpen} onOpenChange={setIsFormSheetOpen}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Editar Item da Lista</SheetTitle>
+            <SheetTitle>{itemToEdit ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
             <SheetDescription>
-              Edite os detalhes do item da lista.
+              {itemToEdit ? 'Edite os detalhes do item da lista.' : 'Adicione um novo item, subtítulo ou separador.'}
             </SheetDescription>
           </SheetHeader>
-          {itemToEdit && listId && (
-            <CustomListItemForm
-              list={{ id: listId, title: listTitle, user_id: '' }}
-              onClose={handleItemSavedOrClosed}
-              editingItem={itemToEdit}
-              onItemSaved={handleItemSavedOrClosed}
-              allAvailableParts={allAvailableParts}
-            />
-          )}
+          <CustomListItemForm
+            list={list}
+            editingItem={itemToEdit}
+            onItemSaved={handleItemSavedOrClosed}
+            onClose={handleItemSavedOrClosed}
+            allAvailableParts={allAvailableParts}
+          />
         </SheetContent>
       </Sheet>
 
@@ -706,8 +699,8 @@ const CustomListPage: React.FC = () => {
           </SheetFooter>
         </SheetContent>
       </Sheet>
-    </div>
+    </Card>
   );
 };
 
-export default CustomListPage;
+export default CustomListEditor;

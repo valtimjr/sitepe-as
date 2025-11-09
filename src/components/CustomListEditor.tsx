@@ -1,16 +1,17 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2, FileDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2, FileDown, Check } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
 import { getCustomListItems, deleteCustomListItem, updateAllCustomListItems } from '@/services/customListService';
-import { getParts } from '@/services/partListService';
+import { getParts, getAfsFromService, addSimplePartItem, Af } from '@/services/partListService';
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -37,9 +38,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
 import RelatedPartDisplay from './RelatedPartDisplay';
-import CustomListItemForm from './CustomListItemForm'; // Importar o novo componente
+import CustomListItemForm from './CustomListItemForm';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
+import AfSearchInput from './AfSearchInput';
+import { MadeWithDyad } from './made-with-dyad'; // Adicionado MadeWithDyad
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -56,7 +60,26 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
   const [openRelatedItemsPopoverId, setOpenRelatedItemsPopoverId] = useState<string | null>(null);
 
+  // Estados para seleção e exportação (duplicados da CustomListPage, mas necessários aqui para o renderItemRow)
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
+  const [afForExport, setAfForExport] = useState('');
+  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
+  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
+
   const isMobile = useIsMobile();
+
+  const loadAfs = useCallback(async () => {
+    setIsLoadingAfs(true);
+    try {
+      const afs = await getAfsFromService();
+      setAllAvailableAfs(afs);
+    } catch (error) {
+      console.error('Erro ao carregar AFs:', error);
+    } finally {
+      setIsLoadingAfs(false);
+    }
+  }, []);
 
   const loadItems = useCallback(async () => {
     if (!list.id) {
@@ -76,7 +99,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
 
   useEffect(() => {
     loadItems();
-  }, [loadItems]);
+    loadAfs();
+  }, [loadItems, loadAfs]);
 
   const handleItemSavedOrClosed = () => {
     setIsFormSheetOpen(false);
@@ -269,6 +293,130 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
     showSuccess('PDF gerado com sucesso!');
   };
 
+  // --- Seleção de Itens ---
+  const selectableItems = useMemo(() => items.filter(i => i.type === 'item' || i.type === 'mangueira'), [items]);
+  const isAllSelected = selectableItems.length > 0 && selectedItemIds.size === selectableItems.length;
+  const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedItemIds(new Set());
+    } else {
+      const allItemIds = new Set(selectableItems.map(item => item.id));
+      setSelectedItemIds(allItemIds);
+    }
+  };
+
+  const handleSelectItem = (id: string, checked: boolean) => {
+    setSelectedItemIds(prev => {
+      const newSelection = new Set(prev);
+      if (checked) {
+        newSelection.add(id);
+      } else {
+        newSelection.delete(id);
+      }
+      return newSelection;
+    });
+  };
+
+  const handleSubtitleSelect = (subtitleItem: CustomListItem, isChecked: boolean) => {
+    const startIndex = items.findIndex(i => i.id === subtitleItem.id);
+    if (startIndex === -1) return;
+
+    let endIndex = items.findIndex((i, idx) => idx > startIndex && i.type === 'subtitle');
+    if (endIndex === -1) {
+      endIndex = items.length;
+    }
+
+    const itemsInGroup = items.slice(startIndex, endIndex);
+    const selectableIdsInGroup = itemsInGroup
+      .filter(i => i.type === 'item' || i.type === 'mangueira')
+      .map(item => item.id);
+
+    setSelectedItemIds(prev => {
+      const newSelection = new Set(prev);
+      if (isChecked) {
+        selectableIdsInGroup.forEach(id => newSelection.add(id));
+      } else {
+        selectableIdsInGroup.forEach(id => newSelection.delete(id));
+      }
+      return newSelection;
+    });
+  };
+
+  // --- Exportar Selecionados para Minha Lista ---
+  const handleExportSelectedToMyList = async () => {
+    if (selectedItemIds.size === 0) {
+      showError('Nenhum item selecionado para exportar.');
+      return;
+    }
+    setAfForExport(''); // Limpa o AF anterior
+    setIsExportSheetOpen(true);
+  };
+
+  const handleConfirmExport = async () => {
+    if (!afForExport.trim()) {
+      showError('Por favor, selecione um AF para os itens exportados.');
+      return;
+    }
+
+    const itemsToExport = items.filter(item => selectedItemIds.has(item.id));
+    if (itemsToExport.length === 0) {
+      showError('Nenhum item selecionado para exportar.');
+      return;
+    }
+
+    const loadingToastId = showLoading(`Exportando ${itemsToExport.length} itens...`);
+    try {
+      for (const item of itemsToExport) {
+        if (item.type === 'mangueira' && item.mangueira_data) {
+          const data = item.mangueira_data;
+          
+          // Exporta a Mangueira como item simples (1 unidade)
+          await addSimplePartItem({
+            codigo_peca: data.mangueira.codigo || '',
+            descricao: `Mangueira: ${data.mangueira.name || data.mangueira.codigo} - Corte: ${data.corte_cm} cm`,
+            quantidade: 1,
+            af: afForExport.trim(),
+          });
+
+          // Exporta Conexão 1
+          await addSimplePartItem({
+            codigo_peca: data.conexao1.codigo || '',
+            descricao: `Conexão 1: ${data.conexao1.name || data.conexao1.codigo}`,
+            quantidade: 1,
+            af: afForExport.trim(),
+          });
+
+          // Exporta Conexão 2
+          await addSimplePartItem({
+            codigo_peca: data.conexao2.codigo || '',
+            descricao: `Conexão 2: ${data.conexao2.name || data.conexao2.codigo}`,
+            quantidade: 1,
+            af: afForExport.trim(),
+          });
+
+        } else if (item.type === 'item') {
+          await addSimplePartItem({
+            codigo_peca: item.part_code || '',
+            descricao: item.description || item.item_name,
+            quantidade: item.quantity,
+            af: afForExport.trim(),
+          });
+        }
+      }
+      showSuccess(`${itemsToExport.length} item(s) exportado(s) para 'Minha Lista de Peças' com sucesso!`);
+      setSelectedItemIds(new Set());
+      setIsExportSheetOpen(false);
+      setAfForExport('');
+    } catch (error) {
+      console.error('Erro ao exportar itens:', error);
+      showError(`Erro ao exportar itens para 'Minha Lista de Peças'.`);
+    } finally {
+      dismissToast(loadingToastId);
+    }
+  };
+
   const renderItemRow = (item: CustomListItem, index: number) => {
     const isSeparator = item.type === 'separator';
     const isSubtitle = item.type === 'subtitle';
@@ -290,6 +438,16 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
     }
 
     if (isSubtitle) {
+      const startIndex = items.findIndex(i => i.id === item.id);
+      let endIndex = items.findIndex((i, idx) => idx > startIndex && i.type === 'subtitle');
+      if (endIndex === -1) endIndex = items.length;
+
+      const groupSelectableItems = items.slice(startIndex, endIndex).filter(i => i.type === 'item' || i.type === 'mangueira');
+      const selectedInGroupCount = groupSelectableItems.filter(i => selectedItemIds.has(i.id)).length;
+
+      const isGroupAllSelected = groupSelectableItems.length > 0 && selectedInGroupCount === groupSelectableItems.length;
+      const isGroupIndeterminate = selectedInGroupCount > 0 && !isGroupAllSelected;
+
       return (
         <TableRow 
           key={item.id} 
@@ -490,132 +648,119 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
-        <Link to="/custom-menu-view">
-          <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar ao Catálogo
+    <Card className="w-full">
+      <CardHeader className="flex flex-col space-y-2 pb-2">
+        <div className="flex justify-between items-center">
+          <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
+            <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
-        </Link>
-        <Link to="/parts-list">
-          <Button variant="outline" className="flex items-center gap-2">
-            <ListIcon className="h-4 w-4" /> Minha Lista de Peças
+          <Button onClick={handleAdd} className="flex items-center gap-2 shrink-0">
+            <PlusCircle className="h-4 w-4" /> Novo Item
           </Button>
-        </Link>
-      </div>
-      
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <ListIcon className="h-8 w-8 text-primary" />
-        {listTitle}
-      </h1>
-
-      <Card className="w-full max-w-4xl mx-auto mb-8">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl font-bold text-center pt-2">
-            Itens da Lista
-          </CardTitle>
-          <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2">
-            {selectedItemIds.size > 0 && (
-              <Button 
-                onClick={handleExportSelectedToMyList} 
-                className="flex-1 sm:w-auto"
-                disabled={isLoadingAfs}
-              >
-                <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
-              </Button>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  onClick={handleCopyList} 
-                  disabled={items.length === 0} 
-                  variant="secondary" 
-                  size="icon"
-                  className="sm:w-auto sm:px-4"
-                >
-                  <Copy className="h-4 w-4" /> 
-                  <span className="hidden sm:inline ml-2">Copiar Lista</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Copiar Lista</TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  onClick={handleExportCsv} 
-                  disabled={items.length === 0} 
-                  variant="outline" 
-                  size="icon"
-                  className="sm:w-auto sm:px-4"
-                >
-                  <Download className="h-4 w-4" /> 
-                  <span className="hidden sm:inline ml-2">Exportar CSV</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Exportar CSV</TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-                  <FileDown className="h-4 w-4" /> Exportar PDF
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Exportar PDF</TooltipContent>
-            </Tooltip>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
-          ) : items.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[40px] p-2">
-                      <Checkbox
-                        checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-                        onCheckedChange={handleToggleSelectAll}
-                        aria-label="Selecionar todos os itens"
-                      />
-                    </TableHead>
-                    <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                    <TableHead colSpan={3} className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                    <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item, index) => renderItemRow(item, index))}
-                </TableBody>
-              </Table>
-            </div>
+        </div>
+        
+        <CardTitle className="text-2xl font-bold text-center pt-2">
+          {list.title}
+        </CardTitle>
+        
+        <div className="flex flex-wrap justify-end gap-2 pt-2">
+          {selectedItemIds.size > 0 && (
+            <Button 
+              onClick={handleExportSelectedToMyList} 
+              className="flex-1 sm:w-auto"
+              disabled={isLoadingAfs}
+            >
+              <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
+            </Button>
           )}
-        </CardContent>
-      </Card>
-      <MadeWithDyad />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={handleCopyList} 
+                disabled={items.length === 0} 
+                variant="secondary" 
+                size="icon"
+                className="sm:w-auto sm:px-4"
+              >
+                <Copy className="h-4 w-4" /> 
+                <span className="hidden sm:inline ml-2">Copiar Lista</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copiar Lista</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={handleExportCsv} 
+                disabled={items.length === 0} 
+                variant="outline" 
+                size="icon"
+                className="sm:w-auto sm:px-4"
+              >
+                <Download className="h-4 w-4" /> 
+                <span className="hidden sm:inline ml-2">Exportar CSV</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Exportar CSV</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+                <FileDown className="h-4 w-4" /> Exportar PDF
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Exportar PDF</TooltipContent>
+          </Tooltip>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
+        ) : items.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[40px] p-2">
+                    <Checkbox
+                      checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+                      onCheckedChange={handleToggleSelectAll}
+                      aria-label="Selecionar todos os itens"
+                    />
+                  </TableHead>
+                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                  <TableHead colSpan={3} className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                  <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item, index) => renderItemRow(item, index))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
 
-      {/* Sheet de Edição (mantido para o botão de lápis) */}
-      <Sheet open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+      {/* Sheet para Adicionar/Editar Item */}
+      <Sheet open={isFormSheetOpen} onOpenChange={setIsFormSheetOpen}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Editar Item da Lista</SheetTitle>
+            <SheetTitle>{itemToEdit ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
             <SheetDescription>
-              Edite os detalhes do item da lista.
+              {itemToEdit ? 'Edite os detalhes do item da lista.' : 'Adicione um novo item, subtítulo ou separador.'}
             </SheetDescription>
           </SheetHeader>
-          {itemToEdit && listId && (
-            <CustomListItemForm
-              list={{ id: listId, title: listTitle, user_id: '' }}
-              onClose={handleItemSavedOrClosed}
-              editingItem={itemToEdit}
-              onItemSaved={handleItemSavedOrClosed}
-              allAvailableParts={allAvailableParts}
-            />
-          )}
+          <CustomListItemForm
+            list={list}
+            editingItem={itemToEdit}
+            onItemSaved={handleItemSavedOrClosed}
+            onClose={handleItemSavedOrClosed}
+            allAvailableParts={allAvailableParts}
+          />
         </SheetContent>
       </Sheet>
 
@@ -653,8 +798,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
           </SheetFooter>
         </SheetContent>
       </Sheet>
-    </div>
+    </Card>
   );
 };
 
-export default CustomListPage;
+export default CustomListEditor;
