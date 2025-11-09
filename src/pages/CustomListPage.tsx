@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import CustomListItemForm from '@/components/CustomListItemForm'; // Importar o formulário de item
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -216,7 +217,6 @@ const CustomListPage: React.FC = () => {
 
   // --- Seleção de Itens ---
   const selectableItems = useMemo(() => items.filter(i => i.type === 'item' || i.type === 'mangueira'), [items]);
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set()); // Adicionado estado local
   const isAllSelected = selectableItems.length > 0 && selectedItemIds.size === selectableItems.length;
   const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
 
@@ -661,7 +661,7 @@ const CustomListPage: React.FC = () => {
             </SheetDescription>
           </SheetHeader>
           {itemToEdit && listId && (
-            <CustomListEditor
+            <CustomListItemForm
               list={{ id: listId, title: listTitle, user_id: '' }}
               onClose={handleItemSavedOrClosed}
               editingItem={itemToEdit}

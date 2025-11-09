@@ -245,10 +245,9 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
         const { data: oldListItems, error: oldError } = await supabase
           .from('custom_list_items') // Tenta ler da tabela antiga
           .select('*')
-          .eq('list_id', list.id)
           .order('order_index', { ascending: true });
 
-        if (!oldError && oldMenuItems && oldMenuItems.length > 0) {
+        if (!oldError && oldListItems && oldListItems.length > 0) {
           // console.log(`Migrating old custom_list_items for list ${list.id} to items_data JSONB format...`);
           const migratedItems: CustomListItem[] = oldListItems.map(item => ({
             id: item.id,

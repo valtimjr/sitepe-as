@@ -490,110 +490,171 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-col space-y-2 pb-2">
-        <div className="flex justify-between items-center">
-          <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
-            <ArrowLeft className="h-4 w-4" /> Voltar
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
+      <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
+        <Link to="/custom-menu-view">
+          <Button variant="outline" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" /> Voltar ao Catálogo
           </Button>
-          <Button onClick={handleAdd} className="flex items-center gap-2 shrink-0">
-            <PlusCircle className="h-4 w-4" /> Novo Item
+        </Link>
+        <Link to="/parts-list">
+          <Button variant="outline" className="flex items-center gap-2">
+            <ListIcon className="h-4 w-4" /> Minha Lista de Peças
           </Button>
-        </div>
-        
-        <CardTitle className="text-2xl font-bold text-center pt-2">
-          {list.title}
-        </CardTitle>
-        
-        <div className="flex flex-wrap justify-end gap-2 pt-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                onClick={handleCopyList} 
-                disabled={items.length === 0} 
-                variant="secondary" 
-                size="icon"
-                className="sm:w-auto sm:px-4"
-              >
-                <Copy className="h-4 w-4" /> 
-                <span className="hidden sm:inline ml-2">Copiar Lista</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Copiar Lista</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                onClick={handleExportCsv} 
-                disabled={items.length === 0} 
-                variant="outline" 
-                size="icon"
-                className="sm:w-auto sm:px-4"
-              >
-                <Download className="h-4 w-4" /> 
-                <span className="hidden sm:inline ml-2">Exportar CSV</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Exportar CSV</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-                <FileDown className="h-4 w-4" /> Exportar PDF
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Exportar PDF</TooltipContent>
-          </Tooltip>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
-        ) : items.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[30px] p-2">
-                    <GripVertical className="h-4 w-4" />
-                  </TableHead>
-                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                  <TableHead colSpan={3} className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                  <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item, index) => renderItemRow(item, index))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
+        </Link>
+      </div>
+      
+      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
+        <ListIcon className="h-8 w-8 text-primary" />
+        {listTitle}
+      </h1>
 
-      {/* Sheet para Adicionar/Editar Item */}
-      <Sheet open={isFormSheetOpen} onOpenChange={setIsFormSheetOpen}>
+      <Card className="w-full max-w-4xl mx-auto mb-8">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl font-bold text-center pt-2">
+            Itens da Lista
+          </CardTitle>
+          <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2">
+            {selectedItemIds.size > 0 && (
+              <Button 
+                onClick={handleExportSelectedToMyList} 
+                className="flex-1 sm:w-auto"
+                disabled={isLoadingAfs}
+              >
+                <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
+              </Button>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={handleCopyList} 
+                  disabled={items.length === 0} 
+                  variant="secondary" 
+                  size="icon"
+                  className="sm:w-auto sm:px-4"
+                >
+                  <Copy className="h-4 w-4" /> 
+                  <span className="hidden sm:inline ml-2">Copiar Lista</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copiar Lista</TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={handleExportCsv} 
+                  disabled={items.length === 0} 
+                  variant="outline" 
+                  size="icon"
+                  className="sm:w-auto sm:px-4"
+                >
+                  <Download className="h-4 w-4" /> 
+                  <span className="hidden sm:inline ml-2">Exportar CSV</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Exportar CSV</TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+                  <FileDown className="h-4 w-4" /> Exportar PDF
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Exportar PDF</TooltipContent>
+            </Tooltip>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
+          ) : items.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40px] p-2">
+                      <Checkbox
+                        checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+                        onCheckedChange={handleToggleSelectAll}
+                        aria-label="Selecionar todos os itens"
+                      />
+                    </TableHead>
+                    <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                    <TableHead colSpan={3} className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                    <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item, index) => renderItemRow(item, index))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <MadeWithDyad />
+
+      {/* Sheet de Edição (mantido para o botão de lápis) */}
+      <Sheet open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>{itemToEdit ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
+            <SheetTitle>Editar Item da Lista</SheetTitle>
             <SheetDescription>
-              {itemToEdit ? 'Edite os detalhes do item da lista.' : 'Adicione um novo item, subtítulo ou separador.'}
+              Edite os detalhes do item da lista.
             </SheetDescription>
           </SheetHeader>
-          <CustomListItemForm
-            list={list}
-            editingItem={itemToEdit}
-            onItemSaved={handleItemSavedOrClosed}
-            onClose={handleItemSavedOrClosed}
-            allAvailableParts={allAvailableParts}
-          />
+          {itemToEdit && listId && (
+            <CustomListItemForm
+              list={{ id: listId, title: listTitle, user_id: '' }}
+              onClose={handleItemSavedOrClosed}
+              editingItem={itemToEdit}
+              onItemSaved={handleItemSavedOrClosed}
+              allAvailableParts={allAvailableParts}
+            />
+          )}
         </SheetContent>
       </Sheet>
-    </Card>
+
+      {/* Sheet para Exportar Selecionados com AF */}
+      <Sheet open={isExportSheetOpen} onOpenChange={setIsExportSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Exportar Itens para Minha Lista</SheetTitle>
+            <SheetDescription>
+              Selecione um AF (Número de Frota) para aplicar a todos os {selectedItemIds.size} itens selecionados antes de exportar para "Minha Lista de Peças".
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="af-for-export">AF (Número de Frota)</Label>
+              {isLoadingAfs ? (
+                <Input value="Carregando AFs..." readOnly className="bg-muted" />
+              ) : (
+                <AfSearchInput
+                  value={afForExport}
+                  onChange={setAfForExport}
+                  availableAfs={allAvailableAfs}
+                  onSelectAf={setAfForExport}
+                />
+              )}
+            </div>
+          </div>
+          <SheetFooter>
+            <Button type="button" variant="outline" onClick={() => setIsExportSheetOpen(false)}>
+              <XCircle className="h-4 w-4 mr-2" /> Cancelar
+            </Button>
+            <Button type="button" onClick={handleConfirmExport} disabled={!afForExport.trim() || isLoadingAfs}>
+              <Check className="h-4 w-4 mr-2" /> Confirmar Exportação
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 };
 
-export default CustomListEditor;
+export default CustomListPage;
