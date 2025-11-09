@@ -541,7 +541,7 @@ const CustomListPage: React.FC = () => {
           <TableCell className="font-medium p-2 text-center">1</TableCell>
           <TableCell className="w-auto p-2">
             <div className="flex flex-col items-start">
-              <span className="font-medium text-sm text-primary">{data.mangueira.name || data.mangueira.codigo}</span>
+              <span className="font-medium text-sm text-primary whitespace-normal break-words">{data.mangueira.name || data.mangueira.codigo}</span>
               {data.mangueira.description && (
                 <span className="text-xs text-muted-foreground italic">{data.mangueira.description}</span>
               )}
@@ -606,7 +606,7 @@ const CustomListPage: React.FC = () => {
           </div>
         </TableCell>
         <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-        <TableCell className="w-auto p-2" colSpan={2}>
+        <TableCell className="w-auto p-2">
           <div className="flex flex-col items-start">
             {item.part_code && (
               <span className="font-medium text-sm text-primary">{item.part_code}</span>
@@ -617,6 +617,7 @@ const CustomListPage: React.FC = () => {
             )}
           </div>
         </TableCell>
+        <TableCell></TableCell> {/* Célula vazia para a coluna "Corte (cm)" */}
         <TableCell className="w-auto p-2">
           {item.itens_relacionados && item.itens_relacionados.length > 0 && (
             <Popover 
@@ -666,6 +667,40 @@ const CustomListPage: React.FC = () => {
       </TableRow>
     );
   };
+
+  const SimpleItemHeader = () => (
+    <TableRow className="bg-muted/50 border-y border-primary/50">
+      <TableHead className="w-[40px] p-2">
+        <Checkbox
+          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+          onCheckedChange={handleToggleSelectAll}
+          aria-label="Selecionar todos os itens"
+        />
+      </TableHead>
+      <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
+      <TableHead className="w-auto p-2 text-left font-bold text-sm">Item / Código / Descrição</TableHead>
+      <TableHead className="w-[6rem] p-2"></TableHead> {/* Empty for Corte */}
+      <TableHead className="w-auto p-2 text-left font-bold text-sm">Detalhes</TableHead>
+      <TableHead className="w-[70px] p-2 text-right"></TableHead>
+    </TableRow>
+  );
+
+  const MangueiraHeader = () => (
+    <TableRow className="bg-muted/50 border-y border-primary/50">
+      <TableHead className="w-[40px] p-2">
+        <Checkbox
+          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+          onCheckedChange={handleToggleSelectAll}
+          aria-label="Selecionar todos os itens"
+        />
+      </TableHead>
+      <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
+      <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
+      <TableHead className="w-[6rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
+      <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexões</TableHead>
+      <TableHead className="w-[70px] p-2 text-right"></TableHead>
+    </TableRow>
+  );
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -752,24 +787,23 @@ const CustomListPage: React.FC = () => {
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[40px] p-2">
-                      <Checkbox
-                        checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-                        onCheckedChange={handleToggleSelectAll}
-                        aria-label="Selecionar todos os itens"
-                      />
-                    </TableHead>
-                    <TableHead className="w-[4rem] p-2 text-center">Qtd</TableHead>
-                    <TableHead className="w-auto p-2">Item / Mangueira</TableHead>
-                    <TableHead className="w-[6rem] p-2 text-center">Corte (cm)</TableHead>
-                    <TableHead className="w-auto p-2">Conexões / Detalhes</TableHead>
-                    <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
                 <TableBody>
-                  {items.map((item, index) => renderItemRow(item, index))}
+                  {items.map((item, index) => {
+                    const previousItem = index > 0 ? items[index - 1] : null;
+                    const isFirstItem = index === 0;
+                    const previousWasBreak = previousItem && (previousItem.type === 'subtitle' || previousItem.type === 'separator');
+
+                    const showMangueiraHeader = item.type === 'mangueira' && (isFirstItem || previousWasBreak || (previousItem && previousItem.type !== 'mangueira'));
+                    const showSimpleItemHeader = item.type === 'item' && (isFirstItem || previousWasBreak || (previousItem && previousItem.type !== 'item'));
+
+                    return (
+                      <React.Fragment key={item.id}>
+                        {showMangueiraHeader && <MangueiraHeader />}
+                        {showSimpleItemHeader && <SimpleItemHeader />}
+                        {renderItemRow(item, index)}
+                      </React.Fragment>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
