@@ -35,8 +35,12 @@ export default defineConfig(() => ({
             if (id.includes('@supabase') || id.includes('auth-ui')) {
               return 'vendor-supabase';
             }
-            // Deixa o resto das dependências no chunk 'vendor'
-            return 'vendor';
+            // NOVO: Isola Radix UI/shadcn (que é a maior parte do 'vendor' restante)
+            if (id.includes('@radix-ui') || id.includes('class-variance-authority') || id.includes('tailwind-merge')) {
+              return 'vendor-ui';
+            }
+            // Deixa o resto das dependências no chunk 'vendor-core'
+            return 'vendor-core';
           }
         },
       },
