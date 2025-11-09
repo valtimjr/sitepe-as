@@ -47,7 +47,7 @@ export interface Af {
 export type Apontamento = DailyApontamento;
 
 // Helper function to check network status
-const isOnline = async () => {
+export const isOnline = async () => {
     try {
         const status = await Network.getStatus();
         return status.connected;

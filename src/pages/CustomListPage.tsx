@@ -498,7 +498,7 @@ const CustomListPage: React.FC = () => {
                       <TableHead className="w-[40px] p-2">
                         <Checkbox
                           checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-                          onCheckedChange={(checked) => handleToggleSelectAll(checked === true)}
+                          onCheckedChange={handleToggleSelectAll}
                           aria-label="Selecionar todos os itens"
                         />
                       </TableHead>

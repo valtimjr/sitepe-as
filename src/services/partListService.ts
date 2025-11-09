@@ -22,6 +22,9 @@ import {
   updateLocalServiceOrderItem,
   deleteLocalServiceOrderItem,
   clearLocalServiceOrderItems,
+  isOnline,
+  getLocalMonthlyApontamento,
+  putLocalMonthlyApontamento
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network'; // Importar Network

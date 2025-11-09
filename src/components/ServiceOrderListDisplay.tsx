@@ -489,7 +489,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         (item.os === group.os || (item.os === undefined && group.os === undefined)) &&
         (item.hora_inicio === group.hora_inicio || (item.hora_inicio === undefined && group.hora_inicio === undefined)) &&
         (item.hora_final === group.hora_final || (group.hora_final === undefined && item.hora_final === undefined)) &&
-        (item.servico_executado === group.servico_executado || (group.servico_executado === undefined && item.servico_executado === undefined))
+        (item.servico_executado === group.servico_executado || (item.servico_executado === undefined && group.servico_executado === undefined))
       );
 
       await Promise.all(itemsToDelete.map(item => deleteServiceOrderItem(item.id)));
