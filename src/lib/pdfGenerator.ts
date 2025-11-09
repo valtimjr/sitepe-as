@@ -119,6 +119,7 @@ export const generatePartsListPdf = async (listItems: SimplePartItem[], title: s
     head: [tableColumn],
     body: tableRows,
     startY: currentY,
+    theme: 'plain',
     styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 240, 240] },
@@ -168,7 +169,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         head: head,
         body: currentGroupRows,
         startY: currentY,
-        theme: 'grid',
+        theme: 'plain',
         styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
         headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [248, 249, 250] },
@@ -185,8 +186,6 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   listItems.forEach(item => {
     if (item.type === 'separator') {
       renderGroup();
-      doc.setDrawColor(150, 150, 150);
-      doc.line(14, currentY + 2, 196, currentY + 2); // Draw a line
       currentY += 4;
       return;
     }
@@ -277,35 +276,15 @@ Serviço: ${group.servico_executado}`;
     head: [tableColumn],
     body: tableRows,
     startY: 30,
-    theme: 'grid',
+    theme: 'plain',
     styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [240, 240, 240] },
     columnStyles: {
       0: { cellWidth: 60, fontStyle: 'bold' }, // Details column
       1: { cellWidth: 'auto' }, // Part column
       2: { cellWidth: 15, halign: 'center' }, // Quantity column
     },
-    didDrawCell: (data: any) => {
-      // Add a thicker separator line before each new group
-      if (data.section === 'body' && data.row.index > 0 && data.row.cells[0] && data.row.cells[0].rowSpan) {
-        // Only draw the line once per row, on the first cell
-        if (data.column.index === 0) {
-            const doc = data.doc;
-            const table = data.table;
-            const cell = data.cell;
-            
-            const tableX = table.x;
-            const tableWidth = table.width;
-            const y = cell.y;
-
-            if (typeof tableX === 'number' && typeof y === 'number' && typeof tableWidth === 'number') {
-                doc.setLineWidth(0.5);
-                doc.setDrawColor(40, 40, 40); // Dark gray
-                doc.line(tableX, y, tableX + tableWidth, y);
-            }
-        }
-      }
-    }
   });
 
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);
@@ -373,6 +352,7 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     head: [tableColumn],
     body: tableRows,
     startY: currentY,
+    theme: 'plain',
     styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' }, // Reduzido o tamanho da fonte e padding
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 }, // Reduzido o tamanho da fonte do cabeçalho
     columnStyles: {
