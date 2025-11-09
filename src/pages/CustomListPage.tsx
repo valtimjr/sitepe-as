@@ -421,11 +421,19 @@ const CustomListPage: React.FC = () => {
         <TableCell className="w-auto whitespace-normal break-words p-2 text-left" colSpan={isMobile ? 4 : 3}>
           <div className="flex flex-col items-start">
             {item.part_code && (
-              <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
+              <span className="font-medium text-sm text-primary whitespace-normal break-words">
+                Cód.: {item.part_code}
+              </span>
             )}
-            <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
+            {item.item_name && (
+              <span className="text-[9px] text-foreground whitespace-normal break-words">
+                {item.item_name}
+              </span>
+            )}
             {item.description && (
-              <span className="text-xs text-muted-foreground italic">{item.description}</span>
+              <span className="text-[8px] italic text-foreground/90 whitespace-normal break-words">
+                {item.description}
+              </span>
             )}
             {item.itens_relacionados && item.itens_relacionados.length > 0 && (
               <Popover 
