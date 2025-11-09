@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download, MoreHorizontal, FileText } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson, getAllAfsForExport } from '@/services/partListService';
-import { Checkbox, CheckedState } from '@/components/ui/checkbox';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -130,7 +130,7 @@ const AfManagementTable: React.FC = () => {
     try {
       const payload: Omit<Af, 'id'> = {
         af_number: formAfNumber.trim(),
-        descricao: formDescricao.trim() || undefined,
+        ...(formDescricao.trim() !== '' && { descricao: formDescricao.trim() }), // Inclui descricao apenas se não for vazio
       };
 
       if (currentAf) {
@@ -219,7 +219,7 @@ const AfManagementTable: React.FC = () => {
             return {
               id: getRowValue(row, ['id']) || uuidv4(),
               af_number: afNumber,
-              descricao: descricao || undefined,
+              ...(descricao !== undefined && { descricao: descricao }), // Inclui descricao apenas se não for undefined
             };
           }).filter((af): af is Af => af !== null);
 

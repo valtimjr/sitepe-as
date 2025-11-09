@@ -23,8 +23,9 @@ import {
   deleteLocalServiceOrderItem,
   clearLocalServiceOrderItems,
   isOnline,
-  getLocalMonthlyApontamento,
-  putLocalMonthlyApontamento
+  getLocalMonthlyApontamento as getLocalMonthlyApontamentoFromDb, // Renomeado para evitar conflito
+  putLocalMonthlyApontamento,
+  deleteLocalMonthlyApontamento // Adicionado: Importar deleteLocalMonthlyApontamento
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network'; // Importar Network
@@ -36,6 +37,9 @@ export interface SimplePartItem extends LocalSimplePartItem {}
 export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends LocalAf {}
 export type Apontamento = DailyApontamento; // Apontamento agora é o DailyApontamento
+
+// Re-exportar getLocalMonthlyApontamento para que outros módulos possam importá-lo de partListService
+export const getLocalMonthlyApontamento = getLocalMonthlyApontamentoFromDb;
 
 // Helper para garantir que DailyApontamento objetos não contenham um campo 'id' ou 'user_id'
 const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
@@ -148,11 +152,14 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
     const lowerFieldValue = fieldValue.toLowerCase();
 
     if (isMultiWord) {
+      // For multi-word, we just check if the sequence exists.
+      // A more complex scoring could be implemented here if needed.
       return regex.test(lowerFieldValue) ? 1 : 0;
     } else {
-      if (lowerFieldValue === query) return 3;
-      if (lowerFieldValue.startsWith(query)) return 2;
-      if (lowerFieldValue.includes(query)) return 1;
+      // For single-word, we can have more granular scoring.
+      if (lowerFieldValue === query) return 4; // Exact match
+      if (lowerFieldValue.startsWith(query)) return 3; // Starts with
+      if (lowerFieldValue.includes(query)) return 2; // Includes
     }
     return 0;
   };
@@ -326,6 +333,8 @@ export const getAllPartsForExport = async (): Promise<Part[]> => {
     } else {
       hasMore = false; // Não há mais dados para buscar
     }
+    // Adicionado: Pequeno atraso para evitar sobrecarga da API em loops grandes
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
   return allData;
 };
@@ -451,6 +460,8 @@ export const getAllAfsForExport = async (): Promise<Af[]> => {
     } else {
       hasMore = false; // Não há mais dados para buscar
     }
+    // Adicionado: Pequeno atraso para evitar sobrecarga da API em loops grandes
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
   return allData;
 };
@@ -898,6 +909,8 @@ export const cleanupEmptyParts = async (): Promise<number> => {
     } else {
       hasMoreToFetch = false;
     }
+    // Adicionado: Pequeno atraso para evitar sobrecarga da API em loops grandes
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
 
   if (allIdsToDelete.length > 0) {

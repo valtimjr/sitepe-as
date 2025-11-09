@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { MadeWithDyad } from "@/components/made-with-dyad";
+import { MadeWithDyad } "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays, FileDown, Syringe } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth, getLocalMonthlyApontamento, syncMonthlyApontamentoToSupabase } from '@/services/partListService'; // Importar getLocalMonthlyApontamento e syncMonthlyApontamentoToSupabase
+import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth, syncMonthlyApontamentoToSupabase, getLocalMonthlyApontamento } from '@/services/partListService'; // Importar getLocalMonthlyApontamento e syncMonthlyApontamentoToSupabase
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { lazyGenerateTimeTrackingPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy

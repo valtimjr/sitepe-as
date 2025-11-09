@@ -43,7 +43,7 @@ import PartSearchInput from './PartSearchInput';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 import { RelatedPart } from '@/types/supabase';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { CheckedState } from '@radix-ui/react-checkbox';
+import { CheckedState } from '@radix-ui/react-checkbox'; // Importar CheckedState
 
 // Função auxiliar para obter valor de uma linha, ignorando case e variações
 const getRowValue = (row: any, keys: string[]): string | undefined => {
@@ -91,7 +91,7 @@ const PartManagementTable: React.FC = () => {
   const [relatedSearchResults, setRelatedSearchResults] = useState<Part[]>([]);
   const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
   const [draggedRelatedItem, setDraggedRelatedItem] = useState<RelatedPart | null>(null);
-  const [isLoadingRelatedParts, setIsLoadingRelatedParts] = useState(false);
+  const [isLoadingRelatedParts, setIsLoadingRelatedParts] = useState(false); // Corrigido: Adicionado estado de carregamento para busca de relacionados
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para busca de relacionados
 
   // Estados para a nova funcionalidade de relação em lote
@@ -144,7 +144,7 @@ const PartManagementTable: React.FC = () => {
         const results = await searchPartsService(relatedSearchQuery);
         setRelatedSearchResults(results);
       } else {
-        setSearchResultsRelated([]);
+        setRelatedSearchResults([]);
       }
       setIsLoadingRelatedParts(false);
     };
@@ -226,8 +226,9 @@ const PartManagementTable: React.FC = () => {
       const payload: Omit<Part, 'id'> = {
         codigo: formCodigo,
         descricao: formDescricao,
-        tags: formTags,
-        name: formName,
+        // Condicionalmente inclui tags e name se não forem vazios, para corresponder à interface Part
+        ...(formTags.trim() !== '' && { tags: formTags.trim() }),
+        ...(formName.trim() !== '' && { name: formName.trim() }),
         itens_relacionados: formItensRelacionados, // Inclui itens relacionados
       };
 
@@ -366,8 +367,8 @@ const PartManagementTable: React.FC = () => {
           let newParts: Part[] = parsedData.map((row, index) => {
             const codigo = getRowValue(row, ['codigo', 'código', 'code']);
             const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']);
-            const tags = getRowValue(row, ['tags', 'tag']) || '';
-            const name = getRowValue(row, ['name', 'nome']) || '';
+            const tags = getRowValue(row, ['tags', 'tag']); // Pode ser undefined
+            const name = getRowValue(row, ['name', 'nome']); // Pode ser undefined
             const itensRelacionadosString = getRowValue(row, ['itens_relacionados', 'related_items']) || ''; // NOVO CAMPO
             
             if (!codigo || !descricao) {
@@ -379,8 +380,8 @@ const PartManagementTable: React.FC = () => {
               id: getRowValue(row, ['id']) || uuidv4(),
               codigo: codigo,
               descricao: descricao,
-              tags: tags,
-              name: name,
+              ...(tags !== undefined && { tags: tags }), // Inclui tags apenas se não for undefined
+              ...(name !== undefined && { name: name }), // Inclui name apenas se não for undefined
               itens_relacionados: itensRelacionadosString.split(';').map(s => s.trim()).filter(s => s.length > 0).map(code => ({ codigo: code, name: code, desc: '' })), // Processa o array
             };
           }).filter((part): part is Part => part !== null);
@@ -998,11 +999,11 @@ const PartManagementTable: React.FC = () => {
                 <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
               </Label>
               <PartSearchInput
-                onSearch={setSearchQueryRelated}
-                searchResults={searchResultsRelated}
+                onSearch={setRelatedSearchQuery}
+                searchResults={relatedSearchResults}
                 onSelectPart={handleAddRelatedPart}
                 searchQuery={relatedSearchQuery}
-                isLoading={isLoadingParts}
+                isLoading={isLoadingRelatedParts} // Corrigido: Usar isLoadingRelatedParts
               />
               <div className="space-y-2">
                 <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
