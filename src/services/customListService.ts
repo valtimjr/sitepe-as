@@ -112,31 +112,6 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
 
   let flatItems: MenuItem[] = (data?.value as MenuItem[]) || [];
 
-  // Migração de dados da estrutura antiga (se existir e a nova estiver vazia)
-  if (flatItems.length === 0) {
-    try {
-      const { data: oldMenuItems, error: oldError } = await supabase
-        .from('menu_structure') // Tenta ler da tabela antiga
-        .select('*')
-        .order('order_index', { ascending: true });
-
-      if (!oldError && oldMenuItems && oldMenuItems.length > 0) {
-        flatItems = oldMenuItems.map(item => ({
-          id: item.id,
-          parent_id: item.parent_id,
-          title: item.title,
-          order_index: item.order_index,
-          list_id: item.list_id,
-          itens_relacionados: [], // Inicializa o novo campo
-        }));
-        // Salva a estrutura migrada no novo formato
-        await saveAllMenuItems(flatItems);
-      }
-    } catch (e) {
-      // console.warn('Old menu_structure table not found or error during migration attempt:', e);
-    }
-  }
-
   // Injeta os subtítulos como subitens
   const itemsWithList = flatItems.filter(item => item.list_id); // CORRIGIDO: Pega TODOS os itens com lista
   if (itemsWithList.length > 0) {
@@ -238,40 +213,10 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
     throw new Error(`Erro ao buscar listas personalizadas: ${error.message}`);
   }
 
-  // Migração de dados de custom_list_items para items_data (se items_data estiver vazio)
-  const listsWithMigratedItems = await Promise.all((data as CustomList[]).map(async (list) => {
-    if (!list.items_data || list.items_data.length === 0) {
-      try {
-        const { data: oldListItems, error: oldError } = await supabase
-          .from('custom_list_items') // Tenta ler da tabela antiga
-          .select('*')
-          .order('order_index', { ascending: true });
+  const lists = data as CustomList[];
 
-        if (!oldError && oldListItems && oldListItems.length > 0) {
-          // console.log(`Migrating old custom_list_items for list ${list.id} to items_data JSONB format...`);
-          const migratedItems: CustomListItem[] = oldListItems.map(item => ({
-            id: item.id,
-            item_name: item.item_name,
-            part_code: item.part_code,
-            description: item.description,
-            quantity: item.quantity,
-            order_index: item.order_index,
-            itens_relacionados: [], // Inicializa o novo campo
-            type: 'item', // Define o tipo padrão
-          }));
-          // Salva a lista com os itens migrados no novo formato
-          await supabase
-            .from('custom_lists')
-            .update({ items_data: migratedItems, updated_at: new Date().toISOString() }) // Inclui updated_at
-            .eq('id', list.id);
-          // console.log(`Custom_list_items migration complete for list ${list.id}.`);
-          return { ...list, items_data: migratedItems };
-        }
-      } catch (e) {
-        // console.warn('Old custom_list_items table not found or error during migration attempt:', e);
-      }
-    }
-    // Garante que os itens existentes também sejam padronizados
+  // Garante que os itens existentes também sejam padronizados
+  return lists.map(list => {
     if (list.items_data) {
       list.items_data = list.items_data.map(item => ({
         ...item,
@@ -279,9 +224,7 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
       }));
     }
     return list;
-  }));
-
-  return listsWithMigratedItems;
+  });
 };
 
 export const getCustomListById = async (listId: string): Promise<CustomList | null> => {
