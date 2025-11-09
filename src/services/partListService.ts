@@ -575,7 +575,7 @@ export const getLocalUniqueAfs = async (): Promise<string[]> => {
 
 // --- Monthly Apontamentos Management (IndexedDB) ---
 
-export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;
+// ----export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;-----
 
 // Sincroniza dados do Supabase para o IndexedDB
 export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
