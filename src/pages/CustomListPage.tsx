@@ -56,7 +56,7 @@ const CustomListPage: React.FC = () => {
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para passar ao editor
 
   // Estado para controlar o Popover de itens relacionados
-  const [isRelatedItemsPopoverOpen, setIsRelatedItemsPopoverId] = useState<string | null>(null);
+  const [openRelatedItemsPopoverId, setOpenRelatedItemsPopoverId] = useState<string | null>(null);
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
 
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
@@ -445,10 +445,6 @@ const CustomListPage: React.FC = () => {
     const isMangueira = item.type === 'mangueira';
     const isItem = item.type === 'item';
 
-    // Logic for Mangueira Header
-    const previousItem = index > 0 ? items[index - 1] : null;
-    const showMangueiraHeader = isMangueira && (!previousItem || previousItem.type !== 'mangueira');
-
     if (isSeparator) {
       return (
         <TableRow key={item.id} id={item.id} className="bg-muted/50 border-y border-dashed">
@@ -471,21 +467,46 @@ const CustomListPage: React.FC = () => {
       const isGroupIndeterminate = selectedInGroupCount > 0 && !isGroupAllSelected;
 
       return (
-        <TableRow key={item.id} id={item.id} className="bg-accent/10 border-y border-primary/50">
+        <TableRow 
+          key={item.id} 
+          id={item.id} 
+          className="bg-accent/10 hover:bg-accent/50 border-y-2 border-primary/50"
+          draggable
+          onDragStart={(e) => handleDragStart(e, item)}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, item)}
+          onDragLeave={handleDragLeave}
+          onDragEnd={handleDragEnd}
+          data-id={item.id}
+        >
           <TableCell className="w-[40px] p-2">
-            {groupSelectableItems.length > 0 && (
-              <Checkbox
-                checked={isGroupAllSelected ? true : isGroupIndeterminate ? 'indeterminate' : false}
-                onCheckedChange={(checked) => handleSubtitleSelect(item, checked === true)}
-                aria-label={`Selecionar todos os itens em ${item.item_name}`}
-              />
-            )}
+            <div className="flex items-center gap-2">
+              <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" />
+              {groupSelectableItems.length > 0 && (
+                <Checkbox
+                  checked={isGroupAllSelected ? true : isGroupIndeterminate ? 'indeterminate' : false}
+                  onCheckedChange={(checked) => handleSubtitleSelect(item, checked === true)}
+                  aria-label={`Selecionar todos os itens em ${item.item_name}`}
+                />
+              )}
+            </div>
           </TableCell>
           <TableCell colSpan={4} className="text-left font-bold text-lg text-primary p-2">
             {item.item_name}
           </TableCell>
           <TableCell className="w-[70px] p-2 text-right">
-            {/* Ações para subtítulo podem ser adicionadas aqui se necessário */}
+            <div className="flex justify-end items-center gap-1">
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
+              <AlertDialog>
+                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o subtítulo "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
+                  <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </TableCell>
         </TableRow>
       );
@@ -496,74 +517,67 @@ const CustomListPage: React.FC = () => {
       if (!data) return null;
 
       return (
-        <React.Fragment key={item.id}>
-          {showMangueiraHeader && (
-            <TableRow className="bg-muted/50 border-y border-primary/50">
-              <TableHead className="w-[40px] p-2"></TableHead>
-              <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
-              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
-              <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
-              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexões</TableHead>
-              <TableHead className="w-[70px] p-2 text-right"></TableHead>
-            </TableRow>
-          )}
-          <TableRow key={item.id} id={item.id}>
-            <TableCell className="w-[40px] p-2">
+        <TableRow 
+          key={item.id} 
+          id={item.id}
+          draggable
+          onDragStart={(e) => handleDragStart(e, item)}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, item)}
+          onDragLeave={handleDragLeave}
+          onDragEnd={handleDragEnd}
+          data-id={item.id}
+        >
+          <TableCell className="w-[40px] p-2">
+            <div className="flex items-center gap-2">
+              <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" />
               <Checkbox
                 checked={selectedItemIds.has(item.id)}
                 onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
                 aria-label={`Selecionar item ${item.item_name}`}
               />
-            </TableCell>
-            <TableCell className="font-medium p-2 text-center">1</TableCell> {/* Quantidade é sempre 1 para Mangueira */}
-            
-            {/* Coluna 1: Mangueira (Nome/Desc/Cód) */}
-            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-              <div className="flex flex-col items-start">
-                <span className="font-medium text-sm text-primary whitespace-normal break-words">{data.mangueira.name || data.mangueira.codigo}</span>
-                {data.mangueira.description && (
-                  <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.mangueira.description}</span>
-                )}
-                <span className="text-xs text-muted-foreground mt-1">Cód: {data.mangueira.codigo}</span>
+            </div>
+          </TableCell>
+          <TableCell className="font-medium p-2 text-center">1</TableCell>
+          <TableCell className="w-auto p-2">
+            <div className="flex flex-col items-start">
+              <span className="font-medium text-sm text-primary">{data.mangueira.name || data.mangueira.codigo}</span>
+              {data.mangueira.description && (
+                <span className="text-xs text-muted-foreground italic">{data.mangueira.description}</span>
+              )}
+              <span className="text-xs text-muted-foreground mt-1">Cód: {data.mangueira.codigo}</span>
+            </div>
+          </TableCell>
+          <TableCell className="w-[6rem] p-2 text-center font-medium text-lg">
+            {data.corte_cm}
+          </TableCell>
+          <TableCell className="w-auto p-2">
+            <div className="flex flex-col items-start space-y-2">
+              <div>
+                <span className="font-medium text-sm">C1: {data.conexao1.name || data.conexao1.codigo}</span>
+                <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao1.codigo}</span>
               </div>
-            </TableCell>
-            
-            {/* Coluna 2: Corte (cm) */}
-            <TableCell className="w-[4rem] p-2 text-center font-medium text-lg">
-              {data.corte_cm}
-            </TableCell>
-            
-            {/* Coluna 3: Conexões (Mescladas) */}
-            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-              <div className="flex flex-col items-start space-y-2">
-                <div className="flex flex-col items-start">
-                  <span className="font-medium text-sm">Conexão 1: {data.conexao1.name || data.conexao1.codigo}</span>
-                  <span className="text-xs text-muted-foreground italic">Cód: {data.conexao1.codigo}</span>
-                </div>
-                <div className="flex flex-col items-start">
-                  <span className="font-medium text-sm">Conexão 2: {data.conexao2.name || data.conexao2.codigo}</span>
-                  <span className="text-xs text-muted-foreground italic">Cód: {data.conexao2.codigo}</span>
-                </div>
+              <div>
+                <span className="font-medium text-sm">C2: {data.conexao2.name || data.conexao2.codigo}</span>
+                <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao2.codigo}</span>
               </div>
-            </TableCell>
-
-            {/* Coluna 4: Ações (Vazia) */}
-            <TableCell className="w-[70px] p-2 text-right">
-              <div className="flex justify-end items-center gap-1">
-                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o item "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                    <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </TableCell>
-          </TableRow>
-        </React.Fragment>
+            </div>
+          </TableCell>
+          <TableCell className="w-[70px] p-2 text-right">
+            <div className="flex justify-end items-center gap-1">
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
+              <AlertDialog>
+                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o item "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
+                  <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </TableCell>
+        </TableRow>
       );
     }
 
@@ -571,6 +585,7 @@ const CustomListPage: React.FC = () => {
     return (
       <TableRow 
         key={item.id}
+        id={item.id}
         draggable
         onDragStart={(e) => handleDragStart(e, item)}
         onDragOver={handleDragOver}
@@ -580,50 +595,59 @@ const CustomListPage: React.FC = () => {
         data-id={item.id}
         className="relative"
       >
-        <TableCell className="w-[30px] p-2 cursor-grab">
-          <GripVertical className="h-4 w-4" />
+        <TableCell className="w-[40px] p-2">
+          <div className="flex items-center gap-2">
+            <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" />
+            <Checkbox
+              checked={selectedItemIds.has(item.id)}
+              onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
+              aria-label={`Selecionar item ${item.item_name}`}
+            />
+          </div>
         </TableCell>
         <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-        <TableCell colSpan={3} className="w-auto whitespace-normal break-words p-2 text-left">
-            <div className="flex flex-col items-start">
-              {item.part_code && (
-                <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
-              )}
-              <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
-              {item.description && (
-                <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
-              )}
-              {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                <Popover 
-                  key={`popover-${item.id}`}
-                  open={isRelatedItemsPopoverOpen === item.id} 
-                  onOpenChange={(open) => setIsRelatedItemsPopoverId(open ? item.id : null)}
-                  modal={false}
+        <TableCell className="w-auto p-2" colSpan={2}>
+          <div className="flex flex-col items-start">
+            {item.part_code && (
+              <span className="font-medium text-sm text-primary">{item.part_code}</span>
+            )}
+            <span className={cn("text-sm", !item.part_code && 'font-medium')}>{item.item_name}</span>
+            {item.description && (
+              <span className="text-xs text-muted-foreground italic">{item.description}</span>
+            )}
+          </div>
+        </TableCell>
+        <TableCell className="w-auto p-2">
+          {item.itens_relacionados && item.itens_relacionados.length > 0 && (
+            <Popover 
+              key={`popover-${item.id}`}
+              open={openRelatedItemsPopoverId === item.id} 
+              onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
+              modal={false}
+            >
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
                 >
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
-                    >
-                      <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto max-w-xs p-2">
-                    <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                    <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
-                      <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
-                        {item.itens_relacionados.map(rel => (
-                          <li key={rel.codigo} className="list-none ml-0">
-                            <RelatedPartDisplay item={rel} />
-                          </li>
-                        ))}
-                      </ul>
-                    </ScrollArea>
-                  </PopoverContent>
-                </Popover>
-              )}
-            </div>
+                  <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s)
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto max-w-xs p-2">
+                <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
+                  <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                    {item.itens_relacionados.map(rel => (
+                      <li key={rel.codigo} className="list-none ml-0">
+                        <RelatedPartDisplay item={rel} />
+                      </li>
+                    ))}
+                  </ul>
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
+          )}
         </TableCell>
         <TableCell className="w-[70px] p-2 text-right">
           <div className="flex justify-end items-center gap-1">
@@ -737,8 +761,10 @@ const CustomListPage: React.FC = () => {
                         aria-label="Selecionar todos os itens"
                       />
                     </TableHead>
-                    <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                    <TableHead colSpan={3} className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                    <TableHead className="w-[4rem] p-2 text-center">Qtd</TableHead>
+                    <TableHead className="w-auto p-2">Item / Mangueira</TableHead>
+                    <TableHead className="w-[6rem] p-2 text-center">Corte (cm)</TableHead>
+                    <TableHead className="w-auto p-2">Conexões / Detalhes</TableHead>
                     <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
