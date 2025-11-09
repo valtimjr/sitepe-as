@@ -143,7 +143,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   const simpleItemHeader = ["Qtd", "Código", "Descrição"];
   const simpleItemColumnStyles = {
     0: { cellWidth: 15, halign: 'center' }, // Qtd
-    1: { cellWidth: 40 }, // Código
+    1: { cellWidth: 25 }, // Código
     2: { cellWidth: 'auto' }, // Descrição
   };
 
