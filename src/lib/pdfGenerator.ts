@@ -129,93 +129,107 @@ export const generatePartsListPdf = async (listItems: SimplePartItem[], title: s
 };
 
 export const generateCustomListPdf = (listItems: CustomListItem[], title: string): void => {
-  const doc = new jsPDF({ orientation: 'portrait' }); // Alterado para portrait
+  const doc = new jsPDF({ orientation: 'portrait' });
   let currentY = 22;
 
   doc.setFontSize(18);
   doc.text(title, 14, currentY);
-  currentY += 8;
+  currentY += 10;
 
-  // Colunas: Qtd, Item/Cód/Desc, Corte (cm), Conexão 1, Conexão 2
-  const tableColumn = ["Qtd", "Item / Código / Descrição", "Corte (cm)", "Conexão 1", "Conexão 2"];
-  const tableRows: any[] = [];
-  let isMangueiraMode = false;
+  let currentGroupType: 'item' | 'mangueira' | null = null;
+  let currentGroupRows: any[] = [];
+
+  const simpleItemHeader = ["Qtd", "Item / Código / Descrição", "Itens Relacionados"];
+  const mangueiraHeader = ["Qtd", "Mangueira", "Corte (cm)", "Conexão 1", "Conexão 2"];
+
+  const renderGroup = () => {
+    if (currentGroupRows.length === 0) return;
+
+    let head, columnStyles;
+
+    if (currentGroupType === 'item') {
+      head = [simpleItemHeader];
+      columnStyles = {
+        0: { cellWidth: 15, halign: 'center' }, // Qtd
+        1: { cellWidth: 'auto' }, // Item
+        2: { cellWidth: 60 }, // Relacionados
+      };
+    } else if (currentGroupType === 'mangueira') {
+      head = [mangueiraHeader];
+      columnStyles = {
+        0: { cellWidth: 15, halign: 'center' }, // Qtd
+        1: { cellWidth: 45 }, // Mangueira
+        2: { cellWidth: 20, halign: 'center' }, // Corte
+        3: { cellWidth: 45 }, // Conexão 1
+        4: { cellWidth: 45 }, // Conexão 2
+      };
+    }
+
+    if (head) {
+      (doc as any).autoTable({
+        head: head,
+        body: currentGroupRows,
+        startY: currentY,
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
+        headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 249, 250] },
+        margin: { top: 10, left: 14, right: 14 },
+        columnStyles: columnStyles,
+      });
+      currentY = (doc as any).lastAutoTable.finalY + 5;
+    }
+
+    currentGroupRows = [];
+    currentGroupType = null;
+  };
 
   listItems.forEach(item => {
     if (item.type === 'separator') {
-      isMangueiraMode = false;
-      tableRows.push([
-        { content: '', colSpan: 5, styles: { halign: 'center', fillColor: [150, 150, 150], minCellHeight: 1, cellPadding: 0, lineWidth: 0 } }
-      ]);
+      renderGroup();
+      doc.setDrawColor(150, 150, 150);
+      doc.line(14, currentY, 196, currentY);
+      currentY += 5;
       return;
     }
 
     if (item.type === 'subtitle') {
-      isMangueiraMode = false;
-      tableRows.push([
-        { content: item.item_name.toUpperCase(), colSpan: 5, styles: { halign: 'left', fontStyle: 'bold', fillColor: [230, 230, 230], textColor: [0, 0, 0], fontSize: 12 } }
-      ]);
+      renderGroup();
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(37, 99, 235); // primary color
+      doc.text(item.item_name.toUpperCase(), 14, currentY);
+      currentY += 7;
       return;
     }
-    
+
+    if (item.type !== currentGroupType) {
+      renderGroup();
+      currentGroupType = item.type;
+    }
+
     if (item.type === 'mangueira' && item.mangueira_data) {
-      isMangueiraMode = true;
       const data = item.mangueira_data;
-      
-      // Linha de Mangueira
-      tableRows.push([
-        { content: '1', styles: { halign: 'center' } }, // Qtd
-        `${data.mangueira.name || data.mangueira.codigo}\n${data.mangueira.description || ''}`, // Item/Cód/Desc
-        { content: data.corte_cm, styles: { halign: 'center' } }, // Corte (cm)
-        `${data.conexao1.name || data.conexao1.codigo}\nCód: ${data.conexao1.codigo}`, // Conexão 1
-        `${data.conexao2.name || data.conexao2.codigo}\nCód: ${data.conexao2.codigo}`, // Conexão 2
+      currentGroupRows.push([
+        { content: '1', styles: { halign: 'center' } },
+        `${data.mangueira.name || data.mangueira.codigo}\nCód: ${data.mangueira.codigo}`,
+        { content: data.corte_cm, styles: { halign: 'center' } },
+        `${data.conexao1.name || data.conexao1.codigo}\nCód: ${data.conexao1.codigo}`,
+        `${data.conexao2.name || data.conexao2.codigo}\nCód: ${data.conexao2.codigo}`,
       ]);
-      return;
-    }
-
-    // Item normal
-    isMangueiraMode = false;
-    const itemData = [
-      { content: item.quantity, styles: { halign: 'center' } }, // Qtd
-      `${item.item_name}\n${item.part_code || ''}\n${item.description || ''}`, // Item/Cód/Desc
-      '', // Corte (cm) - Vazio
-      '', // Conexão 1 - Vazio
-      '', // Conexão 2 - Vazio
-    ];
-    tableRows.push(itemData);
-  });
-
-  (doc as any).autoTable({
-    head: [tableColumn],
-    body: tableRows,
-    startY: currentY,
-    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-    headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [240, 240, 240] },
-    margin: { top: 10 },
-    columnStyles: {
-      0: { cellWidth: 15, halign: 'center' }, // Qtd
-      1: { cellWidth: 60 }, // Item / Código / Descrição
-      2: { cellWidth: 20, halign: 'center' }, // Corte (cm)
-      3: { cellWidth: 45 }, // Conexão 1
-      4: { cellWidth: 45 }, // Conexão 2
-    },
-    didParseCell: (data: any) => {
-      const item = listItems[data.row.index];
-      if (item && (item.type === 'subtitle' || item.type === 'separator')) {
-        data.cell.styles.lineWidth = 0;
-      }
-      
-      // Custom styles for Mangueira parts (to make description smaller/italic)
-      if (item && item.type === 'mangueira' && item.mangueira_data) {
-        // Apply smaller font to description lines in Mangueira columns (1, 3, 4)
-        if (data.column.index === 1 || data.column.index === 3 || data.column.index === 4) {
-          data.cell.styles.fontSize = 8;
-          data.cell.styles.fontStyle = 'italic';
-        }
-      }
+    } else if (item.type === 'item') {
+      const relatedItemsText = (item.itens_relacionados || [])
+        .map(rel => `${rel.codigo} - ${rel.name}`)
+        .join('\n');
+      currentGroupRows.push([
+        { content: item.quantity, styles: { halign: 'center' } },
+        `${item.item_name}\n${item.part_code || ''}\n${item.description || ''}`,
+        relatedItemsText,
+      ]);
     }
   });
+
+  renderGroup(); // Render the last group
 
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);
 };
