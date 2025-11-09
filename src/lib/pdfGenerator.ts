@@ -1,8 +1,13 @@
+import jsPDF from 'jspdf';
+import { applyPlugin } from 'jspdf-autotable';
 import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
-import { CustomListItem } from '@/types/supabase';
-import { format, parseISO, setHours, setMinutes, addDays } from 'date-fns';
+import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { CustomListItem } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
+
+// Aplica o plugin explicitamente ao jsPDF
+applyPlugin(jsPDF);
 
 // Mapeamento de Status para Cores RGB (para PDF)
 const PDF_STATUS_COLORS = {
@@ -88,10 +93,6 @@ const compareTimeStringsForPdf = (t1: string | undefined, t2: string | undefined
 };
 
 export const generatePartsListPdf = async (listItems: SimplePartItem[], title: string = 'Lista de Peças'): Promise<void> => {
-  const { default: jsPDF } = await import('jspdf');
-  const { applyPlugin } = await import('jspdf-autotable');
-  applyPlugin(jsPDF);
-  
   const doc = new jsPDF();
   let currentY = 22;
 
@@ -130,11 +131,7 @@ export const generatePartsListPdf = async (listItems: SimplePartItem[], title: s
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);
 };
 
-export const generateCustomListPdf = async (listItems: CustomListItem[], title: string): Promise<void> => {
-  const { default: jsPDF } = await import('jspdf');
-  const { applyPlugin } = await import('jspdf-autotable');
-  applyPlugin(jsPDF);
-  
+export const generateCustomListPdf = (listItems: CustomListItem[], title: string): void => {
   const doc = new jsPDF();
   let currentY = 22;
 
@@ -192,11 +189,7 @@ export const generateCustomListPdf = async (listItems: CustomListItem[], title: 
 };
 
 // ATUALIZADO: generateServiceOrderPdf agora aceita ServiceOrderGroup[]
-export const generateServiceOrderPdf = async (groupedServiceOrders: any[], title: string = 'Ordens de Serviço'): Promise<void> => {
-  const { default: jsPDF } = await import('jspdf');
-  const { applyPlugin } = await import('jspdf-autotable');
-  applyPlugin(jsPDF);
-  
+export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: string = 'Ordens de Serviço'): void => {
   const doc = new jsPDF();
 
   doc.setFontSize(18);
@@ -265,11 +258,7 @@ Serviço: ${group.servico_executado}`;
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);
 };
 
-export const generateTimeTrackingPdf = async (apontamentos: Apontamento[], title: string): Promise<void> => {
-  const { default: jsPDF } = await import('jspdf');
-  const { applyPlugin } = await import('jspdf-autotable');
-  applyPlugin(jsPDF);
-  
+export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: string): void => {
   const doc = new jsPDF();
   let currentY = 22;
 
