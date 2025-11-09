@@ -287,6 +287,9 @@ const CustomListPage: React.FC = () => {
     const isMangueira = item.type === 'mangueira';
     const isItem = item.type === 'item';
 
+    const previousItem = index > 0 ? items[index - 1] : null;
+    const showMangueiraHeader = isMangueira && (!previousItem || previousItem.type !== 'mangueira');
+
     if (isSeparator) {
       return (
         <TableRow key={item.id} id={item.id} className="bg-muted/50 border-y border-dashed">
@@ -327,65 +330,83 @@ const CustomListPage: React.FC = () => {
       if (!data) return null;
 
       return (
-        <TableRow key={item.id} id={item.id}>
-          <TableCell className="w-[40px] p-2">
-            <Checkbox
-              checked={selectedItemIds.has(item.id)}
-              onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
-              aria-label={`Selecionar item ${item.item_name}`}
-            />
-          </TableCell>
-          <TableCell className="w-[4rem] p-2 text-center font-medium">1</TableCell>
-          <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-            <div className="flex flex-col items-start">
-              <span className="font-medium text-sm text-primary whitespace-normal break-words">Cód.: {data.mangueira.codigo}</span>
-              <span className="text-[9pt] text-foreground whitespace-normal break-words">{data.mangueira.name}</span>
-              {data.mangueira.description && (
-                <span className="text-[8pt] italic text-foreground/90 max-w-full whitespace-normal break-words">{data.mangueira.description}</span>
+        <React.Fragment key={item.id}>
+          {showMangueiraHeader && (
+            <TableRow className="bg-muted/50 border-y border-primary/50">
+              <TableHead className="w-[40px] p-2"></TableHead>
+              <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
+              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
+              <TableHead className="w-[6rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
+              {isMobile ? (
+                <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm" colSpan={2}>Conexões</TableHead>
+              ) : (
+                <>
+                  <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 1</TableHead>
+                  <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 2</TableHead>
+                </>
               )}
-            </div>
-          </TableCell>
-          <TableCell className="w-[6rem] p-2 text-center font-medium text-lg">
-            {data.corte_cm}
-          </TableCell>
-          {isMobile ? (
-            <TableCell className="w-auto p-2" colSpan={2}>
-              <div className="flex flex-col items-start space-y-2">
-                <div>
-                  <span className="font-medium text-sm text-primary">C1: {data.conexao1.codigo}</span>
-                  <span className="text-[9pt] text-foreground block">{data.conexao1.name}</span>
-                  {data.conexao1.description && <span className="text-[8pt] italic text-foreground/90 block">{data.conexao1.description}</span>}
-                </div>
-                <div>
-                  <span className="font-medium text-sm text-primary">C2: {data.conexao2.codigo}</span>
-                  <span className="text-[9pt] text-foreground block">{data.conexao2.name}</span>
-                  {data.conexao2.description && <span className="text-[8pt] italic text-foreground/90 block">{data.conexao2.description}</span>}
-                </div>
+            </TableRow>
+          )}
+          <TableRow key={item.id} id={item.id}>
+            <TableCell className="w-[40px] p-2">
+              <Checkbox
+                checked={selectedItemIds.has(item.id)}
+                onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
+                aria-label={`Selecionar item ${item.item_name}`}
+              />
+            </TableCell>
+            <TableCell className="w-[4rem] p-2 text-center font-medium">1</TableCell>
+            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
+              <div className="flex flex-col items-start">
+                <span className="font-medium text-sm text-primary whitespace-normal break-words">Cód.: {data.mangueira.codigo}</span>
+                <span className="text-[9pt] text-foreground whitespace-normal break-words">{data.mangueira.name}</span>
+                {data.mangueira.description && (
+                  <span className="text-[8pt] italic text-foreground/90 max-w-full whitespace-normal break-words">{data.mangueira.description}</span>
+                )}
               </div>
             </TableCell>
-          ) : (
-            <>
-              <TableCell className="w-auto p-2">
-                <div className="flex flex-col items-start">
-                  <span className="font-medium text-sm text-primary whitespace-normal break-words">Cód.: {data.conexao1.codigo}</span>
-                  <span className="text-[9pt] text-foreground whitespace-normal break-words">{data.conexao1.name}</span>
-                  {data.conexao1.description && (
-                    <span className="text-[8pt] italic text-foreground/90 max-w-full whitespace-normal break-words">{data.conexao1.description}</span>
-                  )}
+            <TableCell className="w-[6rem] p-2 text-center font-medium text-lg">
+              {data.corte_cm}
+            </TableCell>
+            {isMobile ? (
+              <TableCell className="w-auto p-2" colSpan={2}>
+                <div className="flex flex-col items-start space-y-2">
+                  <div>
+                    <span className="font-medium text-sm text-primary">C1: {data.conexao1.codigo}</span>
+                    <span className="text-[9pt] text-foreground block">{data.conexao1.name}</span>
+                    {data.conexao1.description && <span className="text-[8pt] italic text-foreground/90 block">{data.conexao1.description}</span>}
+                  </div>
+                  <div>
+                    <span className="font-medium text-sm text-primary">C2: {data.conexao2.codigo}</span>
+                    <span className="text-[9pt] text-foreground block">{data.conexao2.name}</span>
+                    {data.conexao2.description && <span className="text-[8pt] italic text-foreground/90 block">{data.conexao2.description}</span>}
+                  </div>
                 </div>
               </TableCell>
-              <TableCell className="w-auto p-2">
-                <div className="flex flex-col items-start">
-                  <span className="font-medium text-sm text-primary whitespace-normal break-words">Cód.: {data.conexao2.codigo}</span>
-                  <span className="text-[9pt] text-foreground whitespace-normal break-words">{data.conexao2.name}</span>
-                  {data.conexao2.description && (
-                    <span className="text-[8pt] italic text-foreground/90 max-w-full whitespace-normal break-words">{data.conexao2.description}</span>
-                  )}
-                </div>
-              </TableCell>
-            </>
-          )}
-        </TableRow>
+            ) : (
+              <>
+                <TableCell className="w-auto p-2">
+                  <div className="flex flex-col items-start">
+                    <span className="font-medium text-sm text-primary whitespace-normal break-words">Cód.: {data.conexao1.codigo}</span>
+                    <span className="text-[9pt] text-foreground whitespace-normal break-words">{data.conexao1.name}</span>
+                    {data.conexao1.description && (
+                      <span className="text-[8pt] italic text-foreground/90 max-w-full whitespace-normal break-words">{data.conexao1.description}</span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="w-auto p-2">
+                  <div className="flex flex-col items-start">
+                    <span className="font-medium text-sm text-primary whitespace-normal break-words">Cód.: {data.conexao2.codigo}</span>
+                    <span className="text-[9pt] text-foreground whitespace-normal break-words">{data.conexao2.name}</span>
+                    {data.conexao2.description && (
+                      <span className="text-[8pt] italic text-foreground/90 max-w-full whitespace-normal break-words">{data.conexao2.description}</span>
+                    )}
+                  </div>
+                </TableCell>
+              </>
+            )}
+          </TableRow>
+        </React.Fragment>
       );
     }
 
@@ -589,9 +610,7 @@ const CustomListPage: React.FC = () => {
                       }
 
                       if (currentItemType !== lastItemType) {
-                        if (currentItemType === 'mangueira') {
-                          rows.push(<MangueiraHeader key={`header-mangueira-${index}`} />);
-                        } else if (currentItemType === 'item') {
+                        if (currentItemType === 'item') {
                           rows.push(<SimpleItemHeader key={`header-item-${index}`} />);
                         }
                         lastItemType = currentItemType;

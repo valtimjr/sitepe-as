@@ -1,9 +1,9 @@
 import jsPDF from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
-import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
+import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'fns';
 import { ptBR } from 'date-fns/locale';
-import { CustomListItem } from '@/types/supabase';
+import { CustomListItem, MangueiraPartDetails } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
 
 // Aplica o plugin explicitamente ao jsPDF
@@ -214,18 +214,40 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
     if (item.type === 'mangueira' && item.mangueira_data) {
       const data = item.mangueira_data;
+      const createContent = (partData: MangueiraPartDetails) => {
+        const content = [];
+        if (partData.codigo) {
+          content.push({ content: `Cód.: ${partData.codigo}`, styles: { fontStyle: 'normal', fontSize: 9, textColor: [37, 99, 235] } });
+        }
+        if (partData.name) {
+          content.push({ content: partData.name, styles: { fontStyle: 'normal', fontSize: 9 } });
+        }
+        if (partData.description) {
+          content.push({ content: partData.description, styles: { fontStyle: 'italic', fontSize: 8 } });
+        }
+        return content;
+      };
+
       currentGroupRows.push([
         { content: '1', styles: { halign: 'center' } },
-        `${data.mangueira.name || data.mangueira.codigo}\nCód: ${data.mangueira.codigo}`,
+        createContent(data.mangueira),
         { content: `${data.corte_cm} cm`, styles: { halign: 'center' } },
-        `${data.conexao1.name || data.conexao1.codigo}\nCód: ${data.conexao1.codigo}`,
-        `${data.conexao2.name || data.conexao2.codigo}\nCód: ${data.conexao2.codigo}`,
+        createContent(data.conexao1),
+        createContent(data.conexao2),
       ]);
     } else if (item.type === 'item') {
+      const descriptionContent = [];
+      if (item.item_name) {
+        descriptionContent.push({ content: item.item_name, styles: { fontStyle: 'normal', fontSize: 9 } });
+      }
+      if (item.description) {
+        descriptionContent.push({ content: item.description, styles: { fontStyle: 'italic', fontSize: 8 } });
+      }
+
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
-        item.part_code || '',
-        `${item.item_name}\n${item.description || ''}`.trim(),
+        item.part_code ? { content: `Cód.: ${item.part_code}`, styles: { textColor: [37, 99, 235] } } : '',
+        descriptionContent,
       ]);
     }
   });
