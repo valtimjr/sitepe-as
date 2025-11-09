@@ -879,7 +879,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
                 onChange={(e) => setFormItemName(e.target.value)}
                 placeholder={formType === 'subtitle' ? 'Ex: Peças do Motor' : 'Ex: Kit de Reparo do Motor'}
                 className="flex-1"
-                required={formType !== 'separator'}
+                required={formType === 'item' || formType === 'subtitle'}
               />
               {formPartCode && formType === 'item' && ( 
                 <Tooltip>

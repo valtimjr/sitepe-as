@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download, MoreHorizontal, FileText } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson, getAllAfsForExport } from '@/services/partListService';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Checkbox, CheckedState } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -219,7 +219,7 @@ const AfManagementTable: React.FC = () => {
             return {
               id: getRowValue(row, ['id']) || uuidv4(),
               af_number: afNumber,
-              descricao: descricao || '',
+              descricao: descricao || undefined,
             };
           }).filter((af): af is Af => af !== null);
 
@@ -288,7 +288,7 @@ const AfManagementTable: React.FC = () => {
 
   const handleExportCsv = async () => {
     let dataToExport: Af[] = [];
-    let loadingToastId: string | undefined;
+    let loadingToastId: string | number | undefined;
     try {
       loadingToastId = showLoading('Preparando exportação de AFs...');
       console.time('AfManagementTable: exportDataAsCsv');
@@ -319,7 +319,7 @@ const AfManagementTable: React.FC = () => {
 
   const handleExportJson = async () => {
     let dataToExport: Af[] = [];
-    let loadingToastId: string | undefined;
+    let loadingToastId: string | number | undefined;
     try {
       loadingToastId = showLoading('Preparando exportação de AFs...');
       console.time('AfManagementTable: exportDataAsJson');
@@ -441,8 +441,7 @@ const AfManagementTable: React.FC = () => {
                 <TableRow>
                   <TableHead className="w-[40px]">
                     <Checkbox
-                      checked={isAllSelected}
-                      indeterminate={isIndeterminate ? true : undefined}
+                      checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
                       onCheckedChange={(checked) => handleSelectAll(checked === true)}
                       aria-label="Selecionar todos os AFs"
                     />

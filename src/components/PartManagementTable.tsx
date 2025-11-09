@@ -43,6 +43,7 @@ import PartSearchInput from './PartSearchInput';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 import { RelatedPart } from '@/types/supabase';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { CheckedState } from '@radix-ui/react-checkbox';
 
 // Função auxiliar para obter valor de uma linha, ignorando case e variações
 const getRowValue = (row: any, keys: string[]): string | undefined => {
@@ -66,7 +67,7 @@ const PartManagementTable: React.FC = () => {
   const { checkPageAccess } = useSession();
   const [parts, setParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
   const [currentPart, setCurrentPart] = useState<Part | null>(null);
   const [formCodigo, setFormCodigo] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
@@ -140,11 +141,10 @@ const PartManagementTable: React.FC = () => {
     const fetchSearchResults = async () => {
       if (relatedSearchQuery.length > 1) {
         setIsLoadingRelatedParts(true);
-        // Usamos searchPartsService para buscar sugestões
         const results = await searchPartsService(relatedSearchQuery);
         setRelatedSearchResults(results);
       } else {
-        setRelatedSearchResults([]);
+        setSearchResultsRelated([]);
       }
       setIsLoadingRelatedParts(false);
     };
@@ -288,7 +288,7 @@ const PartManagementTable: React.FC = () => {
     try {
       console.log('PartManagementTable: Chamando deletePart() para cada peça selecionada.');
       await Promise.all(Array.from(selectedPartIds).map(id => deletePart(id)));
-      showSuccess(`${selectedPartIds.size ?? 0} peças excluídas com sucesso!`);
+      showSuccess(`${selectedPartIds?.size ?? 0} peças excluídas com sucesso!`);
       console.log(`PartManagementTable: ${selectedPartIds.size} peças excluídas em massa com sucesso.`);
       loadParts(searchQuery, currentPage);
     } catch (error) {
@@ -381,7 +381,7 @@ const PartManagementTable: React.FC = () => {
               descricao: descricao,
               tags: tags,
               name: name,
-              itens_relacionados: itensRelacionadosString.split(';').map(s => s.trim()).filter(s => s.length > 0), // Processa o array
+              itens_relacionados: itensRelacionadosString.split(';').map(s => s.trim()).filter(s => s.length > 0).map(code => ({ codigo: code, name: code, desc: '' })), // Processa o array
             };
           }).filter((part): part is Part => part !== null);
 
@@ -473,7 +473,7 @@ const PartManagementTable: React.FC = () => {
 
   const handleExportCsv = async () => {
     let dataToExport: Part[] = [];
-    let loadingToastId: string | undefined;
+    let loadingToastId: string | number | undefined;
     try {
       loadingToastId = showLoading('Preparando exportação de peças...');
       console.time('PartManagementTable: exportDataAsCsv');
@@ -509,7 +509,7 @@ const PartManagementTable: React.FC = () => {
 
   const handleExportJson = async () => {
     let dataToExport: Part[] = [];
-    let loadingToastId: string | undefined;
+    let loadingToastId: string | number | undefined;
     try {
       loadingToastId = showLoading('Preparando exportação de peças...');
       console.time('PartManagementTable: exportDataAsJson');
@@ -544,7 +544,7 @@ const PartManagementTable: React.FC = () => {
   };
 
   const handleCleanupEmptyParts = async () => {
-    let loadingToastId: string | undefined;
+    let loadingToastId: string | number | undefined;
     try {
       loadingToastId = showLoading('Limpando peças vazias...');
       console.time('PartManagementTable: cleanupEmptyParts');
@@ -578,7 +578,7 @@ const PartManagementTable: React.FC = () => {
     if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
       setFormItensRelacionados(prev => [...prev, relatedPartObject]);
       setRelatedSearchQuery('');
-      setRelatedSearchResults([]);
+      setSearchResultsRelated([]);
       showSuccess(`Peça '${part.codigo}' adicionada aos itens relacionados.`);
     } else {
       showError(`Peça '${part.codigo}' já está na lista de itens relacionados.`);
@@ -866,8 +866,7 @@ const PartManagementTable: React.FC = () => {
                 <TableRow>
                   <TableHead className="w-[40px]">
                     <Checkbox
-                      checked={isAllSelected}
-                      indeterminate={isIndeterminate ? true : undefined}
+                      checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
                       onCheckedChange={(checked) => handleSelectAll(checked === true)}
                       aria-label="Selecionar todas as peças"
                     />
@@ -999,11 +998,11 @@ const PartManagementTable: React.FC = () => {
                 <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
               </Label>
               <PartSearchInput
-                onSearch={setRelatedSearchQuery}
-                searchResults={relatedSearchResults}
+                onSearch={setSearchQueryRelated}
+                searchResults={searchResultsRelated}
                 onSelectPart={handleAddRelatedPart}
                 searchQuery={relatedSearchQuery}
-                isLoading={isLoadingRelatedParts}
+                isLoading={isLoadingParts}
               />
               <div className="space-y-2">
                 <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">

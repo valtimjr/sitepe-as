@@ -10,7 +10,6 @@ import {
   localDb, // Adicionado: Importa a instância localDb
   getLocalMonthlyApontamento, 
   putLocalMonthlyApontamento, 
-  MonthlyApontamento,
   bulkPutLocalMonthlyApontamentos, // Adicionado para bulkPut
 } from '@/services/localDbService';
 import { 
@@ -18,6 +17,7 @@ import {
   syncMonthlyApontamentosFromSupabase,
 } from '@/services/partListService';
 import { format } from 'date-fns';
+import { MonthlyApontamento } from '@/types/supabase';
 
 const SYNC_INTERVAL_MS = 60000; // Tenta sincronizar a cada 60 segundos se estiver online
 
