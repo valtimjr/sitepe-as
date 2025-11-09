@@ -230,10 +230,10 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
       currentGroupRows.push([
         { content: '1', styles: { halign: 'center' } },
-        { content: createContent(data.mangueira) },
+        createContent(data.mangueira),
         { content: `${data.corte_cm} cm`, styles: { halign: 'center' } },
-        { content: createContent(data.conexao1) },
-        { content: createContent(data.conexao2) },
+        createContent(data.conexao1),
+        createContent(data.conexao2),
       ]);
     } else if (item.type === 'item') {
       const descriptionContent = [];
@@ -254,7 +254,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
         item.part_code ? `Cód.: ${item.part_code}` : '',
-        { content: descriptionContent },
+        descriptionContent,
       ]);
     }
   });
