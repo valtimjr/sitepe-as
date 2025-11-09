@@ -6,19 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2, FileDown } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
-import { getCustomListItems, addCustomListItem, updateCustomListItem, deleteCustomListItem, deleteCustomListItem as deleteCustomListItemService, updateAllCustomListItems } from '@/services/customListService';
-import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
+import { getCustomListItems, deleteCustomListItem, updateAllCustomListItems } from '@/services/customListService';
+import { getParts } from '@/services/partListService';
 import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
-import { v4 as uuidv4 } from 'uuid';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
-import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Table,
   TableBody,
@@ -39,10 +35,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import RelatedPartDisplay from './RelatedPartDisplay';
 import CustomListItemForm from './CustomListItemForm'; // Importar o novo componente
+import { useIsMobile } from '@/hooks/use-mobile';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -201,6 +198,76 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
     setDraggedItem(null);
   };
   // --- End Drag and Drop Handlers (Itens da Lista Principal) ---
+
+  const formatListText = () => {
+    if (items.length === 0) return '';
+
+    let formattedText = `${list.title}\n\n`;
+
+    items.forEach(item => {
+      if (item.type === 'separator') {
+        formattedText += '--------------------\n';
+        return;
+      }
+      if (item.type === 'subtitle') {
+        formattedText += `\n--- ${item.item_name.toUpperCase()} ---\n`;
+        return;
+      }
+      
+      if (item.type === 'mangueira' && item.mangueira_data) {
+        const data = item.mangueira_data;
+        formattedText += `1 - Mangueira: ${data.mangueira.name || data.mangueira.codigo} (Cód: ${data.mangueira.codigo}) - Corte: ${data.corte_cm} cm\n`;
+        formattedText += `    Conexão 1: ${data.conexao1.name || data.conexao1.codigo} (Cód: ${data.conexao1.codigo})\n`;
+        formattedText += `    Conexão 2: ${data.conexao2.name || data.conexao2.codigo} (Cód: ${data.conexao2.codigo})\n`;
+        return;
+      }
+
+      const quantidade = item.quantity;
+      const nome = item.item_name || '';
+      const codigo = item.part_code ? ` (Cód: ${item.part_code})` : '';
+      const descricao = item.description || '';
+      
+      // Formato: [QUANTIDADE] - [NOME PERSONALIZADO] [DESCRIÇÃO] (Cód: [CÓDIGO])
+      formattedText += `${quantidade} - ${nome} ${descricao}${codigo}`.trim() + '\n';
+    });
+
+    return formattedText.trim();
+  };
+
+  const handleCopyList = async () => {
+    if (items.length === 0) {
+      showError('A lista está vazia. Adicione itens antes de copiar.');
+      return;
+    }
+
+    const textToCopy = formatListText();
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      showSuccess('Lista de peças copiada para a área de transferência!');
+    } catch (err) {
+      console.error('Erro ao copiar a lista:', err);
+      showError('Erro ao copiar a lista. Por favor, tente novamente.');
+    }
+  };
+
+  const handleExportCsv = () => {
+    if (items.length === 0) {
+      showError('A lista está vazia. Adicione itens antes de exportar.');
+      return;
+    }
+    exportDataAsCsv(items, `${list.title.replace(/\s/g, '_')}_itens.csv`);
+    showSuccess('Lista exportada para CSV com sucesso!');
+  };
+
+  const handleExportPdf = () => {
+    if (items.length === 0) {
+      showError('A lista está vazia. Adicione itens antes de exportar.');
+      return;
+    }
+    lazyGenerateCustomListPdf(items, list.title);
+    showSuccess('PDF gerado com sucesso!');
+  };
 
   const renderItemRow = (item: CustomListItem, index: number) => {
     const isSeparator = item.type === 'separator';

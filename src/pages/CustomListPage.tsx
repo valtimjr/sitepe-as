@@ -5,7 +5,7 @@ import { useParams, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle, XCircle, FileDown, Minus } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle, XCircle, FileDown, Minus, Trash2 } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
@@ -14,7 +14,7 @@ import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
-import CustomListEditor from '@/components/CustomListEditor'; // Importar o componente de gerenciamento
+import CustomListEditor from '@/components/CustomListEditor';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import AfSearchInput from '@/components/AfSearchInput';
@@ -25,6 +25,17 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import RelatedPartDisplay from '@/components/RelatedPartDisplay'; // Importado o novo componente
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -32,6 +43,11 @@ const CustomListPage: React.FC = () => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [listTitle, setListTitle] = useState('Carregando Lista...');
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState<CustomListItem | null>(null);
+
+  // Estados para seleção e exportação
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [afForExport, setAfForExport] = useState('');
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
@@ -187,8 +203,20 @@ const CustomListPage: React.FC = () => {
     showSuccess('PDF gerado com sucesso!');
   };
 
+  const handleEditItemClick = (item: CustomListItem) => {
+    setItemToEdit(item);
+    setIsEditModalOpen(true);
+  };
+
+  const handleItemSavedOrClosed = () => {
+    setIsEditModalOpen(false);
+    setItemToEdit(null);
+    loadList();
+  };
+
   // --- Seleção de Itens ---
   const selectableItems = useMemo(() => items.filter(i => i.type === 'item' || i.type === 'mangueira'), [items]);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set()); // Adicionado estado local
   const isAllSelected = selectableItems.length > 0 && selectedItemIds.size === selectableItems.length;
   const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
 
@@ -309,6 +337,11 @@ const CustomListPage: React.FC = () => {
     } finally {
       dismissToast(loadingToastId);
     }
+  };
+
+  const handleDelete = async (itemId: string) => {
+    // Esta função é necessária para o AlertDialog
+    showError('A exclusão de itens deve ser feita no Gerenciador de Menus e Listas.');
   };
 
   const renderItemRow = (item: CustomListItem, index: number) => {
@@ -617,6 +650,27 @@ const CustomListPage: React.FC = () => {
         </CardContent>
       </Card>
       <MadeWithDyad />
+
+      {/* Sheet de Edição (mantido para o botão de lápis) */}
+      <Sheet open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Editar Item da Lista</SheetTitle>
+            <SheetDescription>
+              Edite os detalhes do item da lista.
+            </SheetDescription>
+          </SheetHeader>
+          {itemToEdit && listId && (
+            <CustomListEditor
+              list={{ id: listId, title: listTitle, user_id: '' }}
+              onClose={handleItemSavedOrClosed}
+              editingItem={itemToEdit}
+              onItemSaved={handleItemSavedOrClosed}
+              allAvailableParts={allAvailableParts}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Sheet para Exportar Selecionados com AF */}
       <Sheet open={isExportSheetOpen} onOpenChange={setIsExportSheetOpen}>

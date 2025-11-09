@@ -266,7 +266,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     const relatedPartObject = formatRelatedPartObject(part);
     if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
       setFormItensRelacionados(prev => [...prev, relatedPartObject]);
-      setRelatedSearchQuery('');
+      setSearchQueryRelated(''); // Corrigido: Usar setSearchQueryRelated
       setSearchResultsRelated([]);
       showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
     } else {

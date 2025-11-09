@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { PlusCircle, Save, XCircle, GripVertical, Tag, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
+import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData, MangueiraPartDetails } from '@/types/supabase';
 import { addCustomListItem, updateCustomListItem, updatePart } from '@/services/customListService';
 import { searchParts as searchPartsService } from '@/services/partListService';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -19,6 +19,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import RelatedPartDisplay from './RelatedPartDisplay';
 import PartSearchInput from './PartSearchInput';
+import { SheetFooter } from '@/components/ui/sheet'; // Adicionado SheetFooter
 
 interface CustomListItemFormProps {
   list: CustomList;
@@ -34,10 +35,10 @@ interface SubPartSearchState {
   isLoading: boolean;
 }
 
-const formatRelatedPartObject = (part: Part): RelatedPart => {
+const formatRelatedPartObject = (part: Part): MangueiraPartDetails => {
   const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
   const subText = (part.name && part.name.trim() !== '' && part.descricao !== mainText) ? part.descricao : '';
-  return { codigo: part.codigo, name: mainText, desc: subText };
+  return { codigo: part.codigo, name: mainText, description: subText }; // Corrigido: retorna MangueiraPartDetails
 };
 
 const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingItem, onItemSaved, onClose, allAvailableParts }) => {
@@ -276,7 +277,11 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
   };
 
   const handleAddRelatedPart = (part: Part) => {
-    const relatedPartObject = formatRelatedPartObject(part);
+    const relatedPartObject: RelatedPart = {
+      codigo: part.codigo,
+      name: part.name || part.descricao,
+      desc: part.descricao,
+    };
     if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
       setFormItensRelacionados(prev => [...prev, relatedPartObject]);
       setRelatedSearchQuery('');
@@ -311,13 +316,17 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
       const foundPart = allAvailableParts.find(p => p.codigo.toLowerCase() === code.toLowerCase());
 
       if (foundPart) {
-        const relatedPartObject = formatRelatedPartObject(foundPart);
+        const relatedPartObject: RelatedPart = {
+          codigo: foundPart.codigo,
+          name: foundPart.name || foundPart.descricao,
+          desc: foundPart.descricao,
+        };
         if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo) && !newRelatedItems.some(p => p.codigo === relatedPartObject.codigo)) {
           newRelatedItems.push(relatedPartObject);
           foundCount++;
         }
       } else {
-        const pureCodeObject = { codigo: code, name: code, desc: '' };
+        const pureCodeObject: RelatedPart = { codigo: code, name: code, desc: '' };
         if (!formItensRelacionados.some(p => p.codigo === pureCodeObject.codigo) && !newRelatedItems.some(p => p.codigo === pureCodeObject.codigo)) {
           newRelatedItems.push(pureCodeObject);
           foundCount++;

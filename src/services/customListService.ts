@@ -1,6 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import { CustomList, CustomListItem, MenuItem, RelatedPart, RelatedItem, MangueiraItemData } from '@/types/supabase';
+import { updatePart as updatePartService } from '@/services/partListService'; // Importa a função de update de peça
+
+// Re-exporta updatePart para uso no formulário de item de lista
+export const updatePart = updatePartService;
 
 // --- Constantes para a tabela app_config ---
 const APP_CONFIG_TABLE = 'app_config';
@@ -244,7 +248,7 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
           .eq('list_id', list.id)
           .order('order_index', { ascending: true });
 
-        if (!oldError && oldListItems && oldListItems.length > 0) {
+        if (!oldError && oldMenuItems && oldMenuItems.length > 0) {
           // console.log(`Migrating old custom_list_items for list ${list.id} to items_data JSONB format...`);
           const migratedItems: CustomListItem[] = oldListItems.map(item => ({
             id: item.id,
