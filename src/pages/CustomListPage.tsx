@@ -5,10 +5,10 @@ import { useParams, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle, XCircle, FileDown, Minus, Trash2 } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Edit, Tag, Info, Check, PlusCircle, XCircle, FileDown, Minus, Trash2, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { getCustomListItems, getCustomListById } from '@/services/customListService';
+import { getCustomListItems, getCustomListById, updateAllCustomListItems } from '@/services/customListService';
 import { CustomList, CustomListItem, Part, RelatedPart } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts } from '@/services/partListService';
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
@@ -57,6 +57,7 @@ const CustomListPage: React.FC = () => {
 
   // Estado para controlar o Popover de itens relacionados
   const [isRelatedItemsPopoverOpen, setIsRelatedItemsPopoverId] = useState<string | null>(null);
+  const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
 
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
@@ -344,6 +345,100 @@ const CustomListPage: React.FC = () => {
     showError('A exclusão de itens deve ser feita no Gerenciador de Menus e Listas.');
   };
 
+  const handleMoveItem = async (item: CustomListItem, direction: 'up' | 'down') => {
+    const siblings = [...items];
+    const currentIndex = siblings.findIndex(i => i.id === item.id);
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+  
+    if (targetIndex < 0 || targetIndex >= siblings.length) return;
+  
+    const [removed] = siblings.splice(currentIndex, 1);
+    siblings.splice(targetIndex, 0, removed);
+  
+    const updatedItemsWithNewOrder = siblings.map((reorderedItem, index) => ({
+      ...reorderedItem,
+      order_index: index,
+    }));
+    
+    setItems(updatedItemsWithNewOrder);
+
+    const loadingToastId = showLoading('Reordenando itens...');
+
+    try {
+      if (!listId) throw new Error("List ID is missing");
+      await updateAllCustomListItems(listId, updatedItemsWithNewOrder);
+      showSuccess('Ordem atualizada!');
+      await loadList();
+    } catch (error) {
+      console.error('Erro ao reordenar itens:', error);
+      showError('Erro ao reordenar itens.');
+      loadList();
+    } finally {
+      dismissToast(loadingToastId);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: CustomListItem) => {
+    setDraggedItem(item);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item.id);
+    e.currentTarget.classList.add('opacity-50');
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('border-t-2', 'border-primary');
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.currentTarget.classList.remove('border-t-2', 'border-primary');
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, targetItem: CustomListItem) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('opacity-50');
+
+    if (draggedItem && draggedItem.id !== targetItem.id) {
+      const currentItemsCopy = [...items];
+      const draggedIndex = currentItemsCopy.findIndex(item => item.id === draggedItem.id);
+      const targetIndex = currentItemsCopy.findIndex(item => item.id === targetItem.id);
+
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+        const [removed] = currentItemsCopy.splice(draggedIndex, 1);
+        currentItemsCopy.splice(targetIndex, 0, removed);
+        
+        const updatedItemsWithNewOrder = currentItemsCopy.map((reorderedItem, index) => ({
+          ...reorderedItem,
+          order_index: index,
+        }));
+        
+        setItems(updatedItemsWithNewOrder);
+
+        const loadingToastId = showLoading('Reordenando itens...');
+
+        try {
+          if (!listId) throw new Error("List ID is missing");
+          await updateAllCustomListItems(listId, updatedItemsWithNewOrder);
+          showSuccess('Ordem atualizada com sucesso!');
+          await loadList();
+        } catch (error) {
+          console.error('Erro ao reordenar itens:', error);
+          showError('Erro ao reordenar itens.');
+          loadList();
+        } finally {
+          dismissToast(loadingToastId);
+        }
+      }
+    }
+    setDraggedItem(null);
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.currentTarget.classList.remove('opacity-50');
+    setDraggedItem(null);
+  };
+
   const renderItemRow = (item: CustomListItem, index: number) => {
     const isSeparator = item.type === 'separator';
     const isSubtitle = item.type === 'subtitle';
@@ -501,8 +596,8 @@ const CustomListPage: React.FC = () => {
               {item.itens_relacionados && item.itens_relacionados.length > 0 && (
                 <Popover 
                   key={`popover-${item.id}`}
-                  open={openRelatedItemsPopoverId === item.id} 
-                  onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
+                  open={isRelatedItemsPopoverOpen === item.id} 
+                  onOpenChange={(open) => setIsRelatedItemsPopoverId(open ? item.id : null)}
                   modal={false}
                 >
                   <PopoverTrigger asChild>
@@ -549,119 +644,132 @@ const CustomListPage: React.FC = () => {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-col space-y-2 pb-2">
-        <div className="flex justify-between items-center">
-          <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
-            <ArrowLeft className="h-4 w-4" /> Voltar
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
+      <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
+        <Link to="/custom-menu-view">
+          <Button variant="outline" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" /> Voltar ao Catálogo
           </Button>
-          <Button onClick={handleAdd} className="flex items-center gap-2 shrink-0">
-            <PlusCircle className="h-4 w-4" /> Novo Item
+        </Link>
+        <Link to="/parts-list">
+          <Button variant="outline" className="flex items-center gap-2">
+            <ListIcon className="h-4 w-4" /> Minha Lista de Peças
           </Button>
-        </div>
-        
-        <CardTitle className="text-2xl font-bold text-center pt-2">
-          {list.title}
-        </CardTitle>
-        
-        <div className="flex flex-wrap justify-end gap-2 pt-2">
-          {selectedItemIds.size > 0 && (
-            <Button 
-              onClick={handleExportSelectedToMyList} 
-              className="flex-1 sm:w-auto"
-              disabled={isLoadingAfs}
-            >
-              <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
-            </Button>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                onClick={handleCopyList} 
-                disabled={items.length === 0} 
-                variant="secondary" 
-                size="icon"
-                className="sm:w-auto sm:px-4"
-              >
-                <Copy className="h-4 w-4" /> 
-                <span className="hidden sm:inline ml-2">Copiar Lista</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Copiar Lista</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                onClick={handleExportCsv} 
-                disabled={items.length === 0} 
-                variant="outline" 
-                size="icon"
-                className="sm:w-auto sm:px-4"
-              >
-                <Download className="h-4 w-4" /> 
-                <span className="hidden sm:inline ml-2">Exportar CSV</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Exportar CSV</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-                <FileDown className="h-4 w-4" /> Exportar PDF
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Exportar PDF</TooltipContent>
-          </Tooltip>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
-        ) : items.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40px] p-2">
-                    <Checkbox
-                      checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-                      onCheckedChange={handleToggleSelectAll}
-                      aria-label="Selecionar todos os itens"
-                    />
-                  </TableHead>
-                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                  <TableHead colSpan={3} className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                  <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item, index) => renderItemRow(item, index))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
+        </Link>
+      </div>
+      
+      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
+        <ListIcon className="h-8 w-8 text-primary" />
+        {listTitle}
+      </h1>
 
-      {/* Sheet para Adicionar/Editar Item */}
-      <Sheet open={isFormSheetOpen} onOpenChange={setIsFormSheetOpen}>
+      <Card className="w-full max-w-4xl mx-auto mb-8">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl font-bold text-center pt-2">
+            Itens da Lista
+          </CardTitle>
+          <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2">
+            {selectedItemIds.size > 0 && (
+              <Button 
+                onClick={handleExportSelectedToMyList} 
+                className="flex-1 sm:w-auto"
+                disabled={isLoadingAfs}
+              >
+                <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
+              </Button>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={handleCopyList} 
+                  disabled={items.length === 0} 
+                  variant="secondary" 
+                  size="icon"
+                  className="sm:w-auto sm:px-4"
+                >
+                  <Copy className="h-4 w-4" /> 
+                  <span className="hidden sm:inline ml-2">Copiar Lista</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copiar Lista</TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={handleExportCsv} 
+                  disabled={items.length === 0} 
+                  variant="outline" 
+                  size="icon"
+                  className="sm:w-auto sm:px-4"
+                >
+                  <Download className="h-4 w-4" /> 
+                  <span className="hidden sm:inline ml-2">Exportar CSV</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Exportar CSV</TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+                  <FileDown className="h-4 w-4" /> Exportar PDF
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Exportar PDF</TooltipContent>
+            </Tooltip>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
+          ) : items.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40px] p-2">
+                      <Checkbox
+                        checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+                        onCheckedChange={handleToggleSelectAll}
+                        aria-label="Selecionar todos os itens"
+                      />
+                    </TableHead>
+                    <TableHead className="w-[4rem] p-2">Qtd</TableHead>
+                    <TableHead colSpan={3} className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
+                    <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item, index) => renderItemRow(item, index))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <MadeWithDyad />
+
+      {/* Sheet de Edição (mantido para o botão de lápis) */}
+      <Sheet open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>{itemToEdit ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
+            <SheetTitle>Editar Item da Lista</SheetTitle>
             <SheetDescription>
-              {itemToEdit ? 'Edite os detalhes do item da lista.' : 'Adicione um novo item, subtítulo ou separador.'}
+              Edite os detalhes do item da lista.
             </SheetDescription>
           </SheetHeader>
-          <CustomListItemForm
-            list={list}
-            editingItem={itemToEdit}
-            onItemSaved={handleItemSavedOrClosed}
-            onClose={handleItemSavedOrClosed}
-            allAvailableParts={allAvailableParts}
-          />
+          {itemToEdit && listId && (
+            <CustomListItemForm
+              list={{ id: listId, title: listTitle, user_id: '' }}
+              onClose={handleItemSavedOrClosed}
+              editingItem={itemToEdit}
+              onItemSaved={handleItemSavedOrClosed}
+              allAvailableParts={allAvailableParts}
+            />
+          )}
         </SheetContent>
       </Sheet>
 
@@ -699,8 +807,8 @@ const CustomListPage: React.FC = () => {
           </SheetFooter>
         </SheetContent>
       </Sheet>
-    </Card>
+    </div>
   );
 };
 
-export default CustomListEditor;
+export default CustomListPage;
