@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addServiceOrderItem, getParts, getAfsFromService, searchParts as searchPartsService, updatePart, deleteServiceOrderItem, ServiceOrderItem, updateServiceOrderItem, Af } from '@/services/partListService';
+import { Part, addServiceOrderItem, getParts, searchParts as searchPartsService, updatePart, getAfsFromService, Af, updateServiceOrderItem, deleteServiceOrderItem, ServiceOrderItem } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
@@ -15,6 +15,7 @@ import { useSession } from '@/components/SessionContextProvider'; // Importar us
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
 import RelatedPartDisplay from './RelatedPartDisplay';
 import { ScrollArea } from './ui/scroll-area';
+import { RelatedPart } from '@/types/supabase';
 
 interface ServiceOrderDetails {
   af: string;
@@ -130,10 +131,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
 
-  const formatRelatedPartString = (part: Part): string => {
+  const formatRelatedPartString = (part: Part): RelatedPart => {
     const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
     const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
-    return `${part.codigo}|${mainText}|${subText}`;
+    return { codigo: part.codigo, name: mainText, desc: subText };
   };
 
   const handleSearch = (query: string) => {
@@ -163,8 +164,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     try {
       await updatePart({ ...selectedPart, tags: editedTags });
       showSuccess('Tags da peça atualizadas com sucesso!');
-      const updatedParts = await getParts();
-      setAllAvailableParts(updatedParts);
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
       showError('Erro ao atualizar as tags da peça.');
@@ -232,7 +231,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         (item.os === originalOs || (item.os === undefined && originalOs === undefined)) &&
         (item.hora_inicio === originalHoraInicio || (item.hora_inicio === undefined && originalHoraInicio === undefined)) &&
         (item.hora_final === originalHoraFinal || (originalHoraFinal === undefined && item.hora_final === undefined)) &&
-        (item.servico_executado === originalServicoExecutado || (item.servico_executado === undefined && originalServicoExecutado === undefined))
+        (item.servico_executado === originalServicoExecutado || (item.servico_executado === undefined && item.servico_executado === undefined))
       );
 
       if (itemsToUpdate.length > 0) {
@@ -510,7 +509,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   searchResults={searchResults}
                   onSelectPart={handleSelectPart}
                   searchQuery={searchQuery}
-                  allParts={allAvailableParts}
                   isLoading={isLoadingParts}
                 />
               </div>
@@ -592,15 +590,14 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   <Label className="flex items-center gap-2">
                     <Tag className="h-4 w-4" /> Itens Relacionados da Peça
                   </Label>
-                  <ScrollArea className="h-24 w-full rounded-md border p-2">
+                  <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
                     <div className="flex flex-col gap-2">
-                      {selectedPart.itens_relacionados.map(relatedCode => {
-                        const relatedPart = allAvailableParts.find(p => p.codigo === relatedCode);
-                        if (relatedPart) {
-                          const formattedString = formatRelatedPartString(relatedPart);
-                          return <RelatedPartDisplay key={relatedCode} formattedString={formattedString} />;
-                        }
-                        return <RelatedPartDisplay key={relatedCode} formattedString={`${relatedCode}|${relatedCode}|`} />;
+                      {selectedPart.itens_relacionados.map(relatedItem => {
+                          const relatedPart = allAvailableParts.find(p => p.codigo === relatedItem.codigo);
+                          if (relatedPart) {
+                            return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
+                          }
+                          return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
                       })}
                     </div>
                   </ScrollArea>

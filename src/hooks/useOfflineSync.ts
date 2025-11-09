@@ -1,10 +1,10 @@
 import { useEffect, useCallback } from 'react';
-import { App } from '@capacitor/app';
-import { Network } from '@capacitor/network';
+import { App, AppState } from '@capacitor/app';
+import { Network, ConnectionStatus } from '@capacitor/network';
 import { BackgroundTask } from '@capawesome/capacitor-background-task';
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError } from '@/utils/toast';
-import { Capacitor } from '@capacitor/core'; // Importar Capacitor
+import { Capacitor, PluginListenerHandle } from '@capacitor/core'; // Importar Capacitor
 import { supabase } from '@/integrations/supabase/client'; // Adicionado: Importa a instância supabase
 import { 
   localDb, // Adicionado: Importa a instância localDb
@@ -23,7 +23,7 @@ const SYNC_INTERVAL_MS = 60000; // Tenta sincronizar a cada 60 segundos se estiv
 
 export function useOfflineSync() {
   const { user, isLoading: isSessionLoading } = useSession();
-  const isNative = Capacitor.isNative; // Verifica se é ambiente nativo
+  const isNative = Capacitor.isNativePlatform(); // Verifica se é ambiente nativo
 
   const syncOperations = useCallback(async (forceSync: boolean = false) => {
     if (!user) return 0;
@@ -131,24 +131,25 @@ export function useOfflineSync() {
   useEffect(() => {
     if (isSessionLoading || !user || !isNative) return;
 
-    const handleAppStateChange = async ({ isActive }: { isActive: boolean }) => {
-      if (isActive) {
-        // Se voltar para o foreground, tenta sincronizar imediatamente
-        await syncOperations();
-      } else {
-        // Se for para o background, inicia a tarefa em background
-        const taskId = await BackgroundTask.beforeExit(async () => {
-          // console.log('OfflineSync: Executando tarefa em background...');
+    let listener: PluginListenerHandle;
+
+    const registerListener = async () => {
+      listener = await App.addListener('appStateChange', async (state: AppState) => {
+        if (state.isActive) {
           await syncOperations();
-          BackgroundTask.finish({ taskId });
-        });
-      }
+        } else {
+          const taskId = await BackgroundTask.beforeExit(async () => {
+            await syncOperations();
+            BackgroundTask.finish({ taskId });
+          });
+        }
+      });
     };
 
-    App.addListener('appStateChange', handleAppStateChange);
+    registerListener();
 
     return () => {
-      App.removeListener('appStateChange', handleAppStateChange);
+      listener?.remove();
     };
   }, [user, isSessionLoading, syncOperations, isNative]);
 
@@ -156,20 +157,21 @@ export function useOfflineSync() {
   useEffect(() => {
     if (isSessionLoading || !user) return;
 
-    const handleNetworkChange = async (status: { connected: boolean }) => {
-      if (status.connected) {
-        // console.log('OfflineSync: Conexão restaurada. Iniciando sincronização.');
-        await syncOperations();
-      }
+    let listener: PluginListenerHandle;
+
+    const registerListener = async () => {
+      listener = await Network.addListener('networkStatusChange', async (status: ConnectionStatus) => {
+        if (status.connected) {
+          await syncOperations();
+        }
+      });
     };
 
-    Network.addListener('networkStatusChange', handleNetworkChange);
-
-    // Tenta sincronizar na montagem se já estiver online
+    registerListener();
     syncOperations();
 
     return () => {
-      Network.removeListener('networkStatusChange', handleNetworkChange);
+      listener?.remove();
     };
   }, [user, isSessionLoading, syncOperations]);
 

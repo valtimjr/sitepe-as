@@ -22,21 +22,13 @@ import {
   updateLocalServiceOrderItem,
   deleteLocalServiceOrderItem,
   clearLocalServiceOrderItems,
-  getLocalMonthlyApontamento, // Importar novas funções para monthlyApontamentos
-  putLocalMonthlyApontamento,
-  bulkPutLocalMonthlyApontamentos,
-  clearLocalMonthlyApontamentos,
-  deleteLocalMonthlyApontamento,
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network'; // Importar Network
 import { format } from 'date-fns';
-import { DailyApontamento, MonthlyApontamento, RelatedPart } from '@/types/supabase'; // Removido PartImage
+import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart } from '@/types/supabase'; // Removido PartImage
 
-export interface Part extends LocalPart {
-  name?: string; // Adicionado o campo 'name'
-  itens_relacionados?: RelatedPart[]; // Adicionado o campo 'itens_relacionados'
-}
+export interface Part extends SupabasePart {}
 export interface SimplePartItem extends LocalSimplePartItem {}
 export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends LocalAf {}
@@ -592,17 +584,6 @@ export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: s
 
 // --- Funções para Apontamentos (Time Tracking) ---
 
-// Helper function to check network status
-const isOnline = async () => {
-    try {
-        const status = await Network.getStatus();
-        return status.connected;
-    } catch (e) {
-        // Fallback for browser environment without Capacitor plugin
-        return navigator.onLine;
-    }
-};
-
 // Sincroniza dados do Supabase para o IndexedDB
 export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
   
@@ -917,7 +898,7 @@ export const cleanupEmptyParts = async (): Promise<number> => {
   while (hasMoreToFetch) {
     const { data, error } = await supabase
       .from('parts')
-      .select('id, codigo, descricao')
+      .select('id, codigo, descricao, name')
       .range(offset, offset + fetchPageSize - 1);
 
     if (error) {

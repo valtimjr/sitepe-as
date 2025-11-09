@@ -446,7 +446,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, edit
 
   const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, targetItem: CustomListItem) => {
     e.preventDefault();
-    e.currentTarget.classList.remove('border-primary');
+    e.currentTarget.classList.remove('opacity-50');
 
     if (draggedItem && draggedItem.id !== targetItem.id) {
       const currentItemsCopy = [...items];

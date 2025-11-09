@@ -10,7 +10,6 @@ interface PartSearchInputProps {
   searchResults: Part[];
   onSelectPart: (part: Part) => void;
   searchQuery: string;
-  // Removido: allParts: Part[];
   isLoading: boolean;
 }
 

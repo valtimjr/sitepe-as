@@ -14,6 +14,7 @@ import RelatedPartDisplay from './RelatedPartDisplay';
 import { ScrollArea } from './ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { RelatedPart } from '@/types/supabase';
 
 interface PartItemFormProps {
   onItemAdded: () => void;
@@ -101,10 +102,10 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
 
-  const formatRelatedPartString = (part: Part): string => {
+  const formatRelatedPartString = (part: Part): RelatedPart => {
     const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
     const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
-    return `${part.codigo}|${mainText}|${subText}`;
+    return { codigo: part.codigo, name: mainText, desc: subText };
   };
 
   const handleSearch = (query: string) => {
@@ -202,7 +203,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2 md:col-span-1">
-              <Label htmlFor="codigo_peca">Código da Peça</Label>
+              <Label htmlFor="codigo_peca">Cód. Peça</Label> {/* Rótulo encurtado */}
               <Input
                 id="codigo_peca"
                 type="text"
@@ -213,7 +214,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="name">Nome da Peça</Label>
+              <Label htmlFor="name">Nome da Peça</Label> {/* Rótulo encurtado */}
               <Input
                 id="name"
                 type="text"
@@ -280,13 +281,12 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               </Label>
               <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
                 <div className="flex flex-col gap-2">
-                  {selectedPart.itens_relacionados.map(relatedCode => {
-                    const relatedPart = allAvailableParts.find(p => p.codigo === relatedCode);
-                    if (relatedPart) {
-                      const formattedString = formatRelatedPartString(relatedPart);
-                      return <RelatedPartDisplay key={relatedCode} formattedString={formattedString} />;
-                    }
-                    return <RelatedPartDisplay key={relatedCode} formattedString={`${relatedCode}|${relatedCode}|`} />;
+                  {selectedPart.itens_relacionados.map(relatedItem => {
+                      const relatedPart = allAvailableParts.find(p => p.codigo === relatedItem.codigo);
+                      if (relatedPart) {
+                        return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
+                      }
+                      return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
                   })}
                 </div>
               </ScrollArea>

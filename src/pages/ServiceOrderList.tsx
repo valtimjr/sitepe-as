@@ -13,6 +13,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 // import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; 
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
 
+type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
+
 interface ServiceOrderDetails {
   af: string;
   os?: number;
@@ -20,9 +22,8 @@ interface ServiceOrderDetails {
   hora_final?: string;
   servico_executado?: string;
   createdAt?: Date; // createdAt é opcional aqui, mas será obrigatório no ServiceOrderGroupDetails
+  mode?: FormMode;
 }
-
-type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
 
 type SortOrder = 'manual' | 'asc' | 'desc';
 

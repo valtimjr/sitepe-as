@@ -1,6 +1,9 @@
 import Dexie, { Table } from 'dexie';
 import { v4 as uuidv4 } from 'uuid';
-import { DailyApontamento, MonthlyApontamento } from '@/types/supabase'; // Importar novos tipos
+import { DailyApontamento, MonthlyApontamento, RelatedPart } from '@/types/supabase'; // Importar novos tipos
+import { supabase } from '@/integrations/supabase/client';
+import { Network } from '@capacitor/network';
+import Papa from 'papaparse';
 
 export interface Part {
   id: string;
@@ -8,7 +11,7 @@ export interface Part {
   descricao: string;
   tags?: string;
   name?: string; // Adicionado o campo 'name'
-  itens_relacionados?: string[]; // Adicionado o campo 'itens_relacionados'
+  itens_relacionados?: RelatedPart[]; // ATUALIZADO para usar a nova interface
 }
 
 export interface SimplePartItem {
@@ -42,6 +45,23 @@ export interface Af {
 // A interface Apontamento agora é DailyApontamento, mas para compatibilidade
 // com o resto do código que ainda pode usar 'Apontamento', vamos re-exportá-la.
 export type Apontamento = DailyApontamento;
+
+// Helper function to check network status
+const isOnline = async () => {
+    try {
+        const status = await Network.getStatus();
+        return status.connected;
+    } catch (e) {
+        // Fallback for browser environment without Capacitor plugin
+        return navigator.onLine;
+    }
+};
+
+// Helper para garantir que DailyApontamento objetos não contenham um campo 'id' ou 'user_id'
+const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
+  const { id, user_id, ...rest } = ap as any; // Converte para any para desestruturar 'id' e 'user_id' com segurança, se existirem
+  return rest;
+};
 
 class LocalDexieDb extends Dexie {
   simplePartsList!: Table<SimplePartItem>;
@@ -166,7 +186,7 @@ class LocalDexieDb extends Dexie {
     this.version(7).stores({ // NOVA VERSÃO
       simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
       serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
-      parts: '++id, codigo, descricao, tags, name, *itens_relacionados', // Adicionado itens_relacionados como índice multi-valor
+      parts: '++id, codigo, descricao, tags, name, itens_relacionados', // Removido * de itens_relacionados
       afs: '++id, af_number, descricao',
       monthlyApontamentos: 'id, user_id, month_year, [user_id+month_year]',
     }).upgrade(async tx => {
@@ -265,7 +285,7 @@ export const searchLocalParts = async (query: string): Promise<Part[]> => {
 };
 
 export const updateLocalPart = async (updatedPart: Part): Promise<void> => {
-  await localDb.parts.update(updatedPart.id, updatedPart);
+  await localDb.parts.put(updatedPart);
 };
 
 export const clearLocalParts = async (): Promise<void> => {
@@ -368,17 +388,6 @@ export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: s
 };
 
 // --- Funções para Apontamentos (Time Tracking) ---
-
-// Helper function to check network status
-const isOnline = async () => {
-    try {
-        const status = await Network.getStatus();
-        return status.connected;
-    } catch (e) {
-        // Fallback for browser environment without Capacitor plugin
-        return navigator.onLine;
-    }
-};
 
 // Sincroniza dados do Supabase para o IndexedDB
 export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
@@ -694,7 +703,7 @@ export const cleanupEmptyParts = async (): Promise<number> => {
   while (hasMoreToFetch) {
     const { data, error } = await supabase
       .from('parts')
-      .select('id, codigo, descricao')
+      .select('id, codigo, descricao, name')
       .range(offset, offset + fetchPageSize - 1);
 
     if (error) {

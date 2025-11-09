@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils'; // Importar cn
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
+import { RelatedPart } from '@/types/supabase';
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
@@ -75,7 +76,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   const [editedTags, setEditedTags] = useState<string>('');
   
   // Cache para itens relacionados
-  const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, string[]>>(new Map());
+  const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, RelatedPart[]>>(new Map());
 
   // Sincroniza o estado interno com a prop listItems quando ela muda
   useEffect(() => {
@@ -100,7 +101,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
   // Effect to populate related parts cache
   useEffect(() => {
-    const newCache = new Map<string, string[]>();
+    const newCache = new Map<string, RelatedPart[]>();
     allAvailableParts.forEach(part => {
       if (part.codigo && part.itens_relacionados && part.itens_relacionados.length > 0) {
         newCache.set(part.codigo, part.itens_relacionados);
@@ -430,7 +431,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               className="h-10 w-10 p-0 rounded-full" 
               aria-label="Compartilhar no WhatsApp" 
             >
-              <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-full w-full" />
+              <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
             </Button>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -527,7 +528,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                                 searchResults={searchResultsForEdit}
                                 onSelectPart={handleSelectPartForEdit} // Atualiza os campos de código/descrição e limpa a busca
                                 searchQuery={searchQueryForEdit} // Exibe a query de busca
-                                // Removido allParts
                                 isLoading={isLoadingParts}
                               />
                               <div className="grid grid-cols-3 gap-2"> {/* Layout para Código e Descrição */}
@@ -620,8 +620,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                                     <ScrollArea className="h-24">
                                       <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
                                         {relatedItems.map(rel => (
-                                          <li key={rel} className="list-none ml-0">
-                                            <RelatedPartDisplay formattedString={rel} />
+                                          <li key={rel.codigo} className="list-none ml-0">
+                                            <RelatedPartDisplay item={rel} />
                                           </li>
                                         ))}
                                       </ul>
@@ -687,7 +687,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                           searchResults={inlineSearchResults}
                           onSelectPart={handleSelectPartForInlineAdd}
                           searchQuery={inlineSearchQuery}
-                          // Removido allParts
                           isLoading={isLoadingParts}
                         />
                         <div className="grid grid-cols-3 gap-2"> {/* Layout para Código e Descrição */}

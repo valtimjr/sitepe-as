@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, Tag, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { MenuItem, CustomList, Part } from '@/types/supabase';
+import { MenuItem, CustomList, Part, RelatedPart } from '@/types/supabase';
 import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists, saveAllMenuItems } from '@/services/customListService';
 import { getParts, searchParts as searchPartsService } from '@/services/partListService';
 import {
@@ -33,6 +33,7 @@ import PartSearchInput from './PartSearchInput'; // IMPORT CORRIGIDO
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
+import RelatedPartDisplay from './RelatedPartDisplay';
 
 interface MenuStructureEditorProps {
   onMenuUpdated: () => void;
@@ -81,7 +82,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   const [formParentId, setFormParentId] = useState<string | null>(null);
   const [formListId, setFormListId] = useState<string | null>(null);
   const [formOrderIndex, setFormOrderIndex] = useState(0);
-  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]);
+  const [formItensRelacionados, setFormItensRelacionados] = useState<RelatedPart[]>([]);
   
   // Estados para o PartSearchInput dentro do modal
   const [searchQueryRelated, setSearchQueryRelated] = useState('');
@@ -93,7 +94,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
 
   // NOVO: Estado para controlar a expansão dos itens do menu
-  const [expandedItems, setExpandedItems] = new useState<Set<string>>(new Set());
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   const loadData = useCallback(async () => {
     console.time('MenuStructureEditor: loadData');
@@ -255,8 +256,13 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   };
 
   const handleAddRelatedPart = (part: Part) => {
-    if (!formItensRelacionados.includes(part.codigo)) {
-      setFormItensRelacionados(prev => [...prev, part.codigo]);
+    const relatedPartObject = {
+      codigo: part.codigo,
+      name: part.name || part.descricao,
+      desc: (part.name && part.name.trim() !== '' && part.descricao !== (part.name || '')) ? part.descricao : ''
+    };
+    if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
+      setFormItensRelacionados(prev => [...prev, relatedPartObject]);
       setSearchQueryRelated('');
       setSearchResultsRelated([]);
       showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
@@ -266,8 +272,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   };
 
   const handleRemoveRelatedPart = (codigo: string) => {
-    setFormItensRelacionados(prev => prev.filter(c => c !== codigo));
-    showSuccess(`Peça ${codigo} removida dos itens relacionados.`);
+    setFormItensRelacionados(prev => prev.filter(p => p.codigo !== codigo));
+    showSuccess(`Item ${codigo} removido dos itens relacionados.`);
   };
 
   const handleBulkAddRelatedParts = () => {
@@ -281,10 +287,23 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       return;
     }
 
-    const uniqueNewCodes = Array.from(new Set([...formItensRelacionados, ...newCodes]));
-    setFormItensRelacionados(uniqueNewCodes);
+    const newRelatedItems: RelatedPart[] = newCodes.map(code => ({
+      codigo: code,
+      name: code,
+      desc: ''
+    }));
+
+    const uniqueNewItems = newRelatedItems.filter(newItem => 
+      !formItensRelacionados.some(existingItem => existingItem.codigo === newItem.codigo)
+    );
+
+    if (uniqueNewItems.length > 0) {
+      setFormItensRelacionados(prev => [...prev, ...uniqueNewItems]);
+      showSuccess(`${uniqueNewItems.length} código(s) adicionado(s) aos itens relacionados.`);
+    } else {
+      showError('Nenhum novo item válido encontrado ou adicionado em massa.');
+    }
     setBulkRelatedPartsInput('');
-    showSuccess(`${newCodes.length} código(s) adicionado(s) aos itens relacionados.`);
   };
 
   const toggleItemExpansion = (itemId: string) => {
@@ -432,7 +451,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
 
       {/* Sheet de Edição/Adição */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto"> {/* SheetContent com side="right" */}
+        <SheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow */}
           <SheetHeader>
             <SheetTitle>{currentMenuItem ? 'Editar Item de Menu' : 'Adicionar Novo Item de Menu'}</SheetTitle>
           </SheetHeader>
@@ -543,15 +562,15 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
                   <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {formItensRelacionados.map(codigo => (
-                      <div key={codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
-                        {codigo}
+                    {formItensRelacionados.map(item => (
+                      <div key={item.codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
+                        {item.codigo}
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           className="h-4 w-4 p-0 text-destructive"
-                          onClick={() => handleRemoveRelatedPart(codigo)}
+                          onClick={() => handleRemoveRelatedPart(item.codigo)}
                         >
                           <XCircle className="h-3 w-3" />
                         </Button>

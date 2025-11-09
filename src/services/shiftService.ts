@@ -112,11 +112,12 @@ export const getShiftSchedule = (date: Date, turn: string): { entry?: string; ex
   const shift = schedule[dayOfWeek as keyof typeof schedule];
 
   if (shift) {
-    if (shift.status === 'Folga') {
+    if ('status' in shift && shift.status === 'Folga') {
       return { status: 'Folga', shiftName: 'Folga' };
     }
-    // Retorna os horários de entrada e saída e o nome da escala (Dia, Intermediario, Noite)
-    return { entry: shift.entry, exit: shift.exit, shiftName: scheduleName };
+    if ('entry' in shift && 'exit' in shift) {
+      return { entry: shift.entry, exit: shift.exit, shiftName: scheduleName };
+    }
   }
 
   // Se não houver regra definida para o dia da semana na escala atual, é folga.
