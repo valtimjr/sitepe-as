@@ -444,10 +444,6 @@ const CustomListPage: React.FC = () => {
     const isSubtitle = item.type === 'subtitle';
     const isMangueira = item.type === 'mangueira';
     const isItem = item.type === 'item';
-    
-    // Check if the previous item was also a mangueira to decide on the header
-    const previousItem = index > 0 ? items[index - 1] : null;
-    const showMangueiraHeader = isMangueira && (!previousItem || previousItem.type !== 'mangueira');
 
     if (isSeparator) {
       return (
@@ -510,109 +506,90 @@ const CustomListPage: React.FC = () => {
       if (!data) return null;
 
       return (
-        <React.Fragment key={item.id}>
-          {showMangueiraHeader && (
-            <TableRow className="bg-muted/50 border-y border-primary/50">
-              <TableHead className="w-[40px] p-2"></TableHead>
-              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
-              <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
-              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 1</TableHead>
-              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 2</TableHead>
-              <TableHead className="w-[70px] p-2 text-right"></TableHead>
-            </TableRow>
-          )}
-          <TableRow 
-            key={item.id}
-            id={item.id}
-            draggable
-            onDragStart={(e) => handleDragStart(e, item)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, item)}
-            onDragLeave={handleDragLeave}
-            onDragEnd={handleDragEnd}
-            data-id={item.id}
-          >
-            <TableCell className="w-[40px] p-2">
-              <div className="flex items-center gap-2">
-                <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" />
-                <Checkbox
-                  checked={selectedItemIds.has(item.id)}
-                  onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
-                  aria-label={`Selecionar item ${item.item_name}`}
-                />
+        <TableRow 
+          key={item.id}
+          id={item.id}
+          draggable
+          onDragStart={(e) => handleDragStart(e, item)}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, item)}
+          onDragLeave={handleDragLeave}
+          onDragEnd={handleDragEnd}
+          data-id={item.id}
+        >
+          <TableCell className="w-[40px] p-2">
+            <div className="flex items-center gap-2">
+              <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" />
+              <Checkbox
+                checked={selectedItemIds.has(item.id)}
+                onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
+                aria-label={`Selecionar item ${item.item_name}`}
+              />
+            </div>
+          </TableCell>
+          <TableCell className="w-[4rem] p-2 text-center font-medium">1</TableCell>
+          <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
+            <div className="flex flex-col items-start">
+              <span className="font-medium text-sm text-primary whitespace-normal break-words">{data.mangueira.name || data.mangueira.codigo}</span>
+              {data.mangueira.description && (
+                <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.mangueira.description}</span>
+              )}
+              <span className="text-xs text-muted-foreground mt-1">Cód: {data.mangueira.codigo}</span>
+            </div>
+          </TableCell>
+          <TableCell className="w-[6rem] p-2 text-center font-medium text-lg">
+            {data.corte_cm}
+          </TableCell>
+          {isMobile ? (
+            <TableCell className="w-auto p-2" colSpan={2}>
+              <div className="flex flex-col items-start space-y-2">
+                <div>
+                  <span className="font-medium text-sm">C1: {data.conexao1.name || data.conexao1.codigo}</span>
+                  <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao1.codigo}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-sm">C2: {data.conexao2.name || data.conexao2.codigo}</span>
+                  <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao2.codigo}</span>
+                </div>
               </div>
             </TableCell>
-            
-            {/* Coluna 1: Mangueira (Nome/Desc/Cód) */}
-            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-              <div className="flex flex-col items-start">
-                <span className="font-medium text-sm text-primary whitespace-normal break-words">{data.mangueira.name || data.mangueira.codigo}</span>
-                {data.mangueira.description && (
-                  <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.mangueira.description}</span>
-                )}
-                <span className="text-xs text-muted-foreground mt-1">Cód: {data.mangueira.codigo}</span>
-              </div>
-            </TableCell>
-            
-            {/* Coluna 2: Corte (cm) */}
-            <TableCell className="w-[6rem] p-2 text-center font-medium text-lg">
-              {data.corte_cm}
-            </TableCell>
-            
-            {/* Coluna 3 & 4: Conexões */}
-            {isMobile ? (
-              <TableCell className="w-auto p-2" colSpan={2}>
-                <div className="flex flex-col items-start space-y-2">
-                  <div>
-                    <span className="font-medium text-sm">C1: {data.conexao1.name || data.conexao1.codigo}</span>
-                    <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao1.codigo}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-sm">C2: {data.conexao2.name || data.conexao2.codigo}</span>
-                    <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao2.codigo}</span>
-                  </div>
+          ) : (
+            <>
+              <TableCell className="w-auto p-2">
+                <div className="flex flex-col items-start">
+                  <span className="font-medium text-sm whitespace-normal break-words">{data.conexao1.name || data.conexao1.codigo}</span>
+                  {data.conexao1.description && (
+                    <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.conexao1.description}</span>
+                  )}
+                  <span className="text-xs text-muted-foreground mt-1">Cód: {data.conexao1.codigo}</span>
                 </div>
               </TableCell>
-            ) : (
-              <>
-                <TableCell className="w-auto p-2">
-                  <div className="flex flex-col items-start">
-                    <span className="font-medium text-sm whitespace-normal break-words">{data.conexao1.name || data.conexao1.codigo}</span>
-                    {data.conexao1.description && (
-                      <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.conexao1.description}</span>
-                    )}
-                    <span className="text-xs text-muted-foreground mt-1">Cód: {data.conexao1.codigo}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="w-auto p-2">
-                  <div className="flex flex-col items-start">
-                    <span className="font-medium text-sm whitespace-normal break-words">{data.conexao2.name || data.conexao2.codigo}</span>
-                    {data.conexao2.description && (
-                      <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.conexao2.description}</span>
-                    )}
-                    <span className="text-xs text-muted-foreground mt-1">Cód: {data.conexao2.codigo}</span>
-                  </div>
-                </TableCell>
-              </>
-            )}
-
-            {/* Coluna 5: Ações */}
-            <TableCell className="w-[70px] p-2 text-right">
-              <div className="flex justify-end items-center gap-1">
-                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o item "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                    <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </TableCell>
-          </TableRow>
-        </React.Fragment>
+              <TableCell className="w-auto p-2">
+                <div className="flex flex-col items-start">
+                  <span className="font-medium text-sm whitespace-normal break-words">{data.conexao2.name || data.conexao2.codigo}</span>
+                  {data.conexao2.description && (
+                    <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.conexao2.description}</span>
+                  )}
+                  <span className="text-xs text-muted-foreground mt-1">Cód: {data.conexao2.codigo}</span>
+                </div>
+              </TableCell>
+            </>
+          )}
+          <TableCell className="w-[70px] p-2 text-right">
+            <div className="flex justify-end items-center gap-1">
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
+              <AlertDialog>
+                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o item "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
+                  <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </TableCell>
+        </TableRow>
       );
     }
 

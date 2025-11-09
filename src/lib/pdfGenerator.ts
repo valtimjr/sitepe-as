@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
-import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
+import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'fns';
 import { ptBR } from 'date-fns/locale';
 import { CustomListItem } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
@@ -141,8 +141,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
   const simpleItemHeader = [
     { content: "Qtd", styles: { halign: 'center' } },
-    { content: "Item / Código / Descrição", colSpan: 2 },
-    { content: "Itens Relacionados", colSpan: 2 }
+    { content: "Item / Código / Descrição", colSpan: 4 }
   ];
   const mangueiraHeader = ["Qtd", "Mangueira", "Corte (cm)", "Conexão 1", "Conexão 2"];
 
@@ -217,13 +216,9 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         `${data.conexao2.name || data.conexao2.codigo}\nCód: ${data.conexao2.codigo}`,
       ]);
     } else if (item.type === 'item') {
-      const relatedItemsText = (item.itens_relacionados || [])
-        .map(rel => `${rel.codigo} - ${rel.name}`)
-        .join('\n');
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
-        { content: `${item.item_name}\n${item.part_code ? `Cód: ${item.part_code}` : ''}\n${item.description || ''}`.trim(), colSpan: 2 },
-        { content: relatedItemsText, colSpan: 2 },
+        { content: `${item.item_name}\n${item.part_code ? `Cód: ${item.part_code}` : ''}\n${item.description || ''}`.trim(), colSpan: 4 },
       ]);
     }
   });
