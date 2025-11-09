@@ -120,7 +120,7 @@ export const generatePartsListPdf = async (listItems: SimplePartItem[], title: s
     body: tableRows,
     startY: currentY,
     theme: 'plain',
-    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak', lineWidth: 0 },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 240, 240] },
     margin: { top: 10 },
@@ -140,28 +140,32 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   let currentGroupType: 'item' | 'mangueira' | null = null;
   let currentGroupRows: any[] = [];
 
-  const simpleItemHeader = [
-    { content: "Qtd", styles: { halign: 'center' } },
-    { content: "Item / Código / Descrição", colSpan: 4 }
-  ];
-  const mangueiraHeader = ["Qtd", "Mangueira", "Corte (cm)", "Conexão 1", "Conexão 2"];
-
-  const columnStyles = {
+  const simpleItemHeader = ["Qtd", "Código", "Descrição"];
+  const simpleItemColumnStyles = {
     0: { cellWidth: 15, halign: 'center' }, // Qtd
-    1: { cellWidth: 45 }, // Mangueira / Item part 1
-    2: { cellWidth: 45 }, // Corte / Item part 2
-    3: { cellWidth: 40 }, // Conexão 1 / Related part 1
-    4: { cellWidth: 40 }, // Conexão 2 / Related part 2
+    1: { cellWidth: 40 }, // Código
+    2: { cellWidth: 'auto' }, // Descrição
+  };
+
+  const mangueiraHeader = ["Qtd", "Mangueira", "Corte (cm)", "Conexão 1", "Conexão 2"];
+  const mangueiraColumnStyles = {
+    0: { cellWidth: 15, halign: 'center' }, // Qtd
+    1: { cellWidth: 45 }, // Mangueira
+    2: { cellWidth: 25, halign: 'center' }, // Corte
+    3: { cellWidth: 45 }, // Conexão 1
+    4: { cellWidth: 'auto' }, // Conexão 2
   };
 
   const renderGroup = () => {
     if (currentGroupRows.length === 0) return;
 
-    let head;
+    let head, columnStyles;
     if (currentGroupType === 'item') {
       head = [simpleItemHeader];
+      columnStyles = simpleItemColumnStyles;
     } else if (currentGroupType === 'mangueira') {
       head = [mangueiraHeader];
+      columnStyles = mangueiraColumnStyles;
     }
 
     if (head) {
@@ -170,13 +174,13 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         body: currentGroupRows,
         startY: currentY,
         theme: 'plain',
-        styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
+        styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak', lineWidth: 0 },
         headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [248, 249, 250] },
         margin: { top: 10, left: 14, right: 14 },
         columnStyles: columnStyles,
       });
-      currentY = (doc as any).lastAutoTable.finalY; // Tables will be "stuck together"
+      currentY = (doc as any).lastAutoTable.finalY;
     }
 
     currentGroupRows = [];
@@ -186,6 +190,9 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   listItems.forEach(item => {
     if (item.type === 'separator') {
       renderGroup();
+      currentY += 2;
+      doc.setDrawColor(200);
+      doc.line(14, currentY, 196, currentY);
       currentY += 4;
       return;
     }
@@ -217,7 +224,8 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
     } else if (item.type === 'item') {
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
-        { content: `${item.item_name}\n${item.part_code ? `Cód: ${item.part_code}` : ''}\n${item.description || ''}`.trim(), colSpan: 4 },
+        item.part_code || '',
+        `${item.item_name}\n${item.description || ''}`.trim(),
       ]);
     }
   });
@@ -277,7 +285,7 @@ Serviço: ${group.servico_executado}`;
     body: tableRows,
     startY: 30,
     theme: 'plain',
-    styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
+    styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak', lineWidth: 0 },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 240, 240] },
     columnStyles: {
@@ -353,7 +361,7 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     body: tableRows,
     startY: currentY,
     theme: 'plain',
-    styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' }, // Reduzido o tamanho da fonte e padding
+    styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak', lineWidth: 0 }, // Reduzido o tamanho da fonte e padding
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 }, // Reduzido o tamanho da fonte do cabeçalho
     columnStyles: {
       0: { cellWidth: 25, halign: 'left' }, // Dia
