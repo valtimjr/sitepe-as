@@ -9,8 +9,8 @@ import { supabase } from '@/integrations/supabase/client'; // Adicionado: Import
 import { 
   localDb, // Adicionado: Importa a instância localDb
   getLocalMonthlyApontamento, 
-  putLocalMonthlyApontamento, 
-  bulkPutLocalMonthlyApontamentos, // Adicionado para bulkPut
+  putLocalMonthlyApontamento, // AGORA EXPORTADO
+  bulkPutLocalMonthlyApontamentos, // AGORA EXPORTADO
 } from '@/services/localDbService';
 import { 
   syncMonthlyApontamentoToSupabase, 

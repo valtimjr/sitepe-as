@@ -23,9 +23,9 @@ import {
   deleteLocalServiceOrderItem,
   clearLocalServiceOrderItems,
   isOnline,
-  getLocalMonthlyApontamento as getLocalMonthlyApontamentoFromDb, // Renomeado para evitar conflito
-  putLocalMonthlyApontamento,
-  deleteLocalMonthlyApontamento // Adicionado: Importar deleteLocalMonthlyApontamento
+  getLocalMonthlyApontamentoFromDb, // Renomeado para evitar conflito
+  putLocalMonthlyApontamento, // AGORA EXPORTADO
+  deleteLocalMonthlyApontamento // AGORA EXPORTADO
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network'; // Importar Network
@@ -140,7 +140,7 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
     const localResults = await searchLocalParts(query);
     const totalCount = localResults.length;
     const paginatedLocalResults = localResults.slice(offset, offset + pageSize);
-    return { parts: paginatedLocalResults, totalCount };
+    return { parts: paginatedLocalResults as Part[], totalCount };
   }
 
   let results = data as Part[];
@@ -214,7 +214,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
 
   if (error) {
     console.error('[searchParts] Erro ao buscar no Supabase:', error);
-    return searchLocalParts(query); // Fallback
+    return searchLocalParts(query) as Promise<Part[]>; // Fallback
   }
 
   let results = data || [];
@@ -250,8 +250,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
     const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
     if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
-    
-    // Group name and description for sorting priority
+
     const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
     const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
     const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
@@ -265,7 +264,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
     return 0;
   });
 
-  return results.slice(0, 100);
+  return results.slice(0, 100) as Part[];
 };
 
 /**
@@ -285,7 +284,7 @@ export const getParts = async (): Promise<Part[]> => {
         console.warn('Background parts sync failed:', e);
       }
     })();
-    return localParts;
+    return localParts as Part[];
   }
 
   try {
@@ -551,8 +550,8 @@ export const getServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
 
 export const addServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
   const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
-  const id = await addLocalServiceOrderItem(newItem, customCreatedAt);
-  return id;
+  await addLocalServiceOrderItem(newItem, customCreatedAt);
+  return newItem.id;
 };
 
 export const updateServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
@@ -573,6 +572,8 @@ export const getLocalUniqueAfs = async (): Promise<string[]> => {
 };
 
 // --- Monthly Apontamentos Management (IndexedDB) ---
+
+export const getLocalMonthlyApontamento = getLocalMonthlyApontamentoFromDb;
 
 // Sincroniza dados do Supabase para o IndexedDB
 export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
