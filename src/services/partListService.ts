@@ -563,30 +563,6 @@ export const getLocalUniqueAfs = async (): Promise<string[]> => {
 
 // --- Monthly Apontamentos Management (IndexedDB) ---
 
-export const getLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<MonthlyApontamento | undefined> => {
-  const apontamento = await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).first();
-  return apontamento;
-};
-
-export const putLocalMonthlyApontamento = async (monthlyApontamento: MonthlyApontamento): Promise<void> => {
-  await localDb.monthlyApontamentos.put(monthlyApontamento);
-};
-
-export const bulkPutLocalMonthlyApontamentos = async (monthlyApontamentos: MonthlyApontamento[]): Promise<void> => {
-  await localDb.monthlyApontamentos.bulkPut(monthlyApontamentos);
-};
-
-export const clearLocalMonthlyApontamentos = async (userId: string): Promise<void> => {
-  const idsToDelete = await localDb.monthlyApontamentos.where('user_id').equals(userId).keys();
-  await localDb.monthlyApontamentos.bulkDelete(idsToDelete);
-};
-
-export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<void> => {
-  await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).delete();
-};
-
-// --- Funções para Apontamentos (Time Tracking) ---
-
 // Sincroniza dados do Supabase para o IndexedDB
 export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
   
