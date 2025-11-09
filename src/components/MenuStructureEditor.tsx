@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +8,7 @@ import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, Lis
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { MenuItem, CustomList, Part, RelatedPart } from '@/types/supabase';
 import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists, saveAllMenuItems } from '@/services/customListService';
-import { getParts, searchParts as searchPartsService } from '@/services/partListService';
+import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
 import {
   Select,
   SelectContent,
@@ -29,15 +30,22 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import PartSearchInput from './PartSearchInput'; // IMPORT CORRIGIDO
+import PartSearchInput from './PartSearchInput';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import RelatedPartDisplay from './RelatedPartDisplay';
 
 interface MenuStructureEditorProps {
   onMenuUpdated: () => void;
 }
+
+// Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
+const formatRelatedPartObject = (part: Part): RelatedPart => {
+  const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
+  const subText = (part.name && part.name.trim() !== '' && part.descricao !== mainText) ? part.descricao : '';
+  return { codigo: part.codigo, name: mainText, desc: subText };
+};
 
 // Função auxiliar para construir a hierarquia (duplicada do service para uso local na UI)
 const buildMenuHierarchy = (items: MenuItem[]): MenuItem[] => {
@@ -87,7 +95,6 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   // Estados para o PartSearchInput dentro do modal
   const [searchQueryRelated, setSearchQueryRelated] = useState('');
   const [searchResultsRelated, setSearchResultsRelated] = useState<Part[]>([]);
-  // Removido: [allAvailableParts, setAllAvailableParts]
   const [isLoadingParts, setIsLoadingParts] = useState(false); // Inicializado como false
 
   // Bulk add related items state
@@ -256,14 +263,10 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   };
 
   const handleAddRelatedPart = (part: Part) => {
-    const relatedPartObject = {
-      codigo: part.codigo,
-      name: part.name || part.descricao,
-      desc: (part.name && part.name.trim() !== '' && part.descricao !== (part.name || '')) ? part.descricao : ''
-    };
+    const relatedPartObject = formatRelatedPartObject(part);
     if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
       setFormItensRelacionados(prev => [...prev, relatedPartObject]);
-      setSearchQueryRelated('');
+      setRelatedSearchQuery('');
       setSearchResultsRelated([]);
       showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
     } else {
@@ -277,17 +280,17 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   };
 
   const handleBulkAddRelatedParts = () => {
-    const newCodes = bulkRelatedPartsInput
+    const codesToSearch = bulkRelatedPartsInput
       .split(';')
       .map(code => code.trim())
       .filter(code => code.length > 0);
 
-    if (newCodes.length === 0) {
+    if (codesToSearch.length === 0) {
       showError('Nenhum código válido encontrado para adicionar.');
       return;
     }
 
-    const newRelatedItems: RelatedPart[] = newCodes.map(code => ({
+    const newRelatedItems: RelatedPart[] = codesToSearch.map(code => ({
       codigo: code,
       name: code,
       desc: ''
@@ -451,7 +454,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
 
       {/* Sheet de Edição/Adição */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow */}
+        <SheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{currentMenuItem ? 'Editar Item de Menu' : 'Adicionar Novo Item de Menu'}</SheetTitle>
           </SheetHeader>
@@ -557,7 +560,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
                   </Button>
                 </div>
               </div>
-              <ScrollArea className="h-24 w-full rounded-md border p-2">
+              <ScrollArea className={cn("w-full rounded-md border p-2", false ? "h-24" : "max-h-96")}>
                 {formItensRelacionados.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
                 ) : (
@@ -584,7 +587,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
               </p>
             </div>
 
-            <SheetFooter> {/* SheetFooter para botões */}
+            <SheetFooter>
               <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>

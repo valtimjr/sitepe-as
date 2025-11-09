@@ -220,7 +220,7 @@ const CustomListManager: React.FC = () => {
           className="w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl overflow-y-auto" // Aumentado o max-width para desktop
         >
           <SheetHeader>
-            <SheetTitle>Editar Itens da Lista: {listToEditContent?.title}</SheetTitle>
+            <SheetTitle>Gerenciar Itens da Lista: {listToEditContent?.title}</SheetTitle>
             <SheetDescription>
               Adicione, edite ou reordene os itens desta lista personalizada.
             </SheetDescription>
