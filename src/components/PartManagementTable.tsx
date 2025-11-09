@@ -226,9 +226,8 @@ const PartManagementTable: React.FC = () => {
       const payload: Omit<Part, 'id'> = {
         codigo: formCodigo,
         descricao: formDescricao,
-        // Condicionalmente inclui tags e name se não forem vazios, para corresponder à interface Part
-        ...(formTags.trim() !== '' && { tags: formTags.trim() }),
-        ...(formName.trim() !== '' && { name: formName.trim() }),
+        tags: formTags.trim(), // Garante que tags é sempre uma string
+        name: formName.trim(), // Garante que name é sempre uma string
         itens_relacionados: formItensRelacionados, // Inclui itens relacionados
       };
 
@@ -367,8 +366,8 @@ const PartManagementTable: React.FC = () => {
           let newParts: Part[] = parsedData.map((row, index) => {
             const codigo = getRowValue(row, ['codigo', 'código', 'code']);
             const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']);
-            const tags = getRowValue(row, ['tags', 'tag']); // Pode ser undefined
-            const name = getRowValue(row, ['name', 'nome']); // Pode ser undefined
+            const tags = getRowValue(row, ['tags', 'tag']) || ''; // Garante que tags é sempre uma string
+            const name = getRowValue(row, ['name', 'nome']) || ''; // Garante que name é sempre uma string
             const itensRelacionadosString = getRowValue(row, ['itens_relacionados', 'related_items']) || ''; // NOVO CAMPO
             
             if (!codigo || !descricao) {
@@ -380,8 +379,8 @@ const PartManagementTable: React.FC = () => {
               id: getRowValue(row, ['id']) || uuidv4(),
               codigo: codigo,
               descricao: descricao,
-              ...(tags !== undefined && { tags: tags }), // Inclui tags apenas se não for undefined
-              ...(name !== undefined && { name: name }), // Inclui name apenas se não for undefined
+              tags: tags, // Atribui a string (pode ser vazia)
+              name: name, // Atribui a string (pode ser vazia)
               itens_relacionados: itensRelacionadosString.split(';').map(s => s.trim()).filter(s => s.length > 0).map(code => ({ codigo: code, name: code, desc: '' })), // Processa o array
             };
           }).filter((part): part is Part => part !== null);
@@ -579,7 +578,7 @@ const PartManagementTable: React.FC = () => {
     if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
       setFormItensRelacionados(prev => [...prev, relatedPartObject]);
       setRelatedSearchQuery('');
-      setSearchResultsRelated([]);
+      setRelatedSearchResults([]);
       showSuccess(`Peça '${part.codigo}' adicionada aos itens relacionados.`);
     } else {
       showError(`Peça '${part.codigo}' já está na lista de itens relacionados.`);
@@ -654,7 +653,7 @@ const PartManagementTable: React.FC = () => {
 
   const handleRelatedDrop = (e: React.DragEvent<HTMLDivElement>, targetItem: RelatedPart) => {
     e.preventDefault();
-    e.currentTarget.classList.remove('border-primary');
+    e.currentTarget.classList.remove('opacity-50');
 
     if (draggedRelatedItem && draggedRelatedItem.codigo !== targetItem.codigo) {
       const newRelatedItems = [...formItensRelacionados];

@@ -28,9 +28,9 @@ export interface Part {
   id: string;
   codigo: string;
   descricao: string;
-  tags?: string;
-  name?: string; // NOVO CAMPO: Nome global da peça
-  itens_relacionados?: RelatedPart[]; // ATUALIZADO para usar a nova interface
+  tags: string; // Alterado para ser sempre uma string
+  name: string; // Alterado para ser sempre uma string
+  itens_relacionados: RelatedPart[]; // Alterado para ser sempre um array
 }
 
 // Apontamento diário, agora parte de um array JSONB

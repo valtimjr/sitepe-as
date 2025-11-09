@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { MadeWithDyad } "@/components/made-with-dyad";
+import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -739,7 +739,7 @@ const TimeTrackingPage: React.FC = () => {
                                 </DropdownMenuItem>
                                 {isMobile && (
                                   <DropdownMenuItem onClick={() => handleStatusChange(day, 'Folga')} disabled={hasStatus}>
-                                    Folga
+                                    Folha
                                   </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem onClick={() => handleOpenOtherStatusDialog(day)} disabled={hasStatus}>

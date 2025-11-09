@@ -130,7 +130,7 @@ const AfManagementTable: React.FC = () => {
     try {
       const payload: Omit<Af, 'id'> = {
         af_number: formAfNumber.trim(),
-        ...(formDescricao.trim() !== '' && { descricao: formDescricao.trim() }), // Inclui descricao apenas se não for vazio
+        descricao: formDescricao.trim(), // Garante que descricao é sempre uma string
       };
 
       if (currentAf) {
@@ -212,14 +212,14 @@ const AfManagementTable: React.FC = () => {
           let newAfs: Af[] = parsedData.map(row => {
             const afNumber = getRowValue(row, ['af_number', 'codigo', 'AF']);
             // CHAVES DE BUSCA ATUALIZADAS
-            const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']); 
+            const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']) || ''; // Garante que descricao é sempre uma string
             
             if (!afNumber) return null;
 
             return {
               id: getRowValue(row, ['id']) || uuidv4(),
               af_number: afNumber,
-              ...(descricao !== undefined && { descricao: descricao }), // Inclui descricao apenas se não for undefined
+              descricao: descricao, // Atribui a string (pode ser vazia)
             };
           }).filter((af): af is Af => af !== null);
 
