@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
-import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'fns';
+import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CustomListItem } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
