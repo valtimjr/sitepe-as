@@ -39,7 +39,7 @@ export interface Af extends LocalAf {}
 export type Apontamento = DailyApontamento; // Apontamento agora é o DailyApontamento
 
 // Re-exportar getLocalMonthlyApontamento para que outros módulos possam importá-lo de partListService
-// REMOVIDO: export const getLocalMonthlyApontamento = getLocalMonthlyApontamentoFromDb;
+export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;
 
 // Helper para garantir que DailyApontamento objetos não contenham um campo 'id' ou 'user_id'
 const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
@@ -181,11 +181,13 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
 
       const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
-      
       const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
       const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      if (aNameScore !== bNameScore) return bNameScore - aNameScore;
+      
+      const combinedAScore = Math.max(aDescricaoScore, aNameScore);
+      const combinedBScore = Math.max(bDescricaoScore, bNameScore);
+
+      if (combinedAScore !== combinedBScore) return combinedBScore - combinedAScore;
 
       return 0;
     });
