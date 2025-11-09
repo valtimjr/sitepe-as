@@ -136,23 +136,23 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   doc.text(title, 14, currentY);
   currentY += 10;
 
+  let currentGroupType: 'item' | 'mangueira' | null = null;
+  let currentGroupRows: any[] = [];
+
   const simpleItemHeader = [
     { content: "Qtd", styles: { halign: 'center' } },
-    { content: "Item / Código / Descrição" },
-    { content: "Itens Relacionados", colSpan: 3 }
+    { content: "Item / Código / Descrição", colSpan: 2 },
+    { content: "Itens Relacionados", colSpan: 2 }
   ];
   const mangueiraHeader = ["Qtd", "Mangueira", "Corte (cm)", "Conexão 1", "Conexão 2"];
 
   const columnStyles = {
     0: { cellWidth: 15, halign: 'center' }, // Qtd
-    1: { cellWidth: 60 }, // Componente Principal
-    2: { cellWidth: 35 }, // Detalhe 1
-    3: { cellWidth: 40 }, // Detalhe 2
-    4: { cellWidth: 40 }, // Detalhe 3
+    1: { cellWidth: 45 }, // Mangueira / Item part 1
+    2: { cellWidth: 45 }, // Corte / Item part 2
+    3: { cellWidth: 40 }, // Conexão 1 / Related part 1
+    4: { cellWidth: 40 }, // Conexão 2 / Related part 2
   };
-
-  let currentGroupType: 'item' | 'mangueira' | null = null;
-  let currentGroupRows: any[] = [];
 
   const renderGroup = () => {
     if (currentGroupRows.length === 0) return;
@@ -222,8 +222,8 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         .join('\n');
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
-        `${item.item_name}\n${item.part_code ? `Cód: ${item.part_code}` : ''}\n${item.description || ''}`.trim(),
-        { content: relatedItemsText, colSpan: 3 },
+        { content: `${item.item_name}\n${item.part_code ? `Cód: ${item.part_code}` : ''}\n${item.description || ''}`.trim(), colSpan: 2 },
+        { content: relatedItemsText, colSpan: 2 },
       ]);
     }
   });
