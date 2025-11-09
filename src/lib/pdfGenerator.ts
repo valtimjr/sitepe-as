@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
-import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
+import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'fns';
 import { ptBR } from 'date-fns/locale';
 import { CustomListItem } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
@@ -129,7 +129,7 @@ export const generatePartsListPdf = async (listItems: SimplePartItem[], title: s
 };
 
 export const generateCustomListPdf = (listItems: CustomListItem[], title: string): void => {
-  const doc = new jsPDF({ orientation: 'landscape' }); // Alterado para landscape para acomodar mais colunas
+  const doc = new jsPDF({ orientation: 'portrait' }); // Alterado para portrait
   let currentY = 22;
 
   doc.setFontSize(18);

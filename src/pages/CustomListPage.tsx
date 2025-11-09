@@ -481,18 +481,41 @@ const CustomListPage: React.FC = () => {
           <TableCell className="w-[6rem] p-2 text-center font-medium text-lg">
             {data.corte_cm}
           </TableCell>
-          <TableCell className="w-auto p-2">
-            <div className="flex flex-col items-start space-y-2">
-              <div>
-                <span className="font-medium text-sm">C1: {data.conexao1.name || data.conexao1.codigo}</span>
-                <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao1.codigo}</span>
+          {isMobile ? (
+            <TableCell className="w-auto p-2" colSpan={2}>
+              <div className="flex flex-col items-start space-y-2">
+                <div>
+                  <span className="font-medium text-sm">C1: {data.conexao1.name || data.conexao1.codigo}</span>
+                  <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao1.codigo}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-sm">C2: {data.conexao2.name || data.conexao2.codigo}</span>
+                  <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao2.codigo}</span>
+                </div>
               </div>
-              <div>
-                <span className="font-medium text-sm">C2: {data.conexao2.name || data.conexao2.codigo}</span>
-                <span className="text-xs text-muted-foreground italic block">Cód: {data.conexao2.codigo}</span>
-              </div>
-            </div>
-          </TableCell>
+            </TableCell>
+          ) : (
+            <>
+              <TableCell className="w-auto p-2">
+                <div className="flex flex-col items-start">
+                  <span className="font-medium text-sm whitespace-normal break-words">{data.conexao1.name || data.conexao1.codigo}</span>
+                  {data.conexao1.description && (
+                    <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.conexao1.description}</span>
+                  )}
+                  <span className="text-xs text-muted-foreground mt-1">Cód: {data.conexao1.codigo}</span>
+                </div>
+              </TableCell>
+              <TableCell className="w-auto p-2">
+                <div className="flex flex-col items-start">
+                  <span className="font-medium text-sm whitespace-normal break-words">{data.conexao2.name || data.conexao2.codigo}</span>
+                  {data.conexao2.description && (
+                    <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.conexao2.description}</span>
+                  )}
+                  <span className="text-xs text-muted-foreground mt-1">Cód: {data.conexao2.codigo}</span>
+                </div>
+              </TableCell>
+            </>
+          )}
           <TableCell className="w-[70px] p-2 text-right">
             <div className="flex justify-end items-center gap-1">
               <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
@@ -536,7 +559,7 @@ const CustomListPage: React.FC = () => {
           </div>
         </TableCell>
         <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-        <TableCell className="w-auto p-2" colSpan={2}>
+        <TableCell className="w-auto p-2" colSpan={isMobile ? 3 : 2}>
           <div className="flex flex-col items-start">
             {item.part_code && (
               <span className="font-medium text-sm text-primary">{item.part_code}</span>
@@ -664,8 +687,9 @@ const CustomListPage: React.FC = () => {
         />
       </TableHead>
       <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
-      <TableHead className="w-auto p-2 text-left font-bold text-sm" colSpan={2}>Item / Código / Descrição</TableHead>
+      <TableHead className="w-auto p-2 text-left font-bold text-sm" colSpan={isMobile ? 3 : 2}>Item / Código / Descrição</TableHead>
       <TableHead className="w-auto p-2 text-left font-bold text-sm">Detalhes</TableHead>
+      {!isMobile && <TableHead className="w-auto p-2"></TableHead>}
       <TableHead className="w-[70px] p-2 text-right"></TableHead>
     </TableRow>
   );
@@ -682,7 +706,14 @@ const CustomListPage: React.FC = () => {
       <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
       <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
       <TableHead className="w-[6rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
-      <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexões</TableHead>
+      {isMobile ? (
+        <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm" colSpan={2}>Conexões</TableHead>
+      ) : (
+        <>
+          <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 1</TableHead>
+          <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 2</TableHead>
+        </>
+      )}
       <TableHead className="w-[70px] p-2 text-right"></TableHead>
     </TableRow>
   );
