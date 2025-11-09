@@ -136,33 +136,32 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   doc.text(title, 14, currentY);
   currentY += 10;
 
+  const simpleItemHeader = [
+    { content: "Qtd", styles: { halign: 'center' } },
+    { content: "Item / Código / Descrição" },
+    { content: "Itens Relacionados", colSpan: 3 }
+  ];
+  const mangueiraHeader = ["Qtd", "Mangueira", "Corte (cm)", "Conexão 1", "Conexão 2"];
+
+  const columnStyles = {
+    0: { cellWidth: 15, halign: 'center' }, // Qtd
+    1: { cellWidth: 60 }, // Componente Principal
+    2: { cellWidth: 35 }, // Detalhe 1
+    3: { cellWidth: 40 }, // Detalhe 2
+    4: { cellWidth: 40 }, // Detalhe 3
+  };
+
   let currentGroupType: 'item' | 'mangueira' | null = null;
   let currentGroupRows: any[] = [];
-
-  const simpleItemHeader = ["Qtd", "Item / Código / Descrição", "Itens Relacionados"];
-  const mangueiraHeader = ["Qtd", "Mangueira", "Corte (cm)", "Conexão 1", "Conexão 2"];
 
   const renderGroup = () => {
     if (currentGroupRows.length === 0) return;
 
-    let head, columnStyles;
-
+    let head;
     if (currentGroupType === 'item') {
       head = [simpleItemHeader];
-      columnStyles = {
-        0: { cellWidth: 15, halign: 'center' }, // Qtd
-        1: { cellWidth: 'auto' }, // Item
-        2: { cellWidth: 60 }, // Relacionados
-      };
     } else if (currentGroupType === 'mangueira') {
       head = [mangueiraHeader];
-      columnStyles = {
-        0: { cellWidth: 15, halign: 'center' }, // Qtd
-        1: { cellWidth: 45 }, // Mangueira
-        2: { cellWidth: 20, halign: 'center' }, // Corte
-        3: { cellWidth: 45 }, // Conexão 1
-        4: { cellWidth: 45 }, // Conexão 2
-      };
     }
 
     if (head) {
@@ -177,7 +176,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         margin: { top: 10, left: 14, right: 14 },
         columnStyles: columnStyles,
       });
-      currentY = (doc as any).lastAutoTable.finalY + 5;
+      currentY = (doc as any).lastAutoTable.finalY; // Tables will be "stuck together"
     }
 
     currentGroupRows = [];
@@ -188,8 +187,8 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
     if (item.type === 'separator') {
       renderGroup();
       doc.setDrawColor(150, 150, 150);
-      doc.line(14, currentY, 196, currentY);
-      currentY += 5;
+      doc.line(14, currentY + 2, 196, currentY + 2); // Draw a line
+      currentY += 4;
       return;
     }
 
@@ -203,17 +202,17 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
       return;
     }
 
-    if (item.type !== currentGroupType) {
+    if (item.type !== currentGroupType && currentGroupType !== null) {
       renderGroup();
-      currentGroupType = item.type;
     }
+    currentGroupType = item.type;
 
     if (item.type === 'mangueira' && item.mangueira_data) {
       const data = item.mangueira_data;
       currentGroupRows.push([
         { content: '1', styles: { halign: 'center' } },
         `${data.mangueira.name || data.mangueira.codigo}\nCód: ${data.mangueira.codigo}`,
-        { content: data.corte_cm, styles: { halign: 'center' } },
+        { content: `${data.corte_cm} cm`, styles: { halign: 'center' } },
         `${data.conexao1.name || data.conexao1.codigo}\nCód: ${data.conexao1.codigo}`,
         `${data.conexao2.name || data.conexao2.codigo}\nCód: ${data.conexao2.codigo}`,
       ]);
@@ -223,8 +222,8 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         .join('\n');
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
-        `${item.item_name}\n${item.part_code || ''}\n${item.description || ''}`,
-        relatedItemsText,
+        `${item.item_name}\n${item.part_code ? `Cód: ${item.part_code}` : ''}\n${item.description || ''}`.trim(),
+        { content: relatedItemsText, colSpan: 3 },
       ]);
     }
   });
