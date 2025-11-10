@@ -23,6 +23,7 @@ import { SessionContextProvider } from "./components/SessionContextProvider";
 import AppHeader from "./components/AppHeader";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 import { useOfflineSync } from "./hooks/useOfflineSync";
+import WelcomeModal from "./components/WelcomeModal";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const AppContent = () => {
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <WelcomeModal />
       <CookieConsentBanner /> {/* Movido para dentro do BrowserRouter */}
     </>
   );

@@ -199,10 +199,11 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
     if (item.type === 'subtitle') {
       renderGroup();
+      currentY += 5;
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
-      doc.setTextColor(37, 99, 235); // primary color
-      doc.text(item.item_name.toUpperCase(), 14, currentY);
+      doc.setTextColor(0, 0, 0); // primary color
+      doc.text(item.item_name, 14, currentY);
       currentY += 7;
       return;
     }
