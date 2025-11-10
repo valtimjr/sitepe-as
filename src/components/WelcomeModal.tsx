@@ -13,20 +13,44 @@ import {
 import { AlertTriangle } from 'lucide-react';
 
 const WELCOME_NOTICE_KEY = 'welcome_notice_accepted';
+const COOKIE_CONSENT_KEY = 'cookie_consent_given';
 
 const WelcomeModal: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const hasAccepted = localStorage.getItem(WELCOME_NOTICE_KEY);
-    if (hasAccepted !== 'true') {
-      // Use a small delay to ensure the page has rendered before showing the modal
+    const hasAcceptedWelcome = localStorage.getItem(WELCOME_NOTICE_KEY);
+    const hasGivenCookieConsent = localStorage.getItem(COOKIE_CONSENT_KEY);
+
+    // Only show the welcome modal if cookie consent is given AND welcome notice is not yet accepted.
+    if (hasGivenCookieConsent === 'true' && hasAcceptedWelcome !== 'true') {
       const timer = setTimeout(() => {
         setIsOpen(true);
       }, 500);
       return () => clearTimeout(timer);
     }
+  }, []); // This effect runs only once on mount. We need another way to trigger it.
+
+  // This effect listens for changes in localStorage to open the modal
+  // after cookie consent is given on the same page load.
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const hasAcceptedWelcome = localStorage.getItem(WELCOME_NOTICE_KEY);
+      const hasGivenCookieConsent = localStorage.getItem(COOKIE_CONSENT_KEY);
+      if (hasGivenCookieConsent === 'true' && hasAcceptedWelcome !== 'true') {
+        setIsOpen(true);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    // Also check when the component mounts, in case the value is already set
+    handleStorageChange();
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
+
 
   const handleAccept = () => {
     localStorage.setItem(WELCOME_NOTICE_KEY, 'true');
