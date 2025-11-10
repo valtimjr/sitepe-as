@@ -50,17 +50,19 @@ const WelcomeModal: React.FC = () => {
             <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
             <span className="text-yellow-800 dark:text-yellow-200">Aviso Importante!!!</span>
           </AlertDialogTitle>
-          <AlertDialogDescription className="space-y-4 text-foreground/80 text-base">
-            <p>Por favor, leia atentamente o aviso abaixo antes de continuar.</p>
-            <p className="font-bold text-foreground">
-              Este site não é oficial e não possui vínculo direto com nenhuma empresa.
-            </p>
-            <p>
-              As informações aqui apresentadas têm caráter meramente informativo e servem apenas para auxiliar os colaboradores.
-            </p>
-            <p>
-              Alterações podem ocorrer a qualquer momento sem aviso prévio, e o site não se responsabiliza por divergências ou atualizações realizadas pela empresa.
-            </p>
+          <AlertDialogDescription asChild>
+            <div className="space-y-4 text-foreground/80 text-base">
+              <p>Por favor, leia atentamente o aviso abaixo antes de continuar.</p>
+              <p className="font-bold text-foreground">
+                Este site não é oficial e não possui vínculo direto com nenhuma empresa.
+              </p>
+              <p>
+                As informações aqui apresentadas têm caráter meramente informativo e servem apenas para auxiliar os colaboradores.
+              </p>
+              <p>
+                Alterações podem ocorrer a qualquer momento sem aviso prévio, e o site não se responsabiliza por divergências ou atualizações realizadas pela empresa.
+              </p>
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
