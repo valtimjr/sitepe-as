@@ -215,17 +215,17 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
     if (item.type === 'mangueira' && item.mangueira_data) {
       const data = item.mangueira_data;
       const createContent = (partData: MangueiraPartDetails) => {
-        let content = '';
+        const content = [];
         if (partData.codigo) {
-          content += `Cód.: ${partData.codigo}\n`;
+          content.push({ content: `Cód.: ${partData.codigo}`, styles: { fontStyle: 'bold' } });
         }
         if (partData.name) {
-          content += `${partData.name}\n`;
+          content.push({ content: partData.name, styles: { fontStyle: 'normal' } });
         }
         if (partData.description) {
-          content += `${partData.description}`;
+          content.push({ content: partData.description, styles: { fontStyle: 'italic', fontSize: 8 } });
         }
-        return content.trim();
+        return content;
       };
 
       currentGroupRows.push([
@@ -236,18 +236,25 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         createContent(data.conexao2),
       ]);
     } else if (item.type === 'item') {
-      let descriptionContent = '';
+      const descriptionContent = [];
       if (item.item_name) {
-        descriptionContent += item.item_name;
+        descriptionContent.push({
+          content: item.item_name,
+          styles: { fontStyle: 'normal', fontSize: 9 }
+        });
       }
       if (item.description) {
-        descriptionContent += `\n${item.description}`;
+        const prefix = item.item_name ? '\n' : '';
+        descriptionContent.push({
+          content: prefix + item.description,
+          styles: { fontStyle: 'italic', fontSize: 8 }
+        });
       }
 
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
         item.part_code ? `Cód.: ${item.part_code}` : '',
-        descriptionContent.trim(),
+        descriptionContent,
       ]);
     }
   });
