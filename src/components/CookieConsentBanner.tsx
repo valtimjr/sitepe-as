@@ -208,7 +208,7 @@ const CookieConsentBanner: React.FC = () => {
   return (
     <Card 
       className={cn(
-        "fixed bottom-4 right-4 w-full max-w-sm shadow-xl z-[100]",
+        "fixed bottom-4 right-4 w-full max-w-sm shadow-xl z-[9999]",
         showPreferences ? "max-w-md" : "max-w-sm"
       )}
     >
