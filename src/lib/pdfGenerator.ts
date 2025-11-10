@@ -169,7 +169,6 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
           const { x, y, width, padding } = data.cell;
           const cellInnerY = y + padding.top;
 
-          // Correctly handle fillColor
           const fillColor = data.cell.styles.fillColor || [255, 255, 255];
           if (Array.isArray(fillColor)) {
             doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
@@ -183,7 +182,9 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
           doc.setTextColor(40, 40, 40);
 
           const nomeLines = doc.splitTextToSize(_nome, width - padding.left - padding.right);
-          doc.text(nomeLines, x + padding.left, cellInnerY + 4);
+          if (nomeLines && nomeLines.length > 0) {
+            doc.text(nomeLines, x + padding.left, cellInnerY + 4);
+          }
           const nomeHeight = doc.getTextDimensions(nomeLines).h;
 
           if (_descricao) {
@@ -192,7 +193,9 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
             doc.setTextColor(100, 100, 100);
             
             const descricaoLines = doc.splitTextToSize(_descricao, width - padding.left - padding.right);
-            doc.text(descricaoLines, x + padding.left, cellInnerY + nomeHeight + 1.5);
+            if (descricaoLines && descricaoLines.length > 0) {
+              doc.text(descricaoLines, x + padding.left, cellInnerY + nomeHeight + 1.5);
+            }
           }
         }
       };
