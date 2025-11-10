@@ -159,10 +159,37 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   const renderGroup = () => {
     if (currentGroupRows.length === 0) return;
 
-    let head, columnStyles;
+    let head, columnStyles, didDrawCellHook;
     if (currentGroupType === 'item') {
       head = [simpleItemHeader];
       columnStyles = simpleItemColumnStyles;
+      didDrawCellHook = (data: any) => {
+        if (data.column.index === 2 && data.cell.raw && data.cell.raw._nome !== undefined) {
+          const { _nome, _descricao } = data.cell.raw;
+          const { x, y, width, padding } = data.cell;
+          const cellInnerY = y + padding.top;
+
+          doc.setFillColor(data.cell.styles.fillColor);
+          doc.rect(x, y, data.cell.width, data.cell.height, 'F');
+
+          doc.setFont(undefined, 'normal');
+          doc.setFontSize(9);
+          doc.setTextColor(40, 40, 40);
+
+          const nomeLines = doc.splitTextToSize(_nome, width - padding.left - padding.right);
+          doc.text(nomeLines, x + padding.left, cellInnerY + 4);
+          const nomeHeight = doc.getTextDimensions(nomeLines).h;
+
+          if (_descricao) {
+            doc.setFont(undefined, 'italic');
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            
+            const descricaoLines = doc.splitTextToSize(_descricao, width - padding.left - padding.right);
+            doc.text(descricaoLines, x + padding.left, cellInnerY + nomeHeight + 1.5);
+          }
+        }
+      };
     } else if (currentGroupType === 'mangueira') {
       head = [mangueiraHeader];
       columnStyles = mangueiraColumnStyles;
@@ -179,6 +206,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         alternateRowStyles: { fillColor: [248, 249, 250] },
         margin: { top: 10, left: 14, right: 14 },
         columnStyles: columnStyles,
+        didDrawCell: didDrawCellHook,
       });
       currentY = (doc as any).lastAutoTable.finalY;
     }
@@ -201,7 +229,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
       renderGroup();
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
-      doc.setTextColor(37, 99, 235); // primary color
+      doc.setTextColor(37, 99, 235);
       doc.text(item.item_name.toUpperCase(), 14, currentY);
       currentY += 7;
       return;
@@ -216,15 +244,9 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
       const data = item.mangueira_data;
       const createContent = (partData: MangueiraPartDetails) => {
         let content = '';
-        if (partData.codigo) {
-          content += `Cód.: ${partData.codigo}\n`;
-        }
-        if (partData.name) {
-          content += `${partData.name}\n`;
-        }
-        if (partData.description) {
-          content += `${partData.description}`;
-        }
+        if (partData.codigo) content += `Cód.: ${partData.codigo}\n`;
+        if (partData.name) content += `${partData.name}\n`;
+        if (partData.description) content += `${partData.description}`;
         return content.trim();
       };
 
@@ -236,23 +258,23 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         createContent(data.conexao2),
       ]);
     } else if (item.type === 'item') {
-      let descriptionContent = '';
-      if (item.item_name) {
-        descriptionContent += item.item_name;
-      }
-      if (item.description) {
-        descriptionContent += `\n${item.description}`;
-      }
+      const nome = item.item_name || '';
+      const descricao = item.description || '';
+      const cellContent = {
+        content: `${nome}\n${descricao}`,
+        _nome: nome,
+        _descricao: descricao
+      };
 
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
         item.part_code ? `Cód.: ${item.part_code}` : '',
-        descriptionContent.trim(),
+        cellContent,
       ]);
     }
   });
 
-  renderGroup(); // Render the last group
+  renderGroup();
 
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);
 };
