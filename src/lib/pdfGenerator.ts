@@ -182,7 +182,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
           doc.setTextColor(40, 40, 40);
 
           const nomeLines = doc.splitTextToSize(_nome, width - padding.left - padding.right);
-          if (nomeLines && nomeLines.length > 0) {
+          if (nomeLines && nomeLines.length > 0 && nomeLines[0]) {
             doc.text(nomeLines, x + padding.left, cellInnerY + 4);
           }
           const nomeHeight = doc.getTextDimensions(nomeLines).h;
@@ -193,7 +193,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
             doc.setTextColor(100, 100, 100);
             
             const descricaoLines = doc.splitTextToSize(_descricao, width - padding.left - padding.right);
-            if (descricaoLines && descricaoLines.length > 0) {
+            if (descricaoLines && descricaoLines.length > 0 && descricaoLines[0]) {
               doc.text(descricaoLines, x + padding.left, cellInnerY + nomeHeight + 1.5);
             }
           }
