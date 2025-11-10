@@ -13,54 +13,32 @@ import {
 import { AlertTriangle } from 'lucide-react';
 
 const WELCOME_NOTICE_KEY = 'welcome_notice_accepted';
-const COOKIE_CONSENT_KEY = 'cookie_consent_given';
 
 const WelcomeModal: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     const hasAcceptedWelcome = localStorage.getItem(WELCOME_NOTICE_KEY);
-    const hasGivenCookieConsent = localStorage.getItem(COOKIE_CONSENT_KEY);
 
-    // Only show the welcome modal if cookie consent is given AND welcome notice is not yet accepted.
-    if (hasGivenCookieConsent === 'true' && hasAcceptedWelcome !== 'true') {
+    // Mostra o modal apenas se o aviso de boas-vindas ainda não foi aceito.
+    if (hasAcceptedWelcome !== 'true') {
       const timer = setTimeout(() => {
         setIsOpen(true);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, []); // This effect runs only once on mount. We need another way to trigger it.
-
-  // This effect listens for changes in localStorage to open the modal
-  // after cookie consent is given on the same page load.
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const hasAcceptedWelcome = localStorage.getItem(WELCOME_NOTICE_KEY);
-      const hasGivenCookieConsent = localStorage.getItem(COOKIE_CONSENT_KEY);
-      if (hasGivenCookieConsent === 'true' && hasAcceptedWelcome !== 'true') {
-        setIsOpen(true);
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    // Also check when the component mounts, in case the value is already set
-    handleStorageChange();
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
   }, []);
-
 
   const handleAccept = () => {
     localStorage.setItem(WELCOME_NOTICE_KEY, 'true');
     setIsOpen(false);
+    // Dispara um evento para que o banner de cookies possa reagir imediatamente.
+    window.dispatchEvent(new Event('storage'));
   };
 
-  // We don't want the modal to be closable by clicking outside or pressing Escape
+  // Não permite que o modal seja fechado clicando fora ou pressionando Escape.
   const handleOpenChange = (open: boolean) => {
-    if (!open) {
-      // Prevent closing unless the accept button is clicked
+    if (!open && !localStorage.getItem(WELCOME_NOTICE_KEY)) {
       return;
     }
     setIsOpen(open);

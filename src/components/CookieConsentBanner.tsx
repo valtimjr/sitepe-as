@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom'; // Importar Link
 
 const COOKIE_CONSENT_KEY = 'cookie_consent_given';
 const COOKIE_PREFERENCES_KEY = 'cookie_preferences';
+const WELCOME_NOTICE_KEY = 'welcome_notice_accepted';
 
 interface CookiePreferences {
   essenciais: boolean;
@@ -36,21 +37,39 @@ const CookieConsentBanner: React.FC = () => {
   const [preferences, setPreferences] = useState<CookiePreferences>(defaultPreferences);
 
   useEffect(() => {
-    const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
-    if (consent !== 'true') {
-      const savedPrefs = localStorage.getItem(COOKIE_PREFERENCES_KEY);
-      if (savedPrefs) {
-        setPreferences(JSON.parse(savedPrefs));
+    const checkAndShowBanner = () => {
+      const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
+      const welcomeAccepted = localStorage.getItem(WELCOME_NOTICE_KEY);
+
+      // Mostra o banner apenas se o aviso de boas-vindas foi aceito E o consentimento de cookies ainda não foi dado.
+      if (welcomeAccepted === 'true' && consent !== 'true') {
+        const savedPrefs = localStorage.getItem(COOKIE_PREFERENCES_KEY);
+        if (savedPrefs) {
+          setPreferences(JSON.parse(savedPrefs));
+        }
+        const timer = setTimeout(() => {
+          setIsOpen(true);
+        }, 500); // Pequeno atraso para aparecer suavemente após o modal de boas-vindas.
+        return () => clearTimeout(timer);
+      } else {
+        setIsOpen(false);
       }
-      const timer = setTimeout(() => {
-        setIsOpen(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
+    };
+
+    checkAndShowBanner();
+
+    // Ouve o evento 'storage' para reagir quando o modal de boas-vindas for aceito na mesma sessão.
+    window.addEventListener('storage', checkAndShowBanner);
+
+    return () => {
+      window.removeEventListener('storage', checkAndShowBanner);
+    };
   }, []);
 
   const savePreferences = (prefs: CookiePreferences) => {
     localStorage.setItem(COOKIE_PREFERENCES_KEY, JSON.stringify(prefs));
+    // Dispara o evento de storage para que outros componentes possam reagir se necessário.
+    window.dispatchEvent(new Event('storage'));
   };
 
   const handleAcceptAll = () => {
