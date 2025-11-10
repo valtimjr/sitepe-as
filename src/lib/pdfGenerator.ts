@@ -236,28 +236,18 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         createContent(data.conexao2),
       ]);
     } else if (item.type === 'item') {
-      const nome = item.item_name || '';
-      const descricao = item.description || '';
-
-      // jspdf-autotable can accept an array to create multi-line content with different styles
-      const descriptionContent = [];
-      if (nome) {
-        descriptionContent.push({
-          content: nome.trim(),
-          styles: { fontStyle: 'normal' }
-        });
+      let descriptionContent = '';
+      if (item.item_name) {
+        descriptionContent += item.item_name;
       }
-      if (descricao) {
-        descriptionContent.push({
-          content: descricao.trim(),
-          styles: { fontStyle: 'italic', fontSize: 8 }
-        });
+      if (item.description) {
+        descriptionContent += `\n${item.description}`;
       }
 
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
         item.part_code ? `Cód.: ${item.part_code}` : '',
-        descriptionContent,
+        descriptionContent.trim(),
       ]);
     }
   });
