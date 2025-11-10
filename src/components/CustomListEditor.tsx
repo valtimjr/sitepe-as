@@ -823,7 +823,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
               <AfSearchInput
                 value={afForExport}
                 onChange={setAfForExport}
-                availableAfs={allAvailableAfs}
                 onSelectAf={setAfForExport}
               />
             </div>

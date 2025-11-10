@@ -30,9 +30,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(false);
-  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
   const isMobile = useIsMobile();
 
@@ -70,11 +68,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
 
   useEffect(() => {
     const loadInitialData = async () => {
-      setIsLoadingAfs(true);
-      const afs = await getAfsFromService();
-      setAllAvailableAfs(afs);
-      setIsLoadingAfs(false);
-
       const parts = await getParts();
       setAllAvailableParts(parts);
     };
@@ -182,7 +175,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
 
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !selectedPart;
+  const isSubmitDisabled = isLoadingParts || !selectedPart;
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -297,7 +290,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
             <AfSearchInput
               value={af}
               onChange={setAf}
-              availableAfs={allAvailableAfs}
               onSelectAf={handleSelectAf}
             />
           </div>

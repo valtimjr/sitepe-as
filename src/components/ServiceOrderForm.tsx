@@ -60,9 +60,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
-  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
   const [isOsInvalid, setIsOsInvalid] = useState(false);
 
@@ -72,11 +70,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       const parts = await getParts();
       setAllAvailableParts(parts);
       setIsLoadingParts(false);
-
-      setIsLoadingAfs(true);
-      const afs = await getAfsFromService();
-      setAllAvailableAfs(afs);
-      setIsLoadingAfs(false);
     };
     loadInitialData();
   }, []);
@@ -385,7 +378,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
   
   // Desabilita o botão de submit se AF for vazio ou OS inválida
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) || isOsInvalid;
+  const isSubmitDisabled = isLoadingParts || (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) || isOsInvalid;
 
   // Determina quais seções mostrar
   const showOsDetails = mode === 'create-new-so' || mode === 'edit-so-details'; // Alterado para ocultar em modos de peça
@@ -426,7 +419,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                 <AfSearchInput
                   value={af}
                   onChange={setAf}
-                  availableAfs={allAvailableAfs}
                   onSelectAf={handleSelectAf}
                   readOnly={isOsDetailsReadOnly}
                 />

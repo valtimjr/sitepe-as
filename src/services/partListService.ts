@@ -438,6 +438,34 @@ export const getAfsFromService = async (): Promise<Af[]> => {
   }
 };
 
+export const searchAfs = async (query: string): Promise<Af[]> => {
+  const lowerCaseQuery = query.toLowerCase().trim();
+  if (lowerCaseQuery.length < 1) return [];
+
+  try {
+    const searchPattern = `%${lowerCaseQuery}%`;
+    const { data, error } = await supabase
+      .from('afs')
+      .select('*')
+      .or(`af_number.ilike.${searchPattern},descricao.ilike.${searchPattern}`)
+      .order('af_number', { ascending: true })
+      .limit(50);
+
+    if (error) {
+      throw error;
+    }
+    return data as Af[];
+  } catch (error) {
+    console.error('[searchAfs] Erro ao buscar AFs:', error);
+    // Fallback para busca local
+    const allAfs = await getLocalAfs();
+    return allAfs.filter(af => 
+      af.af_number.toLowerCase().includes(lowerCaseQuery) ||
+      (af.descricao && af.descricao.toLowerCase().includes(lowerCaseQuery))
+    ).slice(0, 50);
+  }
+};
+
 export const getAllAfsForExport = async (): Promise<Af[]> => {
   let allData: Af[] = [];
   const pageSize = 1000; // Define o tamanho da página
