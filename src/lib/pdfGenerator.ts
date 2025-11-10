@@ -169,7 +169,13 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
           const { x, y, width, padding } = data.cell;
           const cellInnerY = y + padding.top;
 
-          doc.setFillColor(data.cell.styles.fillColor);
+          // Correctly handle fillColor
+          const fillColor = data.cell.styles.fillColor || [255, 255, 255];
+          if (Array.isArray(fillColor)) {
+            doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
+          } else {
+            doc.setFillColor(fillColor);
+          }
           doc.rect(x, y, data.cell.width, data.cell.height, 'F');
 
           doc.setFont(undefined, 'normal');
