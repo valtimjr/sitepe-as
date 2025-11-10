@@ -308,7 +308,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             (item.os === initialSoData.os || (item.os === undefined && initialSoData.os === undefined)) &&
             (item.hora_inicio === initialSoData.hora_inicio || (item.hora_inicio === undefined && initialSoData.hora_inicio === undefined)) &&
             (item.hora_final === initialSoData.hora_final || (initialSoData.hora_final === undefined && item.hora_final === undefined)) &&
-            (item.servico_executado === initialSoData.servico_executado || (initialSoData.servico_executado === undefined && initialSoData.servico_executado === undefined)) &&
+            (item.servico_executado === initialSoData.servico_executado || (initialSoData.servico_executado === undefined && item.servico_executado === undefined)) &&
             !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
           );
           if (blankItem) {
@@ -423,17 +423,13 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             <>
               <div>
                 <Label htmlFor="af">AF (Número de Frota)</Label>
-                {isLoadingAfs ? (
-                  <Input value="Carregando AFs..." readOnly className="bg-muted" />
-                ) : (
-                  <AfSearchInput
-                    value={af}
-                    onChange={setAf}
-                    availableAfs={allAvailableAfs}
-                    onSelectAf={handleSelectAf}
-                    readOnly={isOsDetailsReadOnly}
-                  />
-                )}
+                <AfSearchInput
+                  value={af}
+                  onChange={setAf}
+                  availableAfs={allAvailableAfs}
+                  onSelectAf={handleSelectAf}
+                  readOnly={isOsDetailsReadOnly}
+                />
               </div>
               <div>
                 <Label htmlFor="os" className={cn(isOsInvalid && 'text-destructive')}>OS (Opcional)</Label>

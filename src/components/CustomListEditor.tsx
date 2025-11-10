@@ -277,7 +277,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
 
   const handleExportCsv = () => {
     if (items.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de exportar.');
+      showError('Nenhum item para exportar.');
       return;
     }
     exportDataAsCsv(items, `${list.title.replace(/\s/g, '_')}_itens.csv`);
@@ -286,7 +286,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
 
   const handleExportPdf = () => {
     if (items.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de exportar.');
+      showError('Nenhum item para exportar.');
       return;
     }
     lazyGenerateCustomListPdf(items, list.title);
@@ -322,17 +322,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
   const handleSubtitleSelect = (subtitleItem: CustomListItem, isChecked: boolean) => {
     const startIndex = items.findIndex(i => i.id === subtitleItem.id);
     if (startIndex === -1) return;
-
     let endIndex = items.findIndex((i, idx) => idx > startIndex && i.type === 'subtitle');
     if (endIndex === -1) {
       endIndex = items.length;
     }
-
     const itemsInGroup = items.slice(startIndex, endIndex);
     const selectableIdsInGroup = itemsInGroup
       .filter(i => i.type === 'item' || i.type === 'mangueira')
       .map(item => item.id);
-
     setSelectedItemIds(prev => {
       const newSelection = new Set(prev);
       if (isChecked) {
@@ -441,10 +438,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
       const startIndex = items.findIndex(i => i.id === item.id);
       let endIndex = items.findIndex((i, idx) => idx > startIndex && i.type === 'subtitle');
       if (endIndex === -1) endIndex = items.length;
-
       const groupSelectableItems = items.slice(startIndex, endIndex).filter(i => i.type === 'item' || i.type === 'mangueira');
       const selectedInGroupCount = groupSelectableItems.filter(i => selectedItemIds.has(i.id)).length;
-
       const isGroupAllSelected = groupSelectableItems.length > 0 && selectedInGroupCount === groupSelectableItems.length;
       const isGroupIndeterminate = selectedInGroupCount > 0 && !isGroupAllSelected;
 
@@ -588,10 +583,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
           <GripVertical className="h-4 w-4" />
         </TableCell>
         <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-        <TableCell colSpan={3} className="w-auto whitespace-normal break-words p-2 text-left">
+        <TableCell className="w-auto whitespace-normal break-words p-2 text-left" colSpan={isMobile ? 4 : 3}>
             <div className="flex flex-col items-start">
               {item.part_code && (
-                <span className="font-medium text-sm text-primary whitespace-normal break-words">{item.part_code}</span>
+                <span className="font-medium text-sm text-primary whitespace-normal break-words">
+                  Cód.: {item.part_code}
+                </span>
               )}
               <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
               {item.description && (
@@ -646,6 +643,43 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
       </TableRow>
     );
   };
+
+  const SimpleItemHeader = () => (
+    <TableRow className="bg-muted/50 border-y border-primary/50">
+      <TableHead className="w-[40px] p-2">
+        <Checkbox
+          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+          onCheckedChange={handleToggleSelectAll}
+          aria-label="Selecionar todos os itens"
+        />
+      </TableHead>
+      <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
+      <TableHead className="w-auto p-2 text-left font-bold text-sm" colSpan={isMobile ? 4 : 3}>Item / Código / Descrição</TableHead>
+    </TableRow>
+  );
+
+  const MangueiraHeader = () => (
+    <TableRow className="bg-muted/50 border-y border-primary/50">
+      <TableHead className="w-[40px] p-2">
+        <Checkbox
+          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+          onCheckedChange={handleToggleSelectAll}
+          aria-label="Selecionar todos os itens"
+        />
+      </TableHead>
+      <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
+      <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
+      <TableHead className="w-[6rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
+      {isMobile ? (
+        <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm" colSpan={2}>Conexões</TableHead>
+      ) : (
+        <>
+          <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 1</TableHead>
+          <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 2</TableHead>
+        </>
+      )}
+    </TableRow>
+  );
 
   return (
     <Card className="w-full">
@@ -723,22 +757,32 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
         ) : (
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40px] p-2">
-                    <Checkbox
-                      checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-                      onCheckedChange={handleToggleSelectAll}
-                      aria-label="Selecionar todos os itens"
-                    />
-                  </TableHead>
-                  <TableHead className="w-[4rem] p-2">Qtd</TableHead>
-                  <TableHead colSpan={3} className="w-auto whitespace-normal break-words p-2">Item / Código / Descrição</TableHead>
-                  <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
               <TableBody>
-                {items.map((item, index) => renderItemRow(item, index))}
+                {(() => {
+                  let lastItemType: string | null = null;
+                  const rows: React.ReactNode[] = [];
+
+                  items.forEach((item, index) => {
+                    const currentItemType = item.type;
+
+                    if (currentItemType === 'subtitle' || currentItemType === 'separator') {
+                      rows.push(renderItemRow(item, index));
+                      lastItemType = null;
+                      return;
+                    }
+
+                    if (currentItemType !== lastItemType) {
+                      if (currentItemType === 'item') {
+                        rows.push(<SimpleItemHeader key={`header-item-${index}`} />);
+                      }
+                      lastItemType = currentItemType;
+                    }
+
+                    rows.push(renderItemRow(item, index));
+                  });
+
+                  return rows;
+                })()}
               </TableBody>
             </Table>
           </div>
@@ -776,16 +820,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="af-for-export">AF (Número de Frota)</Label>
-              {isLoadingAfs ? (
-                <Input value="Carregando AFs..." readOnly className="bg-muted" />
-              ) : (
-                <AfSearchInput
-                  value={afForExport}
-                  onChange={setAfForExport}
-                  availableAfs={allAvailableAfs}
-                  onSelectAf={setAfForExport}
-                />
-              )}
+              <AfSearchInput
+                value={afForExport}
+                onChange={setAfForExport}
+                availableAfs={allAvailableAfs}
+                onSelectAf={setAfForExport}
+              />
             </div>
           </div>
           <SheetFooter>

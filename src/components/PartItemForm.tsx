@@ -294,16 +294,12 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
           )}
           <div>
             <Label htmlFor="af">AF (Número de Frota) (Opcional)</Label>
-            {isLoadingAfs ? (
-              <Input value="Carregando AFs..." readOnly className="bg-muted" />
-            ) : (
-              <AfSearchInput
-                value={af}
-                onChange={setAf}
-                availableAfs={allAvailableAfs}
-                onSelectAf={handleSelectAf}
-              />
-            )}
+            <AfSearchInput
+              value={af}
+              onChange={setAf}
+              availableAfs={allAvailableAfs}
+              onSelectAf={handleSelectAf}
+            />
           </div>
           <div className="flex gap-2">
             {editingItem && (
