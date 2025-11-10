@@ -1,10 +1,13 @@
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { applyPlugin } from 'jspdf-autotable';
 import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
 import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CustomListItem, MangueiraPartDetails } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
+
+// Aplica o plugin explicitamente ao jsPDF
+applyPlugin(jsPDF);
 
 // Mapeamento de Status para Cores RGB (para PDF)
 const PDF_STATUS_COLORS = {
@@ -112,7 +115,7 @@ export const generatePartsListPdf = async (listItems: SimplePartItem[], title: s
     ]);
   }
 
-  autoTable(doc, {
+  (doc as any).autoTable({
     head: [tableColumn],
     body: tableRows,
     startY: currentY,
@@ -156,53 +159,17 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
   const renderGroup = () => {
     if (currentGroupRows.length === 0) return;
 
-    let head, columnStyles, didDrawCellHook;
+    let head, columnStyles;
     if (currentGroupType === 'item') {
       head = [simpleItemHeader];
       columnStyles = simpleItemColumnStyles;
-      didDrawCellHook = (data: any) => {
-        if (data.column.index === 2 && data.cell.raw && data.cell.raw._nome !== undefined) {
-          const { _nome, _descricao } = data.cell.raw;
-          const { x, y, width, padding } = data.cell;
-          const cellInnerY = y + padding.top;
-
-          const fillColor = data.cell.styles.fillColor || [255, 255, 255];
-          if (Array.isArray(fillColor)) {
-            doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
-          } else {
-            doc.setFillColor(fillColor);
-          }
-          doc.rect(x, y, data.cell.width, data.cell.height, 'F');
-
-          doc.setFont(undefined, 'normal');
-          doc.setFontSize(9);
-          doc.setTextColor(40, 40, 40);
-
-          const nomeLines = doc.splitTextToSize(_nome, width - padding.left - padding.right);
-          if (nomeLines && nomeLines.length > 0 && nomeLines[0]) {
-            doc.text(nomeLines, x + padding.left, cellInnerY + 4);
-          }
-          const nomeHeight = doc.getTextDimensions(nomeLines).h;
-
-          if (_descricao) {
-            doc.setFont(undefined, 'italic');
-            doc.setFontSize(8);
-            doc.setTextColor(100, 100, 100);
-            
-            const descricaoLines = doc.splitTextToSize(_descricao, width - padding.left - padding.right);
-            if (descricaoLines && descricaoLines.length > 0 && descricaoLines[0]) {
-              doc.text(descricaoLines, x + padding.left, cellInnerY + nomeHeight + 1.5);
-            }
-          }
-        }
-      };
     } else if (currentGroupType === 'mangueira') {
       head = [mangueiraHeader];
       columnStyles = mangueiraColumnStyles;
     }
 
     if (head) {
-      autoTable(doc, {
+      (doc as any).autoTable({
         head: head,
         body: currentGroupRows,
         startY: currentY,
@@ -212,7 +179,6 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         alternateRowStyles: { fillColor: [248, 249, 250] },
         margin: { top: 10, left: 14, right: 14 },
         columnStyles: columnStyles,
-        didDrawCell: didDrawCellHook,
       });
       currentY = (doc as any).lastAutoTable.finalY;
     }
@@ -235,7 +201,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
       renderGroup();
       doc.setFontSize(12);
       doc.setFont(undefined, 'bold');
-      doc.setTextColor(37, 99, 235);
+      doc.setTextColor(37, 99, 235); // primary color
       doc.text(item.item_name.toUpperCase(), 14, currentY);
       currentY += 7;
       return;
@@ -250,9 +216,15 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
       const data = item.mangueira_data;
       const createContent = (partData: MangueiraPartDetails) => {
         let content = '';
-        if (partData.codigo) content += `Cód.: ${partData.codigo}\n`;
-        if (partData.name) content += `${partData.name}\n`;
-        if (partData.description) content += `${partData.description}`;
+        if (partData.codigo) {
+          content += `Cód.: ${partData.codigo}\n`;
+        }
+        if (partData.name) {
+          content += `${partData.name}\n`;
+        }
+        if (partData.description) {
+          content += `${partData.description}`;
+        }
         return content.trim();
       };
 
@@ -264,23 +236,23 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         createContent(data.conexao2),
       ]);
     } else if (item.type === 'item') {
-      const nome = item.item_name || '';
-      const descricao = item.description || '';
-      const cellContent = {
-        content: `${nome}\n${descricao}`,
-        _nome: nome,
-        _descricao: descricao
-      };
+      let descriptionContent = '';
+      if (item.item_name) {
+        descriptionContent += item.item_name;
+      }
+      if (item.description) {
+        descriptionContent += `\n${item.description}`;
+      }
 
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
         item.part_code ? `Cód.: ${item.part_code}` : '',
-        cellContent,
+        descriptionContent.trim(),
       ]);
     }
   });
 
-  renderGroup();
+  renderGroup(); // Render the last group
 
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);
 };
@@ -330,7 +302,7 @@ Serviço: ${group.servico_executado}`;
     });
   });
 
-  autoTable(doc, {
+  (doc as any).autoTable({
     head: [tableColumn],
     body: tableRows,
     startY: 30,
@@ -362,9 +334,7 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     // Linha 1: Título Principal (Apontamento de Horas - Mês Ano)
     doc.setFontSize(14); // Reduzido de 18 para 14
     doc.setFont(undefined, 'bold');
-    if (mainTitle) {
-      doc.text(mainTitle, 14, currentY);
-    }
+    doc.text(mainTitle, 14, currentY);
     currentY += 6; // Reduzido o espaçamento
 
     if (titleLines.length > 1) {
@@ -372,10 +342,8 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
       const subTitle = titleLines[1];
       doc.setFontSize(10); // Reduzido de 12 para 10
       doc.setFont(undefined, 'normal');
-      if (subTitle) {
-        doc.text(subTitle, 14, currentY);
-      }
-      currentY += 7; // Reduzido o espaçamento
+    doc.text(subTitle, 14, currentY);
+    currentY += 7; // Reduzido o espaçamento
     }
   } else {
     // Fallback
@@ -410,7 +378,7 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     }
   });
 
-  autoTable(doc, {
+  (doc as any).autoTable({
     head: [tableColumn],
     body: tableRows,
     startY: currentY,
