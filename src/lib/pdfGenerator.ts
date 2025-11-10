@@ -1,13 +1,10 @@
 import jsPDF from 'jspdf';
-import { applyPlugin } from 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
 import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CustomListItem, MangueiraPartDetails } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
-
-// Aplica o plugin explicitamente ao jsPDF
-applyPlugin(jsPDF);
 
 // Mapeamento de Status para Cores RGB (para PDF)
 const PDF_STATUS_COLORS = {
@@ -115,7 +112,7 @@ export const generatePartsListPdf = async (listItems: SimplePartItem[], title: s
     ]);
   }
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     head: [tableColumn],
     body: tableRows,
     startY: currentY,
@@ -205,7 +202,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
     }
 
     if (head) {
-      (doc as any).autoTable({
+      autoTable(doc, {
         head: head,
         body: currentGroupRows,
         startY: currentY,
@@ -333,7 +330,7 @@ Serviço: ${group.servico_executado}`;
     });
   });
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     head: [tableColumn],
     body: tableRows,
     startY: 30,
@@ -365,7 +362,9 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     // Linha 1: Título Principal (Apontamento de Horas - Mês Ano)
     doc.setFontSize(14); // Reduzido de 18 para 14
     doc.setFont(undefined, 'bold');
-    doc.text(mainTitle, 14, currentY);
+    if (mainTitle) {
+      doc.text(mainTitle, 14, currentY);
+    }
     currentY += 6; // Reduzido o espaçamento
 
     if (titleLines.length > 1) {
@@ -373,8 +372,10 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
       const subTitle = titleLines[1];
       doc.setFontSize(10); // Reduzido de 12 para 10
       doc.setFont(undefined, 'normal');
-    doc.text(subTitle, 14, currentY);
-    currentY += 7; // Reduzido o espaçamento
+      if (subTitle) {
+        doc.text(subTitle, 14, currentY);
+      }
+      currentY += 7; // Reduzido o espaçamento
     }
   } else {
     // Fallback
@@ -409,7 +410,7 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     }
   });
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     head: [tableColumn],
     body: tableRows,
     startY: currentY,
