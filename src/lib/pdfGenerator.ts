@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
 import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
-import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
+import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'fns';
 import { ptBR } from 'date-fns/locale';
 import { CustomListItem, MangueiraPartDetails } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
@@ -236,18 +236,28 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
         createContent(data.conexao2),
       ]);
     } else if (item.type === 'item') {
-      let descriptionContent = '';
-      if (item.item_name) {
-        descriptionContent += item.item_name;
+      const nome = item.item_name || '';
+      const descricao = item.description || '';
+
+      // jspdf-autotable can accept an array to create multi-line content with different styles
+      const descriptionContent = [];
+      if (nome) {
+        descriptionContent.push({
+          content: nome.trim(),
+          styles: { fontStyle: 'normal' }
+        });
       }
-      if (item.description) {
-        descriptionContent += `\n${item.description}`;
+      if (descricao) {
+        descriptionContent.push({
+          content: descricao.trim(),
+          styles: { fontStyle: 'italic', fontSize: 8 }
+        });
       }
 
       currentGroupRows.push([
         { content: item.quantity, styles: { halign: 'center' } },
         item.part_code ? `Cód.: ${item.part_code}` : '',
-        descriptionContent.trim(),
+        descriptionContent,
       ]);
     }
   });
