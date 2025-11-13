@@ -19,7 +19,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
   const [isFocused, setIsFocused] = useState(false);
   const [searchResults, setSearchResults] = useState<Af[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [inputValue, setInputValue] = useState(''); // Internal state for the input field's value
+  const [displayValue, setDisplayValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -27,28 +27,17 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
     return afItem.descricao ? `${afItem.af_number} - ${afItem.descricao}` : afItem.af_number;
   };
 
-  // Effect to sync the internal input value from the parent's `value` prop (the AF number)
   useEffect(() => {
-    if (!isFocused) { // Don't update while user is typing
-      if (value && availableAfs.length > 0) {
-        const matchingAf = availableAfs.find(af => af.af_number === value);
-        if (matchingAf) {
-          setInputValue(getDisplayValue(matchingAf));
-        } else {
-          setInputValue(value); // Fallback if not found (e.g., new AF)
-        }
-      } else {
-        setInputValue(value || ''); // Handle empty/null value from parent
-      }
+    if (!isFocused) {
+      setDisplayValue(value);
     }
-  }, [value, availableAfs, isFocused]);
+  }, [value, isFocused]);
 
-  // Effect for searching based on what the user is typing
   useEffect(() => {
     const handler = setTimeout(() => {
-      if (isFocused && inputValue) {
+      if (isFocused && displayValue.length > 0) {
         setIsSearching(true);
-        const lowerCaseQuery = inputValue.toLowerCase();
+        const lowerCaseQuery = displayValue.toLowerCase();
         const results = availableAfs.filter(af => 
           af.af_number.toLowerCase().includes(lowerCaseQuery) ||
           (af.descricao && af.descricao.toLowerCase().includes(lowerCaseQuery))
@@ -59,23 +48,17 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
         setSearchResults([]);
       }
     }, 300);
-    return () => clearTimeout(handler);
-  }, [inputValue, isFocused, availableAfs]);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [displayValue, isFocused, availableAfs]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    setInputValue(newValue);
-    onChange(newValue); // Let parent know about typing, useful for creating new AFs
+    setDisplayValue(newValue);
+    onChange(newValue);
     setIsDropdownOpen(true);
-  };
-
-  const handleSelectAndClose = (afItem: Af) => {
-    onSelectAf(afItem.af_number); // Inform parent of the selected AF NUMBER
-    setInputValue(getDisplayValue(afItem)); // Update display
-    setIsDropdownOpen(false);
-    if (inputRef.current) {
-      inputRef.current.blur();
-    }
   };
 
   const handleInputFocus = () => {
@@ -89,23 +72,20 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
         setIsFocused(false);
         setIsDropdownOpen(false);
-        // The useEffect will handle resetting the display value based on the parent's `value` prop.
+        if (displayValue === '' && value !== '') {
+          onChange('');
+        }
       }
     }, 150);
   };
 
-  // Effect to handle clicks outside the component to close the dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+  const handleSelectAndClose = (afItem: Af) => {
+    onSelectAf(afItem.af_number);
+    setDisplayValue(getDisplayValue(afItem));
+    if (inputRef.current) {
+      inputRef.current.blur();
+    }
+  };
 
   return (
     <div className="relative flex w-full items-center space-x-2" ref={containerRef}>
@@ -116,31 +96,34 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
             id="af-input"
             type="text"
             placeholder="Buscar AF por número ou descrição..."
-            value={inputValue}
+            value={displayValue}
             onChange={handleInputChange}
             onFocus={handleInputFocus}
             onBlur={handleInputBlur}
             className="w-full pr-8"
             readOnly={readOnly}
             ref={inputRef}
-            autoComplete="off"
           />
           {isSearching && (
             <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>
-        {isDropdownOpen && !readOnly && searchResults.length > 0 && (
-          <ul className="absolute z-10 w-full bg-card border border-border rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto">
-            {searchResults.map((afItem) => (
-              <li
-                key={afItem.id}
-                className="px-4 py-2 cursor-pointer hover:bg-accent"
-                onMouseDown={(e) => e.preventDefault()} // Prevent blur on click
-                onClick={() => handleSelectAndClose(afItem)}
-              >
-                {getDisplayValue(afItem)}
-              </li>
-            ))}
+        {isDropdownOpen && !readOnly && (
+          <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto">
+            {searchResults.length > 0 ? (
+              searchResults.map((afItem) => (
+                <li
+                  key={afItem.id}
+                  className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelectAndClose(afItem)}
+                >
+                  {getDisplayValue(afItem)}
+                </li>
+              ))
+            ) : (isFocused && displayValue.length > 0 && !isSearching) ? (
+              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhum AF encontrado.</li>
+            ) : null}
           </ul>
         )}
       </div>
