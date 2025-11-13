@@ -259,13 +259,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
   };
 
   const handleCopyList = async () => {
-    if (items.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de copiar.');
+    const itemsToProcess = selectedItemIds.size > 0
+      ? items.filter(item => selectedItemIds.has(item.id))
+      : items;
+    if (itemsToProcess.length === 0) {
+      showError('A lista está vazia ou nenhum item selecionado para copiar.');
       return;
     }
-
-    const textToCopy = formatListText();
-
+    const textToCopy = formatListText(itemsToProcess);
     try {
       await navigator.clipboard.writeText(textToCopy);
       showSuccess('Lista de peças copiada para a área de transferência!');
@@ -276,11 +277,14 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
   };
 
   const handleExportCsv = () => {
-    if (items.length === 0) {
+    const itemsToExport = selectedItemIds.size > 0
+      ? items.filter(item => selectedItemIds.has(item.id))
+      : items;
+    if (itemsToExport.length === 0) {
       showError('Nenhum item para exportar.');
       return;
     }
-    exportDataAsCsv(items, `${list.title.replace(/\s/g, '_')}_itens.csv`);
+    exportDataAsCsv(itemsToExport, `${list.title.replace(/\s/g, '_')}_itens.csv`);
     showSuccess('Lista exportada para CSV com sucesso!');
   };
 
@@ -511,11 +515,11 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
             {/* Coluna 1: Mangueira (Nome/Desc/Cód) */}
             <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
               <div className="flex flex-col items-start">
-                <span className="font-medium text-sm text-primary whitespace-normal break-words">{data.mangueira.name || data.mangueira.codigo}</span>
+                <span className="font-medium text-sm text-primary whitespace-normal break-words">Cód.: {data.mangueira.codigo}</span>
+                <span className="text-[9pt] text-foreground whitespace-normal break-words">{data.mangueira.name}</span>
                 {data.mangueira.description && (
-                  <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.mangueira.description}</span>
+                  <span className="text-[8pt] italic text-foreground/90 max-w-full whitespace-normal break-words">{data.mangueira.description}</span>
                 )}
-                <span className="text-xs text-muted-foreground mt-1">Cód: {data.mangueira.codigo}</span>
               </div>
             </TableCell>
             
@@ -527,22 +531,22 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
             {/* Coluna 3: Conexão 1 */}
             <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
               <div className="flex flex-col items-start">
-                <span className="font-medium text-sm whitespace-normal break-words">{data.conexao1.name || data.conexao1.codigo}</span>
+                <span className="font-medium text-sm text-primary whitespace-normal break-words">Cód.: {data.conexao1.codigo}</span>
+                <span className="text-[9pt] text-foreground whitespace-normal break-words">{data.conexao1.name}</span>
                 {data.conexao1.description && (
-                  <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.conexao1.description}</span>
+                  <span className="text-[8pt] italic text-foreground/90 max-w-full whitespace-normal break-words">{data.conexao1.description}</span>
                 )}
-                <span className="text-xs text-muted-foreground mt-1">Cód: {data.conexao1.codigo}</span>
               </div>
             </TableCell>
             
             {/* Coluna 4: Conexão 2 */}
             <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
               <div className="flex flex-col items-start">
-                <span className="font-medium text-sm whitespace-normal break-words">{data.conexao2.name || data.conexao2.codigo}</span>
+                <span className="font-medium text-sm text-primary whitespace-normal break-words">Cód.: {data.conexao2.codigo}</span>
+                <span className="text-[9pt] text-foreground whitespace-normal break-words">{data.conexao2.name}</span>
                 {data.conexao2.description && (
-                  <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{data.conexao2.description}</span>
+                  <span className="text-[8pt] italic text-foreground/90 max-w-full whitespace-normal break-words">{data.conexao2.description}</span>
                 )}
-                <span className="text-xs text-muted-foreground mt-1">Cód: {data.conexao2.codigo}</span>
               </div>
             </TableCell>
 
@@ -682,133 +686,124 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
   );
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-col space-y-2 pb-2">
-        <div className="flex justify-between items-center">
-          <Button variant="outline" onClick={onClose} className="flex items-center gap-2 shrink-0">
-            <ArrowLeft className="h-4 w-4" /> Voltar
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
+      <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
+        <Link to="/custom-menu-view">
+          <Button variant="outline" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" /> Voltar ao Catálogo
           </Button>
-          <Button onClick={handleAdd} className="flex items-center gap-2 shrink-0">
-            <PlusCircle className="h-4 w-4" /> Novo Item
+        </Link>
+        <Link to="/parts-list">
+          <Button variant="outline" className="flex items-center gap-2">
+            <ListIcon className="h-4 w-4" /> Minha Lista de Peças
           </Button>
-        </div>
-        
-        <CardTitle className="text-2xl font-bold text-center pt-2">
-          {list.title}
-        </CardTitle>
-        
-        <div className="flex flex-wrap justify-end gap-2 pt-2">
-          {selectedItemIds.size > 0 && (
-            <Button 
-              onClick={handleExportSelectedToMyList} 
-              className="flex-1 sm:w-auto"
-              disabled={isLoadingAfs}
-            >
-              <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
-            </Button>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
+        </Link>
+      </div>
+      
+      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
+        <ListIcon className="h-8 w-8 text-primary" />
+        {listTitle}
+      </h1>
+
+      <Card className="w-full max-w-4xl mx-auto mb-8">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl font-bold text-center pt-2">
+            Itens da Lista
+          </CardTitle>
+          <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2">
+            {selectedItemIds.size > 0 && (
               <Button 
-                onClick={handleCopyList} 
-                disabled={items.length === 0} 
-                variant="secondary" 
-                size="icon"
-                className="sm:w-auto sm:px-4"
+                onClick={handleExportSelectedToMyList} 
+                className="flex-1 sm:w-auto"
+                disabled={isLoadingAfs}
               >
-                <Copy className="h-4 w-4" /> 
-                <span className="hidden sm:inline ml-2">Copiar Lista</span>
+                <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>Copiar Lista</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                onClick={handleExportCsv} 
-                disabled={items.length === 0} 
-                variant="outline" 
-                size="icon"
-                className="sm:w-auto sm:px-4"
-              >
-                <Download className="h-4 w-4" /> 
-                <span className="hidden sm:inline ml-2">Exportar CSV</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Exportar CSV</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-                <FileDown className="h-4 w-4" /> Exportar PDF
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Exportar PDF</TooltipContent>
-          </Tooltip>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
-        ) : items.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableBody>
-                {(() => {
-                  let lastItemType: string | null = null;
-                  const rows: React.ReactNode[] = [];
-
-                  items.forEach((item, index) => {
-                    const currentItemType = item.type;
-
-                    if (currentItemType === 'subtitle' || currentItemType === 'separator') {
-                      rows.push(renderItemRow(item, index));
-                      lastItemType = null;
-                      return;
-                    }
-
-                    if (currentItemType !== lastItemType) {
-                      if (currentItemType === 'item') {
-                        rows.push(<SimpleItemHeader key={`header-item-${index}`} />);
-                      }
-                      lastItemType = currentItemType;
-                    }
-
-                    rows.push(renderItemRow(item, index));
-                  });
-
-                  return rows;
-                })()}
-              </TableBody>
-            </Table>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={handleCopyList} 
+                  disabled={items.length === 0} 
+                  variant="secondary" 
+                  size="icon"
+                  className="sm:w-auto sm:px-4"
+                >
+                  <Copy className="h-4 w-4" /> 
+                  <span className="hidden sm:inline ml-2">Copiar Lista</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copiar Lista</TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={handleExportCsv} 
+                  disabled={items.length === 0} 
+                  variant="outline" 
+                  size="icon"
+                  className="sm:w-auto sm:px-4"
+                >
+                  <Download className="h-4 w-4" /> 
+                  <span className="hidden sm:inline ml-2">Exportar CSV</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Exportar CSV</TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
+                  <FileDown className="h-4 w-4" /> Exportar PDF
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Exportar PDF</TooltipContent>
+            </Tooltip>
           </div>
-        )}
-      </CardContent>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
+          ) : items.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableBody>
+                  {(() => {
+                    let lastItemType: string | null = null;
+                    const rows: React.ReactNode[] = [];
 
-      {/* Sheet para Adicionar/Editar Item */}
-      <Sheet open={isFormSheetOpen} onOpenChange={setIsFormSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{itemToEdit ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
-            <SheetDescription>
-              {itemToEdit ? 'Edite os detalhes do item da lista.' : 'Adicione um novo item, subtítulo ou separador.'}
-            </SheetDescription>
-          </SheetHeader>
-          <CustomListItemForm
-            list={list}
-            editingItem={itemToEdit}
-            onItemSaved={handleItemSavedOrClosed}
-            onClose={handleItemSavedOrClosed}
-            allAvailableParts={allAvailableParts}
-          />
-        </SheetContent>
-      </Sheet>
+                    items.forEach((item, index) => {
+                      const currentItemType = item.type;
 
-      {/* Sheet para Exportar Selecionados com AF */}
+                      if (currentItemType === 'subtitle' || currentItemType === 'separator') {
+                        rows.push(renderItemRow(item, index));
+                        lastItemType = null;
+                        return;
+                      }
+
+                      if (currentItemType !== lastItemType) {
+                        if (currentItemType === 'item') {
+                          rows.push(<SimpleItemHeader key={`header-item-${index}`} />);
+                        }
+                        lastItemType = currentItemType;
+                      }
+
+                      rows.push(renderItemRow(item, index));
+                    });
+
+                    return rows;
+                  })()}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <MadeWithDyad />
+
       <Sheet open={isExportSheetOpen} onOpenChange={setIsExportSheetOpen}>
         <SheetContent side="right" className="sm:max-w-md">
           <SheetHeader>
@@ -820,11 +815,16 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="af-for-export">AF (Número de Frota)</Label>
-              <AfSearchInput
-                value={afForExport}
-                onChange={setAfForExport}
-                onSelectAf={setAfForExport}
-              />
+              {isLoadingAfs ? (
+                <Input value="Carregando AFs..." readOnly className="bg-muted" />
+              ) : (
+                <AfSearchInput
+                  value={afForExport}
+                  onChange={setAfForExport}
+                  availableAfs={allAvailableAfs}
+                  onSelectAf={setAfForExport}
+                />
+              )}
             </div>
           </div>
           <SheetFooter>
@@ -837,8 +837,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
           </SheetFooter>
         </SheetContent>
       </Sheet>
-    </Card>
+    </div>
   );
 };
 
-export default CustomListEditor;
+export default CustomListPage;
