@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2, FileDown, Check } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2, FileDown, Check, List as ListIcon } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
 import { getCustomListItems, deleteCustomListItem, updateAllCustomListItems } from '@/services/customListService';
@@ -223,12 +223,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
   };
   // --- End Drag and Drop Handlers (Itens da Lista Principal) ---
 
-  const formatListText = () => {
-    if (items.length === 0) return '';
+  const formatListText = (itemsToFormat: CustomListItem[]) => {
+    if (itemsToFormat.length === 0) return '';
 
     let formattedText = `${list.title}\n\n`;
 
-    items.forEach(item => {
+    itemsToFormat.forEach(item => {
       if (item.type === 'separator') {
         formattedText += '--------------------\n';
         return;
@@ -702,7 +702,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
       
       <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
         <ListIcon className="h-8 w-8 text-primary" />
-        {listTitle}
+        {list.title}
       </h1>
 
       <Card className="w-full max-w-4xl mx-auto mb-8">
@@ -841,4 +841,4 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
   );
 };
 
-export default CustomListPage;
+export default CustomListEditor;
