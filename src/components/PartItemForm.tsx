@@ -33,6 +33,8 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const [isLoadingParts, setIsLoadingParts] = useState(false);
   const [editedTags, setEditedTags] = useState<string>('');
   const isMobile = useIsMobile();
+  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
+  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -68,8 +70,15 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
 
   useEffect(() => {
     const loadInitialData = async () => {
+      setIsLoadingParts(true);
       const parts = await getParts();
       setAllAvailableParts(parts);
+      setIsLoadingParts(false);
+
+      setIsLoadingAfs(true);
+      const afs = await getAfsFromService();
+      setAllAvailableAfs(afs);
+      setIsLoadingAfs(false);
     };
     loadInitialData();
   }, []);
@@ -291,6 +300,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               value={af}
               onChange={setAf}
               onSelectAf={handleSelectAf}
+              availableAfs={allAvailableAfs}
             />
           </div>
           <div className="flex gap-2">

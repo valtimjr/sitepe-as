@@ -63,6 +63,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
   const [isOsInvalid, setIsOsInvalid] = useState(false);
+  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
+  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -70,6 +72,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       const parts = await getParts();
       setAllAvailableParts(parts);
       setIsLoadingParts(false);
+
+      setIsLoadingAfs(true);
+      const afs = await getAfsFromService();
+      setAllAvailableAfs(afs);
+      setIsLoadingAfs(false);
     };
     loadInitialData();
   }, []);
@@ -421,6 +428,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   onChange={setAf}
                   onSelectAf={handleSelectAf}
                   readOnly={isOsDetailsReadOnly}
+                  availableAfs={allAvailableAfs}
                 />
               </div>
               <div>

@@ -242,24 +242,31 @@ const CustomListPage: React.FC = () => {
       for (const item of itemsToExport) {
         if (item.type === 'mangueira' && item.mangueira_data) {
           const data = item.mangueira_data;
+          
+          // Exporta a Mangueira como item simples (1 unidade)
           await addSimplePartItem({
             codigo_peca: data.mangueira.codigo || '',
             descricao: `Mangueira: ${data.mangueira.name || data.mangueira.codigo} - Corte: ${data.corte_cm} cm`,
             quantidade: 1,
             af: afForExport.trim(),
           });
+
+          // Exporta Conexão 1
           await addSimplePartItem({
             codigo_peca: data.conexao1.codigo || '',
             descricao: `Conexão 1: ${data.conexao1.name || data.conexao1.codigo}`,
             quantidade: 1,
             af: afForExport.trim(),
           });
+
+          // Exporta Conexão 2
           await addSimplePartItem({
             codigo_peca: data.conexao2.codigo || '',
             descricao: `Conexão 2: ${data.conexao2.name || data.conexao2.codigo}`,
             quantidade: 1,
             af: afForExport.trim(),
           });
+
         } else if (item.type === 'item') {
           await addSimplePartItem({
             codigo_peca: item.part_code || '',
@@ -421,53 +428,53 @@ const CustomListPage: React.FC = () => {
         </TableCell>
         <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
         <TableCell className="w-auto whitespace-normal break-words p-2 text-left" colSpan={isMobile ? 4 : 3}>
-          <div className="flex flex-col items-start">
-            {item.part_code && (
-              <span className="font-medium text-sm text-primary whitespace-normal break-words">
-                Cód.: {item.part_code}
-              </span>
-            )}
-            {item.item_name && (
-              <span className="text-[9pt] text-foreground whitespace-normal break-words">
-                {item.item_name}
-              </span>
-            )}
-            {item.description && (
-              <span className="text-[8pt] italic text-foreground/90 whitespace-normal break-words">
-                {item.description}
-              </span>
-            )}
-            {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-              <Popover 
-                key={`popover-${item.id}`}
-                open={openRelatedItemsPopoverId === item.id} 
-                onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
-                modal={false}
-              >
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
-                  >
-                    <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto max-w-xs p-2">
-                  <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                  <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
-                    <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
-                      {item.itens_relacionados.map(rel => (
-                        <li key={rel.codigo} className="list-none ml-0">
-                          <RelatedPartDisplay item={rel} />
-                        </li>
-                      ))}
-                    </ul>
-                  </ScrollArea>
-                </PopoverContent>
-              </Popover>
-            )}
-          </div>
+            <div className="flex flex-col items-start">
+              {item.part_code && (
+                <span className="font-medium text-sm text-primary whitespace-normal break-words">
+                  Cód.: {item.part_code}
+                </span>
+              )}
+              {item.item_name && (
+                <span className="text-[9pt] text-foreground whitespace-normal break-words">
+                  {item.item_name}
+                </span>
+              )}
+              {item.description && (
+                <span className="text-[8pt] italic text-foreground/90 whitespace-normal break-words">
+                  {item.description}
+                </span>
+              )}
+              {item.itens_relacionados && item.itens_relacionados.length > 0 && (
+                <Popover 
+                  key={`popover-${item.id}`}
+                  open={openRelatedItemsPopoverId === item.id} 
+                  onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
+                  modal={false}
+                >
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
+                    >
+                      <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto max-w-xs p-2">
+                    <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                    <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
+                      <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                        {item.itens_relacionados.map(rel => (
+                          <li key={rel.codigo} className="list-none ml-0">
+                            <RelatedPartDisplay item={rel} />
+                          </li>
+                        ))}
+                      </ul>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
         </TableCell>
       </TableRow>
     );
