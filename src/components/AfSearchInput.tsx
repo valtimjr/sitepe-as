@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Af } from '@/services/partListService';
@@ -19,9 +19,17 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
   const [isFocused, setIsFocused] = useState(false);
   const [searchResults, setSearchResults] = useState<Af[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [displayValue, setDisplayValue] = useState(value);
+  const [displayValue, setDisplayValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const afsMap = useMemo(() => {
+    const map = new Map<string, Af>();
+    availableAfs.forEach(af => {
+      map.set(af.af_number, af);
+    });
+    return map;
+  }, [availableAfs]);
 
   const getDisplayValue = (afItem: Af) => {
     return afItem.descricao ? `${afItem.af_number} - ${afItem.descricao}` : afItem.af_number;
@@ -29,9 +37,18 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
 
   useEffect(() => {
     if (!isFocused) {
-      setDisplayValue(value);
+      if (value) {
+        const matchingAf = afsMap.get(value);
+        if (matchingAf) {
+          setDisplayValue(getDisplayValue(matchingAf));
+        } else {
+          setDisplayValue(value);
+        }
+      } else {
+        setDisplayValue('');
+      }
     }
-  }, [value, isFocused]);
+  }, [value, isFocused, afsMap]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -72,8 +89,21 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
         setIsFocused(false);
         setIsDropdownOpen(false);
-        if (displayValue === '' && value !== '') {
-          onChange('');
+        
+        const typedValue = displayValue.split(' - ')[0].trim();
+        const matchingAf = afsMap.get(typedValue);
+
+        if (matchingAf) {
+          onSelectAf(matchingAf.af_number);
+          setDisplayValue(getDisplayValue(matchingAf));
+        } else {
+          const originalAf = afsMap.get(value);
+          if (originalAf) {
+            setDisplayValue(getDisplayValue(originalAf));
+          } else {
+            onSelectAf('');
+            setDisplayValue('');
+          }
         }
       }
     }, 150);
