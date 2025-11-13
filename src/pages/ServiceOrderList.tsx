@@ -67,56 +67,9 @@ const ServiceOrderList: React.FC = () => {
     loadListItems();
   }, [loadListItems]);
 
-  // Efeito para definir a OS mais recente para edição ao carregar a lista
-  useEffect(() => {
-    if (!isLoading && listItems.length > 0 && !isFormOpen) {
-      const uniqueServiceOrders: { [key: string]: ServiceOrderItem } = {};
-      listItems.forEach(item => {
-        const key = `${item.af}-${item.os || 'no_os'}-${item.servico_executado || 'no_service'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}-${item.created_at?.getTime() || 'no_created_at'}`;
-        if (!uniqueServiceOrders[key] || (item.created_at && uniqueServiceOrders[key].created_at && item.created_at > uniqueServiceOrders[key].created_at!)) {
-          uniqueServiceOrders[key] = item;
-        }
-      });
-
-      const sortedUniqueOrders = Object.values(uniqueServiceOrders).sort((a, b) => {
-        if (!a.created_at || !b.created_at) return 0;
-        return b.created_at.getTime() - a.created_at.getTime(); // Mais recente primeiro
-      });
-
-      if (sortedUniqueOrders.length > 0) {
-        const latestOrder = sortedUniqueOrders[0];
-        
-        // Verifica se a OS mais recente já está sendo editada ou se o formulário está aberto para uma nova OS
-        const isCurrentEditedOrderStillValid = editingServiceOrder && listItems.some(item =>
-          item.af === editingServiceOrder.af &&
-          (item.os === editingServiceOrder.os || (item.os === undefined && editingServiceOrder.os === undefined)) &&
-          (item.hora_inicio === editingServiceOrder.hora_inicio || (editingServiceOrder.hora_inicio === undefined && item.hora_inicio === undefined)) &&
-          (item.hora_final === editingServiceOrder.hora_final || (editingServiceOrder.hora_final === undefined && item.hora_final === undefined)) &&
-          (item.servico_executado === editingServiceOrder.servico_executado || (editingServiceOrder.servico_executado === undefined && item.servico_executado === undefined))
-        );
-
-        if (!isCurrentEditedOrderStillValid) {
-          setEditingServiceOrder({
-            af: latestOrder.af,
-            os: latestOrder.os,
-            hora_inicio: latestOrder.hora_inicio,
-            hora_final: latestOrder.hora_final,
-            servico_executado: latestOrder.servico_executado,
-            createdAt: latestOrder.created_at,
-          });
-          // showSuccess(`Editando Ordem de Serviço AF: ${latestOrder.af}${latestOrder.os ? `, OS: ${latestOrder.os}` : ''}`);
-        }
-      } else {
-        setEditingServiceOrder(null);
-      }
-    }
-  }, [listItems, isLoading, isFormOpen, editingServiceOrder]);
-
-
   const handleEditServiceOrder = useCallback((details: ServiceOrderDetails) => {
     setEditingServiceOrder(details);
     setIsFormOpen(true); // Abre o formulário
-    // showSuccess messages are now handled by the form itself
   }, [setEditingServiceOrder, setIsFormOpen]);
 
   const handleNewServiceOrder = useCallback(() => {
@@ -128,7 +81,7 @@ const ServiceOrderList: React.FC = () => {
   const handleFormClose = useCallback(() => {
     setIsFormOpen(false);
     setEditingServiceOrder(null); // Limpa o item de edição ao fechar
-    loadListItems(); // Recarrega a lista para garantir que a OS mais recente seja selecionada
+    loadListItems(); // Recarrega a lista para refletir as alterações
   }, [setIsFormOpen, setEditingServiceOrder, loadListItems]);
 
   const handleSortChange = useCallback((order: SortOrder) => {
@@ -148,18 +101,6 @@ const ServiceOrderList: React.FC = () => {
         Lista de Ordens de Serviço
       </h1>
       
-      {/* REMOVIDO: Botão "Iniciar Nova Ordem de Serviço" para mobile */}
-      {/*
-      {isMobile && (
-        <Button 
-          onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
-          className="flex items-center gap-2 w-full sm:w-auto mb-4 sm:mb-0"
-        >
-          <FilePlus className="h-4 w-4" /> Iniciar Nova OS
-        </Button>
-      )}
-      */}
-
       {/* O formulário principal agora é um modal/sheet */}
       <ModalComponent open={isFormOpen} onOpenChange={setIsFormOpen}>
         <ModalContentComponent 

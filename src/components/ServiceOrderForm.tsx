@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -66,6 +66,14 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
 
+  const allAvailablePartsMap = useMemo(() => {
+    const map = new Map<string, Part>();
+    allAvailableParts.forEach(part => {
+      map.set(part.codigo, part);
+    });
+    return map;
+  }, [allAvailableParts]);
+
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoadingParts(true);
@@ -81,6 +89,24 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     loadInitialData();
   }, []);
 
+  const resetPartFields = useCallback(() => {
+    setSelectedPart(null);
+    setQuantidade(1);
+    setSearchQuery('');
+    setSearchResults([]);
+    setEditedTags('');
+  }, []);
+
+  const resetAllFieldsInternal = useCallback(() => {
+    resetPartFields();
+    setAf('');
+    setOs(undefined);
+    setHoraInicio('');
+    setHoraFinal('');
+    setServicoExecutado('');
+    setIsOsInvalid(false);
+  }, [resetPartFields]);
+
   // Efeito para inicializar o formulário com base no `mode` e `initial` props
   useEffect(() => {
     resetAllFieldsInternal(); // Sempre reseta tudo primeiro
@@ -95,10 +121,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
 
     if (mode === 'edit-part' && initialPartData) {
       setQuantidade(initialPartData.quantidade ?? 1);
-      const partFromInitial = allAvailableParts.find(p => p.codigo === initialPartData.codigo_peca);
+      const partFromInitial = initialPartData.codigo_peca ? allAvailablePartsMap.get(initialPartData.codigo_peca) : null;
       setSelectedPart(partFromInitial || null);
       setEditedTags(partFromInitial?.tags || '');
-      setSearchQuery(initialPartData.codigo_peca || '');
+      setSearchQuery(initialPartData.codigo_peca || ''); 
     } else if (mode === 'add-part-to-existing-so') {
       setQuantidade(1); // Quantidade padrão para nova peça
       resetPartFields(); // Limpa campos de peça para nova adição
@@ -107,7 +133,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     }
 
     setIsOsInvalid(false);
-  }, [mode, initialSoData, initialPartData, allAvailableParts]);
+  }, [mode, initialSoData, initialPartData, allAvailablePartsMap, resetAllFieldsInternal, resetPartFields]);
 
 
   useEffect(() => {
@@ -168,28 +194,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     } catch (error) {
       showError('Erro ao atualizar as tags da peça.');
     }
-  };
-
-  const resetAllFieldsInternal = () => {
-    setSelectedPart(null);
-    setQuantidade(1);
-    setAf('');
-    setOs(undefined);
-    setHoraInicio('');
-    setHoraFinal('');
-    setServicoExecutado('');
-    setSearchQuery('');
-    setSearchResults([]);
-    setEditedTags('');
-    setIsOsInvalid(false);
-  };
-
-  const resetPartFields = () => {
-    setSelectedPart(null);
-    setQuantidade(1);
-    setSearchQuery('');
-    setSearchResults([]);
-    setEditedTags('');
   };
 
   const handleOsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
