@@ -28,17 +28,15 @@ const SignupPage: React.FC = () => {
       }
 
       try {
-        const { data, error } = await supabase
-          .from('invites')
-          .select('id, is_used')
-          .eq('invite_code', uuid)
-          .single();
+        const { data, error } = await supabase.rpc('check_invite', {
+          invite_code_to_check: uuid,
+        });
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 means "no rows found"
+        if (error) {
           throw error;
         }
 
-        if (data && !data.is_used) {
+        if (data === true) {
           setIsValidInvite(true);
           showSuccess('Convite válido! Prossiga com o cadastro.');
         } else {
