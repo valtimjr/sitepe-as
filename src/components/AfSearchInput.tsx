@@ -1,7 +1,9 @@
+"use client";
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Af, searchAfs } from '@/services/partListService';
+import { Af } from '@/services/partListService';
 import { Loader2 } from 'lucide-react';
 
 interface AfSearchInputProps {
@@ -9,9 +11,10 @@ interface AfSearchInputProps {
   onChange: (value: string) => void;
   onSelectAf: (af: string) => void;
   readOnly?: boolean;
+  availableAfs: Af[];
 }
 
-const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelectAf, readOnly }) => {
+const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelectAf, readOnly, availableAfs }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [searchResults, setSearchResults] = useState<Af[]>([]);
@@ -31,10 +34,14 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
   }, [value, isFocused]);
 
   useEffect(() => {
-    const handler = setTimeout(async () => {
+    const handler = setTimeout(() => {
       if (isFocused && displayValue.length > 0) {
         setIsSearching(true);
-        const results = await searchAfs(displayValue);
+        const lowerCaseQuery = displayValue.toLowerCase();
+        const results = availableAfs.filter(af => 
+          af.af_number.toLowerCase().includes(lowerCaseQuery) ||
+          (af.descricao && af.descricao.toLowerCase().includes(lowerCaseQuery))
+        ).slice(0, 50);
         setSearchResults(results);
         setIsSearching(false);
       } else {
@@ -45,7 +52,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
     return () => {
       clearTimeout(handler);
     };
-  }, [displayValue, isFocused]);
+  }, [displayValue, isFocused, availableAfs]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
