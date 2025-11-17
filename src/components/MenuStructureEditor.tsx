@@ -1,10 +1,14 @@
+/** @jsxImportSource react */
+"use client";
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, Tag, Loader2 } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, Tag, Loader2, FileText, MoreHorizontal } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { MenuItem, CustomList, Part, RelatedPart } from '@/types/supabase';
 import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists, saveAllMenuItems } from '@/services/customListService';
@@ -33,7 +37,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import PartSearchInput from './PartSearchInput';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import RelatedPartDisplay from './RelatedPartDisplay';
 
 interface MenuStructureEditorProps {
@@ -228,35 +231,42 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     const currentIndex = siblings.findIndex(i => i.id === item.id);
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
-    if (targetIndex < 0 || targetIndex >= siblings.length) return;
+    if (targetIndex < 0 || targetIndex >= siblings.length) {
+      return; // Can't move further
+    }
 
-    const currentItem = siblings[currentIndex];
-    const targetItem = siblings[targetIndex];
+    // Reorder the local siblings array
+    const [movedItem] = siblings.splice(currentIndex, 1);
+    siblings.splice(targetIndex, 0, movedItem);
 
-    if (!currentItem || !targetItem) return;
+    // Create a map of updated siblings with new, contiguous order_index values
+    const updatedSiblingsMap = new Map<string, number>();
+    siblings.forEach((sibling, index) => {
+      updatedSiblingsMap.set(sibling.id, index);
+    });
+
+    // Create the new full flat list with updated order for the affected siblings
+    const updatedFlatItems = flatMenuItems.map(i => {
+      if (updatedSiblingsMap.has(i.id)) {
+        return { ...i, order_index: updatedSiblingsMap.get(i.id)! };
+      }
+      return i;
+    });
 
     const loadingToastId = showLoading('Reordenando itens...');
 
     try {
-      // Create a new array with the swapped order_index values
-      const updatedFlatItems = flatMenuItems.map(i => {
-        if (i.id === currentItem.id) {
-          return { ...i, order_index: targetItem.order_index };
-        }
-        if (i.id === targetItem.id) {
-          return { ...i, order_index: currentItem.order_index };
-        }
-        return i;
-      });
-
       // Save the entire updated structure in one go
       await saveAllMenuItems(updatedFlatItems);
-
       showSuccess('Ordem atualizada!');
-      await loadData(); // Reload data to reflect changes
+      
+      // After saving, reload data from the source of truth to ensure consistency
+      await loadData();
       onMenuUpdated();
     } catch (error) {
       showError('Erro ao reordenar itens.');
+      // If there's an error, reload to revert to the previous state from DB
+      await loadData();
     } finally {
       dismissToast(loadingToastId);
     }
