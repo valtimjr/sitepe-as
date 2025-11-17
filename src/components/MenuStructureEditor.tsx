@@ -262,7 +262,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
 
     try {
       // Save the entire updated structure in one go
-      await saveAllMenuItems(updatedFlatItems);
+      const itemsToSave = updatedFlatItems.filter(item => !item.isDynamic);
+      await saveAllMenuItems(itemsToSave);
       showSuccess('Ordem atualizada!');
       
       // After saving, reload data from the source of truth to ensure consistency
@@ -386,7 +387,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
 
         const loadingToastId = showLoading('Reordenando itens...');
         try {
-          await saveAllMenuItems(updatedFlatItems);
+          const itemsToSave = updatedFlatItems.filter(item => !item.isDynamic);
+          await saveAllMenuItems(itemsToSave);
           showSuccess('Ordem atualizada com sucesso!');
           await loadData();
           onMenuUpdated();

@@ -108,4 +108,5 @@ export interface MenuItem {
   itens_relacionados: RelatedPart[]; // ATUALIZADO para usar a nova interface
   hash?: string; // NOVO: Para links de âncora
   children?: MenuItem[]; // Para a estrutura hierárquica
+  isDynamic?: boolean; // NOVO: Marcador para itens gerados dinamicamente
 }

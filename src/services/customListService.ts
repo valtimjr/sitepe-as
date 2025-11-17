@@ -141,6 +141,7 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
               list_id: menuItem.list_id,
               hash: subtitle.id, // A âncora para o scroll
               itens_relacionados: [],
+              isDynamic: true, // NOVO: Marca o item como dinâmico
             });
           });
         }
