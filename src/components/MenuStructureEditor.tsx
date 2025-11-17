@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, Tag, Loader2, FileText, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, GripVertical, Tag, Loader2, FileText, MoreHorizontal } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { MenuItem, CustomList, Part, RelatedPart } from '@/types/supabase';
 import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists, saveAllMenuItems } from '@/services/customListService';
@@ -105,6 +105,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
 
   // NOVO: Estado para controlar a expansão dos itens do menu
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [draggedItem, setDraggedItem] = useState<MenuItem | null>(null);
 
   const loadData = useCallback(async () => {
     console.time('MenuStructureEditor: loadData');
@@ -253,6 +254,10 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       return i;
     });
 
+    // Update local state for immediate visual feedback
+    setFlatMenuItems(updatedFlatItems);
+    setMenuHierarchy(buildMenuHierarchy(updatedFlatItems));
+
     const loadingToastId = showLoading('Reordenando itens...');
 
     try {
@@ -331,6 +336,76 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     });
   };
 
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, item: MenuItem) => {
+    setDraggedItem(item);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item.id);
+    e.currentTarget.classList.add('opacity-50');
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('border-t-2', 'border-primary');
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.currentTarget.classList.remove('border-t-2', 'border-primary');
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetItem: MenuItem) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-t-2', 'border-primary');
+
+    if (draggedItem && draggedItem.id !== targetItem.id && draggedItem.parent_id === targetItem.parent_id) {
+      const siblings = flatMenuItems
+        .filter(i => i.parent_id === draggedItem.parent_id)
+        .sort((a, b) => a.order_index - b.order_index);
+
+      const draggedIndex = siblings.findIndex(item => item.id === draggedItem.id);
+      const targetIndex = siblings.findIndex(item => item.id === targetItem.id);
+
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+        const [removed] = siblings.splice(draggedIndex, 1);
+        siblings.splice(targetIndex, 0, removed);
+
+        const updatedSiblingsMap = new Map<string, number>();
+        siblings.forEach((sibling, index) => {
+          updatedSiblingsMap.set(sibling.id, index);
+        });
+
+        const updatedFlatItems = flatMenuItems.map(i => {
+          if (updatedSiblingsMap.has(i.id)) {
+            return { ...i, order_index: updatedSiblingsMap.get(i.id)! };
+          }
+          return i;
+        });
+
+        setFlatMenuItems(updatedFlatItems);
+        setMenuHierarchy(buildMenuHierarchy(updatedFlatItems));
+
+        const loadingToastId = showLoading('Reordenando itens...');
+        try {
+          await saveAllMenuItems(updatedFlatItems);
+          showSuccess('Ordem atualizada com sucesso!');
+          await loadData();
+          onMenuUpdated();
+        } catch (error) {
+          showError('Erro ao reordenar itens.');
+          await loadData();
+        } finally {
+          dismissToast(loadingToastId);
+        }
+      }
+    }
+    setDraggedItem(null);
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    e.currentTarget.classList.remove('opacity-50');
+    setDraggedItem(null);
+  };
+
   const renderMenuItem = (item: MenuItem, level: number, siblings: MenuItem[]) => {
     const isListLink = !!item.list_id;
     const hasChildren = item.children && item.children.length > 0;
@@ -339,12 +414,22 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     const isExpanded = expandedItems.has(item.id);
 
     return (
-      <div key={item.id} className={cn("border-b last:border-b-0", level > 0 && 'ml-4')}>
+      <div 
+        key={item.id} 
+        className={cn("border-b last:border-b-0", level > 0 && 'ml-4')}
+        draggable
+        onDragStart={(e) => handleDragStart(e, item)}
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, item)}
+        onDragLeave={handleDragLeave}
+        onDragEnd={handleDragEnd}
+      >
         <div className={cn(
           "flex items-center py-2 px-3 transition-colors",
           isListLink ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-muted/20'
         )}>
           <div className="flex-1 flex items-center gap-2" style={{ paddingLeft: `${level * 10}px` }}>
+            <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
             {hasChildren ? (
               <Button 
                 variant="ghost" 
