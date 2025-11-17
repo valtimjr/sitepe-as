@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Database, Home, Clock, Search, List, ClipboardList, CalendarDays, FileText, Menu } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
+import { getParts, getAfsFromService } from '@/services/partListService';
 
 const Index = () => {
   const { checkPageAccess, session } = useSession();
@@ -12,6 +13,25 @@ const Index = () => {
   useEffect(() => {
     document.title = "Início - AutoBoard";
   }, []);
+
+  // Efeito para pré-carregar dados em segundo plano
+  useEffect(() => {
+    const prefetchAllData = async () => {
+      try {
+        // Inicia o carregamento de peças e AFs em paralelo
+        await Promise.all([
+          getParts(),
+          getAfsFromService()
+        ]);
+        // console.log("Pré-carregamento de dados em segundo plano concluído.");
+      } catch (error) {
+        console.warn("Falha no pré-carregamento de dados em segundo plano. Os dados serão carregados sob demanda.", error);
+      }
+    };
+
+    // Executa a função de pré-carregamento uma vez quando o componente é montado
+    prefetchAllData();
+  }, []); // O array de dependências vazio garante que isso rode apenas uma vez
 
   const canAccessAdmin = checkPageAccess('/admin');
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
