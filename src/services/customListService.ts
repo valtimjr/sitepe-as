@@ -86,9 +86,12 @@ const flattenMenuHierarchy = (hierarchy: MenuItem[]): MenuItem[] => {
  * @param flatItems A flat array of all menu items.
  */
 export const saveAllMenuItems = async (flatItems: MenuItem[]): Promise<void> => {
+  // Filtra itens dinâmicos antes de salvar para evitar duplicação na próxima carga.
+  const itemsToSave = flatItems.filter(item => !item.isDynamic);
+
   const { error } = await supabase
     .from(APP_CONFIG_TABLE)
-    .upsert({ key: MENU_STRUCTURE_KEY, value: flatItems, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    .upsert({ key: MENU_STRUCTURE_KEY, value: itemsToSave, updated_at: new Date().toISOString() }, { onConflict: 'key' });
 
   if (error) {
     throw new Error(`Erro ao salvar estrutura do menu: ${error.message}`);
