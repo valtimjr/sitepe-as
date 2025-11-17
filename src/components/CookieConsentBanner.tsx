@@ -68,8 +68,6 @@ const CookieConsentBanner: React.FC = () => {
 
   const savePreferences = (prefs: CookiePreferences) => {
     localStorage.setItem(COOKIE_PREFERENCES_KEY, JSON.stringify(prefs));
-    // Dispara o evento de storage para que outros componentes possam reagir se necessário.
-    window.dispatchEvent(new Event('storage'));
   };
 
   const handleAcceptAll = () => {
