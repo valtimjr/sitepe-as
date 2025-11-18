@@ -103,14 +103,35 @@ const CustomListPage: React.FC = () => {
 
   const itemsToProcess = useMemo(() => {
     if (selectedItemIds.size === 0) {
-      return items; // Se nada estiver selecionado, processa todos os itens
+      return items;
     }
-    // Se houver itens selecionados, inclui eles MAIS quaisquer subtítulos e separadores
-    return items.filter(item =>
-      item.type === 'subtitle' ||
-      item.type === 'separator' ||
-      selectedItemIds.has(item.id)
-    );
+
+    // Filtra para incluir itens selecionados e os subtítulos/separadores relevantes
+    const finalItems = items.filter((item, index) => {
+      // Sempre inclui itens selecionados
+      if (selectedItemIds.has(item.id)) {
+        return true;
+      }
+
+      // Inclui subtítulos ou separadores apenas se houver um item selecionado dentro de seu "grupo"
+      if (item.type === 'subtitle' || item.type === 'separator') {
+        // Encontra o próximo subtítulo ou separador para definir o limite do grupo
+        let nextBoundaryIndex = items.findIndex((nextItem, nextIndex) => 
+          nextIndex > index && (nextItem.type === 'subtitle' || nextItem.type === 'separator')
+        );
+        if (nextBoundaryIndex === -1) {
+          nextBoundaryIndex = items.length;
+        }
+        
+        // Verifica se algum item dentro deste grupo está selecionado
+        const itemsInGroup = items.slice(index + 1, nextBoundaryIndex);
+        return itemsInGroup.some(groupItem => selectedItemIds.has(groupItem.id));
+      }
+
+      return false;
+    });
+
+    return finalItems;
   }, [items, selectedItemIds]);
 
   const formatListText = (itemsToFormat: CustomListItem[]) => {
