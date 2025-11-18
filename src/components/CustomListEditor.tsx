@@ -1,18 +1,14 @@
+/** @jsxImportSource react */
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ArrowLeft, Copy, Download, FileText, MoreHorizontal, ArrowUp, ArrowDown, GripVertical, Tag, Info, Loader2, FileDown, Check, List as ListIcon } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { PlusCircle, Edit, Trash2, ArrowUp, ArrowDown, GripVertical, List as ListIcon, Copy, Download, FileText, MoreHorizontal, ArrowLeft, Tag, Loader2, FileDown, Check, XCircle } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
 import { getCustomListItems, deleteCustomListItem, updateAllCustomListItems } from '@/services/customListService';
-import { getParts, getAfsFromService, addSimplePartItem, Af } from '@/services/partListService';
-import { exportDataAsCsv, exportDataAsJson } from '@/services/partListService';
+import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
@@ -24,7 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,10 +35,8 @@ import { Separator } from '@/components/ui/separator';
 import RelatedPartDisplay from './RelatedPartDisplay';
 import CustomListItemForm from './CustomListItemForm';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
-import AfSearchInput from './AfSearchInput';
-import { MadeWithDyad } from './made-with-dyad'; // Adicionado MadeWithDyad
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -56,35 +49,12 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
   const [isLoading, setIsLoading] = useState(true);
   const [isFormSheetOpen, setIsFormSheetOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<CustomListItem | null>(null);
-
   const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
   const [openRelatedItemsPopoverId, setOpenRelatedItemsPopoverId] = useState<string | null>(null);
-
-  // Estados para seleção e exportação (duplicados da CustomListPage, mas necessários aqui para o renderItemRow)
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
-  const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
-  const [afForExport, setAfForExport] = useState('');
-  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
-  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
-
   const isMobile = useIsMobile();
 
-  const loadAfs = useCallback(async () => {
-    setIsLoadingAfs(true);
-    try {
-      const afs = await getAfsFromService();
-      setAllAvailableAfs(afs);
-    } catch (error) {
-      console.error('Erro ao carregar AFs:', error);
-    } finally {
-      setIsLoadingAfs(false);
-    }
-  }, []);
-
   const loadItems = useCallback(async () => {
-    if (!list.id) {
-      return;
-    }
+    if (!list.id) return;
     setIsLoading(true);
     try {
       const fetchedItems = await getCustomListItems(list.id);
@@ -99,8 +69,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
 
   useEffect(() => {
     loadItems();
-    loadAfs();
-  }, [loadItems, loadAfs]);
+  }, [loadItems]);
 
   const handleItemSavedOrClosed = () => {
     setIsFormSheetOpen(false);
@@ -161,7 +130,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
     }
   };
 
-  // --- Drag and Drop Handlers (Itens da Lista Principal) ---
   const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: CustomListItem) => {
     setDraggedItem(item);
     e.dataTransfer.effectAllowed = 'move';
@@ -200,7 +168,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
         setItems(updatedItemsWithNewOrder);
 
         const loadingToastId = showLoading('Reordenando itens...');
-
         try {
           await updateAllCustomListItems(list.id, updatedItemsWithNewOrder);
           showSuccess('Ordem atualizada com sucesso!');
@@ -208,7 +175,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
         } catch (error) {
           console.error('Erro ao reordenar itens:', error);
           showError('Erro ao reordenar itens.');
-          loadItems();
+          await loadItems();
         } finally {
           dismissToast(loadingToastId);
         }
@@ -221,202 +188,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
     e.currentTarget.classList.remove('opacity-50');
     setDraggedItem(null);
   };
-  // --- End Drag and Drop Handlers (Itens da Lista Principal) ---
-
-  const formatListText = (itemsToFormat: CustomListItem[]) => {
-    if (itemsToFormat.length === 0) return '';
-
-    let formattedText = `${list.title}\n\n`;
-
-    itemsToFormat.forEach(item => {
-      if (item.type === 'separator') {
-        formattedText += '--------------------\n';
-        return;
-      }
-      if (item.type === 'subtitle') {
-        formattedText += `\n--- ${item.item_name.toUpperCase()} ---\n`;
-        return;
-      }
-      
-      if (item.type === 'mangueira' && item.mangueira_data) {
-        const data = item.mangueira_data;
-        formattedText += `1 - Mangueira: ${data.mangueira.name || data.mangueira.codigo} (Cód: ${data.mangueira.codigo}) - Corte: ${data.corte_cm} cm\n`;
-        formattedText += `    Conexão 1: ${data.conexao1.name || data.conexao1.codigo} (Cód: ${data.conexao1.codigo})\n`;
-        formattedText += `    Conexão 2: ${data.conexao2.name || data.conexao2.codigo} (Cód: ${data.conexao2.codigo})\n`;
-        return;
-      }
-
-      const quantidade = item.quantity;
-      const nome = item.item_name || '';
-      const codigo = item.part_code ? ` (Cód: ${item.part_code})` : '';
-      const descricao = item.description || '';
-      
-      // Formato: [QUANTIDADE] - [NOME PERSONALIZADO] [DESCRIÇÃO] (Cód: [CÓDIGO])
-      formattedText += `${quantidade} - ${nome} ${descricao}${codigo}`.trim() + '\n';
-    });
-
-    return formattedText.trim();
-  };
-
-  const handleCopyList = async () => {
-    const itemsToProcess = selectedItemIds.size > 0
-      ? items.filter(item => selectedItemIds.has(item.id))
-      : items;
-    if (itemsToProcess.length === 0) {
-      showError('A lista está vazia ou nenhum item selecionado para copiar.');
-      return;
-    }
-    const textToCopy = formatListText(itemsToProcess);
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-      showSuccess('Lista de peças copiada para a área de transferência!');
-    } catch (err) {
-      console.error('Erro ao copiar a lista:', err);
-      showError('Erro ao copiar a lista. Por favor, tente novamente.');
-    }
-  };
-
-  const handleExportCsv = () => {
-    const itemsToExport = selectedItemIds.size > 0
-      ? items.filter(item => selectedItemIds.has(item.id))
-      : items;
-    if (itemsToExport.length === 0) {
-      showError('Nenhum item para exportar.');
-      return;
-    }
-    exportDataAsCsv(itemsToExport, `${list.title.replace(/\s/g, '_')}_itens.csv`);
-    showSuccess('Lista exportada para CSV com sucesso!');
-  };
-
-  const handleExportPdf = () => {
-    if (items.length === 0) {
-      showError('Nenhum item para exportar.');
-      return;
-    }
-    lazyGenerateCustomListPdf(items, list.title);
-    showSuccess('PDF gerado com sucesso!');
-  };
-
-  // --- Seleção de Itens ---
-  const selectableItems = useMemo(() => items.filter(i => i.type === 'item' || i.type === 'mangueira'), [items]);
-  const isAllSelected = selectableItems.length > 0 && selectedItemIds.size === selectableItems.length;
-  const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
-
-  const handleToggleSelectAll = () => {
-    if (isAllSelected) {
-      setSelectedItemIds(new Set());
-    } else {
-      const allItemIds = new Set(selectableItems.map(item => item.id));
-      setSelectedItemIds(allItemIds);
-    }
-  };
-
-  const handleSelectItem = (id: string, checked: boolean) => {
-    setSelectedItemIds(prev => {
-      const newSelection = new Set(prev);
-      if (checked) {
-        newSelection.add(id);
-      } else {
-        newSelection.delete(id);
-      }
-      return newSelection;
-    });
-  };
-
-  const handleSubtitleSelect = (subtitleItem: CustomListItem, isChecked: boolean) => {
-    const startIndex = items.findIndex(i => i.id === subtitleItem.id);
-    if (startIndex === -1) return;
-    let endIndex = items.findIndex((i, idx) => idx > startIndex && i.type === 'subtitle');
-    if (endIndex === -1) {
-      endIndex = items.length;
-    }
-    const itemsInGroup = items.slice(startIndex, endIndex);
-    const selectableIdsInGroup = itemsInGroup
-      .filter(i => i.type === 'item' || i.type === 'mangueira')
-      .map(item => item.id);
-    setSelectedItemIds(prev => {
-      const newSelection = new Set(prev);
-      if (isChecked) {
-        selectableIdsInGroup.forEach(id => newSelection.add(id));
-      } else {
-        selectableIdsInGroup.forEach(id => newSelection.delete(id));
-      }
-      return newSelection;
-    });
-  };
-
-  // --- Exportar Selecionados para Minha Lista ---
-  const handleExportSelectedToMyList = async () => {
-    if (selectedItemIds.size === 0) {
-      showError('Nenhum item selecionado para exportar.');
-      return;
-    }
-    setAfForExport(''); // Limpa o AF anterior
-    setIsExportSheetOpen(true);
-  };
-
-  const handleConfirmExport = async () => {
-    if (!afForExport.trim()) {
-      showError('Por favor, selecione um AF para os itens exportados.');
-      return;
-    }
-
-    const itemsToExport = items.filter(item => selectedItemIds.has(item.id));
-    if (itemsToExport.length === 0) {
-      showError('Nenhum item selecionado para exportar.');
-      return;
-    }
-
-    const loadingToastId = showLoading(`Exportando ${itemsToExport.length} itens...`);
-    try {
-      for (const item of itemsToExport) {
-        if (item.type === 'mangueira' && item.mangueira_data) {
-          const data = item.mangueira_data;
-          
-          // Exporta a Mangueira como item simples (1 unidade)
-          await addSimplePartItem({
-            codigo_peca: data.mangueira.codigo || '',
-            descricao: `Mangueira: ${data.mangueira.name || data.mangueira.codigo} - Corte: ${data.corte_cm} cm`,
-            quantidade: 1,
-            af: afForExport.trim(),
-          });
-
-          // Exporta Conexão 1
-          await addSimplePartItem({
-            codigo_peca: data.conexao1.codigo || '',
-            descricao: `Conexão 1: ${data.conexao1.name || data.conexao1.codigo}`,
-            quantidade: 1,
-            af: afForExport.trim(),
-          });
-
-          // Exporta Conexão 2
-          await addSimplePartItem({
-            codigo_peca: data.conexao2.codigo || '',
-            descricao: `Conexão 2: ${data.conexao2.name || data.conexao2.codigo}`,
-            quantidade: 1,
-            af: afForExport.trim(),
-          });
-
-        } else if (item.type === 'item') {
-          await addSimplePartItem({
-            codigo_peca: item.part_code || '',
-            descricao: item.description || item.item_name,
-            quantidade: item.quantity,
-            af: afForExport.trim(),
-          });
-        }
-      }
-      showSuccess(`${itemsToExport.length} item(s) exportado(s) para 'Minha Lista de Peças' com sucesso!`);
-      setSelectedItemIds(new Set());
-      setIsExportSheetOpen(false);
-      setAfForExport('');
-    } catch (error) {
-      console.error('Erro ao exportar itens:', error);
-      showError(`Erro ao exportar itens para 'Minha Lista de Peças'.`);
-    } finally {
-      dismissToast(loadingToastId);
-    }
-  };
 
   const renderItemRow = (item: CustomListItem, index: number) => {
     const isSeparator = item.type === 'separator';
@@ -424,7 +195,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
     const isMangueira = item.type === 'mangueira';
     const isItem = item.type === 'item';
     
-    // Check if the previous item was also a mangueira to decide on the header
     const previousItem = index > 0 ? items[index - 1] : null;
     const showMangueiraHeader = isMangueira && (!previousItem || previousItem.type !== 'mangueira');
 
@@ -439,14 +209,6 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
     }
 
     if (isSubtitle) {
-      const startIndex = items.findIndex(i => i.id === item.id);
-      let endIndex = items.findIndex((i, idx) => idx > startIndex && i.type === 'subtitle');
-      if (endIndex === -1) endIndex = items.length;
-      const groupSelectableItems = items.slice(startIndex, endIndex).filter(i => i.type === 'item' || i.type === 'mangueira');
-      const selectedInGroupCount = groupSelectableItems.filter(i => selectedItemIds.has(i.id)).length;
-      const isGroupAllSelected = groupSelectableItems.length > 0 && selectedInGroupCount === groupSelectableItems.length;
-      const isGroupIndeterminate = selectedInGroupCount > 0 && !isGroupAllSelected;
-
       return (
         <TableRow 
           key={item.id} 
@@ -650,191 +412,91 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
 
   const SimpleItemHeader = () => (
     <TableRow className="bg-muted/50 border-y border-primary/50">
-      <TableHead className="w-[40px] p-2">
-        <Checkbox
-          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-          onCheckedChange={handleToggleSelectAll}
-          aria-label="Selecionar todos os itens"
-        />
-      </TableHead>
+      <TableHead className="w-[30px] p-2"></TableHead>
       <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
       <TableHead className="w-auto p-2 text-left font-bold text-sm" colSpan={isMobile ? 4 : 3}>Item / Código / Descrição</TableHead>
+      <TableHead className="w-[70px] p-2 text-right"></TableHead>
     </TableRow>
   );
 
   const MangueiraHeader = () => (
     <TableRow className="bg-muted/50 border-y border-primary/50">
-      <TableHead className="w-[40px] p-2">
-        <Checkbox
-          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-          onCheckedChange={handleToggleSelectAll}
-          aria-label="Selecionar todos os itens"
-        />
-      </TableHead>
-      <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
+      <TableHead className="w-[30px] p-2"></TableHead>
       <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
-      <TableHead className="w-[6rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
-      {isMobile ? (
-        <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm" colSpan={2}>Conexões</TableHead>
-      ) : (
-        <>
-          <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 1</TableHead>
-          <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 2</TableHead>
-        </>
-      )}
+      <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
+      <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 1</TableHead>
+      <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 2</TableHead>
+      <TableHead className="w-[70px] p-2 text-right"></TableHead>
     </TableRow>
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
-        <Link to="/custom-menu-view">
-          <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar ao Catálogo
-          </Button>
-        </Link>
-        <Link to="/parts-list">
-          <Button variant="outline" className="flex items-center gap-2">
-            <ListIcon className="h-4 w-4" /> Minha Lista de Peças
-          </Button>
-        </Link>
+    <div className="flex flex-col h-full pt-4">
+      <div className="flex flex-wrap gap-2 justify-end mb-4 px-4">
+        <Button onClick={handleAdd} className="flex items-center gap-2">
+          <PlusCircle className="h-4 w-4" /> Adicionar Item
+        </Button>
       </div>
-      
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <ListIcon className="h-8 w-8 text-primary" />
-        {list.title}
-      </h1>
 
-      <Card className="w-full max-w-4xl mx-auto mb-8">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl font-bold text-center pt-2">
-            Itens da Lista
-          </CardTitle>
-          <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2">
-            {selectedItemIds.size > 0 && (
-              <Button 
-                onClick={handleExportSelectedToMyList} 
-                className="flex-1 sm:w-auto"
-                disabled={isLoadingAfs}
-              >
-                <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
-              </Button>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  onClick={handleCopyList} 
-                  disabled={items.length === 0} 
-                  variant="secondary" 
-                  size="icon"
-                  className="sm:w-auto sm:px-4"
-                >
-                  <Copy className="h-4 w-4" /> 
-                  <span className="hidden sm:inline ml-2">Copiar Lista</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Copiar Lista</TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  onClick={handleExportCsv} 
-                  disabled={items.length === 0} 
-                  variant="outline" 
-                  size="icon"
-                  className="sm:w-auto sm:px-4"
-                >
-                  <Download className="h-4 w-4" /> 
-                  <span className="hidden sm:inline ml-2">Exportar CSV</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Exportar CSV</TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-                  <FileDown className="h-4 w-4" /> Exportar PDF
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Exportar PDF</TooltipContent>
-            </Tooltip>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
-          ) : items.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableBody>
-                  {(() => {
-                    let lastItemType: string | null = null;
-                    const rows: React.ReactNode[] = [];
+      <div className="flex-1 overflow-y-auto px-4">
+        {isLoading ? (
+          <p className="text-center text-muted-foreground py-8">Carregando itens...</p>
+        ) : items.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableBody>
+                {(() => {
+                  let lastItemType: string | null = null;
+                  const rows: React.ReactNode[] = [];
 
-                    items.forEach((item, index) => {
-                      const currentItemType = item.type;
+                  items.forEach((item, index) => {
+                    const currentItemType = item.type;
 
-                      if (currentItemType === 'subtitle' || currentItemType === 'separator') {
-                        rows.push(renderItemRow(item, index));
-                        lastItemType = null;
-                        return;
-                      }
-
-                      if (currentItemType !== lastItemType) {
-                        if (currentItemType === 'item') {
-                          rows.push(<SimpleItemHeader key={`header-item-${index}`} />);
-                        }
-                        lastItemType = currentItemType;
-                      }
-
+                    if (currentItemType === 'subtitle' || currentItemType === 'separator') {
                       rows.push(renderItemRow(item, index));
-                    });
+                      lastItemType = null;
+                      return;
+                    }
 
-                    return rows;
-                  })()}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      <MadeWithDyad />
+                    if (currentItemType !== lastItemType) {
+                      if (currentItemType === 'item') {
+                        rows.push(<SimpleItemHeader key={`header-item-${index}`} />);
+                      }
+                      lastItemType = currentItemType;
+                    }
 
-      <Sheet open={isExportSheetOpen} onOpenChange={setIsExportSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md">
+                    rows.push(renderItemRow(item, index));
+                  });
+
+                  return rows;
+                })()}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      <SheetFooter className="p-4 border-t mt-4">
+        <Button variant="outline" onClick={onClose}>Fechar</Button>
+      </SheetFooter>
+
+      <Sheet open={isFormSheetOpen} onOpenChange={setIsFormSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Exportar Itens para Minha Lista</SheetTitle>
+            <SheetTitle>{itemToEdit ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
             <SheetDescription>
-              Selecione um AF (Número de Frota) para aplicar a todos os {selectedItemIds.size} itens selecionados antes de exportar para "Minha Lista de Peças".
+              Preencha os detalhes do item para a lista "{list.title}".
             </SheetDescription>
           </SheetHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="af-for-export">AF (Número de Frota)</Label>
-              {isLoadingAfs ? (
-                <Input value="Carregando AFs..." readOnly className="bg-muted" />
-              ) : (
-                <AfSearchInput
-                  value={afForExport}
-                  onChange={setAfForExport}
-                  availableAfs={allAvailableAfs}
-                  onSelectAf={setAfForExport}
-                />
-              )}
-            </div>
-          </div>
-          <SheetFooter>
-            <Button type="button" variant="outline" onClick={() => setIsExportSheetOpen(false)}>
-              <XCircle className="h-4 w-4 mr-2" /> Cancelar
-            </Button>
-            <Button type="button" onClick={handleConfirmExport} disabled={!afForExport.trim() || isLoadingAfs}>
-              <Check className="h-4 w-4 mr-2" /> Confirmar Exportação
-            </Button>
-          </SheetFooter>
+          <CustomListItemForm
+            list={list}
+            editingItem={itemToEdit}
+            onItemSaved={handleItemSavedOrClosed}
+            onClose={handleItemSavedOrClosed}
+            allAvailableParts={allAvailableParts}
+          />
         </SheetContent>
       </Sheet>
     </div>
