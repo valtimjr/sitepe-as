@@ -101,6 +101,18 @@ const CustomListPage: React.FC = () => {
     }
   }, [isLoading, location.hash, items]);
 
+  const itemsToProcess = useMemo(() => {
+    if (selectedItemIds.size === 0) {
+      return items; // Se nada estiver selecionado, processa todos os itens
+    }
+    // Se houver itens selecionados, inclui eles MAIS quaisquer subtítulos e separadores
+    return items.filter(item =>
+      item.type === 'subtitle' ||
+      item.type === 'separator' ||
+      selectedItemIds.has(item.id)
+    );
+  }, [items, selectedItemIds]);
+
   const formatListText = (itemsToFormat: CustomListItem[]) => {
     if (itemsToFormat.length === 0) return '';
     let formattedText = `${listTitle}\n\n`;
@@ -130,9 +142,6 @@ const CustomListPage: React.FC = () => {
   };
 
   const handleCopyList = async () => {
-    const itemsToProcess = selectedItemIds.size > 0
-      ? items.filter(item => selectedItemIds.has(item.id))
-      : items;
     if (itemsToProcess.length === 0) {
       showError('A lista está vazia ou nenhum item selecionado para copiar.');
       return;
@@ -148,26 +157,20 @@ const CustomListPage: React.FC = () => {
   };
 
   const handleExportCsv = () => {
-    const itemsToExport = selectedItemIds.size > 0
-      ? items.filter(item => selectedItemIds.has(item.id))
-      : items;
-    if (itemsToExport.length === 0) {
+    if (itemsToProcess.length === 0) {
       showError('Nenhum item para exportar.');
       return;
     }
-    exportDataAsCsv(itemsToExport, `${listTitle.replace(/\s/g, '_')}_itens.csv`);
+    exportDataAsCsv(itemsToProcess, `${listTitle.replace(/\s/g, '_')}_itens.csv`);
     showSuccess('Lista exportada para CSV com sucesso!');
   };
 
   const handleExportPdf = async () => {
-    const itemsToExport = selectedItemIds.size > 0
-      ? items.filter(item => selectedItemIds.has(item.id))
-      : items;
-    if (itemsToExport.length === 0) {
+    if (itemsToProcess.length === 0) {
       showError('Nenhum item para exportar.');
       return;
     }
-    await lazyGenerateCustomListPdf(itemsToExport, listTitle);
+    await lazyGenerateCustomListPdf(itemsToProcess, listTitle);
     showSuccess('PDF gerado com sucesso!');
   };
 
@@ -434,15 +437,9 @@ const CustomListPage: React.FC = () => {
                   Cód.: {item.part_code}
                 </span>
               )}
-              {item.item_name && (
-                <span className="text-[9pt] text-foreground whitespace-normal break-words">
-                  {item.item_name}
-                </span>
-              )}
+              <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
               {item.description && (
-                <span className="text-[8pt] italic text-foreground/90 whitespace-normal break-words">
-                  {item.description}
-                </span>
+                <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
               )}
               {item.itens_relacionados && item.itens_relacionados.length > 0 && (
                 <Popover 
