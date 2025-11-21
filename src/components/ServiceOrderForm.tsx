@@ -7,15 +7,19 @@ import { Part, addServiceOrderItem, getParts, searchParts as searchPartsService,
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save, Plus, FilePlus, XCircle, Loader2, Tag } from 'lucide-react';
+import { Save, Plus, FilePlus, XCircle, Loader2, Tag, CalendarIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
-import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
+import { useSession } from '@/components/SessionContextProvider';
+import { useIsMobile } from '@/hooks/use-mobile';
 import RelatedPartDisplay from './RelatedPartDisplay';
 import { ScrollArea } from './ui/scroll-area';
 import { RelatedPart } from '@/types/supabase';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ServiceOrderDetails {
   af: string;
@@ -24,6 +28,7 @@ interface ServiceOrderDetails {
   hora_final?: string;
   servico_executado?: string;
   createdAt?: Date;
+  date?: string; // NOVO: Data da OS
 }
 
 type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
@@ -48,7 +53,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   initialSoData, 
   initialPartData, 
 }) => {
-  const { checkPageAccess } = useSession();
+  const { user, profile } = useSession();
   const isMobile = useIsMobile();
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
@@ -65,6 +70,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const [isOsInvalid, setIsOsInvalid] = useState(false);
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined); // NOVO: Estado para a data
 
   const allAvailablePartsMap = useMemo(() => {
     const map = new Map<string, Part>();
@@ -105,6 +111,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     setHoraFinal('');
     setServicoExecutado('');
     setIsOsInvalid(false);
+    setSelectedDate(new Date()); // NOVO: Define a data padrão para hoje
   }, [resetPartFields]);
 
   // Efeito para inicializar o formulário com base no `mode` e `initial` props
@@ -117,6 +124,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       setHoraInicio(initialSoData.hora_inicio || '');
       setHoraFinal(initialSoData.hora_final || '');
       setServicoExecutado(initialSoData.servico_executado || '');
+      setSelectedDate(initialSoData.date ? parseISO(initialSoData.date) : new Date()); // NOVO: Carrega a data
+    } else {
+      setSelectedDate(new Date()); // NOVO: Para nova OS, data padrão é hoje
     }
 
     if (mode === 'edit-part' && initialPartData) {
@@ -211,6 +221,17 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!user?.id) {
+      showError('Usuário não autenticado. Faça login para salvar.');
+      return;
+    }
+
+    if (!selectedDate) {
+      showError('Por favor, selecione uma data para a Ordem de Serviço.');
+      return;
+    }
+    const dateString = format(selectedDate, 'yyyy-MM-dd');
+
     if (isOsInvalid) {
       showError('Por favor, corrija o valor da OS antes de continuar.');
       return;
@@ -229,20 +250,26 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       const originalHoraFinal = initialSoData.hora_final;
       const originalServicoExecutado = initialSoData.servico_executado;
       const originalCreatedAt = initialSoData.createdAt;
+      const originalDate = initialSoData.date; // NOVO: Data original
 
+      // 1. Coleta todos os itens que pertencem à OS original
       const itemsToUpdate = listItems.filter(item =>
+        item.user_id === user.id && // Garante que é do usuário logado
+        item.date === originalDate && // Garante que é da data original
         item.af === originalAf &&
         (item.os === originalOs || (item.os === undefined && originalOs === undefined)) &&
         (item.hora_inicio === originalHoraInicio || (item.hora_inicio === undefined && originalHoraInicio === undefined)) &&
         (item.hora_final === originalHoraFinal || (originalHoraFinal === undefined && item.hora_final === undefined)) &&
-        (item.servico_executado === originalServicoExecutado || (item.servico_executado === undefined && item.servico_executado === undefined))
+        (item.servico_executado === originalServicoExecutado || (item.servico_executado === undefined && originalServicoExecutado === undefined))
       );
 
+      // 2. Atualiza os itens com os novos detalhes da OS
       if (itemsToUpdate.length > 0) {
         try {
           for (const item of itemsToUpdate) {
             await updateServiceOrderItem({
               ...item,
+              date: dateString, // NOVO: Atualiza a data
               af,
               os,
               hora_inicio: horaInicio || undefined,
@@ -258,6 +285,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         // Se não houver itens, cria um item "em branco" para representar a OS
         try {
           await addServiceOrderItem({
+            user_id: user.id, // NOVO: Adiciona user_id
+            date: dateString, // NOVO: Adiciona a data
             af,
             os,
             hora_inicio: horaInicio || undefined,
@@ -266,7 +295,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             codigo_peca: undefined,
             descricao: undefined,
             quantidade: undefined,
-          }, originalCreatedAt);
+          }, user.id, originalCreatedAt);
           showSuccess('Ordem de Serviço recriada com novos detalhes!');
         } catch (error) {
           showError('Erro ao recriar a Ordem de Serviço.');
@@ -294,6 +323,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
           // Atualiza a peça existente
           await updateServiceOrderItem({
             ...initialPartData,
+            user_id: user.id, // NOVO: Garante user_id
+            date: dateString, // NOVO: Garante a data
             codigo_peca: selectedPart.codigo,
             descricao: selectedPart.descricao,
             quantidade: quantidade,
@@ -308,6 +339,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
           // Adiciona nova peça à OS existente
           // Verifica se existe um item "em branco" para esta OS e o remove
           const blankItem = listItems.find(item =>
+            item.user_id === user.id && // NOVO: Filtra por user_id
+            item.date === dateString && // NOVO: Filtra por data
             item.af === initialSoData.af &&
             (item.os === initialSoData.os || (item.os === undefined && initialSoData.os === undefined)) &&
             (item.hora_inicio === initialSoData.hora_inicio || (item.hora_inicio === undefined && initialSoData.hora_inicio === undefined)) &&
@@ -316,10 +349,12 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
           );
           if (blankItem) {
-            await deleteServiceOrderItem(blankItem.id);
+            await deleteServiceOrderItem(blankItem.id, user.id, dateString); // NOVO: Passa user_id e date
           }
 
           await addServiceOrderItem({
+            user_id: user.id, // NOVO: Adiciona user_id
+            date: dateString, // NOVO: Adiciona a data
             codigo_peca: selectedPart.codigo,
             descricao: selectedPart.descricao,
             quantidade: quantidade,
@@ -328,7 +363,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             hora_inicio: initialSoData.hora_inicio || undefined,
             hora_final: initialSoData.hora_final || undefined,
             servico_executado: servicoExecutado,
-          }, initialSoData.createdAt);
+          }, user.id, initialSoData.createdAt);
           showSuccess('Peça adicionada à Ordem de Serviço!');
         }
         onItemAdded(); // Recarrega a lista no componente pai
@@ -349,6 +384,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             return;
           }
           await addServiceOrderItem({
+            user_id: user.id, // NOVO: Adiciona user_id
+            date: dateString, // NOVO: Adiciona a data
             codigo_peca: selectedPart.codigo,
             descricao: selectedPart.descricao,
             quantidade: quantidade,
@@ -357,11 +394,13 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             hora_inicio: horaInicio || undefined,
             hora_final: horaFinal || undefined,
             servico_executado: servicoExecutado,
-          });
+          }, user.id);
           showSuccess('Ordem de Serviço e peça adicionadas!');
         } else {
           // Se não houver peça, cria uma OS "em branco"
           await addServiceOrderItem({
+            user_id: user.id, // NOVO: Adiciona user_id
+            date: dateString, // NOVO: Adiciona a data
             af,
             os: os,
             hora_inicio: horaInicio || undefined,
@@ -370,7 +409,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             codigo_peca: undefined,
             descricao: undefined,
             quantidade: undefined,
-          });
+          }, user.id);
           showSuccess('Ordem de Serviço criada sem peças. Adicione peças agora!');
         }
         onItemAdded();
@@ -389,10 +428,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
   
   // Desabilita o botão de submit se AF for vazio ou OS inválida
-  const isSubmitDisabled = isLoadingParts || (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) || isOsInvalid;
+  const isSubmitDisabled = isLoadingParts || (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) || isOsInvalid || !selectedDate;
 
   // Determina quais seções mostrar
-  const showOsDetails = mode === 'create-new-so' || mode === 'edit-so-details'; // Alterado para ocultar em modos de peça
+  const showOsDetails = mode === 'create-new-so' || mode === 'edit-so-details' || mode === 'add-part-to-existing-so' || mode === 'edit-part';
   const showPartDetails = mode === 'create-new-so' || mode === 'add-part-to-existing-so' || mode === 'edit-part';
   const isOsDetailsReadOnly = mode === 'add-part-to-existing-so' || mode === 'edit-part';
 
@@ -422,6 +461,37 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       </CardHeader>
       <CardContent className="p-0">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* NOVO: Campo de Data */}
+          {showOsDetails && (
+            <div className="space-y-2">
+              <Label htmlFor="os-date">Data da Ordem de Serviço</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !selectedDate && "text-muted-foreground"
+                    )}
+                    disabled={isOsDetailsReadOnly} // Desabilita se estiver editando peça
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    initialFocus
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
           {/* Campos da Ordem de Serviço */}
           {showOsDetails && (
             <>

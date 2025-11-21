@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator'; // Importar Separator
 import { cn } from '@/lib/utils';
-import { DailyServiceOrder, UserProfile, ServiceOrderEntry, ServiceOrderPart } from '@/types/supabase'; // Importar DailyServiceOrder, ServiceOrderEntry, ServiceOrderPart
+import { DailyServiceOrder, UserProfile } from '@/types/supabase';
 import { fetchDailyServiceOrders, calculateDurationInMinutes, formatMinutesToHoursAndMinutes } from '@/services/dailyServiceOrderService';
 import { getAllUserProfiles } from '@/services/userService';
 import { useSession } from '@/components/SessionContextProvider';

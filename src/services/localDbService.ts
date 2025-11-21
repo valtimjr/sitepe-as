@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { v4 as uuidv4 } from 'uuid';
-import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, Af as SupabaseAf } from '@/types/supabase'; // Importar novos tipos
+import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, Af as SupabaseAf, DailyServiceOrder, ServiceOrderEntry, ServiceOrderPart as SupabaseServiceOrderPart } from '@/types/supabase'; // Importar novos tipos
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network';
 import Papa from 'papaparse';
@@ -18,8 +18,11 @@ export interface SimplePartItem {
   created_at?: Date;
 }
 
+// ATUALIZADO: ServiceOrderItem agora inclui user_id e date
 export interface ServiceOrderItem {
   id: string;
+  user_id: string; // NOVO: ID do usuário
+  date: string; // NOVO: Data da OS (YYYY-MM-DD)
   codigo_peca?: string;
   descricao?: string;
   quantidade?: number;
@@ -82,6 +85,9 @@ class LocalDexieDb extends Dexie {
         if (item.af && item.af.trim() !== '') {
           serviceItems.push({
             id: item.id, // Usa o ID existente da tabela antiga
+            // ATENÇÃO: user_id e date não existiam na v1, serão undefined ou precisarão ser inferidos
+            user_id: 'unknown', // Placeholder, idealmente deveria ser migrado
+            date: format(item.created_at || new Date(), 'yyyy-MM-dd'), // Inferir da data de criação
             codigo_peca: item.codigo_peca,
             descricao: item.descricao,
             quantidade: item.quantidade,
@@ -174,12 +180,20 @@ class LocalDexieDb extends Dexie {
     });
     this.version(7).stores({ // NOVA VERSÃO
       simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
-      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
+      serviceOrderItems: 'id, user_id, date, [user_id+date]', // ATUALIZADO: Adicionado user_id e date ao índice
       parts: '++id, codigo, descricao, tags, name, itens_relacionados', // Removido * de itens_relacionados
       afs: '++id, af_number, descricao',
       monthlyApontamentos: 'id, user_id, month_year, [user_id+month_year]',
     }).upgrade(async tx => {
-      // Não é necessária migração de dados, apenas atualização do esquema.
+      // Migração para adicionar user_id e date aos ServiceOrderItems existentes
+      const existingServiceOrderItems: ServiceOrderItem[] = await tx.table('serviceOrderItems').toArray();
+      const updatedServiceOrderItems = existingServiceOrderItems.map(item => ({
+        ...item,
+        user_id: item.user_id || 'unknown', // Define um user_id padrão se não existir
+        date: item.date || format(item.created_at || new Date(), 'yyyy-MM-dd'), // Define a data se não existir
+      }));
+      await tx.table('serviceOrderItems').clear();
+      await tx.table('serviceOrderItems').bulkAdd(updatedServiceOrderItems);
     });
   }
 }
@@ -325,26 +339,43 @@ export const clearLocalSimplePartsList = async (): Promise<void> => {
 
 // --- Service Order Items Management (IndexedDB) ---
 
-export const getLocalServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
-  return localDb.serviceOrderItems.toArray();
+// ATUALIZADO: getLocalServiceOrderItems agora aceita userId e opcionalmente date
+export const getLocalServiceOrderItems = async (userId: string, date?: string): Promise<ServiceOrderItem[]> => {
+  if (date) {
+    return localDb.serviceOrderItems.where({ user_id: userId, date: date }).toArray();
+  }
+  return localDb.serviceOrderItems.where({ user_id: userId }).toArray();
 };
 
+// ATUALIZADO: addLocalServiceOrderItem agora espera user_id e date
 export const addLocalServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
   const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
   await localDb.serviceOrderItems.add(newItem);
   return newItem.id;
 };
 
+// ATUALIZADO: updateLocalServiceOrderItem usa put para atualizar/inserir
 export const updateLocalServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
-  await localDb.serviceOrderItems.update(updatedItem.id, updatedItem);
+  await localDb.serviceOrderItems.put(updatedItem);
 };
 
+// ATUALIZADO: deleteLocalServiceOrderItem
 export const deleteLocalServiceOrderItem = async (id: string): Promise<void> => {
   await localDb.serviceOrderItems.delete(id);
 };
 
-export const clearLocalServiceOrderItems = async (): Promise<void> => {
-  await localDb.serviceOrderItems.clear();
+// NOVO: bulkPutLocalServiceOrderItems para sincronização
+export const bulkPutLocalServiceOrderItems = async (items: ServiceOrderItem[]): Promise<void> => {
+  await localDb.serviceOrderItems.bulkPut(items);
+};
+
+// ATUALIZADO: clearLocalServiceOrderItems agora aceita userId e opcionalmente date
+export const clearLocalServiceOrderItems = async (userId: string, date?: string): Promise<void> => {
+  if (date) {
+    await localDb.serviceOrderItems.where({ user_id: userId, date: date }).delete();
+  } else {
+    await localDb.serviceOrderItems.where({ user_id: userId }).delete();
+  }
 };
 
 export const getLocalUniqueAfs = async (): Promise<string[]> => {
