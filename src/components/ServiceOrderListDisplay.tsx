@@ -100,9 +100,12 @@ const timeToEffectiveMinutes = (timeString: string | undefined): number | null =
 
 const compareTimeStrings = (t1: string | undefined, t2: string | undefined): number => {
   const effectiveMinutes1 = timeToEffectiveMinutes(t1);
-  if (effectiveMinutes1 === null) return 1;
   const effectiveMinutes2 = timeToEffectiveMinutes(t2);
-  if (effectiveMinutes2 === null) return -1;
+
+  // Lida com horários indefinidos/nulos: indefinido vem por último
+  if (effectiveMinutes1 === null && effectiveMinutes2 === null) return 0;
+  if (effectiveMinutes1 === null) return 1; // t1 é indefinido, então é "depois"
+  if (effectiveMinutes2 === null) return -1; // t2 é indefinido, então é "depois"
 
   return effectiveMinutes1 - effectiveMinutes2;
 };

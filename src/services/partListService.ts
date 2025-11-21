@@ -28,6 +28,8 @@ import {
   deleteLocalMonthlyApontamento,
   bulkPutLocalServiceOrderItems, // NOVO: Importa a função de bulkPut
   Apontamento as LocalApontamento, // Importa Apontamento do localDbService
+  SimplePartItem, // Re-exporta SimplePartItem
+  ServiceOrderItem, // Re-exporta ServiceOrderItem
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network';
@@ -35,8 +37,8 @@ import { format } from 'date-fns';
 import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, DailyServiceOrder, ServiceOrderEntry, ServiceOrderPart as SupabaseServiceOrderPart } from '@/types/supabase';
 
 export interface Part extends SupabasePart {}
-export interface SimplePartItem extends LocalSimplePartItem {} // Re-exporta SimplePartItem
-export interface ServiceOrderItem extends LocalServiceOrderItem {} // Re-exporta ServiceOrderItem
+// export interface SimplePartItem extends LocalSimplePartItem {} // Removido, já re-exportado acima
+// export interface ServiceOrderItem extends LocalServiceOrderItem {} // Removido, já re-exportado acima
 export interface Af extends LocalAf {}
 export type Apontamento = LocalApontamento; // Usa o Apontamento re-exportado do localDbService
 
@@ -721,7 +723,7 @@ export const syncServiceOrdersToSupabase = async (userId: string, date: string):
 
   const { data: upsertedData, error: upsertError } = await supabase
     .from('daily_service_orders')
-    .upsert(payload, { onConflict: 'user_id,date' }) // Conflito em user_id e month_year
+    .upsert(payload, { onConflict: 'user_id,date' })
     .select()
     .single();
 

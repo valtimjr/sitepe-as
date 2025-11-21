@@ -11,7 +11,7 @@ import { Save, Plus, FilePlus, XCircle, Loader2, Tag, CalendarIcon } from 'lucid
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { useSession } from '@/components/SessionContextProvider';
+import { useSession } from '@/components/SessionContextProvider'; // Adicionado: Importar useSession
 import { useIsMobile } from '@/hooks/use-mobile';
 import RelatedPartDisplay from './RelatedPartDisplay';
 import { ScrollArea } from './ui/scroll-area';
@@ -344,7 +344,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             (item.os === initialSoData.os || (item.os === undefined && initialSoData.os === undefined)) &&
             (item.hora_inicio === initialSoData.hora_inicio || (item.hora_inicio === undefined && initialSoData.hora_inicio === undefined)) &&
             (item.hora_final === initialSoData.hora_final || (initialSoData.hora_final === undefined && item.hora_final === undefined)) &&
-            (item.servico_executado === initialSoData.servico_executado || (initialSoData.servico_executado === undefined && item.servico_executado === undefined)) &&
+            (item.servico_executado === initialSoData.servico_executado || (initialSoData.servico_executado === undefined && initialSoData.servico_executado === undefined)) &&
             !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
           );
           if (blankItem) {

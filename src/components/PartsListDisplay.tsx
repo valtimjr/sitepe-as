@@ -32,6 +32,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 import { RelatedPart } from '@/types/supabase';
+import { Input } from '@/components/ui/input'; // Adicionado: Importar Input
+import { Label } from '@/components/ui/label'; // Adicionado: Importar Label
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
