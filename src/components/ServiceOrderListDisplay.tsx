@@ -34,6 +34,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Part, RelatedPart } from '@/types/supabase';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 import { useSession } from '@/components/SessionContextProvider'; // NOVO: Importar useSession
+import { format, parseISO } from 'date-fns'; // Adicionado: Importar format e parseISO
+import { ptBR } from 'date-fns/locale'; // Adicionado: Importar ptBR
 
 interface ServiceOrderDetails {
   af: string;
@@ -98,12 +100,9 @@ const timeToEffectiveMinutes = (timeString: string | undefined): number | null =
 
 const compareTimeStrings = (t1: string | undefined, t2: string | undefined): number => {
   const effectiveMinutes1 = timeToEffectiveMinutes(t1);
+  if (effectiveMinutes1 === null) return 1;
   const effectiveMinutes2 = timeToEffectiveMinutes(t2);
-
-  // Lida com horários indefinidos/nulos: indefinido vem por último
-  if (effectiveMinutes1 === null && effectiveMinutes2 === null) return 0;
-  if (effectiveMinutes1 === null) return 1; // t1 é indefinido, então é "depois"
-  if (effectiveMinutes2 === null) return -1; // t2 é indefinido, então é "depois"
+  if (effectiveMinutes2 === null) return -1;
 
   return effectiveMinutes1 - effectiveMinutes2;
 };
@@ -548,7 +547,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       </CardHeader>
       <div className="flex flex-col sm:flex-row flex-wrap items-center justify-end gap-2 p-4 pt-0">
           <Button 
-            onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), date: format(new Date(), 'yyyy-MM-dd'), mode: 'create-new-so' })} // NOVO: Adiciona a data
+            onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), date: format(new Date(), 'yyyy-MM-dd', { locale: ptBR }), mode: 'create-new-so' })} // NOVO: Adiciona a data
             className="flex items-center gap-2 w-full sm:flex-grow"
           >
             <FilePlus className="h-4 w-4" /> Iniciar Nova OS
@@ -630,7 +629,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             <FilePlus className="h-16 w-16 mb-4 text-primary" />
             <p className="text-lg mb-4">Nenhuma ordem de serviço adicionada ainda.</p>
             <Button 
-              onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), date: format(new Date(), 'yyyy-MM-dd'), mode: 'create-new-so' })} // NOVO: Adiciona a data
+              onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), date: format(new Date(), 'yyyy-MM-dd', { locale: ptBR }), mode: 'create-new-so' })} // NOVO: Adiciona a data
               className="flex items-center gap-2"
             >
               <PlusCircle className="h-4 w-4" /> Iniciar a Primeira Ordem de Serviço

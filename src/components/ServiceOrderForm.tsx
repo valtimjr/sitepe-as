@@ -636,7 +636,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                       value={editedTags}
                       onChange={(e) => setEditedTags(e.target.value)}
                       placeholder="Adicione tags separadas por ';'"
-                      disabled={!canEditTags}
+                      disabled={!checkPageAccess('/manage-tags')} // Usar checkPageAccess
                     />
                     <Button
                       type="button"
