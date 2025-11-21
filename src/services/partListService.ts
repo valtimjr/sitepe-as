@@ -26,7 +26,7 @@ import {
   getLocalMonthlyApontamento,
   putLocalMonthlyApontamento, 
   deleteLocalMonthlyApontamento,
-  bulkPutLocalServiceOrderItems, // NOVO: Importa a função de bulkPut
+  bulkPutLocalMonthlyApontamentos, // NOVO: Importa a função de bulkPut
   Apontamento as LocalApontamento, // Importa Apontamento do localDbService
   SimplePartItem, // Re-exporta SimplePartItem
   ServiceOrderItem, // Re-exporta ServiceOrderItem
@@ -723,7 +723,7 @@ export const syncServiceOrdersToSupabase = async (userId: string, date: string):
 
   const { data: upsertedData, error: upsertError } = await supabase
     .from('daily_service_orders')
-    .upsert(payload, { onConflict: 'user_id,date' })
+    .upsert(payload, { onConflict: 'user_id,date' }) // Conflito em user_id e month_year
     .select()
     .single();
 
@@ -863,7 +863,7 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
     .single();
 
   if (error) {
-    console.error(`[syncMonthlyApontamentoToSupabase] Error upserting monthly apontamento to Supabase for ${month_year}:`, error);
+    console.error(`[syncMonthlyApontamentoToSupabase] Erro ao fazer upsert da ordem de serviço diária para ${month_year}:`, error);
     throw new Error(`Erro ao sincronizar apontamento mensal: ${error.message}`);
   }
 
