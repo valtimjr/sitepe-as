@@ -55,6 +55,7 @@ interface ServiceOrderGroupDetails {
   servico_executado?: string;
   createdAt: Date; // createdAt é obrigatório para agrupar
   date: string; // NOVO: Data da OS
+  parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
 }
 
 interface ServiceOrderGroup {

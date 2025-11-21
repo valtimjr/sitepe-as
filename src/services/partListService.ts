@@ -723,7 +723,7 @@ export const syncServiceOrdersToSupabase = async (userId: string, date: string):
 
   const { data: upsertedData, error: upsertError } = await supabase
     .from('daily_service_orders')
-    .upsert(payload, { onConflict: 'user_id,date' }) // Conflito em user_id e month_year
+    .upsert(payload, { onConflict: 'user_id,date' })
     .select()
     .single();
 
@@ -786,7 +786,7 @@ export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthY
 
   const { data, error } = await supabase
     .from('monthly_apontamentos')
-    .select('*')
+    .select('updated_at')
     .eq('user_id', userId)
     .eq('month_year', monthYear)
     .single();
@@ -858,12 +858,12 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
 
   const { data: upsertedData, error } = await supabase
     .from('monthly_apontamentos')
-    .upsert(payload, { onConflict: 'user_id,month_year' }) // Conflito em user_id e month_year
+    .upsert(payload, { onConflict: 'user_id,month_year' })
     .select()
     .single();
 
   if (error) {
-    console.error(`[syncMonthlyApontamentoToSupabase] Erro ao fazer upsert da ordem de serviço diária para ${month_year}:`, error);
+    console.error(`[syncMonthlyApontamentoToSupabase] Error upserting monthly apontamento to Supabase for ${month_year}:`, error);
     throw new Error(`Erro ao sincronizar apontamento mensal: ${error.message}`);
   }
 
@@ -1128,7 +1128,7 @@ export const cleanupEmptyParts = async (): Promise<number> => {
         .in('id', batchIds);
 
       if (deleteError) {
-        console.error('Error deleting empty parts batch from Supabase:', deleteError);
+      console.error('Error deleting empty parts batch from Supabase:', deleteError);
         throw new Error(`Erro ao excluir peças vazias do Supabase (lote): ${deleteError.message}`);
       }
       deletedCount += batchIds.length;
