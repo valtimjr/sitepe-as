@@ -12,6 +12,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 // Dialog não será mais usado para o formulário principal
 // import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; 
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
+import { Calendar } from '@/components/ui/calendar'; // Importar Calendar
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'; // Importar Popover
+import { format } from 'date-fns'; // Importar format
+import { ptBR } from 'date-fns/locale'; // Importar ptBR
 
 type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
 
@@ -44,6 +48,7 @@ const ServiceOrderList: React.FC = () => {
   const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc'); // Alterado para 'asc' como padrão
   const [isFormOpen, setIsFormOpen] = useState(false); // Novo estado para controlar a abertura do formulário principal
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date()); // NOVO: Estado para a data selecionada
 
   const isMobile = useIsMobile(); // Hook para detectar mobile
 
@@ -137,6 +142,8 @@ const ServiceOrderList: React.FC = () => {
         isLoading={isLoading} 
         sortOrder={sortOrder}
         onSortOrderChange={handleSortChange}
+        selectedDate={selectedDate} // NOVO: Passa a data selecionada
+        onDateChange={setSelectedDate} // NOVO: Passa a função para mudar a data
       />
       <MadeWithDyad />
     </div>

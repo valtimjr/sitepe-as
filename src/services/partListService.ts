@@ -30,7 +30,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network'; // Importar Network
 import { format } from 'date-fns';
-import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart } from '@/types/supabase'; // Removido PartImage
+import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, DailyServiceOrder, DailyServiceOrderEntry } from '@/types/supabase'; // Removido PartImage
 
 export interface Part extends SupabasePart {}
 export interface SimplePartItem extends LocalSimplePartItem {}
@@ -159,7 +159,7 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
       // For single-word, we can have more granular scoring.
       if (lowerFieldValue === query) return 4; // Exact match
       if (lowerFieldValue.startsWith(query)) return 3; // Starts with
-      if (lowerFieldValue.includes(query)) return 2; // Includes
+      if (lowerFieldValue.includes(query)) return 2; // Inclues
     }
     return 0;
   };
@@ -1031,4 +1031,131 @@ export const batchUpdateRelations = async (codesToRelate: string[]): Promise<{ u
   await bulkPutLocalParts(updatedParts);
 
   return { updatedCount: updatedParts.length, notFoundCodes };
+};
+
+// NOVO: Função para sincronizar ordens de serviço diárias para o Supabase
+export const syncDailyServiceOrdersToSupabase = async (
+  userId: string,
+  date: Date,
+  serviceOrders: ServiceOrderItem[],
+  userBadge?: string | null,
+  userName?: string | null
+): Promise<DailyServiceOrderEntry> => {
+  const dateString = format(date, 'yyyy-MM-dd');
+
+  // Converte ServiceOrderItem[] para DailyServiceOrder[]
+  const dailyServiceOrders: DailyServiceOrder[] = serviceOrders.map(item => ({
+    item_id: item.id, // Mantém o ID do LocalStorage para rastreamento
+    af: item.af,
+    os: item.os,
+    hora_inicio: item.hora_inicio,
+    hora_final: item.hora_final,
+    servico_executado: item.servico_executado,
+    codigo_peca: item.codigo_peca,
+    descricao_peca: item.descricao, // Usar descricao_peca para evitar conflito
+    quantidade_peca: item.quantidade,
+  }));
+
+  // Tenta buscar a entrada existente para este usuário e data
+  const { data: existingEntry, error: fetchError } = await supabase
+    .from('daily_service_orders')
+    .select('id, os_list')
+    .eq('user_id', userId)
+    .eq('date', dateString)
+    .single();
+
+  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows found
+    console.error('[syncDailyServiceOrdersToSupabase] Erro ao buscar entrada existente:', fetchError);
+    throw new Error(`Erro ao buscar ordens de serviço diárias: ${fetchError.message}`);
+  }
+
+  let updatedOsList = dailyServiceOrders;
+
+  // Se existir uma entrada, mescla os itens
+  if (existingEntry) {
+    const existingOsList: DailyServiceOrder[] = existingEntry.os_list || [];
+    const newItemsMap = new Map<string, DailyServiceOrder>();
+    dailyServiceOrders.forEach(item => item.item_id && newItemsMap.set(item.item_id, item));
+
+    // Mantém itens existentes que não foram atualizados e adiciona/atualiza novos
+    updatedOsList = existingOsList.map(existingItem => {
+      if (existingItem.item_id && newItemsMap.has(existingItem.item_id)) {
+        return newItemsMap.get(existingItem.item_id)!; // Atualiza o item existente
+      }
+      return existingItem;
+    }).concat(dailyServiceOrders.filter(newItem => newItem.item_id && !existingOsList.some(existingItem => existingItem.item_id === newItem.item_id)));
+  }
+
+  const payload: Omit<DailyServiceOrderEntry, 'id' | 'created_at'> = {
+    user_id: userId,
+    date: dateString,
+    user_badge: userBadge,
+    user_name: userName,
+    os_list: updatedOsList,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: upsertedData, error: upsertError } = await supabase
+    .from('daily_service_orders')
+    .upsert(existingEntry ? { ...payload, id: existingEntry.id } : payload, { onConflict: 'user_id,date' })
+    .select()
+    .single();
+
+  if (upsertError) {
+    console.error('[syncDailyServiceOrdersToSupabase] Erro ao upsertar ordens de serviço diárias:', upsertError);
+    throw new Error(`Erro ao sincronizar ordens de serviço diárias: ${upsertError.message}`);
+  }
+
+  return upsertedData as DailyServiceOrderEntry;
+};
+
+// NOVO: Função para buscar relatórios de ordens de serviço
+export const getServiceOrderReports = async (
+  filters: {
+    userId?: string;
+    date?: string;
+    startDate?: string;
+    endDate?: string;
+    month?: string;
+    af?: string;
+    userBadge?: string;
+    userName?: string;
+  }
+): Promise<DailyServiceOrderEntry[]> => {
+  let query = supabase
+    .from('daily_service_orders')
+    .select('*')
+    .order('date', { ascending: true });
+
+  if (filters.userId) {
+    query = query.eq('user_id', filters.userId);
+  }
+  if (filters.date) {
+    query = query.eq('date', filters.date);
+  }
+  if (filters.startDate && filters.endDate) {
+    query = query.gte('date', filters.startDate).lte('date', filters.endDate);
+  }
+  if (filters.month) {
+    query = query.like('date', `${filters.month}-%`);
+  }
+  if (filters.af) {
+    // Busca dentro do array JSONB
+    query = query.contains('os_list', [{ af: filters.af }]);
+  }
+  if (filters.userBadge) {
+    query = query.ilike('user_badge', `%${filters.userBadge}%`);
+  }
+  if (filters.userName) {
+    query = query.ilike('user_name', `%${filters.userName}%`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('[getServiceOrderReports] Erro ao buscar relatórios de ordens de serviço:', error);
+    throw new Error(`Erro ao buscar relatórios de ordens de serviço: ${error.message}`);
+  }
+
+  return data as DailyServiceOrderEntry[];
 };

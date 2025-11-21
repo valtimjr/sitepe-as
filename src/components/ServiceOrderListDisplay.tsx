@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem, getParts } from '@/services/partListService';
+import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem, getParts, syncDailyServiceOrdersToSupabase } from '@/services/partListService'; // Importar syncDailyServiceOrdersToSupabase
 import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide, XCircle, Save, FilePlus, FileDown, Tag } from 'lucide-react';
+import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide, XCircle, Save, FilePlus, FileDown, Tag, Send } from 'lucide-react'; // Importar Send
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +33,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Part, RelatedPart } from '@/types/supabase';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
+import { Calendar } from '@/components/ui/calendar'; // Importar Calendar
+import { format } from 'date-fns'; // Importar format
+import { ptBR } from 'date-fns/locale'; // Importar ptBR
+import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
 
 interface ServiceOrderDetails {
   af: string;
@@ -49,7 +53,8 @@ interface ServiceOrderGroupDetails {
   hora_inicio?: string;
   hora_final?: string;
   servico_executado?: string;
-  createdAt: Date; // createdAt é obrigatório para agrupar
+  createdAt: Date;
+  parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
 }
 
 interface ServiceOrderGroup {
@@ -75,6 +80,8 @@ interface ServiceOrderListDisplayProps {
   editingServiceOrder: (ServiceOrderDetails & { mode?: FormMode }) | null;
   sortOrder: SortOrder;
   onSortOrderChange: (order: SortOrder) => void;
+  selectedDate: Date | undefined; // NOVO: Data selecionada para envio ao Supabase
+  onDateChange: (date: Date | undefined) => void; // NOVO: Função para mudar a data
 }
 
 const timeToEffectiveMinutes = (timeString: string | undefined): number | null => {
@@ -104,7 +111,8 @@ const compareTimeStrings = (t1: string | undefined, t2: string | undefined): num
   return effectiveMinutes1 - effectiveMinutes2;
 };
 
-const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder, sortOrder, onSortOrderChange }) => {
+const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder, sortOrder, onSortOrderChange, selectedDate, onDateChange }) => {
+  const { user, profile } = useSession(); // NOVO: Obter user e profile da sessão
   const [groupedServiceOrders, setGroupedServiceOrders] = useState<ServiceOrderGroup[]>([]);
   const [draggedGroup, setDraggedGroup] = useState<ServiceOrderGroup | null>(null);
   const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, RelatedPart[]>>(new Map());
@@ -421,6 +429,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       if (draggedIndex !== -1 && targetIndex !== -1) {
         const [removed] = newOrderedGroups.splice(draggedIndex, 1);
         newOrderedGroups.splice(targetIndex, 0, removed);
+        
         setGroupedServiceOrders(newOrderedGroups);
         onSortOrderChange('manual'); // Define a ordem como manual após o drag-and-drop
       }
@@ -497,6 +506,39 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       onListChanged();
     } catch (error) {
       showError('Erro ao excluir Ordem de Serviço.');
+    } finally {
+      dismissToast(loadingToastId);
+    }
+  };
+
+  // NOVO: Função para enviar para o Supabase
+  const handleSendToSupabase = async () => {
+    if (!user || !profile) {
+      showError('Você precisa estar logado para enviar ordens de serviço.');
+      return;
+    }
+    if (!selectedDate) {
+      showError('Por favor, selecione uma data para enviar as ordens de serviço.');
+      return;
+    }
+    if (listItems.length === 0) {
+      showError('A lista de ordens de serviço está vazia. Adicione itens antes de enviar.');
+      return;
+    }
+
+    const loadingToastId = showLoading(`Enviando ordens de serviço para ${format(selectedDate, 'dd/MM/yyyy')}...`);
+    try {
+      await syncDailyServiceOrdersToSupabase(
+        user.id,
+        selectedDate,
+        listItems,
+        profile.badge,
+        `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+      );
+      showSuccess('Ordens de serviço enviadas para o Supabase com sucesso!');
+    } catch (error) {
+      console.error('Erro ao enviar ordens de serviço para o Supabase:', error);
+      showError('Erro ao enviar ordens de serviço para o Supabase.');
     } finally {
       dismissToast(loadingToastId);
     }
@@ -586,6 +628,45 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           </div>
         </div>
       <CardContent>
+        {/* NOVO: Seletor de Data e Botão de Envio para Supabase */}
+        {user && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 p-4 border rounded-lg bg-muted/50">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm">Data para Envio:</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-[180px] justify-start text-left font-normal",
+                      !selectedDate && "text-muted-foreground"
+                    )}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={onDateChange}
+                    initialFocus
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <Button
+              onClick={handleSendToSupabase}
+              disabled={!selectedDate || groupedServiceOrders.length === 0 || isLoading}
+              className="flex items-center gap-2 w-full sm:w-auto"
+            >
+              <Send className="h-4 w-4" /> Enviar para Supabase
+            </Button>
+          </div>
+        )}
+
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando sua lista de ordens de serviço...</p>
         ) : groupedServiceOrders.length === 0 ? (
@@ -620,7 +701,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                     </Button>
                   </TableHead>
                   <TableHead className="w-auto whitespace-normal break-words px-1 py-2">Peça</TableHead>
-                  <TableHead className="w-[3rem] px-1 py-2 text-center">Qtd</TableHead>
+                  <TableHead className="w-[3rem] px-1 py-2 text-center">Qtd.</TableHead>
                   <TableHead className="w-[70px] px-1 py-2 text-right">Opções</TableHead>
                 </TableRow>
               </TableHeader>
