@@ -11,19 +11,13 @@ import {
   getLocalMonthlyApontamento, // Importa a função correta
   putLocalMonthlyApontamento, // AGORA EXPORTADO
   bulkPutLocalMonthlyApontamentos, // AGORA EXPORTADO
-  getLocalServiceOrderItems, // NOVO: Importa getLocalServiceOrderItems
-  bulkPutLocalServiceOrderItems, // NOVO: Importa bulkPutLocalServiceOrderItems
-  clearLocalServiceOrderItems, // NOVO: Importa clearLocalServiceOrderItems
 } from '@/services/localDbService';
 import { 
   syncMonthlyApontamentoToSupabase, 
   syncMonthlyApontamentosFromSupabase,
-  syncServiceOrdersToSupabase, // NOVO: Importa syncServiceOrdersToSupabase
-  syncServiceOrdersFromSupabase, // NOVO: Importa syncServiceOrdersFromSupabase
-  ServiceOrderItem, // NOVO: Importa ServiceOrderItem de partListService
 } from '@/services/partListService';
 import { format } from 'date-fns';
-import { MonthlyApontamento, DailyServiceOrder } from '@/types/supabase'; // NOVO: Importa DailyServiceOrder
+import { MonthlyApontamento } from '@/types/supabase';
 
 const SYNC_INTERVAL_MS = 60000; // Tenta sincronizar a cada 60 segundos se estiver online
 
@@ -33,8 +27,6 @@ export function useOfflineSync() {
 
   const syncOperations = useCallback(async (forceSync: boolean = false) => {
     if (!user) return 0;
-
-    let totalSyncCount = 0;
 
     try {
       const status = await Network.getStatus();
@@ -98,11 +90,13 @@ export function useOfflineSync() {
         }
       }
 
+      let syncCount = 0;
+
       // Executa pushes
       for (const ap of toPush) {
         try {
           await syncMonthlyApontamentoToSupabase(ap, forceSync);
-          totalSyncCount++;
+          syncCount++;
         } catch (e) {
           console.error(`OfflineSync: Falha ao enviar ${ap.month_year} para Supabase:`, e);
         }
@@ -113,94 +107,18 @@ export function useOfflineSync() {
         try {
           // Para pull, precisamos buscar o objeto completo
           await syncMonthlyApontamentosFromSupabase(userId, apMeta.month_year, forceSync);
-          totalSyncCount++;
+          syncCount++;
         } catch (e) {
           console.error(`OfflineSync: Falha ao puxar ${apMeta.month_year} do Supabase:`, e);
         }
       }
 
-      // NOVO: Sincronização de ServiceOrderItems
-      // console.log('OfflineSync: Iniciando sincronização de ServiceOrderItems...');
-
-      const localServiceOrderItems = await getLocalServiceOrderItems(userId);
-      
-      // Busca apenas os metadados (id, date, updated_at) dos DailyServiceOrder remotos
-      const { data: remoteDailyServiceOrdersMeta, error: remoteSoError } = await supabase
-        .from('daily_service_orders')
-        .select('id, date, updated_at')
-        .eq('user_id', userId);
-
-      if (remoteSoError) {
-        console.error('OfflineSync: Erro ao buscar metadados remotos de DailyServiceOrder:', remoteSoError);
-        throw remoteSoError;
-      }
-
-      // Mapeia itens locais por data para facilitar a comparação
-      const localSoDatesMap = new Map<string, ServiceOrderItem[]>();
-      localServiceOrderItems.forEach(item => {
-        if (!localSoDatesMap.has(item.date)) {
-          localSoDatesMap.set(item.date, []);
-        }
-        localSoDatesMap.get(item.date)?.push(item);
-      });
-
-      const remoteSoDatesMap = new Map<string, { id: string; date: string; updated_at: string }>(remoteDailyServiceOrdersMeta.map(so => [so.date, so]));
-
-      const soDatesToPush: string[] = [];
-      const soDatesToPull: string[] = [];
-
-      // Compara local com remoto para DailyServiceOrders
-      for (const [date, localItemsForDate] of localSoDatesMap.entries()) {
-        const remoteSoMeta = remoteSoDatesMap.get(date);
-        const localUpdatedAt = localItemsForDate.reduce((latest, item) => 
-          (item.created_at && new Date(item.created_at) > latest) ? new Date(item.created_at) : latest, new Date(0)
-        ); // Usa o created_at mais recente como proxy para updated_at local
-
-        if (remoteSoMeta) {
-          const remoteUpdatedAt = new Date(remoteSoMeta.updated_at || 0);
-          if (localUpdatedAt > remoteUpdatedAt) {
-            soDatesToPush.push(date);
-          } else if (remoteUpdatedAt > localUpdatedAt) {
-            soDatesToPull.push(date);
-          }
-        } else {
-          soDatesToPush.push(date); // Existe localmente, mas não remotamente
-        }
-      }
-
-      // Identifica registros remotos que não existem localmente
-      for (const [date] of remoteSoDatesMap.entries()) {
-        if (!localSoDatesMap.has(date)) {
-          soDatesToPull.push(date);
-        }
-      }
-
-      // Executa pushes para ServiceOrderItems
-      for (const date of soDatesToPush) {
-        try {
-          await syncServiceOrdersToSupabase(userId, date);
-          totalSyncCount++;
-        } catch (e) {
-          console.error(`OfflineSync: Falha ao enviar DailyServiceOrder para ${date} para Supabase:`, e);
-        }
-      }
-
-      // Executa pulls para ServiceOrderItems
-      for (const date of soDatesToPull) {
-        try {
-          await syncServiceOrdersFromSupabase(userId, date);
-          totalSyncCount++;
-        } catch (e) {
-          console.error(`OfflineSync: Falha ao puxar DailyServiceOrder para ${date} do Supabase:`, e);
-        }
-      }
-
-      if (totalSyncCount > 0) {
-        showSuccess(`Sincronização de ${totalSyncCount} item(s) concluída.`);
+      if (syncCount > 0) {
+        showSuccess(`Sincronização de ${syncCount} apontamento(s) mensal(is) concluída.`);
       } else {
         // console.log('OfflineSync: Nenhuma alteração detectada para sincronizar.');
       }
-      return totalSyncCount;
+      return syncCount;
 
     } catch (error) {
       showError('Erro ao sincronizar dados offline. Verifique sua conexão e tente novamente.');

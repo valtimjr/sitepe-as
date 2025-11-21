@@ -1,9 +1,9 @@
 import jsPDF from 'jspdf';
 import { applyPlugin } from 'jspdf-autotable';
-import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as interfaces do serviço correto
-import { CustomListItem, MangueiraPartDetails, DailyServiceOrder, ServiceOrderEntry, ServiceOrderPart } from '@/types/supabase'; // Importar as interfaces de tipo
+import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
 import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { CustomListItem, MangueiraPartDetails } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
 
 // Aplica o plugin explicitamente ao jsPDF
@@ -270,15 +270,15 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
 
   groupedServiceOrders.forEach(group => {
     // Create the content for the first column
-    let detailsContent = `Data: ${format(parseISO(group.date), 'dd/MM/yyyy', { locale: ptBR })}\n`;
-    detailsContent += `Funcionário: ${group.user_name} (${group.user_badge})\n`;
-    detailsContent += `AF: ${group.af}`;
+    let detailsContent = `AF: ${group.af}`;
     if (group.os) detailsContent += ` (OS: ${group.os})`;
     if (group.hora_inicio || group.hora_final) {
-      detailsContent += `\nHorário: ${group.hora_inicio || '??'} - ${group.hora_final || '??'}`;
+      detailsContent += `
+Horário: ${group.hora_inicio || '??'} - ${group.hora_final || '??'}`;
     }
     if (group.servico_executado) {
-      detailsContent += `\nServiço: ${group.servico_executado}`;
+      detailsContent += `
+Serviço: ${group.servico_executado}`;
     }
 
     const partsToRender = group.parts.length > 0 ? group.parts : [{ id: 'no-parts', codigo_peca: 'Nenhuma peça adicionada', descricao: '', quantidade: '' }];

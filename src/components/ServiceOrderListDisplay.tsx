@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -33,9 +33,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Part, RelatedPart } from '@/types/supabase';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
-import { useSession } from '@/components/SessionContextProvider'; // NOVO: Importar useSession
-import { format, parseISO } from 'date-fns'; // Adicionado: Importar format e parseISO
-import { ptBR } from 'date-fns/locale'; // Adicionado: Importar ptBR
 
 interface ServiceOrderDetails {
   af: string;
@@ -44,7 +41,6 @@ interface ServiceOrderDetails {
   hora_final?: string;
   servico_executado?: string;
   createdAt?: Date; // createdAt é opcional aqui, mas será obrigatório no ServiceOrderGroupDetails
-  date?: string; // NOVO: Data da OS
 }
 
 interface ServiceOrderGroupDetails {
@@ -54,8 +50,6 @@ interface ServiceOrderGroupDetails {
   hora_final?: string;
   servico_executado?: string;
   createdAt: Date; // createdAt é obrigatório para agrupar
-  date: string; // NOVO: Data da OS
-  parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
 }
 
 interface ServiceOrderGroup {
@@ -66,7 +60,6 @@ interface ServiceOrderGroup {
   hora_inicio?: string;
   hora_final?: string;
   createdAt: Date;
-  date: string; // NOVO: Data da OS
   parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
 }
 
@@ -112,7 +105,6 @@ const compareTimeStrings = (t1: string | undefined, t2: string | undefined): num
 };
 
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder, sortOrder, onSortOrderChange }) => {
-  const { user } = useSession(); // NOVO: Obter o usuário da sessão
   const [groupedServiceOrders, setGroupedServiceOrders] = useState<ServiceOrderGroup[]>([]);
   const [draggedGroup, setDraggedGroup] = useState<ServiceOrderGroup | null>(null);
   const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, RelatedPart[]>>(new Map());
@@ -151,8 +143,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
     items.forEach(item => {
       // Usar created_at para garantir unicidade do grupo se outros campos forem iguais
-      // NOVO: Incluir date no groupKey
-      const groupKey = `${item.date}-${item.af}-${item.os || 'no_os'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}-${item.servico_executado || 'no_service'}-${item.created_at?.getTime() || 'no_created_at'}`;
+      const groupKey = `${item.af}-${item.os || 'no_os'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}-${item.servico_executado || 'no_service'}-${item.created_at?.getTime() || 'no_created_at'}`;
       
       if (!grouped[groupKey]) {
         grouped[groupKey] = {
@@ -163,7 +154,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
           hora_inicio: item.hora_inicio,
           hora_final: item.hora_final,
           createdAt: item.created_at || new Date(),
-          date: item.date, // NOVO: Adiciona a data ao grupo
           parts: [],
         };
       }
@@ -182,10 +172,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
     if (currentSortOrder === 'asc') {
       result.sort((a, b) => {
-        // NOVO: Ordena por data primeiro
-        const dateComparison = new Date(a.date).getTime() - new Date(b.date).getTime();
-        if (dateComparison !== 0) return dateComparison;
-
         const startComparison = compareTimeStrings(a.hora_inicio, b.hora_inicio);
         if (startComparison !== 0) return startComparison;
         const endComparison = compareTimeStrings(a.hora_final, b.hora_final);
@@ -194,10 +180,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       });
     } else if (currentSortOrder === 'desc') {
       result.sort((a, b) => {
-        // NOVO: Ordena por data primeiro
-        const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime();
-        if (dateComparison !== 0) return dateComparison;
-
         const startComparison = compareTimeStrings(b.hora_inicio, a.hora_inicio);
         if (startComparison !== 0) return startComparison;
         const endComparison = compareTimeStrings(b.hora_final, a.hora_final);
@@ -255,7 +237,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     let textToCopy = '';
     
     groupedServiceOrders.forEach(group => {
-      textToCopy += `Data: ${format(parseISO(group.date), 'dd/MM/yyyy', { locale: ptBR })}\n`; // NOVO: Adiciona a data
       textToCopy += `AF: ${group.af}`;
       if (group.os) {
         textToCopy += ` OS: ${group.os}`;
@@ -339,12 +320,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
   };
 
   const handleClearList = async () => {
-    if (!user?.id) { // NOVO: Verifica user.id
-      showError('Usuário não autenticado.');
-      return;
-    }
     try {
-      await clearServiceOrderList(user.id); // NOVO: Passa user.id
+      await clearServiceOrderList();
       onListChanged();
       showSuccess('Lista limpa com sucesso!');
     } catch (error) {
@@ -352,11 +329,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
     }
   };
 
-  const handleDeleteItem = async (id: string, date: string) => { // NOVO: Recebe a data
-    if (!user?.id) { // NOVO: Verifica user.id
-      showError('Usuário não autenticado.');
-      return;
-    }
+  const handleDeleteItem = async (id: string) => {
     try {
       const itemToDelete = listItems.find(item => item.id === id);
       if (!itemToDelete) {
@@ -371,18 +344,15 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         hora_final: itemToDelete.hora_final,
         servico_executado: itemToDelete.servico_executado,
         createdAt: itemToDelete.created_at || new Date(),
-        date: itemToDelete.date, // NOVO: Adiciona a data
       };
 
       const originalCreatedAt = itemToDelete.created_at;
 
-      await deleteServiceOrderItem(id, user.id, date); // NOVO: Passa user.id e date
+      await deleteServiceOrderItem(id);
       showSuccess('Item removido da lista.');
 
       const remainingItemsForThisSO = listItems.filter(item =>
         item.id !== id &&
-        item.user_id === user.id && // NOVO: Filtra por user_id
-        item.date === date && // NOVO: Filtra por data
         item.af === currentSOIdentifier.af &&
         (item.os === currentSOIdentifier.os || (item.os === undefined && currentSOIdentifier.os === undefined)) &&
         (item.hora_inicio === currentSOIdentifier.hora_inicio || (item.hora_inicio === undefined && currentSOIdentifier.hora_inicio === undefined)) &&
@@ -399,8 +369,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
         if (!blankItemExists) {
           await addServiceOrderItem({
-            user_id: user.id, // NOVO: Adiciona user_id
-            date: date, // NOVO: Adiciona a data
             af: currentSOIdentifier.af,
             os: currentSOIdentifier.os,
             hora_inicio: currentSOIdentifier.hora_inicio,
@@ -409,7 +377,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             codigo_peca: undefined,
             descricao: undefined,
             quantidade: undefined,
-          }, user.id, originalCreatedAt);
+          }, originalCreatedAt);
           showSuccess('Ordem de Serviço agora está sem peças, mas mantida para edição.');
         }
       }
@@ -443,7 +411,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
 
   const handleDrop = (e: React.DragEvent<HTMLTableRowElement>, targetGroup: ServiceOrderGroup) => {
     e.preventDefault();
-    e.currentTarget.classList.remove('border-t-2', 'border-primary');
+    e.currentTarget.classList.remove('opacity-50');
 
     if (draggedGroup && draggedGroup.id !== targetGroup.id) {
       const newOrderedGroups = [...groupedServiceOrders];
@@ -485,7 +453,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       hora_final: group.hora_final,
       servico_executado: group.servico_executado,
       createdAt: group.createdAt,
-      date: group.date, // NOVO: Adiciona a data
     });
     setPartToEdit(null); // Garante que é modo de adição
     setPartFormMode('add-part-to-existing-so');
@@ -501,7 +468,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       hora_final: group.hora_final,
       servico_executado: group.servico_executado,
       createdAt: group.createdAt,
-      date: group.date, // NOVO: Adiciona a data
     }); // Passa o grupo para o formulário saber a qual OS a peça pertence
     setPartFormMode('edit-part');
     setIsPartFormOpen(true);
@@ -516,15 +482,9 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
   };
 
   const handleDeleteServiceOrder = async (group: ServiceOrderGroup) => {
-    if (!user?.id) { // NOVO: Verifica user.id
-      showError('Usuário não autenticado.');
-      return;
-    }
     const loadingToastId = showLoading('Excluindo Ordem de Serviço...');
     try {
       const itemsToDelete = listItems.filter(item =>
-        item.user_id === user.id && // NOVO: Filtra por user_id
-        item.date === group.date && // NOVO: Filtra por data
         item.af === group.af &&
         (item.os === group.os || (item.os === undefined && group.os === undefined)) &&
         (item.hora_inicio === group.hora_inicio || (item.hora_inicio === undefined && group.hora_inicio === undefined)) &&
@@ -532,7 +492,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
         (item.servico_executado === group.servico_executado || (item.servico_executado === undefined && group.servico_executado === undefined))
       );
 
-      await Promise.all(itemsToDelete.map(item => deleteServiceOrderItem(item.id, user.id, group.date))); // NOVO: Passa user.id e date
+      await Promise.all(itemsToDelete.map(item => deleteServiceOrderItem(item.id)));
       showSuccess(`Ordem de Serviço AF: ${group.af} excluída com sucesso!`);
       onListChanged();
     } catch (error) {
@@ -551,7 +511,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       </CardHeader>
       <div className="flex flex-col sm:flex-row flex-wrap items-center justify-end gap-2 p-4 pt-0">
           <Button 
-            onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), date: format(new Date(), 'yyyy-MM-dd', { locale: ptBR }), mode: 'create-new-so' })} // NOVO: Adiciona a data
+            onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
             className="flex items-center gap-2 w-full sm:flex-grow"
           >
             <FilePlus className="h-4 w-4" /> Iniciar Nova OS
@@ -633,7 +593,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
             <FilePlus className="h-16 w-16 mb-4 text-primary" />
             <p className="text-lg mb-4">Nenhuma ordem de serviço adicionada ainda.</p>
             <Button 
-              onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), date: format(new Date(), 'yyyy-MM-dd', { locale: ptBR }), mode: 'create-new-so' })} // NOVO: Adiciona a data
+              onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })}
               className="flex items-center gap-2"
             >
               <PlusCircle className="h-4 w-4" /> Iniciar a Primeira Ordem de Serviço
@@ -668,7 +628,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                 {groupedServiceOrders.map((group, groupIndex) => {
                   const isEditingThisServiceOrder = editingServiceOrder &&
                     editingServiceOrder.af === group.af &&
-                    editingServiceOrder.date === group.date && // NOVO: Compara a data
                     (editingServiceOrder.os === group.os || (editingServiceOrder.os === undefined && group.os === undefined)) &&
                     (editingServiceOrder.hora_inicio === group.hora_inicio || (editingServiceOrder.hora_inicio === undefined && group.hora_inicio === undefined)) &&
                     (editingServiceOrder.hora_final === group.hora_final || (editingServiceOrder.hora_final === undefined && group.hora_final === undefined)) &&
@@ -700,9 +659,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                 <span className="text-lg font-bold text-primary">AF: {group.af}</span>
                                 {group.os && <span className="text-lg font-bold text-primary"> (OS: {group.os})</span>}
                               </div>
-                              <span className="text-sm text-muted-foreground flex items-center gap-1">
-                                <Clock className="h-3 w-3" /> {format(parseISO(group.date), 'dd/MM/yyyy', { locale: ptBR })} {/* NOVO: Exibe a data */}
-                              </span>
                               {timeDisplay && (
                                 <span className="text-sm text-muted-foreground flex items-center gap-1">
                                   <Clock className="h-3 w-3" /> {timeDisplay}
@@ -727,7 +683,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                       hora_final: group.hora_final, 
                                       servico_executado: group.servico_executado,
                                       createdAt: group.createdAt,
-                                      date: group.date, // NOVO: Adiciona a data
                                       mode: 'edit-so-details'
                                     })}
                                   >
@@ -836,7 +791,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDeleteItem(part.id, group.date)}>Remover</AlertDialogAction> {/* NOVO: Passa a data */}
+                                      <AlertDialogAction onClick={() => handleDeleteItem(part.id)}>Remover</AlertDialogAction>
                                     </AlertDialogFooter>
                                   </AlertDialogContent>
                                 </AlertDialog>
@@ -857,7 +812,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                               hora_final: group.hora_final, 
                               servico_executado: group.servico_executado,
                               createdAt: group.createdAt,
-                              date: group.date, // NOVO: Adiciona a data
                               mode: 'add-part-to-existing-so'
                             })}
                             className="flex items-center gap-2 mx-auto"

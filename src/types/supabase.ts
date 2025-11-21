@@ -110,32 +110,3 @@ export interface MenuItem {
   children?: MenuItem[]; // Para a estrutura hierárquica
   isDynamic?: boolean; // NOVO: Marcador para itens gerados dinamicamente
 }
-
-// Interfaces para a nova tabela daily_service_orders
-export interface ServiceOrderPart {
-  id: string;
-  codigo_peca?: string;
-  descricao?: string;
-  quantidade?: number;
-}
-
-export interface ServiceOrderEntry {
-  af: string;
-  os?: number;
-  hora_inicio?: string;
-  hora_final?: string;
-  servico_executado?: string;
-  parts?: ServiceOrderPart[]; // Array de peças para esta OS
-  created_at: string; // Data de criação da entrada da OS
-}
-
-export interface DailyServiceOrder {
-  id: string;
-  user_id: string;
-  date: string; // Formato 'YYYY-MM-DD'
-  user_badge?: string;
-  user_name?: string;
-  os_list: ServiceOrderEntry[]; // Array de ordens de serviço para o dia
-  created_at: string;
-  updated_at: string;
-}

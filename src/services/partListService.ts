@@ -10,7 +10,7 @@ import {
   getLocalAfs,
   Part as LocalPart,
   SimplePartItem as LocalSimplePartItem,
-  ServiceOrderItem as LocalServiceOrderItem, // Importa a interface atualizada
+  ServiceOrderItem as LocalServiceOrderItem,
   Af as LocalAf,
   addLocalSimplePartItem,
   getLocalSimplePartsListItems,
@@ -18,29 +18,25 @@ import {
   deleteLocalSimplePartItem,
   clearLocalSimplePartsList,
   addLocalServiceOrderItem,
-  getLocalServiceOrderItems, // Importa a função atualizada
+  getLocalServiceOrderItems,
   updateLocalServiceOrderItem,
   deleteLocalServiceOrderItem,
-  clearLocalServiceOrderItems, // Importa a função atualizada
+  clearLocalServiceOrderItems,
   isOnline,
-  getLocalMonthlyApontamento,
+  getLocalMonthlyApontamento, // Importa diretamente
   putLocalMonthlyApontamento, 
-  deleteLocalMonthlyApontamento,
-  bulkPutLocalMonthlyApontamentos, // NOVO: Importa a função de bulkPut
-  Apontamento as LocalApontamento, // Importa Apontamento do localDbService
-  SimplePartItem, // Re-exporta SimplePartItem
-  ServiceOrderItem, // Re-exporta ServiceOrderItem
+  deleteLocalMonthlyApontamento 
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
-import { Network } from '@capacitor/network';
+import { Network } from '@capacitor/network'; // Importar Network
 import { format } from 'date-fns';
-import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, DailyServiceOrder, ServiceOrderEntry, ServiceOrderPart as SupabaseServiceOrderPart } from '@/types/supabase';
+import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart } from '@/types/supabase'; // Removido PartImage
 
 export interface Part extends SupabasePart {}
-// export interface SimplePartItem extends LocalSimplePartItem {} // Removido, já re-exportado acima
-// export interface ServiceOrderItem extends LocalServiceOrderItem {} // Removido, já re-exportado acima
+export interface SimplePartItem extends LocalSimplePartItem {}
+export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends LocalAf {}
-export type Apontamento = LocalApontamento; // Usa o Apontamento re-exportado do localDbService
+export type Apontamento = DailyApontamento; // Apontamento agora é o DailyApontamento
 
 // Re-exportar getLocalMonthlyApontamento para que outros módulos possam importá-lo de partListService
 export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;
@@ -163,7 +159,7 @@ export const searchPartsPaginated = async (query: string, page: number = 1, page
       // For single-word, we can have more granular scoring.
       if (lowerFieldValue === query) return 4; // Exact match
       if (lowerFieldValue.startsWith(query)) return 3; // Starts with
-      if (lowerFieldValue.includes(query)) return 2; // Inclui
+      if (lowerFieldValue.includes(query)) return 2; // Includes
     }
     return 0;
   };
@@ -238,7 +234,7 @@ export const searchParts = async (query: string): Promise<Part[]> => {
       // For single-word, we can have more granular scoring.
       if (lowerFieldValue === query) return 4; // Exact match
       if (lowerFieldValue.startsWith(query)) return 3; // Starts with
-      if (lowerFieldValue.includes(query)) return 2; // Inclui
+      if (lowerFieldValue.includes(query)) return 2; // Includes
     }
     return 0;
   };
@@ -576,217 +572,47 @@ export const clearSimplePartsList = async (): Promise<void> => {
   await clearLocalSimplePartsList();
 };
 
-// --- Service Order Items Management (Supabase & IndexedDB) ---
-
-// Helper para converter ServiceOrderItem (flat) para ServiceOrderEntry (nested)
-const toServiceOrderEntry = (item: ServiceOrderItem): ServiceOrderEntry => {
-  const { id, user_id, date, created_at, ...rest } = item; // Exclui campos não presentes em ServiceOrderEntry
-  return {
-    af: rest.af,
-    os: rest.os,
-    hora_inicio: rest.hora_inicio,
-    hora_final: rest.hora_final,
-    servico_executado: rest.servico_executado,
-    parts: (rest.codigo_peca || rest.descricao) ? [{
-      id: id, // Usa o ID do ServiceOrderItem para o item de peça
-      codigo_peca: rest.codigo_peca,
-      descricao: rest.descricao,
-      quantidade: rest.quantidade,
-    }] : [],
-    created_at: created_at?.toISOString() || new Date().toISOString(),
-  };
+// --- Funções para ServiceOrderItem (Lista de Ordens de Serviço) ---
+export const getServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
+  const items = await getLocalServiceOrderItems();
+  return items;
 };
 
-// Helper para converter ServiceOrderEntry (nested) para ServiceOrderItem (flat)
-const fromServiceOrderEntry = (entry: ServiceOrderEntry, userId: string, date: string): ServiceOrderItem[] => {
-  const baseItem: Omit<ServiceOrderItem, 'id' | 'codigo_peca' | 'descricao' | 'quantidade'> = {
-    user_id: userId,
-    date: date,
-    af: entry.af,
-    os: entry.os,
-    hora_inicio: entry.hora_inicio,
-    hora_final: entry.hora_final,
-    servico_executado: entry.servico_executado,
-    created_at: entry.created_at ? new Date(entry.created_at) : undefined,
-  };
-
-  if (entry.parts && entry.parts.length > 0) {
-    return entry.parts.map(part => ({
-      ...baseItem,
-      id: part.id || uuidv4(), // Usa part.id se disponível, senão gera um novo
-      codigo_peca: part.codigo_peca,
-      descricao: part.descricao,
-      quantidade: part.quantidade,
-    }));
-  } else {
-    // Se não há peças, cria um item "em branco" representando os detalhes da OS
-    return [{
-      ...baseItem,
-      id: uuidv4(), // Gera um novo ID para o item em branco
-      codigo_peca: undefined,
-      descricao: undefined,
-      quantidade: undefined,
-    }];
-  }
-};
-
-// Sincroniza do Supabase para o IndexedDB para uma data específica
-export const syncServiceOrdersFromSupabase = async (userId: string, date: string): Promise<ServiceOrderItem[]> => {
-  const { data, error } = await supabase
-    .from('daily_service_orders')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('date', date)
-    .single();
-
-  if (error && error.code !== 'PGRST116') { // PGRST116 significa "nenhuma linha encontrada"
-    console.error(`[syncServiceOrdersFromSupabase] Erro ao buscar ordens de serviço diárias do Supabase para ${date}:`, error);
-    return [];
-  }
-
-  if (data) {
-    const dailyOrder: DailyServiceOrder = data;
-    const flatItems: ServiceOrderItem[] = [];
-    dailyOrder.os_list.forEach(entry => {
-      flatItems.push(...fromServiceOrderEntry(entry, userId, date));
-    });
-    await bulkPutLocalServiceOrderItems(flatItems); // Usa bulkPut para eficiência
-    return flatItems;
-  }
-  return [];
-};
-
-// Sincroniza do IndexedDB para o Supabase para uma data específica
-export const syncServiceOrdersToSupabase = async (userId: string, date: string): Promise<DailyServiceOrder | undefined> => {
-  const localItems = await localDb.serviceOrderItems.where({ user_id: userId, date: date }).toArray();
-
-  if (localItems.length === 0) {
-    // Se não há itens locais para esta data, tenta deletar do Supabase se existir
-    await supabase.from('daily_service_orders').delete().eq('user_id', userId).eq('date', date);
-    return undefined;
-  }
-
-  // Agrupa itens locais na estrutura ServiceOrderEntry
-  const osListMap = new Map<string, ServiceOrderEntry>();
-
-  localItems.forEach(item => {
-    // Chave para agrupar itens que pertencem à mesma entrada de OS
-    const entryKey = `${item.af}-${item.os || 'no_os'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}-${item.servico_executado || 'no_service'}`;
-    
-    if (!osListMap.has(entryKey)) {
-      osListMap.set(entryKey, {
-        af: item.af,
-        os: item.os,
-        hora_inicio: item.hora_inicio,
-        hora_final: item.hora_final,
-        servico_executado: item.servico_executado,
-        parts: [],
-        created_at: item.created_at?.toISOString() || new Date().toISOString(),
-      });
-    }
-    const entry = osListMap.get(entryKey)!;
-    // Adiciona a peça apenas se tiver código ou descrição
-    if (item.codigo_peca || item.descricao) {
-      entry.parts?.push({
-        id: item.id, // Usa o ID do ServiceOrderItem para o item de peça
-        codigo_peca: item.codigo_peca,
-        descricao: item.descricao,
-        quantidade: item.quantidade,
-      });
-    }
-  });
-
-  const os_list = Array.from(osListMap.values());
-
-  const { data: existingDailyOrder, error: fetchError } = await supabase
-    .from('daily_service_orders')
-    .select('id, created_at')
-    .eq('user_id', userId)
-    .eq('date', date)
-    .single();
-
-  if (fetchError && fetchError.code !== 'PGRST116') {
-    console.error(`[syncServiceOrdersToSupabase] Erro ao buscar ordem de serviço diária existente para ${date}:`, fetchError);
-    throw fetchError;
-  }
-
-  const payload: DailyServiceOrder = {
-    id: existingDailyOrder?.id || uuidv4(),
-    user_id: userId,
-    date: date,
-    user_badge: '', // Será preenchido por trigger ou perfil
-    user_name: '', // Será preenchido por trigger ou perfil
-    os_list: os_list,
-    created_at: existingDailyOrder?.created_at || new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-
-  const { data: upsertedData, error: upsertError } = await supabase
-    .from('daily_service_orders')
-    .upsert(payload, { onConflict: 'user_id,date' })
-    .select()
-    .single();
-
-  if (upsertError) {
-    console.error(`[syncServiceOrdersToSupabase] Erro ao fazer upsert da ordem de serviço diária para ${date}:`, upsertError);
-    throw upsertError;
-  }
-
-  return upsertedData as DailyServiceOrder;
-};
-
-// ATUALIZADO: getServiceOrderItems agora busca do IndexedDB e tenta sincronizar
-export const getServiceOrderItems = async (userId: string): Promise<ServiceOrderItem[]> => {
-  const localItems = await getLocalServiceOrderItems(userId);
-  // Para garantir que os dados mais recentes do Supabase sejam carregados,
-  // podemos tentar sincronizar para as datas mais recentes ou para um período.
-  // Por simplicidade, vamos sincronizar para o dia atual e o mês atual.
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const currentMonth = format(new Date(), 'yyyy-MM');
-
-  // Sincroniza o dia atual e o mês atual do Supabase para o local
-  await syncServiceOrdersFromSupabase(userId, today);
-  // Poderíamos adicionar lógica para sincronizar todo o mês aqui, se necessário.
-
-  return getLocalServiceOrderItems(userId); // Retorna os itens locais atualizados
-};
-
-// ATUALIZADO: addServiceOrderItem agora espera userId e date
-export const addServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id' | 'user_id'>, userId: string, customCreatedAt?: Date): Promise<string> => {
-  const newItem: ServiceOrderItem = { ...item, id: uuidv4(), user_id: userId, created_at: customCreatedAt || new Date() };
-  await addLocalServiceOrderItem(newItem);
-  await syncServiceOrdersToSupabase(userId, newItem.date); // Sincroniza a DailyServiceOrder correspondente
+export const addServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
+  const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
+  await addLocalServiceOrderItem(newItem, customCreatedAt);
   return newItem.id;
 };
 
-// ATUALIZADO: updateServiceOrderItem
 export const updateServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
   await updateLocalServiceOrderItem(updatedItem);
-  await syncServiceOrdersToSupabase(updatedItem.user_id, updatedItem.date); // Sincroniza a DailyServiceOrder correspondente
 };
 
-// ATUALIZADO: deleteServiceOrderItem agora espera userId e date
-export const deleteServiceOrderItem = async (id: string, userId: string, date: string): Promise<void> => {
+export const deleteServiceOrderItem = async (id: string): Promise<void> => {
   await deleteLocalServiceOrderItem(id);
-  await syncServiceOrdersToSupabase(userId, date); // Sincroniza a DailyServiceOrder correspondente
 };
 
-// ATUALIZADO: clearServiceOrderList agora espera userId
-export const clearServiceOrderList = async (userId: string): Promise<void> => {
-  await clearLocalServiceOrderItems(userId); // Limpa todos os itens locais do usuário
-  // Também limpa todas as DailyServiceOrders para este usuário do Supabase
-  await supabase.from('daily_service_orders').delete().eq('user_id', userId);
+export const clearServiceOrderList = async (): Promise<void> => {
+  await clearLocalServiceOrderItems();
+};
+
+export const getLocalUniqueAfs = async (): Promise<string[]> => {
+  const afs = await localDb.afs.toArray();
+  return afs.map(af => af.af_number).sort();
 };
 
 // --- Monthly Apontamentos Management (IndexedDB) ---
 
+//export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;
+
+// Sincroniza dados do Supabase para o IndexedDB
 export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
   
-  const localMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+  const localMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
 
   const { data, error } = await supabase
     .from('monthly_apontamentos')
-    .select('updated_at')
+    .select('*')
     .eq('user_id', userId)
     .eq('month_year', monthYear)
     .single();
@@ -858,7 +684,7 @@ export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: Month
 
   const { data: upsertedData, error } = await supabase
     .from('monthly_apontamentos')
-    .upsert(payload, { onConflict: 'user_id,month_year' })
+    .upsert(payload, { onConflict: 'user_id,month_year' }) // Conflito em user_id e month_year
     .select()
     .single();
 
@@ -887,7 +713,7 @@ export const getApontamentos = async (userId: string, monthYear: string): Promis
     monthlyApontamento = await syncMonthlyApontamentosFromSupabase(userId, monthYear);
   } else {
     // Se offline, tenta do cache local
-    monthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+    monthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
   }
 
   return monthlyApontamento?.data || [];
@@ -896,7 +722,7 @@ export const getApontamentos = async (userId: string, monthYear: string): Promis
 // Atualiza um apontamento diário dentro do blob JSON mensal
 export const updateApontamento = async (userId: string, monthYear: string, dailyApontamento: DailyApontamento): Promise<DailyApontamento> => {
   const online = await isOnline();
-  let currentMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+  let currentMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
 
   if (!currentMonthlyApontamento) {
     // Se não existe localmente, tenta buscar do Supabase (se online)
@@ -959,7 +785,7 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
 // Deleta um apontamento diário dentro do blob JSON mensal
 export const deleteApontamento = async (userId: string, monthYear: string, dailyApontamentoDate: string): Promise<void> => {
   const online = await isOnline();
-  let currentMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+  let currentMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
 
   if (!currentMonthlyApontamento) {
     // Se não existe localmente, não há o que deletar
@@ -1015,7 +841,7 @@ export const deleteApontamentosByMonth = async (userId: string, monthYear: strin
 
 // A função syncPendingApontamentos não é mais necessária no mesmo formato,
 // pois a unidade de sincronização agora é o MonthlyApontamento.
-// A lógica de `useOfflineSync` precisaria ser ajustada para lidar com isso.
+// A lógica de `useOfflineSync` precisará ser ajustada para lidar com isso.
 export const syncPendingApontamentos = async (userId: string): Promise<number> => {
   // Esta função precisaria ser reescrita para iterar sobre todos os monthlyApontamentos
   // locais que não foram sincronizados (e.g., `updated_at` local > `updated_at` remoto)
@@ -1128,7 +954,7 @@ export const cleanupEmptyParts = async (): Promise<number> => {
         .in('id', batchIds);
 
       if (deleteError) {
-      console.error('Error deleting empty parts batch from Supabase:', deleteError);
+        console.error('Error deleting empty parts batch from Supabase:', deleteError);
         throw new Error(`Erro ao excluir peças vazias do Supabase (lote): ${deleteError.message}`);
       }
       deletedCount += batchIds.length;

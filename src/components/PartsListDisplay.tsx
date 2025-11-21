@@ -18,6 +18,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,8 +34,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 import { RelatedPart } from '@/types/supabase';
-import { Input } from '@/components/ui/input'; // Adicionado: Importar Input
-import { Label } from '@/components/ui/label'; // Adicionado: Importar Label
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
@@ -497,12 +497,12 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   </TableHead>
                   <TableHead className="w-auto whitespace-normal break-words p-2">Peça (Cód. / Descrição / AF)</TableHead>
                   <TableHead className="w-[3rem] p-2">Qtd</TableHead> {/* Largura ajustada */}
-                  <TableHead className="w-[70px] p-2 text-right">Ações</TableHead>
+                  <TableHead className="w-[80px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {orderedItems.map((item) => {
-                  const relatedItems = relatedPartsCache.get(item.codigo_peca || '') || [];
+                  const relatedItems = relatedPartsCache.get(item.codigo_peca) || [];
                   return (
                     <TableRow 
                       key={item.id}
@@ -574,7 +574,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                               className="w-full text-center"
                             />
                           </TableCell>
-                          <TableCell className="w-[70px] p-2 text-right">
+                          <TableCell className="w-[80px] p-2 text-right">
                             <div className="flex justify-end items-center gap-1">
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -634,7 +634,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                           
                           <TableCell className="w-[3rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell> {/* Largura ajustada */}
                           
-                          <TableCell className="w-[70px] p-2 text-right">
+                          <TableCell className="w-[80px] p-2 text-right">
                             <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1"> {/* Alterado para flex-col em mobile */}
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -733,7 +733,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                         className="w-full text-center"
                       />
                     </TableCell>
-                    <TableCell className="w-[70px] p-2 text-right">
+                    <TableCell className="w-[80px] p-2 text-right">
                       <div className="flex justify-end items-center gap-1">
                         <Tooltip>
                           <TooltipTrigger asChild>

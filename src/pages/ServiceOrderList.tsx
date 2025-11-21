@@ -5,15 +5,13 @@ import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
 import { getServiceOrderItems, ServiceOrderItem } from '@/services/partListService'; // Usar getServiceOrderItems e ServiceOrderItem
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, FilePlus, ClipboardList, Clock, ArrowUpNarrowWide, ArrowDownNarrowWide, Loader2 } from 'lucide-react'; // Adicionado Loader2
+import { ArrowLeft, FilePlus, ClipboardList, Clock, ArrowUpNarrowWide, ArrowDownNarrowWide } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Importar Sheet
 // Dialog não será mais usado para o formulário principal
 // import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; 
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
-import { useSession } from '@/components/SessionContextProvider'; // NOVO: Importar useSession
-import { format } from 'date-fns'; // NOVO: Importar format
 
 type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
 
@@ -24,7 +22,6 @@ interface ServiceOrderDetails {
   hora_final?: string;
   servico_executado?: string;
   createdAt?: Date; // createdAt é opcional aqui, mas será obrigatório no ServiceOrderGroupDetails
-  date?: string; // NOVO: Data da OS
   mode?: FormMode;
 }
 
@@ -42,7 +39,6 @@ interface ServiceOrderListProps {
 }
 
 const ServiceOrderList: React.FC = () => {
-  const { user, isLoading: isSessionLoading } = useSession(); // NOVO: Obter user da sessão
   const [listItems, setListItems] = useState<ServiceOrderItem[]>([]); // Agora usa ServiceOrderItem
   const [isLoading, setIsLoading] = useState(true);
   const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
@@ -56,26 +52,20 @@ const ServiceOrderList: React.FC = () => {
   }, []);
 
   const loadListItems = useCallback(async () => {
-    if (!user?.id) { // NOVO: Verifica se user.id existe
-      setIsLoading(false);
-      return;
-    }
     setIsLoading(true);
     try {
-      const items = await getServiceOrderItems(user.id); // NOVO: Passa user.id
+      const items = await getServiceOrderItems(); // Chama a nova função
       setListItems(items);
     } catch (error) {
       showError('Erro ao carregar a lista de ordens de serviço.');
     } finally {
       setIsLoading(false);
     }
-  }, [user]); // NOVO: Depende de user
+  }, []);
 
   useEffect(() => {
-    if (!isSessionLoading) { // NOVO: Só carrega se a sessão não estiver carregando
-      loadListItems();
-    }
-  }, [loadListItems, isSessionLoading]); // NOVO: Depende de isSessionLoading
+    loadListItems();
+  }, [loadListItems]);
 
   const handleEditServiceOrder = useCallback((details: ServiceOrderDetails) => {
     setEditingServiceOrder(details);
@@ -85,8 +75,7 @@ const ServiceOrderList: React.FC = () => {
   const handleNewServiceOrder = useCallback(() => {
     setEditingServiceOrder(null); // Garante que é uma nova OS
     setIsFormOpen(true); // Abre o formulário
-    // NOVO: Define a data padrão para hoje ao iniciar uma nova OS
-    handleEditServiceOrder({ af: '', createdAt: new Date(), date: format(new Date(), 'yyyy-MM-dd'), mode: 'create-new-so' });
+    handleEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' });
   }, [handleEditServiceOrder, setIsFormOpen]);
 
   const handleFormClose = useCallback(() => {
@@ -104,27 +93,6 @@ const ServiceOrderList: React.FC = () => {
   const ModalContentComponent = SheetContent;
   const ModalHeaderComponent = SheetHeader;
   const ModalTitleComponent = SheetTitle;
-
-  if (isSessionLoading || isLoading) { // NOVO: Inclui isSessionLoading
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2">Carregando...</p>
-      </div>
-    );
-  }
-
-  if (!user) { // NOVO: Redireciona se não houver usuário logado
-    return (
-      <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-        <p className="text-center text-muted-foreground py-8">Faça login para ver suas ordens de serviço.</p>
-        <Link to="/login">
-          <Button>Ir para Login</Button>
-        </Link>
-        <MadeWithDyad />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
