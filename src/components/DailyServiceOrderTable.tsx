@@ -10,8 +10,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { DailyServiceOrder, ServiceOrderEntry, ServiceOrderPart } from '@/types/supabase'; // Importar DailyServiceOrder, ServiceOrderEntry, ServiceOrderPart
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format, parseISO } from 'date-fns'; // Adicionado: Importar format e parseISO
+import { ptBR } from 'date-fns/locale'; // Adicionado: Importar ptBR
 import { calculateDurationInMinutes, formatMinutesToHoursAndMinutes } from '@/services/dailyServiceOrderService';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';

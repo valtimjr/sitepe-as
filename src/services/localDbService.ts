@@ -4,6 +4,7 @@ import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network';
 import Papa from 'papaparse';
+import { format, parseISO } from 'date-fns'; // Adicionado: Importar format e parseISO
 
 // Use the strict types from supabase.ts for local storage interfaces
 export interface Part extends SupabasePart {}

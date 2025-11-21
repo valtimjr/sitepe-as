@@ -53,7 +53,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   initialSoData, 
   initialPartData, 
 }) => {
-  const { user, profile } = useSession();
+  const { user, profile, checkPageAccess } = useSession(); // Adicionado checkPageAccess
   const isMobile = useIsMobile();
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
@@ -285,7 +285,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         // Se não houver itens, cria um item "em branco" para representar a OS
         try {
           await addServiceOrderItem({
-            user_id: user.id, // NOVO: Adiciona user_id
             date: dateString, // NOVO: Adiciona a data
             af,
             os,
@@ -353,7 +352,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
           }
 
           await addServiceOrderItem({
-            user_id: user.id, // NOVO: Adiciona user_id
             date: dateString, // NOVO: Adiciona a data
             codigo_peca: selectedPart.codigo,
             descricao: selectedPart.descricao,
@@ -384,7 +382,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             return;
           }
           await addServiceOrderItem({
-            user_id: user.id, // NOVO: Adiciona user_id
             date: dateString, // NOVO: Adiciona a data
             codigo_peca: selectedPart.codigo,
             descricao: selectedPart.descricao,
@@ -399,7 +396,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         } else {
           // Se não houver peça, cria uma OS "em branco"
           await addServiceOrderItem({
-            user_id: user.id, // NOVO: Adiciona user_id
             date: dateString, // NOVO: Adiciona a data
             af,
             os: os,

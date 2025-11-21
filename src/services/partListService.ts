@@ -27,6 +27,9 @@ import {
   putLocalMonthlyApontamento, 
   deleteLocalMonthlyApontamento,
   bulkPutLocalServiceOrderItems, // NOVO: Importa a função de bulkPut
+  Apontamento as LocalApontamento, // Importa Apontamento do localDbService
+  SimplePartItem, // Re-exporta SimplePartItem
+  ServiceOrderItem, // Re-exporta ServiceOrderItem
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network';
@@ -34,10 +37,10 @@ import { format } from 'date-fns';
 import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, DailyServiceOrder, ServiceOrderEntry, ServiceOrderPart as SupabaseServiceOrderPart } from '@/types/supabase';
 
 export interface Part extends SupabasePart {}
-export interface SimplePartItem extends LocalSimplePartItem {}
-export interface ServiceOrderItem extends LocalServiceOrderItem {} // Agora estende a interface local
+// export interface SimplePartItem extends LocalSimplePartItem {} // Removido, já re-exportado acima
+// export interface ServiceOrderItem extends LocalServiceOrderItem {} // Removido, já re-exportado acima
 export interface Af extends LocalAf {}
-export type Apontamento = DailyApontamento;
+export type Apontamento = LocalApontamento; // Usa o Apontamento re-exportado do localDbService
 
 // Re-exportar getLocalMonthlyApontamento para que outros módulos possam importá-lo de partListService
 export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;

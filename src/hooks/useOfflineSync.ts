@@ -20,9 +20,10 @@ import {
   syncMonthlyApontamentosFromSupabase,
   syncServiceOrdersToSupabase, // NOVO: Importa syncServiceOrdersToSupabase
   syncServiceOrdersFromSupabase, // NOVO: Importa syncServiceOrdersFromSupabase
+  ServiceOrderItem, // NOVO: Importa ServiceOrderItem de partListService
 } from '@/services/partListService';
 import { format } from 'date-fns';
-import { MonthlyApontamento, ServiceOrderItem, DailyServiceOrder } from '@/types/supabase'; // NOVO: Importa DailyServiceOrder
+import { MonthlyApontamento, DailyServiceOrder } from '@/types/supabase'; // NOVO: Importa DailyServiceOrder
 
 const SYNC_INTERVAL_MS = 60000; // Tenta sincronizar a cada 60 segundos se estiver online
 
