@@ -5,20 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Filter, Search, Clock, FileDown, User as UserIcon, Tag } from 'lucide-react';
+import { Calendar as CalendarIcon, Filter, Search, Clock, FileDown, User as UserIcon, Tag, Loader2 } from 'lucide-react';
 import { format, parseISO, startOfMonth, endOfMonth, isSameDay, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator'; // Importar Separator
 import { cn } from '@/lib/utils';
-import { DailyServiceOrder, UserProfile } from '@/types/supabase';
+import { DailyServiceOrder, UserProfile, ServiceOrderEntry, ServiceOrderPart } from '@/types/supabase'; // Importar DailyServiceOrder, ServiceOrderEntry, ServiceOrderPart
 import { fetchDailyServiceOrders, calculateDurationInMinutes, formatMinutesToHoursAndMinutes } from '@/services/dailyServiceOrderService';
 import { getAllUserProfiles } from '@/services/userService';
 import { useSession } from '@/components/SessionContextProvider';
 import { showError, showSuccess } from '@/utils/toast';
 import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils';
+import DailyServiceOrderTable from '@/components/DailyServiceOrderTable'; // Importar DailyServiceOrderTable
+import { DateRange } from 'react-day-picker'; // Importar DateRange
 
 interface ServiceOrderReportsTabProps {
   isEmbedded?: boolean;
@@ -33,7 +36,7 @@ const ServiceOrderReportsTab: React.FC<ServiceOrderReportsTabProps> = ({ isEmbed
 
   // Filter states
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined); // Alterado para DateRange | undefined
   const [selectedMonth, setSelectedMonth] = useState<Date | undefined>(undefined);
   const [selectedUserId, setSelectedUserId] = useState<string | undefined>(undefined);
   const [selectedAfNumber, setSelectedAfNumber] = useState<string | undefined>(undefined);
@@ -49,7 +52,7 @@ const ServiceOrderReportsTab: React.FC<ServiceOrderReportsTabProps> = ({ isEmbed
       if (selectedDate) {
         filters.startDate = startOfDay(selectedDate);
         filters.endDate = endOfDay(selectedDate);
-      } else if (dateRange.from) {
+      } else if (dateRange?.from) { // Acessa dateRange.from com segurança
         filters.startDate = startOfDay(dateRange.from);
         if (dateRange.to) {
           filters.endDate = endOfDay(dateRange.to);
@@ -109,7 +112,7 @@ const ServiceOrderReportsTab: React.FC<ServiceOrderReportsTabProps> = ({ isEmbed
 
   const handleClearFilters = () => {
     setSelectedDate(undefined);
-    setDateRange({});
+    setDateRange(undefined); // Limpa para undefined
     setSelectedMonth(undefined);
     setSelectedUserId(user?.id); // Volta para o próprio usuário se não for admin/moderador
     setSelectedAfNumber(undefined);
@@ -200,7 +203,7 @@ const ServiceOrderReportsTab: React.FC<ServiceOrderReportsTabProps> = ({ isEmbed
                   selected={selectedDate}
                   onSelect={(date) => {
                     setSelectedDate(date);
-                    setDateRange({}); // Limpa range e mês
+                    setDateRange(undefined); // Limpa range e mês
                     setSelectedMonth(undefined);
                   }}
                   initialFocus
@@ -219,11 +222,11 @@ const ServiceOrderReportsTab: React.FC<ServiceOrderReportsTabProps> = ({ isEmbed
                   variant={"outline"}
                   className={cn(
                     "w-full justify-start text-left font-normal",
-                    !dateRange.from && "text-muted-foreground"
+                    !dateRange?.from && "text-muted-foreground" // Acessa dateRange.from com segurança
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange.from ? (
+                  {dateRange?.from ? ( // Acessa dateRange.from com segurança
                     dateRange.to ? (
                       <>
                         {format(dateRange.from, "PPP", { locale: ptBR })} -{" "}
@@ -242,7 +245,7 @@ const ServiceOrderReportsTab: React.FC<ServiceOrderReportsTabProps> = ({ isEmbed
                   mode="range"
                   selected={dateRange}
                   onSelect={(range) => {
-                    setDateRange(range || {});
+                    setDateRange(range); // Passa o range diretamente
                     setSelectedDate(undefined); // Limpa data específica e mês
                     setSelectedMonth(undefined);
                   }}
@@ -278,7 +281,7 @@ const ServiceOrderReportsTab: React.FC<ServiceOrderReportsTabProps> = ({ isEmbed
                   onSelect={(date) => {
                     setSelectedMonth(date);
                     setSelectedDate(undefined); // Limpa data específica e range
-                    setDateRange({});
+                    setDateRange(undefined); // Limpa para undefined
                   }}
                   fromYear={2020}
                   toYear={new Date().getFullYear() + 5}

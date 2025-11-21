@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { DailyServiceOrder, ServiceOrderEntry, ServiceOrderPart } from '@/types/supabase';
+import { DailyServiceOrder, ServiceOrderEntry, ServiceOrderPart } from '@/types/supabase'; // Importar DailyServiceOrder, ServiceOrderEntry, ServiceOrderPart
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { calculateDurationInMinutes, formatMinutesToHoursAndMinutes } from '@/services/dailyServiceOrderService';
