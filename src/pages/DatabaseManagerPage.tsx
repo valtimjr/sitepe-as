@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogOut, Database, Menu, List as ListIcon } from 'lucide-react';
+import { ArrowLeft, LogOut, Database, Menu, List as ListIcon, FileText } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PartManagementTable from '@/components/PartManagementTable';
 import AfManagementTable from '@/components/AfManagementTable';
 import InviteManager from '@/components/InviteManager';
 import MenuManagerPage from '@/pages/MenuManagerPage';
+import ServiceOrderReportsTab from '@/components/ServiceOrderReportsTab'; // Importar o novo componente
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
@@ -29,9 +30,11 @@ const DatabaseManagerPage: React.FC = () => {
       return { visibleTabs: [], defaultTab: '' };
     }
     const isAdmin = profile?.role === 'admin';
+    const isModerator = profile?.role === 'moderator';
     const canAccessMenuManager = checkPageAccess('/menu-manager');
     const tabs = [
       ...(isAdmin ? ['parts', 'afs', 'invites'] : []),
+      ...(isAdmin || isModerator ? ['reports'] : []), // Apenas admin e moderador podem ver relatórios
       ...(canAccessMenuManager ? ['menu'] : []),
     ];
     return { visibleTabs: tabs, defaultTab: tabs[0] || '' };
@@ -89,6 +92,13 @@ const DatabaseManagerPage: React.FC = () => {
           {visibleTabs.includes('parts') && <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>}
           {visibleTabs.includes('afs') && <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>}
           {visibleTabs.includes('invites') && <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>}
+          {visibleTabs.includes('reports') && (
+            <TabsTrigger value="reports">
+              <div className="flex items-center justify-center gap-2">
+                <FileText className="h-4 w-4" /> Relatórios de OS
+              </div>
+            </TabsTrigger>
+          )}
           {visibleTabs.includes('menu') && (
             <TabsTrigger value="menu">
               <div className="flex items-center justify-center gap-2">
@@ -111,6 +121,11 @@ const DatabaseManagerPage: React.FC = () => {
         {visibleTabs.includes('invites') && (
           <TabsContent value="invites">
             <InviteManager />
+          </TabsContent>
+        )}
+        {visibleTabs.includes('reports') && (
+          <TabsContent value="reports">
+            <ServiceOrderReportsTab />
           </TabsContent>
         )}
         {visibleTabs.includes('menu') && (
