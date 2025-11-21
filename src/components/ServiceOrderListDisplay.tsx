@@ -776,13 +776,11 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                               </Tooltip>
                               <AlertDialog>
                                 <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <AlertDialogTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="text-destructive">
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                  </TooltipTrigger>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-destructive">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
                                   <TooltipContent>Excluir Ordem de Serviço</TooltipContent>
                                 </Tooltip>
                                 <AlertDialogContent>
@@ -855,15 +853,25 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                   <TooltipContent>Editar item</TooltipContent>
                                 </Tooltip>
                                 <AlertDialog>
-                                  <Tooltip> {/* Tooltip envolve o AlertDialogTrigger */}
-                                    <TooltipTrigger asChild>
-                                      <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </AlertDialogTrigger>
-                                    </TooltipTrigger>
+                                  <Tooltip>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
                                     <TooltipContent>Remover Item</TooltipContent>
+                                  </Tooltip>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Esta ação irá remover o item "{part.codigo_peca || part.descricao}" da lista. Esta ação não pode ser desfeita.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteItem(part.id)}>Remover</AlertDialogAction>
+                                    </AlertDialogFooter>
                                   </AlertDialogContent>
                                 </AlertDialog>
                               </div>
