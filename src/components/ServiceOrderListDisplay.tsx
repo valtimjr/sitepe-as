@@ -462,6 +462,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       hora_final: group.hora_final,
       servico_executado: group.servico_executado,
       createdAt: group.createdAt,
+      parts: group.parts, // Incluir a propriedade 'parts'
     });
     setPartToEdit(null); // Garante que é modo de adição
     setPartFormMode('add-part-to-existing-so');
@@ -477,6 +478,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
       hora_final: group.hora_final,
       servico_executado: group.servico_executado,
       createdAt: group.createdAt,
+      parts: group.parts, // Incluir a propriedade 'parts'
     }); // Passa o grupo para o formulário saber a qual OS a peça pertence
     setPartFormMode('edit-part');
     setIsPartFormOpen(true);
@@ -862,18 +864,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listI
                                       </AlertDialogTrigger>
                                     </TooltipTrigger>
                                     <TooltipContent>Remover Item</TooltipContent>
-                                  </Tooltip>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Esta ação irá remover o item "{part.codigo_peca || part.descricao}" da lista. Esta ação não pode ser desfeita.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDeleteItem(part.id)}>Remover</AlertDialogAction>
-                                    </AlertDialogFooter>
                                   </AlertDialogContent>
                                 </AlertDialog>
                               </div>

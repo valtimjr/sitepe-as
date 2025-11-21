@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar as CalendarIcon, Search, Filter, Clock, User as UserIcon, Tag, Loader2, CalendarDays, ArrowRight } from 'lucide-react';
-import { format, parseISO, startOfMonth, endOfMonth, isValid, differenceInMinutes, addDays } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, isValid, differenceInMinutes, addDays, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError } from '@/utils/toast';
