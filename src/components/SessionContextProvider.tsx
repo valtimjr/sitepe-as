@@ -19,9 +19,9 @@ interface SessionContextType {
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
 // Rotas que devem ser sempre acessíveis a convidados
-const PUBLIC_ROUTES = ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/search-parts', '/parts-list', '/schedule-view', '/custom-list', '/custom-menu-view', '/cookie-policy', '/guest-service-orders'];
+const PUBLIC_ROUTES = ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/search-parts', '/parts-list', '/schedule-view', '/custom-list', '/custom-menu-view', '/cookie-policy', '/guest-service-orders', '/service-orders'];
 // Rotas que exigem autenticação
-const AUTH_REQUIRED_ROUTES = ['/time-tracking', '/settings', '/my-custom-lists', '/service-orders', '/admin'];
+const AUTH_REQUIRED_ROUTES = ['/time-tracking', '/settings', '/my-custom-lists', '/admin'];
 
 export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
