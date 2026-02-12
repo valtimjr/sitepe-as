@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Link } from 'react-router-dom';
+import { cn } from '@/lib/utils'; // Importação adicionada aqui
 
 const ServiceOrderList: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading } = useSession();
