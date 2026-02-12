@@ -42,7 +42,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
         if (matchingAf) {
           setDisplayValue(getDisplayValue(matchingAf));
         } else {
-          setDisplayValue(value);
+          setDisplayValue(value); // Mantém o valor manual
         }
       } else {
         setDisplayValue('');
@@ -74,7 +74,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setDisplayValue(newValue);
-    onChange(newValue);
+    onChange(newValue); // Notifica o pai imediatamente da mudança manual
     setIsDropdownOpen(true);
   };
 
@@ -90,6 +90,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
         setIsFocused(false);
         setIsDropdownOpen(false);
         
+        // Extrai apenas o número do AF se o usuário selecionou da lista ou digitou
         const typedValue = displayValue.split(' - ')[0].trim();
         const matchingAf = afsMap.get(typedValue);
 
@@ -97,13 +98,9 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
           onSelectAf(matchingAf.af_number);
           setDisplayValue(getDisplayValue(matchingAf));
         } else {
-          const originalAf = afsMap.get(value);
-          if (originalAf) {
-            setDisplayValue(getDisplayValue(originalAf));
-          } else {
-            onSelectAf('');
-            setDisplayValue('');
-          }
+          // Se não houver correspondência, aceita o valor digitado como o AF real
+          onSelectAf(typedValue);
+          setDisplayValue(typedValue);
         }
       }
     }, 150);
@@ -112,6 +109,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
   const handleSelectAndClose = (afItem: Af) => {
     onSelectAf(afItem.af_number);
     setDisplayValue(getDisplayValue(afItem));
+    setIsDropdownOpen(false);
     if (inputRef.current) {
       inputRef.current.blur();
     }
@@ -125,7 +123,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
           <Input
             id="af-input"
             type="text"
-            placeholder="Buscar AF por número ou descrição..."
+            placeholder="Digite o número do AF..."
             value={displayValue}
             onChange={handleInputChange}
             onFocus={handleInputFocus}
@@ -133,27 +131,24 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
             className="w-full pr-8"
             readOnly={readOnly}
             ref={inputRef}
+            autoComplete="off"
           />
           {isSearching && (
             <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>
-        {isDropdownOpen && !readOnly && (
+        {isDropdownOpen && !readOnly && searchResults.length > 0 && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto">
-            {searchResults.length > 0 ? (
-              searchResults.map((afItem) => (
-                <li
-                  key={afItem.id}
-                  className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleSelectAndClose(afItem)}
-                >
-                  {getDisplayValue(afItem)}
-                </li>
-              ))
-            ) : (isFocused && displayValue.length > 0 && !isSearching) ? (
-              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhum AF encontrado.</li>
-            ) : null}
+            {searchResults.map((afItem) => (
+              <li
+                key={afItem.id}
+                className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelectAndClose(afItem)}
+              >
+                {getDisplayValue(afItem)}
+              </li>
+            ))}
           </ul>
         )}
       </div>
