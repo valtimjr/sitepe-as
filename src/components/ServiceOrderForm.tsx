@@ -50,21 +50,25 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   initialSoData, 
   initialPartData, 
 }) => {
-  const { user, profile, checkPageAccess } = useSession();
+  const { user, profile } = useSession();
   const isMobile = useIsMobile();
   
-  const [selectedPart, setSelectedPart] = useState<Part | null>(null);
-  const [quantidade, setQuantidade] = useState<number>(1);
+  // Estados dos detalhes da OS
   const [af, setAf] = useState('');
   const [os, setOs] = useState<number | undefined>(undefined);
   const [horaInicio, setHoraInicio] = useState<string>('');
   const [horaFinal, setHoraFinal] = useState<string>('');
   const [servicoExecutado, setServicoExecutado] = useState<string>('');
+  
+  // Estados das peças
+  const [selectedPart, setSelectedPart] = useState<Part | null>(null);
+  const [quantidade, setQuantidade] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(false);
-  const [editedTags, setEditedTags] = useState<string>('');
+  
+  // Estados globais
+  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isOsInvalid, setIsOsInvalid] = useState(false);
 
   useEffect(() => {
@@ -74,6 +78,25 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     };
     loadAfs();
   }, []);
+
+  // Efeito para busca de peças
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (searchQuery.length > 1) {
+        setIsLoadingParts(true);
+        try {
+          const results = await searchPartsService(searchQuery);
+          setSearchResults(results);
+        } finally {
+          setIsLoadingParts(false);
+        }
+      } else {
+        setSearchResults([]);
+      }
+    };
+    const handler = setTimeout(fetchSearchResults, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (initialSoData) {
@@ -92,6 +115,12 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     setOs(parsed);
   };
 
+  const handleSelectPart = (part: Part) => {
+    setSelectedPart(part);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!af || isOsInvalid) {
@@ -102,6 +131,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     try {
       const orderId = (mode.includes('edit') && initialSoData?.createdAt) ? (initialSoData as any).id || uuidv4() : uuidv4();
       
+      // Cria a estrutura da ordem
       const newOrder: ServiceOrderData = {
         id: orderId,
         af: af,
@@ -109,12 +139,17 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         hora_inicio: horaInicio,
         hora_final: horaFinal,
         servico_executado: servicoExecutado,
-        parts: selectedPart ? [{
+        parts: []
+      };
+
+      // Se houver uma peça selecionada, adiciona ao array
+      if (selectedPart) {
+        newOrder.parts.push({
           codigo_peca: selectedPart.codigo,
           descricao: selectedPart.descricao,
           quantidade: quantidade
-        }] : []
-      };
+        });
+      }
 
       if (user) {
         const loadingId = showLoading('Salvando no servidor...');
@@ -123,7 +158,18 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         
         let updatedOrders;
         if (mode.includes('edit')) {
-          updatedOrders = existingOrders.map(o => o.af === initialSoData?.af && o.os === initialSoData?.os?.toString() ? newOrder : o);
+          // Na edição, se a ordem já existe, preservamos as peças que já estavam lá e adicionamos/atualizamos
+          updatedOrders = existingOrders.map(o => {
+            if (o.af === initialSoData?.af && o.os === initialSoData?.os?.toString()) {
+              // Mesclamos as peças se estivermos apenas adicionando uma nova através deste form
+              const mergedParts = [...o.parts];
+              if (selectedPart) {
+                mergedParts.push(newOrder.parts[0]);
+              }
+              return { ...newOrder, parts: mergedParts };
+            }
+            return o;
+          });
         } else {
           updatedOrders = [...existingOrders, newOrder];
         }
@@ -163,39 +209,90 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     <Card className="w-full max-w-md mx-auto shadow-none border-none">
       <CardContent className="p-0">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="af">AF (Número de Frota)</Label>
-            <AfSearchInput
-              value={af}
-              onChange={setAf}
-              onSelectAf={setAf}
-              availableAfs={allAvailableAfs}
-            />
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <Label htmlFor="af">AF (Número de Frota)</Label>
+              <AfSearchInput
+                value={af}
+                onChange={setAf}
+                onSelectAf={setAf}
+                availableAfs={allAvailableAfs}
+              />
+            </div>
+            <div>
+              <Label htmlFor="os">OS (Opcional)</Label>
+              <Input id="os" type="number" value={os === undefined ? '' : os} onChange={handleOsChange} placeholder="Nº da OS" />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="os">OS (Opcional)</Label>
-            <Input id="os" type="number" value={os === undefined ? '' : os} onChange={handleOsChange} placeholder="Nº da OS" />
-          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label>Início</Label>
+              <Label>Hora Início</Label>
               <Input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
             </div>
             <div>
-              <Label>Fim</Label>
+              <Label>Hora Fim</Label>
               <Input type="time" value={horaFinal} onChange={(e) => setHoraFinal(e.target.value)} />
             </div>
           </div>
+
           <div>
-            <Label>Serviço</Label>
-            <Textarea value={servicoExecutado} onChange={(e) => setServicoExecutado(e.target.value)} placeholder="Descrição do serviço" rows={3} />
+            <Label>Serviço Executado</Label>
+            <Textarea 
+              value={servicoExecutado} 
+              onChange={(e) => setServicoExecutado(e.target.value)} 
+              placeholder="Descreva o trabalho realizado..." 
+              rows={3} 
+            />
           </div>
           
           <Separator />
+
+          {/* Seção de Peças */}
+          <div className="space-y-4 pt-2">
+            <h3 className="font-bold text-sm flex items-center gap-2 text-primary">
+              <Tag className="h-4 w-4" /> Adicionar Peça (Opcional)
+            </h3>
+            
+            <div>
+              <Label htmlFor="part-search">Buscar Peça</Label>
+              <PartSearchInput
+                onSearch={setSearchQuery}
+                searchResults={searchResults}
+                onSelectPart={handleSelectPart}
+                searchQuery={searchQuery}
+                isLoading={isLoadingParts}
+              />
+            </div>
+
+            {selectedPart && (
+              <div className="grid grid-cols-4 gap-2 bg-muted/30 p-3 rounded-md border border-primary/20">
+                <div className="col-span-3">
+                  <p className="text-[10px] font-bold text-primary uppercase">Selecionada:</p>
+                  <p className="text-xs font-bold">{selectedPart.codigo}</p>
+                  <p className="text-sm truncate">{selectedPart.name || selectedPart.descricao}</p>
+                </div>
+                <div className="col-span-1">
+                  <Label className="text-xs">Qtd</Label>
+                  <Input 
+                    type="number" 
+                    value={quantidade} 
+                    onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
+                    min="1"
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           
-          <div className="flex gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="w-full">Cancelar</Button>
-            <Button type="submit" className="w-full" disabled={!af}>Salvar Ordem</Button>
+          <div className="flex gap-2 pt-6">
+            <Button type="button" variant="outline" onClick={onClose} className="w-full">
+              Cancelar
+            </Button>
+            <Button type="submit" className="w-full" disabled={!af}>
+              <Save className="h-4 w-4 mr-2" /> Salvar Ordem
+            </Button>
           </div>
         </form>
       </CardContent>
