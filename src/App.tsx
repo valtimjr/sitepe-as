@@ -8,7 +8,6 @@ import NotFound from "./pages/NotFound";
 import SearchParts from "./pages/SearchParts";
 import PartsList from "./pages/PartsList";
 import ServiceOrderList from "./pages/ServiceOrderList";
-import GuestServiceOrderList from "./pages/GuestServiceOrderList";
 import Login from "./pages/Login";
 import DatabaseManagerPage from "./pages/DatabaseManagerPage";
 import SignupPage from "./pages/SignupPage";
@@ -49,7 +48,6 @@ const AppContent = () => {
         <Route path="/search-parts" element={<SearchParts />} />
         <Route path="/parts-list" element={<PartsList />} />
         <Route path="/service-orders" element={<ServiceOrderList />} />
-        <Route path="/guest-service-orders" element={<GuestServiceOrderList />} />
         <Route path="/login" element={<Login />} />
         <Route path="/admin" element={<DatabaseManagerPage />} />
         <Route path="/signup/:uuid" element={<SignupPage />} />

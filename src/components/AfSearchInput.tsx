@@ -90,22 +90,20 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
         setIsFocused(false);
         setIsDropdownOpen(false);
         
-        // Tentamos encontrar uma correspondência exata para o que foi digitado
         const typedValue = displayValue.split(' - ')[0].trim();
         const matchingAf = afsMap.get(typedValue);
 
         if (matchingAf) {
-          // Se encontrou, selecionamos e formatamos o display
           onSelectAf(matchingAf.af_number);
           setDisplayValue(getDisplayValue(matchingAf));
-        } else if (typedValue !== '') {
-          // Se não encontrou no banco mas não está vazio, permitimos o valor manual
-          onSelectAf(typedValue);
-          setDisplayValue(typedValue);
         } else {
-          // Se está vazio, limpamos tudo
-          onSelectAf('');
-          setDisplayValue('');
+          const originalAf = afsMap.get(value);
+          if (originalAf) {
+            setDisplayValue(getDisplayValue(originalAf));
+          } else {
+            onSelectAf('');
+            setDisplayValue('');
+          }
         }
       }
     }, 150);
