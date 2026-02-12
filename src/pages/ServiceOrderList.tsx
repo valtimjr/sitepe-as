@@ -4,7 +4,7 @@ import ServiceOrderForm from '@/components/ServiceOrderForm';
 import { getDailyServiceOrdersByDate, saveDailyServiceOrder, ServiceOrderItem } from '@/services/partListService';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight, Calendar, ClipboardList, FilePlus, Loader2, Save, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar as CalendarIcon, ClipboardList, FilePlus, Loader2, Save, Trash2, Edit } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -15,6 +15,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { v4 as uuidv4 } from 'uuid';
 import { DailyServiceOrder, ServiceOrderData } from '@/types/supabase';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 const ServiceOrderList: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading } = useSession();
@@ -23,6 +25,7 @@ const ServiceOrderList: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [orders, setOrders] = useState<ServiceOrderData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   // Estados para o formulário
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -51,6 +54,13 @@ const ServiceOrderList: React.FC = () => {
   const handleDateChange = (direction: 'prev' | 'next') => {
     const newDate = direction === 'prev' ? subDays(selectedDate, 1) : addDays(selectedDate, 1);
     setSelectedDate(newDate);
+  };
+
+  const handleSelectDate = (date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+      setIsCalendarOpen(false);
+    }
   };
 
   const handleOpenCreateForm = () => {
@@ -119,10 +129,25 @@ const ServiceOrderList: React.FC = () => {
           <Button variant="ghost" onClick={() => handleDateChange('prev')} size="icon">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="flex items-center gap-2 font-bold text-lg">
-            <Calendar className="h-5 w-5 text-primary" />
-            {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-          </div>
+          
+          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2 font-bold text-lg hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md">
+                <CalendarIcon className="h-5 w-5 text-primary" />
+                {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="center">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleSelectDate}
+                initialFocus
+                locale={ptBR}
+              />
+            </PopoverContent>
+          </Popover>
+
           <Button variant="ghost" onClick={() => handleDateChange('next')} size="icon">
             <ArrowRight className="h-5 w-5" />
           </Button>
@@ -195,7 +220,6 @@ const ServiceOrderList: React.FC = () => {
             </SheetTitle>
           </SheetHeader>
           <div className="py-6">
-            {/* O formulário precisa ser atualizado para o novo formato de dados */}
             <p className="text-sm text-muted-foreground mb-4">Data selecionada: {dateString}</p>
             <ServiceOrderForm 
                mode={editingOrder ? 'edit-so-details' : 'create-new-so'}
@@ -209,7 +233,7 @@ const ServiceOrderList: React.FC = () => {
                }}
                onItemAdded={handleFormSaved}
                onNewServiceOrder={() => {}}
-               listItems={[]} // Temporário enquanto ajustamos o formulário
+               listItems={[]}
                onClose={() => setIsFormOpen(false)}
             />
           </div>
