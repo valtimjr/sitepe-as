@@ -59,6 +59,33 @@ export interface MonthlyApontamento {
   updated_at?: string;
 }
 
+// Estrutura de uma OS individual dentro do JSON diário
+export interface ServiceOrderData {
+  id: string;
+  os: string;
+  af: string;
+  hora_inicio: string;
+  hora_final: string;
+  servico_executado: string;
+  parts: {
+    codigo_peca: string;
+    descricao: string;
+    quantidade: number;
+  }[];
+}
+
+// Estrutura para a tabela daily_service_orders no Supabase
+export interface DailyServiceOrder {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  user_badge: string | null;
+  user_name: string | null;
+  os_list: ServiceOrderData[]; // O JSONB com a lista de ordens
+  created_at?: string;
+  updated_at?: string;
+}
+
 // New structure for the Mangueira item components
 export interface MangueiraPartDetails {
   codigo: string;
