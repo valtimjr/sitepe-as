@@ -3,7 +3,7 @@ export interface PageAccessRule {
   admin_access: boolean;
   moderator_access: boolean;
   user_access: boolean;
-  guest_access: boolean; // Adicionado para o nível de acesso de convidados
+  guest_access: boolean;
 }
 
 export interface UserProfile {
@@ -22,44 +22,71 @@ export interface RelatedPart {
   desc: string;
 }
 
-export type RelatedItem = string | RelatedPart; // Para migração de dados legados
+export type RelatedItem = string | RelatedPart;
 
 export interface Af {
   id: string;
   af_number: string;
-  descricao: string; // Tornada obrigatória
+  descricao: string;
 }
 
 export interface Part {
   id: string;
   codigo: string;
   descricao: string;
-  tags: string; // Tornada obrigatória
-  name: string; // Tornada obrigatória
-  itens_relacionados: RelatedPart[]; // Tornada obrigatória
+  tags: string;
+  name: string;
+  itens_relacionados: RelatedPart[];
 }
 
-// Apontamento diário, agora parte de um array JSONB
 export interface DailyApontamento {
-  date: string; // Formato 'YYYY-MM-DD' - AGORA É O IDENTIFICADOR ÚNICO
-  entry_time?: string; // Formato 'HH:MM'
-  exit_time?: string; // Formato 'HH:MM'
-  status?: string; // Novo campo para Folga, Falta, Suspensao, Outros
-  created_at?: string; // Armazenado como string ISO para JSONB
-  updated_at?: string; // Para controle de atualização dentro do JSONB
-}
-
-// Novo tipo para o registro mensal no Supabase
-export interface MonthlyApontamento {
-  id: string;
-  user_id: string;
-  month_year: string; // Formato 'YYYY-MM'
-  data: DailyApontamento[]; // Array de apontamentos diários
+  date: string;
+  entry_time?: string;
+  exit_time?: string;
+  status?: string;
   created_at?: string;
   updated_at?: string;
 }
 
-// New structure for the Mangueira item components
+export interface MonthlyApontamento {
+  id: string;
+  user_id: string;
+  month_year: string;
+  data: DailyApontamento[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Estrutura para os itens de peça dentro da OS
+export interface ServiceOrderPart {
+  codigo_peca: string;
+  descricao: string;
+  quantidade: number;
+}
+
+// Estrutura de uma única Ordem de Serviço dentro do array JSONB
+export interface ServiceOrderData {
+  id: string;
+  af: string;
+  os: string;
+  hora_inicio: string;
+  hora_final: string;
+  servico_executado: string;
+  parts: ServiceOrderPart[];
+}
+
+// Estrutura da linha na tabela daily_service_orders
+export interface DailyServiceOrder {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  user_badge: string | null;
+  user_name: string | null;
+  os_list: ServiceOrderData[];
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface MangueiraPartDetails {
   codigo: string;
   name: string;
@@ -70,43 +97,38 @@ export interface MangueiraItemData {
   mangueira: MangueiraPartDetails;
   conexao1: MangueiraPartDetails;
   conexao2: MangueiraPartDetails;
-  corte_cm: number; // New field for cut length
+  corte_cm: number;
 }
 
-// NOVOS TIPOS PARA LISTAS PERSONALIZADAS E MENU
 export interface CustomList {
   id: string;
   user_id: string;
   title: string;
   created_at?: Date;
-  updated_at?: string; // Adicionado o campo updated_at
-  items_data?: CustomListItem[]; // NOVO: Armazena os itens da lista como JSONB
+  updated_at?: string;
+  items_data?: CustomListItem[];
 }
 
 export interface CustomListItem {
-  id: string; // UUID gerado no frontend
-  type: 'item' | 'subtitle' | 'separator' | 'mangueira'; // ATUALIZADO: Adicionado 'mangueira'
+  id: string;
+  type: 'item' | 'subtitle' | 'separator' | 'mangueira';
   item_name: string;
   order_index: number;
-  
-  // Fields specific to type 'item' (legacy/simple part)
   part_code: string | null;
   description: string | null;
   quantity: number;
   itens_relacionados: RelatedPart[]; 
-
-  // Fields specific to type 'mangueira'
-  mangueira_data?: MangueiraItemData; // NOVO: Dados complexos para Mangueira
+  mangueira_data?: MangueiraItemData;
 }
 
 export interface MenuItem {
-  id: string; // UUID gerado no frontend
+  id: string;
   parent_id: string | null;
   title: string;
   order_index: number;
-  list_id: string | null; // Se for um item final que aponta para uma lista
-  itens_relacionados: RelatedPart[]; // ATUALIZADO para usar a nova interface
-  hash?: string; // NOVO: Para links de âncora
-  children?: MenuItem[]; // Para a estrutura hierárquica
-  isDynamic?: boolean; // NOVO: Marcador para itens gerados dinamicamente
+  list_id: string | null;
+  itens_relacionados: RelatedPart[];
+  hash?: string;
+  children?: MenuItem[];
+  isDynamic?: boolean;
 }
