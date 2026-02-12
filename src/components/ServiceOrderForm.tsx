@@ -216,9 +216,18 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       return;
     }
 
-    if (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) {
-      showError('Por favor, insira o AF (Número de Frota).');
-      return;
+    // Validação do AF: Deve estar no banco de dados
+    if (mode === 'create-new-so' || mode === 'edit-so-details') {
+      if (!af) {
+        showError('Por favor, insira o AF (Número de Frota).');
+        return;
+      }
+      
+      const isValidAf = allAvailableAfs.some(item => item.af_number === af);
+      if (!isValidAf) {
+        showError('Por favor, selecione um AF (Número de Frota) válido da lista.');
+        return;
+      }
     }
 
     // Lógica para EDITAR DETALHES DA OS
@@ -388,8 +397,14 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
   
-  // Desabilita o botão de submit se AF for vazio ou OS inválida
-  const isSubmitDisabled = isLoadingParts || (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) || isOsInvalid;
+  const isAfValid = useMemo(() => {
+    if (mode !== 'create-new-so' && mode !== 'edit-so-details') return true;
+    if (!af) return false;
+    return allAvailableAfs.some(item => item.af_number === af);
+  }, [af, allAvailableAfs, mode]);
+
+  // Desabilita o botão de submit se AF for vazio ou OS inválida ou AF não existir no banco
+  const isSubmitDisabled = isLoadingParts || isLoadingAfs || !isAfValid || isOsInvalid;
 
   // Determina quais seções mostrar
   const showOsDetails = mode === 'create-new-so' || mode === 'edit-so-details'; // Alterado para ocultar em modos de peça
@@ -426,7 +441,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
           {showOsDetails && (
             <>
               <div>
-                <Label htmlFor="af">AF (Número de Frota)</Label>
+                <Label htmlFor="af" className={cn(!isAfValid && af && 'text-destructive')}>AF (Número de Frota)</Label>
                 <AfSearchInput
                   value={af}
                   onChange={setAf}
@@ -434,6 +449,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   readOnly={isOsDetailsReadOnly}
                   availableAfs={allAvailableAfs}
                 />
+                {!isAfValid && af && (
+                  <p className="text-sm text-destructive mt-1">
+                    AF não encontrado no banco de dados. Por favor, selecione um da lista.
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="os" className={cn(isOsInvalid && 'text-destructive')}>OS (Opcional)</Label>

@@ -199,6 +199,11 @@ const CustomListPage: React.FC = () => {
   const isAllSelected = selectableItems.length > 0 && selectedItemIds.size === selectableItems.length;
   const isIndeterminate = selectedItemIds.size > 0 && !isAllSelected;
 
+  const isExportAfValid = useMemo(() => {
+    if (!afForExport || afForExport.trim() === '') return false;
+    return allAvailableAfs.some(item => item.af_number === afForExport);
+  }, [afForExport, allAvailableAfs]);
+
   const handleToggleSelectAll = () => {
     if (isAllSelected) {
       setSelectedItemIds(new Set());
@@ -664,7 +669,7 @@ const CustomListPage: React.FC = () => {
           </SheetHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="af-for-export">AF (Número de Frota)</Label>
+              <Label htmlFor="af-for-export" className={cn(!isExportAfValid && afForExport && 'text-destructive')}>AF (Número de Frota)</Label>
               {isLoadingAfs ? (
                 <Input value="Carregando AFs..." readOnly className="bg-muted" />
               ) : (
@@ -675,13 +680,18 @@ const CustomListPage: React.FC = () => {
                   onSelectAf={setAfForExport}
                 />
               )}
+              {!isExportAfValid && afForExport && (
+                <p className="text-sm text-destructive mt-1">
+                  AF não encontrado no banco de dados. Selecione um da lista.
+                </p>
+              )}
             </div>
           </div>
           <SheetFooter>
             <Button type="button" variant="outline" onClick={() => setIsExportSheetOpen(false)}>
               <XCircle className="h-4 w-4 mr-2" /> Cancelar
             </Button>
-            <Button type="button" onClick={handleConfirmExport} disabled={!afForExport.trim() || isLoadingAfs}>
+            <Button type="button" onClick={handleConfirmExport} disabled={!isExportAfValid || isLoadingAfs}>
               <Check className="h-4 w-4 mr-2" /> Confirmar Exportação
             </Button>
           </SheetFooter>

@@ -184,7 +184,13 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
 
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
-  const isSubmitDisabled = isLoadingParts || !selectedPart;
+  
+  const isAfValid = useMemo(() => {
+    if (!af || af.trim() === '') return true;
+    return allAvailableAfs.some(item => item.af_number === af);
+  }, [af, allAvailableAfs]);
+
+  const isSubmitDisabled = isLoadingParts || !selectedPart || !isAfValid;
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -295,13 +301,18 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
             </div>
           )}
           <div>
-            <Label htmlFor="af">AF (Número de Frota) (Opcional)</Label>
+            <Label htmlFor="af" className={cn(!isAfValid && af && 'text-destructive')}>AF (Número de Frota) (Opcional)</Label>
             <AfSearchInput
               value={af}
               onChange={setAf}
               onSelectAf={handleSelectAf}
               availableAfs={allAvailableAfs}
             />
+            {!isAfValid && af && (
+              <p className="text-sm text-destructive mt-1">
+                AF não encontrado no banco de dados. Por favor, selecione um da lista ou deixe vazio.
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
             {editingItem && (
