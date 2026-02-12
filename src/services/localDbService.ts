@@ -116,6 +116,24 @@ class LocalDexieDb extends Dexie {
 
 export const localDb = new LocalDexieDb();
 
+// --- Monthly Apontamentos Management (IndexedDB) ---
+
+export const getLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<MonthlyApontamento | undefined> => {
+  return localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).first();
+};
+
+export const putLocalMonthlyApontamento = async (ap: MonthlyApontamento): Promise<void> => {
+  await localDb.monthlyApontamentos.put(ap);
+};
+
+export const bulkPutLocalMonthlyApontamentos = async (aps: MonthlyApontamento[]): Promise<void> => {
+  await localDb.monthlyApontamentos.bulkPut(aps);
+};
+
+export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<void> => {
+  await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).delete();
+};
+
 // --- Daily Service Orders Management (IndexedDB) ---
 
 export const getLocalDailyServiceOrder = async (userId: string, date: string): Promise<DailyServiceOrder | undefined> => {
@@ -127,11 +145,11 @@ export const putLocalDailyServiceOrder = async (order: DailyServiceOrder): Promi
 };
 
 export const deleteLocalDailyServiceOrder = async (userId: string, date: string): Promise<void> => {
-  const key = `${userId}-${date}`;
-  await localDb.dailyServiceOrders.where('[user_id+date]').equals(key).delete();
+  await localDb.dailyServiceOrders.where({ user_id: userId, date: date }).delete();
 };
 
-// ... (keep existing exports)
+// --- Outras Funções Existentes ---
+
 export const addLocalPart = async (part: Omit<Part, 'id'>): Promise<string> => {
   const newPart = { ...part, id: uuidv4() };
   await localDb.parts.add(newPart);
