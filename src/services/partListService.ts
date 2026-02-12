@@ -30,6 +30,9 @@ export interface SimplePartItem extends LocalSimplePartItem {}
 export interface Af extends SupabaseAf {}
 export type Apontamento = DailyApontamento;
 
+// Re-exportando a função do banco local com o nome esperado pelo componente
+export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;
+
 // ID fixo para salvar as OS locais de visitantes
 const GUEST_USER_ID = "00000000-0000-0000-0000-000000000000";
 
