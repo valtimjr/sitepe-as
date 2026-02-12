@@ -16,12 +16,27 @@ export interface UserProfile {
   badge: string | null;
 }
 
+export interface RelatedPart {
+  codigo: string;
+  name: string;
+  desc: string;
+}
+
+export type RelatedItem = string | RelatedPart; // Para migração de dados legados
+
+export interface Af {
+  id: string;
+  af_number: string;
+  descricao: string; // Tornada obrigatória
+}
+
 export interface Part {
   id: string;
   codigo: string;
   descricao: string;
-  tags?: string;
-  name?: string; // NOVO CAMPO: Nome global da peça
+  tags: string; // Tornada obrigatória
+  name: string; // Tornada obrigatória
+  itens_relacionados: RelatedPart[]; // Tornada obrigatória
 }
 
 // Apontamento diário, agora parte de um array JSONB
@@ -44,6 +59,20 @@ export interface MonthlyApontamento {
   updated_at?: string;
 }
 
+// New structure for the Mangueira item components
+export interface MangueiraPartDetails {
+  codigo: string;
+  name: string;
+  description: string;
+}
+
+export interface MangueiraItemData {
+  mangueira: MangueiraPartDetails;
+  conexao1: MangueiraPartDetails;
+  conexao2: MangueiraPartDetails;
+  corte_cm: number; // New field for cut length
+}
+
 // NOVOS TIPOS PARA LISTAS PERSONALIZADAS E MENU
 export interface CustomList {
   id: string;
@@ -56,12 +85,18 @@ export interface CustomList {
 
 export interface CustomListItem {
   id: string; // UUID gerado no frontend
+  type: 'item' | 'subtitle' | 'separator' | 'mangueira'; // ATUALIZADO: Adicionado 'mangueira'
   item_name: string;
+  order_index: number;
+  
+  // Fields specific to type 'item' (legacy/simple part)
   part_code: string | null;
   description: string | null;
   quantity: number;
-  order_index: number;
-  itens_relacionados: string[]; // NOVO: Array de códigos de peças relacionadas
+  itens_relacionados: RelatedPart[]; 
+
+  // Fields specific to type 'mangueira'
+  mangueira_data?: MangueiraItemData; // NOVO: Dados complexos para Mangueira
 }
 
 export interface MenuItem {
@@ -70,6 +105,8 @@ export interface MenuItem {
   title: string;
   order_index: number;
   list_id: string | null; // Se for um item final que aponta para uma lista
-  itens_relacionados: string[]; // NOVO: Array de códigos de peças relacionadas
+  itens_relacionados: RelatedPart[]; // ATUALIZADO para usar a nova interface
+  hash?: string; // NOVO: Para links de âncora
   children?: MenuItem[]; // Para a estrutura hierárquica
+  isDynamic?: boolean; // NOVO: Marcador para itens gerados dinamicamente
 }

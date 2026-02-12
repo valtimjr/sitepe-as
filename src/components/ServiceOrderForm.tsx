@@ -1,18 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addServiceOrderItem, getParts, getAfsFromService, searchParts as searchPartsService, updatePart, deleteServiceOrderItem, ServiceOrderItem, updateServiceOrderItem, Af } from '@/services/partListService';
+import { Part, addServiceOrderItem, getParts, searchParts as searchPartsService, updatePart, getAfsFromService, Af, updateServiceOrderItem, deleteServiceOrderItem, ServiceOrderItem } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save, Plus, FilePlus, XCircle, Loader2 } from 'lucide-react';
+import { Save, Plus, FilePlus, XCircle, Loader2, Tag } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
+import RelatedPartDisplay from './RelatedPartDisplay';
+import { ScrollArea } from './ui/scroll-area';
+import { RelatedPart } from '@/types/supabase';
 
 interface ServiceOrderDetails {
   af: string;
@@ -57,11 +60,19 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
-  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [editedTags, setEditedTags] = useState<string>('');
   const [isOsInvalid, setIsOsInvalid] = useState(false);
+  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
+  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
+
+  const allAvailablePartsMap = useMemo(() => {
+    const map = new Map<string, Part>();
+    allAvailableParts.forEach(part => {
+      map.set(part.codigo, part);
+    });
+    return map;
+  }, [allAvailableParts]);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -78,6 +89,24 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     loadInitialData();
   }, []);
 
+  const resetPartFields = useCallback(() => {
+    setSelectedPart(null);
+    setQuantidade(1);
+    setSearchQuery('');
+    setSearchResults([]);
+    setEditedTags('');
+  }, []);
+
+  const resetAllFieldsInternal = useCallback(() => {
+    resetPartFields();
+    setAf('');
+    setOs(undefined);
+    setHoraInicio('');
+    setHoraFinal('');
+    setServicoExecutado('');
+    setIsOsInvalid(false);
+  }, [resetPartFields]);
+
   // Efeito para inicializar o formulário com base no `mode` e `initial` props
   useEffect(() => {
     resetAllFieldsInternal(); // Sempre reseta tudo primeiro
@@ -92,10 +121,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
 
     if (mode === 'edit-part' && initialPartData) {
       setQuantidade(initialPartData.quantidade ?? 1);
-      const partFromInitial = allAvailableParts.find(p => p.codigo === initialPartData.codigo_peca);
+      const partFromInitial = initialPartData.codigo_peca ? allAvailablePartsMap.get(initialPartData.codigo_peca) : null;
       setSelectedPart(partFromInitial || null);
       setEditedTags(partFromInitial?.tags || '');
-      setSearchQuery(initialPartData.codigo_peca || '');
+      setSearchQuery(initialPartData.codigo_peca || ''); 
     } else if (mode === 'add-part-to-existing-so') {
       setQuantidade(1); // Quantidade padrão para nova peça
       resetPartFields(); // Limpa campos de peça para nova adição
@@ -104,7 +133,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     }
 
     setIsOsInvalid(false);
-  }, [mode, initialSoData, initialPartData, allAvailableParts]);
+  }, [mode, initialSoData, initialPartData, allAvailablePartsMap, resetAllFieldsInternal, resetPartFields]);
 
 
   useEffect(() => {
@@ -127,6 +156,12 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   useEffect(() => {
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
+
+  const formatRelatedPartString = (part: Part): RelatedPart => {
+    const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
+    const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
+    return { codigo: part.codigo, name: mainText, desc: subText };
+  };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -155,34 +190,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     try {
       await updatePart({ ...selectedPart, tags: editedTags });
       showSuccess('Tags da peça atualizadas com sucesso!');
-      const updatedParts = await getParts();
-      setAllAvailableParts(updatedParts);
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
       showError('Erro ao atualizar as tags da peça.');
     }
-  };
-
-  const resetAllFieldsInternal = () => {
-    setSelectedPart(null);
-    setQuantidade(1);
-    setAf('');
-    setOs(undefined);
-    setHoraInicio('');
-    setHoraFinal('');
-    setServicoExecutado('');
-    setSearchQuery('');
-    setSearchResults([]);
-    setEditedTags('');
-    setIsOsInvalid(false);
-  };
-
-  const resetPartFields = () => {
-    setSelectedPart(null);
-    setQuantidade(1);
-    setSearchQuery('');
-    setSearchResults([]);
-    setEditedTags('');
   };
 
   const handleOsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -224,7 +235,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         (item.os === originalOs || (item.os === undefined && originalOs === undefined)) &&
         (item.hora_inicio === originalHoraInicio || (item.hora_inicio === undefined && originalHoraInicio === undefined)) &&
         (item.hora_final === originalHoraFinal || (originalHoraFinal === undefined && item.hora_final === undefined)) &&
-        (item.servico_executado === originalServicoExecutado || (item.servico_executado === undefined && originalServicoExecutado === undefined))
+        (item.servico_executado === originalServicoExecutado || (item.servico_executado === undefined && item.servico_executado === undefined))
       );
 
       if (itemsToUpdate.length > 0) {
@@ -301,7 +312,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             (item.os === initialSoData.os || (item.os === undefined && initialSoData.os === undefined)) &&
             (item.hora_inicio === initialSoData.hora_inicio || (item.hora_inicio === undefined && initialSoData.hora_inicio === undefined)) &&
             (item.hora_final === initialSoData.hora_final || (initialSoData.hora_final === undefined && item.hora_final === undefined)) &&
-            (item.servico_executado === initialSoData.servico_executado || (initialSoData.servico_executado === undefined && initialSoData.servico_executado === undefined)) &&
+            (item.servico_executado === initialSoData.servico_executado || (initialSoData.servico_executado === undefined && item.servico_executado === undefined)) &&
             !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
           );
           if (blankItem) {
@@ -378,7 +389,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
   
   // Desabilita o botão de submit se AF for vazio ou OS inválida
-  const isSubmitDisabled = isLoadingParts || isLoadingAfs || (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) || isOsInvalid;
+  const isSubmitDisabled = isLoadingParts || (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) || isOsInvalid;
 
   // Determina quais seções mostrar
   const showOsDetails = mode === 'create-new-so' || mode === 'edit-so-details'; // Alterado para ocultar em modos de peça
@@ -416,17 +427,13 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             <>
               <div>
                 <Label htmlFor="af">AF (Número de Frota)</Label>
-                {isLoadingAfs ? (
-                  <Input value="Carregando AFs..." readOnly className="bg-muted" />
-                ) : (
-                  <AfSearchInput
-                    value={af}
-                    onChange={setAf}
-                    availableAfs={allAvailableAfs}
-                    onSelectAf={handleSelectAf}
-                    readOnly={isOsDetailsReadOnly}
-                  />
-                )}
+                <AfSearchInput
+                  value={af}
+                  onChange={setAf}
+                  onSelectAf={handleSelectAf}
+                  readOnly={isOsDetailsReadOnly}
+                  availableAfs={allAvailableAfs}
+                />
               </div>
               <div>
                 <Label htmlFor="os" className={cn(isOsInvalid && 'text-destructive')}>OS (Opcional)</Label>
@@ -502,7 +509,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   searchResults={searchResults}
                   onSelectPart={handleSelectPart}
                   searchQuery={searchQuery}
-                  allParts={allAvailableParts}
                   isLoading={isLoadingParts}
                 />
               </div>
@@ -579,6 +585,24 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                   </div>
                 </div>
               )}
+              {selectedPart && selectedPart.itens_relacionados && selectedPart.itens_relacionados.length > 0 && (
+                <div className="space-y-2 border-t pt-4">
+                  <Label className="flex items-center gap-2">
+                    <Tag className="h-4 w-4" /> Itens Relacionados da Peça
+                  </Label>
+                  <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
+                    <div className="flex flex-col gap-2">
+                      {selectedPart.itens_relacionados.map(relatedItem => {
+                          const relatedPart = allAvailableParts.find(p => p.codigo === relatedItem.codigo);
+                          if (relatedPart) {
+                            return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
+                          }
+                          return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
             </>
           )}
           <div className="flex gap-2 pt-4">
@@ -595,16 +619,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             </Button>
           </div>
         </form>
-        {/* REMOVIDO: O botão "Iniciar Nova Ordem de Serviço" foi removido daqui. */}
-        {/*
-        {mode === 'create-new-so' && (
-          <div className="flex flex-col space-y-2 mt-4">
-            <Button variant="outline" onClick={onNewServiceOrder} className="w-full flex items-center gap-2">
-              <FilePlus className="h-4 w-4" /> Iniciar Nova Ordem de Serviço
-            </Button>
-          </div>
-        )}
-        */}
       </CardContent>
     </Card>
   );

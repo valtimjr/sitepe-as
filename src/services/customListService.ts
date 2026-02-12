@@ -1,6 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
-import { CustomList, CustomListItem, MenuItem } from '@/types/supabase';
+import { CustomList, CustomListItem, MenuItem, RelatedPart, RelatedItem, MangueiraItemData } from '@/types/supabase';
+import { updatePart as updatePartService } from '@/services/partListService'; // Importa a função de update de peça
+
+// Re-exporta updatePart para uso no formulário de item de lista
+export const updatePart = updatePartService;
 
 // --- Constantes para a tabela app_config ---
 const APP_CONFIG_TABLE = 'app_config';
@@ -8,16 +12,32 @@ const MENU_STRUCTURE_KEY = 'menu_structure';
 
 // --- Funções Auxiliares para Menu Structure (JSONB) ---
 
+const parseRelatedItem = (item: RelatedItem): RelatedPart => {
+  if (typeof item === 'string') {
+    const parts = item.split('|');
+    return {
+      codigo: parts[0] || '',
+      name: parts[1] || '',
+      desc: parts[2] || '',
+    };
+  }
+  return item;
+};
+
 /**
  * Converte a lista plana de itens de menu em uma estrutura hierárquica.
- * Adiciona 'itens_relacionados' se ausente.
+ * Adiciona 'itens_relacionados' se ausente e converte strings para objetos.
  */
 const buildMenuHierarchy = (items: MenuItem[]): MenuItem[] => {
   const map: { [key: string]: MenuItem } = {};
   const roots: MenuItem[] = [];
 
   items.forEach(item => {
-    map[item.id] = { ...item, children: [], itens_relacionados: item.itens_relacionados || [] };
+    map[item.id] = { 
+      ...item, 
+      children: [], 
+      itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem)
+    };
   });
 
   items.forEach(item => {
@@ -44,14 +64,14 @@ const buildMenuHierarchy = (items: MenuItem[]): MenuItem[] => {
 
 /**
  * Converte a estrutura hierárquica de menu em uma lista plana.
- * Garante que 'itens_relacionados' esteja presente.
+ * Garante que 'itens_relacionados' esteja presente e no formato de objeto.
  */
 const flattenMenuHierarchy = (hierarchy: MenuItem[]): MenuItem[] => {
   const flatList: MenuItem[] = [];
   const traverse = (items: MenuItem[]) => {
     items.forEach(item => {
       const { children, ...rest } = item;
-      flatList.push({ ...rest, itens_relacionados: item.itens_relacionados || [] });
+      flatList.push({ ...rest, itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem) });
       if (children && children.length > 0) {
         traverse(children);
       }
@@ -59,6 +79,23 @@ const flattenMenuHierarchy = (hierarchy: MenuItem[]): MenuItem[] => {
   };
   traverse(hierarchy);
   return flatList;
+};
+
+/**
+ * Salva a estrutura completa do menu no Supabase (uma única linha JSONB).
+ * @param flatItems A flat array of all menu items.
+ */
+export const saveAllMenuItems = async (flatItems: MenuItem[]): Promise<void> => {
+  // Filtra itens dinâmicos antes de salvar para evitar duplicação na próxima carga.
+  const itemsToSave = flatItems.filter(item => !item.isDynamic);
+
+  const { error } = await supabase
+    .from(APP_CONFIG_TABLE)
+    .upsert({ key: MENU_STRUCTURE_KEY, value: itemsToSave, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+
+  if (error) {
+    throw new Error(`Erro ao salvar estrutura do menu: ${error.message}`);
+  }
 };
 
 /**
@@ -78,28 +115,41 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
 
   let flatItems: MenuItem[] = (data?.value as MenuItem[]) || [];
 
-  // Migração de dados da estrutura antiga (se existir e a nova estiver vazia)
-  if (flatItems.length === 0) {
-    try {
-      const { data: oldMenuItems, error: oldError } = await supabase
-        .from('menu_structure') // Tenta ler da tabela antiga
-        .select('*')
-        .order('order_index', { ascending: true });
+  // Injeta os subtítulos como subitens
+  const itemsWithList = flatItems.filter(item => item.list_id); // CORRIGIDO: Pega TODOS os itens com lista
+  if (itemsWithList.length > 0) {
+    const listIds = itemsWithList.map(item => item.list_id!);
+    const { data: lists, error: listsError } = await supabase
+      .from('custom_lists')
+      .select('id, items_data')
+      .in('id', listIds);
 
-      if (!oldError && oldMenuItems && oldMenuItems.length > 0) {
-        flatItems = oldMenuItems.map(item => ({
-          id: item.id,
-          parent_id: item.parent_id,
-          title: item.title,
-          order_index: item.order_index,
-          list_id: item.list_id,
-          itens_relacionados: [], // Inicializa o novo campo
-        }));
-        // Salva a estrutura migrada no novo formato
-        await saveMenuStructure(flatItems);
-      }
-    } catch (e) {
-      // console.warn('Old menu_structure table not found or error during migration attempt:', e);
+    if (listsError) {
+      console.error('Error fetching custom lists for menu subtitles:', listsError);
+    } else if (lists) {
+      const subtitlesToAdd: MenuItem[] = [];
+      itemsWithList.forEach(menuItem => {
+        const list = lists.find(l => l.id === menuItem.list_id);
+        if (list && list.items_data) {
+          const subtitles = list.items_data
+            .filter(item => item.type === 'subtitle')
+            .sort((a, b) => a.order_index - b.order_index);
+          
+          subtitles.forEach((subtitle, index) => {
+            subtitlesToAdd.push({
+              id: `${menuItem.id}-${subtitle.id}`, // ID único para o subitem
+              parent_id: menuItem.id,
+              title: subtitle.item_name,
+              order_index: index,
+              list_id: menuItem.list_id,
+              hash: subtitle.id, // A âncora para o scroll
+              itens_relacionados: [],
+              isDynamic: true, // NOVO: Marca o item como dinâmico
+            });
+          });
+        }
+      });
+      flatItems = [...flatItems, ...subtitlesToAdd];
     }
   }
 
@@ -108,24 +158,11 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
 
 /**
  * Retorna todos os itens de menu em uma lista plana.
- * Garante que 'itens_relacionados' esteja presente.
+ * Garante que 'itens_relacionados' esteja presente e no formato de objeto.
  */
 export const getAllMenuItemsFlat = async (): Promise<MenuItem[]> => {
   const hierarchy = await getMenuStructure();
   return flattenMenuHierarchy(hierarchy);
-};
-
-/**
- * Salva a estrutura completa do menu no Supabase (uma única linha JSONB).
- */
-const saveMenuStructure = async (flatItems: MenuItem[]): Promise<void> => {
-  const { error } = await supabase
-    .from(APP_CONFIG_TABLE)
-    .upsert({ key: MENU_STRUCTURE_KEY, value: flatItems, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-
-  if (error) {
-    throw new Error(`Erro ao salvar estrutura do menu: ${error.message}`);
-  }
 };
 
 export const createMenuItem = async (item: Omit<MenuItem, 'id' | 'created_at'>): Promise<MenuItem> => {
@@ -134,19 +171,19 @@ export const createMenuItem = async (item: Omit<MenuItem, 'id' | 'created_at'>):
     ...item, 
     id: uuidv4(), 
     order_index: item.order_index ?? currentFlatItems.length,
-    itens_relacionados: item.itens_relacionados || [], // Garante o campo
+    itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem), // Garante o formato
   };
   const updatedFlatItems = [...currentFlatItems, newItem];
-  await saveMenuStructure(updatedFlatItems);
+  await saveAllMenuItems(updatedFlatItems);
   return newItem;
 };
 
 export const updateMenuItem = async (item: MenuItem): Promise<void> => {
   const currentFlatItems = await getAllMenuItemsFlat();
   const updatedFlatItems = currentFlatItems.map(existingItem =>
-    existingItem.id === item.id ? { ...item, itens_relacionados: item.itens_relacionados || [] } : existingItem
+    existingItem.id === item.id ? { ...item, itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem) } : existingItem
   );
-  await saveMenuStructure(updatedFlatItems);
+  await saveAllMenuItems(updatedFlatItems);
 };
 
 export const deleteMenuItem = async (itemId: string): Promise<void> => {
@@ -164,7 +201,7 @@ export const deleteMenuItem = async (itemId: string): Promise<void> => {
   findChildrenToDelete(itemId);
 
   const updatedFlatItems = currentFlatItems.filter(item => !itemsToDelete.has(item.id));
-  await saveMenuStructure(updatedFlatItems);
+  await saveAllMenuItems(updatedFlatItems);
 };
 
 // --- Custom Lists Management ---
@@ -180,43 +217,18 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
     throw new Error(`Erro ao buscar listas personalizadas: ${error.message}`);
   }
 
-  // Migração de dados de custom_list_items para items_data (se items_data estiver vazio)
-  const listsWithMigratedItems = await Promise.all((data as CustomList[]).map(async (list) => {
-    if (!list.items_data || list.items_data.length === 0) {
-      try {
-        const { data: oldListItems, error: oldError } = await supabase
-          .from('custom_list_items') // Tenta ler da tabela antiga
-          .select('*')
-          .eq('list_id', list.id)
-          .order('order_index', { ascending: true });
+  const lists = data as CustomList[];
 
-        if (!oldError && oldListItems && oldListItems.length > 0) {
-          // console.log(`Migrating old custom_list_items for list ${list.id} to items_data JSONB format...`);
-          const migratedItems: CustomListItem[] = oldListItems.map(item => ({
-            id: item.id,
-            item_name: item.item_name,
-            part_code: item.part_code,
-            description: item.description,
-            quantity: item.quantity,
-            order_index: item.order_index,
-            itens_relacionados: [], // Inicializa o novo campo
-          }));
-          // Salva a lista com os itens migrados no novo formato
-          await supabase
-            .from('custom_lists')
-            .update({ items_data: migratedItems, updated_at: new Date().toISOString() }) // Inclui updated_at
-            .eq('id', list.id);
-          // console.log(`Custom_list_items migration complete for list ${list.id}.`);
-          return { ...list, items_data: migratedItems };
-        }
-      } catch (e) {
-        // console.warn('Old custom_list_items table not found or error during migration attempt:', e);
-      }
+  // Garante que os itens existentes também sejam padronizados
+  return lists.map(list => {
+    if (list.items_data) {
+      list.items_data = list.items_data.map(item => ({
+        ...item,
+        itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem)
+      }));
     }
     return list;
-  }));
-
-  return listsWithMigratedItems;
+  });
 };
 
 export const getCustomListById = async (listId: string): Promise<CustomList | null> => {
@@ -230,7 +242,15 @@ export const getCustomListById = async (listId: string): Promise<CustomList | nu
     throw new Error(`Erro ao buscar lista personalizada por ID: ${error.message}`);
   }
 
-  return data as CustomList || null;
+  const list = data as CustomList | null;
+  if (list && list.items_data) {
+    list.items_data = list.items_data.map(item => ({
+      ...item,
+      itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem)
+    }));
+  }
+
+  return list;
 };
 
 export const getCustomListItems = async (listId: string): Promise<CustomListItem[]> => {
@@ -238,9 +258,13 @@ export const getCustomListItems = async (listId: string): Promise<CustomListItem
   if (!list || !list.items_data) {
     return [];
   }
-  // Garante que 'itens_relacionados' esteja presente em cada item
-  return list.items_data.map(item => ({ ...item, itens_relacionados: item.itens_relacionados || [] }))
-                        .sort((a, b) => a.order_index - b.order_index);
+  // Garante que 'itens_relacionados' e 'type' estejam presentes em cada item
+  return list.items_data.map(item => ({ 
+      ...item, 
+      type: item.type || 'item', // Adiciona 'item' como tipo padrão se ausente
+      itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem)
+    }))
+    .sort((a, b) => a.order_index - b.order_index);
 };
 
 export const createCustomList = async (title: string, userId: string): Promise<CustomList> => {
@@ -282,8 +306,20 @@ export const updateCustomListItem = async (listId: string, item: CustomListItem)
   const currentList = await getCustomListById(listId);
   if (!currentList) throw new Error('Lista personalizada não encontrada.');
 
+  // Normaliza campos baseados no tipo
+  const normalizedItem: CustomListItem = {
+    ...item,
+    itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem),
+    // Limpa campos de item simples se for mangueira
+    part_code: item.type === 'item' ? item.part_code : null,
+    description: item.type === 'item' ? item.description : null,
+    quantity: item.type === 'item' ? item.quantity : 0,
+    // Limpa campos de mangueira se não for mangueira
+    mangueira_data: item.type === 'mangueira' ? item.mangueira_data : undefined,
+  };
+
   const updatedItems = (currentList.items_data || []).map(existingItem =>
-    existingItem.id === item.id ? { ...item, list_id: listId, itens_relacionados: item.itens_relacionados || [] } : existingItem
+    existingItem.id === item.id ? normalizedItem : existingItem
   );
 
   await updateCustomList({ ...currentList, items_data: updatedItems });
@@ -302,8 +338,7 @@ export const updateAllCustomListItems = async (listId: string, updatedItems: Cus
   // Garante que todos os itens no array recebido tenham list_id e itens_relacionados
   const itemsToSave = updatedItems.map(item => ({
     ...item,
-    list_id: listId,
-    itens_relacionados: item.itens_relacionados || [],
+    itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem),
   }));
 
   await updateCustomList({ ...currentList, items_data: itemsToSave });
@@ -321,17 +356,28 @@ export const deleteCustomList = async (listId: string): Promise<void> => {
   }
 };
 
-export const addCustomListItem = async (listId: string, item: Omit<CustomListItem, 'id' | 'list_id'>): Promise<CustomListItem> => {
+export const addCustomListItem = async (listId: string, item: Omit<CustomListItem, 'id'>): Promise<CustomListItem> => {
   const currentList = await getCustomListById(listId);
   if (!currentList) throw new Error('Lista personalizada não encontrada.');
 
   const currentItems = currentList.items_data || [];
-  const newItem: CustomListItem = { 
-    ...item, 
-    id: uuidv4(), 
-    list_id: listId, // Adiciona list_id ao item
+  
+  // Normaliza campos baseados no tipo
+  const normalizedItem: Omit<CustomListItem, 'id'> = {
+    ...item,
     order_index: currentItems.length > 0 ? Math.max(...currentItems.map(i => i.order_index)) + 1 : 0,
-    itens_relacionados: item.itens_relacionados || [], // Garante o campo
+    itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem),
+    // Limpa campos de item simples se for mangueira
+    part_code: item.type === 'item' ? item.part_code : null,
+    description: item.type === 'item' ? item.description : null,
+    quantity: item.type === 'item' ? item.quantity : 0,
+    // Limpa campos de mangueira se não for mangueira
+    mangueira_data: item.type === 'mangueira' ? item.mangueira_data : undefined,
+  };
+
+  const newItem: CustomListItem = { 
+    ...normalizedItem, 
+    id: uuidv4(), 
   };
   const updatedItems = [...currentItems, newItem];
   

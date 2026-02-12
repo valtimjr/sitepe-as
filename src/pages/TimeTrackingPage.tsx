@@ -8,10 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays, FileDown, Syringe } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth, getLocalMonthlyApontamento, syncMonthlyApontamentoToSupabase } from '@/services/partListService'; // Importar getLocalMonthlyApontamento e syncMonthlyApontamentoToSupabase
+import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth, syncMonthlyApontamentoToSupabase, getLocalMonthlyApontamentoService } from '@/services/partListService'; // Importar getLocalMonthlyApontamentoService e syncMonthlyApontamentoToSupabase
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { generateTimeTrackingPdf } from '@/lib/pdfGenerator';
+import { lazyGenerateTimeTrackingPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -368,7 +368,7 @@ const TimeTrackingPage: React.FC = () => {
     showSuccess('Apontamentos prontos para compartilhar no WhatsApp!');
   };
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => { // Alterado para async
     const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
     
     const pdfTitle = `Apontamento de Horas - ${monthYearTitle}\n${employeeHeader}`;
@@ -385,7 +385,7 @@ const TimeTrackingPage: React.FC = () => {
       return;
     }
 
-    generateTimeTrackingPdf(currentMonthApontamentos, pdfTitle);
+    await lazyGenerateTimeTrackingPdf(currentMonthApontamentos, pdfTitle); // Usa a função lazy
     showSuccess('PDF gerado com sucesso!');
   };
 
@@ -413,7 +413,7 @@ const TimeTrackingPage: React.FC = () => {
       }
 
       // 1. Tenta buscar o MonthlyApontamento existente (local ou Supabase)
-      let existingMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+      let existingMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
 
       // 2. Cria o objeto MonthlyApontamento completo com os novos dados
       const newMonthlyApontamento: MonthlyApontamento = {
@@ -739,7 +739,7 @@ const TimeTrackingPage: React.FC = () => {
                                 </DropdownMenuItem>
                                 {isMobile && (
                                   <DropdownMenuItem onClick={() => handleStatusChange(day, 'Folga')} disabled={hasStatus}>
-                                    Folga
+                                    Folha
                                   </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem onClick={() => handleOpenOtherStatusDialog(day)} disabled={hasStatus}>

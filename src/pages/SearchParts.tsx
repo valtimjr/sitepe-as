@@ -7,12 +7,17 @@ import { Part, searchParts as searchPartsService } from '@/services/partListServ
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, Search, Tag } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import RelatedPartDisplay from '@/components/RelatedPartDisplay'; // Importado o novo componente
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const SearchParts = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [displayedParts, setDisplayedParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     document.title = "Pesquisar Peças - AutoBoard";
@@ -21,7 +26,7 @@ const SearchParts = () => {
   useEffect(() => {
     const performSearch = async () => {
       setIsLoading(true);
-      // Sempre chama searchPartsService, mesmo com uma query vazia, para garantir dados atualizados
+      // Usando a função searchParts (não paginada)
       const results = await searchPartsService(searchQuery);
       setDisplayedParts(results);
       setIsLoading(false);
@@ -69,16 +74,44 @@ const SearchParts = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Código</TableHead>
+                      <TableHead>Nome</TableHead>
                       <TableHead>Descrição</TableHead>
                       <TableHead>Tags</TableHead>
+                      <TableHead>Relacionados</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {displayedParts.map((part) => (
                       <TableRow key={part.id}>
                         <TableCell className="font-medium">{part.codigo}</TableCell>
+                        <TableCell>{part.name || 'N/A'}</TableCell>
                         <TableCell>{part.descricao}</TableCell>
                         <TableCell>{part.tags || 'N/A'}</TableCell>
+                        <TableCell>
+                          {part.itens_relacionados && part.itens_relacionados.length > 0 ? (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="ghost" size="sm" className="text-blue-600 dark:text-blue-400 flex items-center gap-1 h-auto py-0 px-1">
+                                  <Tag className="h-3 w-3" /> {part.itens_relacionados.length}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto max-w-xs p-2">
+                                <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
+                                <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
+                                  <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                                    {part.itens_relacionados.map(rel => (
+                                      <li key={rel.codigo} className="list-none ml-0">
+                                        <RelatedPartDisplay item={rel} />
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </ScrollArea>
+                              </PopoverContent>
+                            </Popover>
+                          ) : (
+                            'N/A'
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

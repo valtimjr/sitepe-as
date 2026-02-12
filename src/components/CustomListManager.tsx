@@ -23,17 +23,21 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import CustomListEditor from './CustomListEditor';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
+import { getParts } from '@/services/partListService';
+import { Part } from '@/types/supabase';
 
 const CustomListManager: React.FC = () => {
   const { user } = useSession();
   const [lists, setLists] = useState<CustomList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [currentList, setCurrentList] = useState<CustomList | null>(null);
   const [formTitle, setFormTitle] = useState('');
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [listToEdit, setListToEdit] = useState<CustomList | null>(null);
+  
+  const [isEditorSheetOpen, setIsEditorSheetOpen] = useState(false);
+  const [listToEditContent, setListToEditContent] = useState<CustomList | null>(null);
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
 
   const loadLists = useCallback(async () => {
     if (!user) return;
@@ -48,25 +52,35 @@ const CustomListManager: React.FC = () => {
     }
   }, [user]);
 
+  const loadAllParts = useCallback(async () => {
+    try {
+      const parts = await getParts();
+      setAllAvailableParts(parts);
+    } catch (error) {
+      console.error("Erro ao carregar todas as peças para o editor:", error);
+    }
+  }, []);
+
   useEffect(() => {
     loadLists();
-  }, [loadLists]);
+    loadAllParts();
+  }, [loadLists, loadAllParts]);
 
   const handleAddList = () => {
     setCurrentList(null);
     setFormTitle('');
-    setIsSheetOpen(true); // Abre o Sheet
+    setIsSheetOpen(true);
   };
 
   const handleEditListTitle = (list: CustomList) => {
     setCurrentList(list);
     setFormTitle(list.title);
-    setIsSheetOpen(true); // Abre o Sheet
+    setIsSheetOpen(true);
   };
 
   const handleOpenEditor = (list: CustomList) => {
-    setListToEdit(list);
-    setIsEditorOpen(true);
+    setListToEditContent(list);
+    setIsEditorSheetOpen(true);
   };
 
   const handleDeleteList = async (listId: string) => {
@@ -95,25 +109,18 @@ const CustomListManager: React.FC = () => {
         showSuccess('Lista criada com sucesso!');
       }
       
-      setIsSheetOpen(false); // Fecha o Sheet
+      setIsSheetOpen(false);
       loadLists();
     } catch (error) {
       showError('Erro ao salvar lista.');
     }
   };
 
-  if (isEditorOpen && listToEdit) {
-    return (
-      <CustomListEditor 
-        list={listToEdit} 
-        onClose={() => {
-          setIsEditorOpen(false);
-          setListToEdit(null);
-          loadLists();
-        }}
-      />
-    );
-  }
+  const handleEditorClose = () => {
+    setIsEditorSheetOpen(false);
+    setListToEditContent(null);
+    loadLists();
+  };
 
   return (
     <Card className="w-full">
@@ -178,9 +185,9 @@ const CustomListManager: React.FC = () => {
         )}
       </CardContent>
 
-      {/* Sheet de Edição/Adição */}
+      {/* Sheet de Edição/Adição de Título da Lista */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md"> {/* SheetContent com side="right" */}
+        <SheetContent side="right" className="sm:max-w-md">
           <SheetHeader>
             <SheetTitle>{currentList ? 'Editar Título da Lista' : 'Criar Nova Lista'}</SheetTitle>
           </SheetHeader>
@@ -194,7 +201,7 @@ const CustomListManager: React.FC = () => {
                 required
               />
             </div>
-            <SheetFooter> {/* SheetFooter para botões */}
+            <SheetFooter>
               <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
@@ -203,6 +210,28 @@ const CustomListManager: React.FC = () => {
               </Button>
             </SheetFooter>
           </form>
+        </SheetContent>
+      </Sheet>
+
+      {/* NOVO: Sheet para o CustomListEditor (edição de conteúdo da lista) */}
+      <Sheet open={isEditorSheetOpen} onOpenChange={setIsEditorSheetOpen}>
+        <SheetContent 
+          side="right" 
+          className="w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl overflow-y-auto" // Aumentado o max-width para desktop
+        >
+          <SheetHeader>
+            <SheetTitle>Gerenciar Itens da Lista: {listToEditContent?.title}</SheetTitle>
+            <SheetDescription>
+              Adicione, edite ou reordene os itens desta lista personalizada.
+            </SheetDescription>
+          </SheetHeader>
+          {listToEditContent && (
+            <CustomListEditor 
+              list={listToEditContent} 
+              onClose={handleEditorClose}
+              allAvailableParts={allAvailableParts}
+            />
+          )}
         </SheetContent>
       </Sheet>
     </Card>

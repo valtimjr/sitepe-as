@@ -1,13 +1,18 @@
+/** @jsxImportSource react */
+"use client";
+
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, Tag, Loader2 } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, GripVertical, Tag, Loader2, FileText, MoreHorizontal } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { MenuItem, CustomList, Part } from '@/types/supabase';
-import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists } from '@/services/customListService';
-import { getParts, searchParts as searchPartsService } from '@/services/partListService';
+import { MenuItem, CustomList, Part, RelatedPart } from '@/types/supabase';
+import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists, saveAllMenuItems } from '@/services/customListService';
+import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
 import {
   Select,
   SelectContent,
@@ -32,11 +37,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import PartSearchInput from './PartSearchInput';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
+import RelatedPartDisplay from './RelatedPartDisplay';
 
 interface MenuStructureEditorProps {
   onMenuUpdated: () => void;
 }
+
+// Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
+const formatRelatedPartObject = (part: Part): RelatedPart => {
+  const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
+  const subText = (part.name && part.name.trim() !== '' && part.descricao !== mainText) ? part.descricao : '';
+  return { codigo: part.codigo, name: mainText, desc: subText };
+};
 
 // Função auxiliar para construir a hierarquia (duplicada do service para uso local na UI)
 const buildMenuHierarchy = (items: MenuItem[]): MenuItem[] => {
@@ -81,38 +93,37 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   const [formParentId, setFormParentId] = useState<string | null>(null);
   const [formListId, setFormListId] = useState<string | null>(null);
   const [formOrderIndex, setFormOrderIndex] = useState(0);
-  const [formItensRelacionados, setFormItensRelacionados] = useState<string[]>([]);
+  const [formItensRelacionados, setFormItensRelacionados] = useState<RelatedPart[]>([]);
   
   // Estados para o PartSearchInput dentro do modal
   const [searchQueryRelated, setSearchQueryRelated] = useState('');
   const [searchResultsRelated, setSearchResultsRelated] = useState<Part[]>([]);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(true);
+  const [isLoadingParts, setIsLoadingParts] = useState(false); // Inicializado como false
 
   // Bulk add related items state
   const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
 
   // NOVO: Estado para controlar a expansão dos itens do menu
-  const [expandedItems, setExpandedItems] = new useState<Set<string>>(new Set());
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [draggedItem, setDraggedItem] = useState<MenuItem | null>(null);
 
   const loadData = useCallback(async () => {
+    console.time('MenuStructureEditor: loadData');
     setIsLoading(true);
     try {
-      const [fetchedFlatItems, fetchedLists, fetchedAllParts] = await Promise.all([
+      const [fetchedFlatItems, fetchedLists] = await Promise.all([
         getAllMenuItemsFlat(),
         user ? getCustomLists(user.id) : Promise.resolve([]),
-        getParts(),
       ]);
       
       setFlatMenuItems(fetchedFlatItems);
       setMenuHierarchy(buildMenuHierarchy(fetchedFlatItems));
       setCustomLists(fetchedLists);
-      setAllAvailableParts(fetchedAllParts);
     } catch (error) {
       showError('Erro ao carregar dados do menu.');
     } finally {
       setIsLoading(false);
-      setIsLoadingParts(false);
+      console.timeEnd('MenuStructureEditor: loadData');
     }
   }, [user]);
 
@@ -165,6 +176,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   };
 
   const handleDeleteMenuItem = async (id: string) => {
+    console.time('MenuStructureEditor: handleDeleteMenuItem');
     try {
       await deleteMenuItem(id);
       showSuccess('Item de menu excluído com sucesso!');
@@ -172,6 +184,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       onMenuUpdated();
     } catch (error) {
       showError('Erro ao excluir item de menu.');
+    } finally {
+      console.timeEnd('MenuStructureEditor: handleDeleteMenuItem');
     }
   };
 
@@ -181,6 +195,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       showError('O título é obrigatório.');
       return;
     }
+    console.time('MenuStructureEditor: handleSubmit');
 
     try {
       const payload: Omit<MenuItem, 'id' | 'created_at'> = {
@@ -204,6 +219,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       onMenuUpdated();
     } catch (error) {
       showError('Erro ao salvar item de menu.');
+    } finally {
+      console.timeEnd('MenuStructureEditor: handleSubmit');
     }
   };
 
@@ -215,34 +232,55 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     const currentIndex = siblings.findIndex(i => i.id === item.id);
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
-    if (targetIndex < 0 || targetIndex >= siblings.length) return;
+    if (targetIndex < 0 || targetIndex >= siblings.length) {
+      return; // Can't move further
+    }
 
-    const currentItem = siblings[currentIndex];
-    const targetItem = siblings[targetIndex];
+    // Reorder the local siblings array
+    const [movedItem] = siblings.splice(currentIndex, 1);
+    siblings.splice(targetIndex, 0, movedItem);
 
-    if (!currentItem || !targetItem) return;
+    // Create a map of updated siblings with new, contiguous order_index values
+    const updatedSiblingsMap = new Map<string, number>();
+    siblings.forEach((sibling, index) => {
+      updatedSiblingsMap.set(sibling.id, index);
+    });
+
+    // Create the new full flat list with updated order for the affected siblings
+    const updatedFlatItems = flatMenuItems.map(i => {
+      if (updatedSiblingsMap.has(i.id)) {
+        return { ...i, order_index: updatedSiblingsMap.get(i.id)! };
+      }
+      return i;
+    });
+
+    // Update local state for immediate visual feedback
+    setFlatMenuItems(updatedFlatItems);
+    setMenuHierarchy(buildMenuHierarchy(updatedFlatItems));
 
     const loadingToastId = showLoading('Reordenando itens...');
 
     try {
-      await Promise.all([
-        updateMenuItem({ ...currentItem, order_index: targetItem.order_index }),
-        updateMenuItem({ ...targetItem, order_index: currentItem.order_index }),
-      ]);
-
+      // Save the entire updated structure in one go
+      await saveAllMenuItems(updatedFlatItems);
       showSuccess('Ordem atualizada!');
+      
+      // After saving, reload data from the source of truth to ensure consistency
       await loadData();
       onMenuUpdated();
     } catch (error) {
       showError('Erro ao reordenar itens.');
+      // If there's an error, reload to revert to the previous state from DB
+      await loadData();
     } finally {
       dismissToast(loadingToastId);
     }
   };
 
   const handleAddRelatedPart = (part: Part) => {
-    if (!formItensRelacionados.includes(part.codigo)) {
-      setFormItensRelacionados(prev => [...prev, part.codigo]);
+    const relatedPartObject = formatRelatedPartObject(part);
+    if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
+      setFormItensRelacionados(prev => [...prev, relatedPartObject]);
       setSearchQueryRelated('');
       setSearchResultsRelated([]);
       showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
@@ -252,25 +290,38 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   };
 
   const handleRemoveRelatedPart = (codigo: string) => {
-    setFormItensRelacionados(prev => prev.filter(c => c !== codigo));
-    showSuccess(`Peça ${codigo} removida dos itens relacionados.`);
+    setFormItensRelacionados(prev => prev.filter(p => p.codigo !== codigo));
+    showSuccess(`Item ${codigo} removido dos itens relacionados.`);
   };
 
   const handleBulkAddRelatedParts = () => {
-    const newCodes = bulkRelatedPartsInput
+    const codesToSearch = bulkRelatedPartsInput
       .split(';')
       .map(code => code.trim())
       .filter(code => code.length > 0);
 
-    if (newCodes.length === 0) {
+    if (codesToSearch.length === 0) {
       showError('Nenhum código válido encontrado para adicionar.');
       return;
     }
 
-    const uniqueNewCodes = Array.from(new Set([...formItensRelacionados, ...newCodes]));
-    setFormItensRelacionados(uniqueNewCodes);
+    const newRelatedItems: RelatedPart[] = codesToSearch.map(code => ({
+      codigo: code,
+      name: code,
+      desc: ''
+    }));
+
+    const uniqueNewItems = newRelatedItems.filter(newItem => 
+      !formItensRelacionados.some(existingItem => existingItem.codigo === newItem.codigo)
+    );
+
+    if (uniqueNewItems.length > 0) {
+      setFormItensRelacionados(prev => [...prev, ...uniqueNewItems]);
+      showSuccess(`${uniqueNewItems.length} código(s) adicionado(s) aos itens relacionados.`);
+    } else {
+      showError('Nenhum novo item válido encontrado ou adicionado em massa.');
+    }
     setBulkRelatedPartsInput('');
-    showSuccess(`${newCodes.length} código(s) adicionado(s) aos itens relacionados.`);
   };
 
   const toggleItemExpansion = (itemId: string) => {
@@ -285,6 +336,76 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     });
   };
 
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, item: MenuItem) => {
+    setDraggedItem(item);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item.id);
+    e.currentTarget.classList.add('opacity-50');
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('border-t-2', 'border-primary');
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.currentTarget.classList.remove('border-t-2', 'border-primary');
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetItem: MenuItem) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-t-2', 'border-primary');
+
+    if (draggedItem && draggedItem.id !== targetItem.id && draggedItem.parent_id === targetItem.parent_id) {
+      const siblings = flatMenuItems
+        .filter(i => i.parent_id === draggedItem.parent_id)
+        .sort((a, b) => a.order_index - b.order_index);
+
+      const draggedIndex = siblings.findIndex(item => item.id === draggedItem.id);
+      const targetIndex = siblings.findIndex(item => item.id === targetItem.id);
+
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+        const [removed] = siblings.splice(draggedIndex, 1);
+        siblings.splice(targetIndex, 0, removed);
+
+        const updatedSiblingsMap = new Map<string, number>();
+        siblings.forEach((sibling, index) => {
+          updatedSiblingsMap.set(sibling.id, index);
+        });
+
+        const updatedFlatItems = flatMenuItems.map(i => {
+          if (updatedSiblingsMap.has(i.id)) {
+            return { ...i, order_index: updatedSiblingsMap.get(i.id)! };
+          }
+          return i;
+        });
+
+        setFlatMenuItems(updatedFlatItems);
+        setMenuHierarchy(buildMenuHierarchy(updatedFlatItems));
+
+        const loadingToastId = showLoading('Reordenando itens...');
+        try {
+          await saveAllMenuItems(updatedFlatItems);
+          showSuccess('Ordem atualizada com sucesso!');
+          await loadData();
+          onMenuUpdated();
+        } catch (error) {
+          showError('Erro ao reordenar itens.');
+          await loadData();
+        } finally {
+          dismissToast(loadingToastId);
+        }
+      }
+    }
+    setDraggedItem(null);
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    e.currentTarget.classList.remove('opacity-50');
+    setDraggedItem(null);
+  };
+
   const renderMenuItem = (item: MenuItem, level: number, siblings: MenuItem[]) => {
     const isListLink = !!item.list_id;
     const hasChildren = item.children && item.children.length > 0;
@@ -293,12 +414,22 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     const isExpanded = expandedItems.has(item.id);
 
     return (
-      <div key={item.id} className={cn("border-b last:border-b-0", level > 0 && 'ml-4')}>
+      <div 
+        key={item.id} 
+        className={cn("border-b last:border-b-0", level > 0 && 'ml-4')}
+        draggable
+        onDragStart={(e) => handleDragStart(e, item)}
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, item)}
+        onDragLeave={handleDragLeave}
+        onDragEnd={handleDragEnd}
+      >
         <div className={cn(
           "flex items-center py-2 px-3 transition-colors",
           isListLink ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-muted/20'
         )}>
           <div className="flex-1 flex items-center gap-2" style={{ paddingLeft: `${level * 10}px` }}>
+            <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
             {hasChildren ? (
               <Button 
                 variant="ghost" 
@@ -418,7 +549,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
 
       {/* Sheet de Edição/Adição */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto"> {/* SheetContent com side="right" */}
+        <SheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{currentMenuItem ? 'Editar Item de Menu' : 'Adicionar Novo Item de Menu'}</SheetTitle>
           </SheetHeader>
@@ -497,7 +628,6 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
                 searchResults={searchResultsRelated}
                 onSelectPart={handleAddRelatedPart}
                 searchQuery={searchQueryRelated}
-                allParts={allAvailableParts}
                 isLoading={isLoadingParts}
               />
               <div className="space-y-2">
@@ -525,20 +655,20 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
                   </Button>
                 </div>
               </div>
-              <ScrollArea className="h-24 w-full rounded-md border p-2">
+              <ScrollArea className={cn("w-full rounded-md border p-2", false ? "h-24" : "max-h-96")}>
                 {formItensRelacionados.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {formItensRelacionados.map(codigo => (
-                      <div key={codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
-                        {codigo}
+                    {formItensRelacionados.map(item => (
+                      <div key={item.codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
+                        {item.codigo}
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           className="h-4 w-4 p-0 text-destructive"
-                          onClick={() => handleRemoveRelatedPart(codigo)}
+                          onClick={() => handleRemoveRelatedPart(item.codigo)}
                         >
                           <XCircle className="h-3 w-3" />
                         </Button>
@@ -552,7 +682,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
               </p>
             </div>
 
-            <SheetFooter> {/* SheetFooter para botões */}
+            <SheetFooter>
               <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>

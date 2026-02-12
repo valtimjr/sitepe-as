@@ -3,7 +3,8 @@ import { applyPlugin } from 'jspdf-autotable';
 import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService'; // Importar as novas interfaces
 import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CustomListItem } from '@/types/supabase';
+import { CustomListItem, MangueiraPartDetails } from '@/types/supabase';
+import { localDb } from '@/services/localDbService';
 
 // Aplica o plugin explicitamente ao jsPDF
 applyPlugin(jsPDF);
@@ -81,17 +82,14 @@ const timeToEffectiveMinutes = (timeString: string | undefined): number | null =
 // ATUALIZADO: Função auxiliar para comparar strings de tempo usando minutos efetivos
 const compareTimeStringsForPdf = (t1: string | undefined, t2: string | undefined): number => {
   const effectiveMinutes1 = timeToEffectiveMinutes(t1);
+  if (effectiveMinutes1 === null) return 1;
   const effectiveMinutes2 = timeToEffectiveMinutes(t2);
-
-  // Lida com horários indefinidos/nulos: indefinido vem por último
-  if (effectiveMinutes1 === null && effectiveMinutes2 === null) return 0;
-  if (effectiveMinutes1 === null) return 1; // t1 é indefinido, então é "depois"
-  if (effectiveMinutes2 === null) return -1; // t2 é indefinido, então é "depois"
+  if (effectiveMinutes2 === null) return -1;
 
   return effectiveMinutes1 - effectiveMinutes2;
 };
 
-export const generatePartsListPdf = (listItems: SimplePartItem[], title: string = 'Lista de Peças'): void => {
+export const generatePartsListPdf = async (listItems: SimplePartItem[], title: string = 'Lista de Peças'): Promise<void> => {
   const doc = new jsPDF();
   let currentY = 22;
 
@@ -99,25 +97,30 @@ export const generatePartsListPdf = (listItems: SimplePartItem[], title: string 
   doc.text(title, 14, currentY); // Usa o título fornecido como título principal
   currentY += 8;
 
-  // Colunas simplificadas para a lista de peças
-  const tableColumn = ["Código da Peça", "Descrição", "Quantidade", "AF"]; // AF movido para o final
+  // Colunas: Código da Peça, Nome, Quantidade, Descrição
+  const tableColumn = ["Cód. Peça", "Nome", "Quantidade", "Descrição", "AF"];
   const tableRows: (string | number | undefined)[][] = [];
 
-  listItems.forEach(item => {
-    const itemData = [
+  for (const item of listItems) {
+    // Tenta obter o nome da peça (se disponível)
+    const part = await localDb.parts.where('codigo').equals(item.codigo_peca || '').first();
+    
+    // Ajusta a ordem dos dados para a tabela
+    tableRows.push([
       item.codigo_peca || 'N/A',
-      item.descricao || 'N/A',
+      part?.name || 'N/A', // Adiciona o campo Nome
       item.quantidade ?? 'N/A',
-      item.af || '', // AF movido para o final
-    ];
-    tableRows.push(itemData);
-  });
+      item.descricao || 'N/A',
+      item.af || '',
+    ]);
+  }
 
   (doc as any).autoTable({
     head: [tableColumn],
     body: tableRows,
     startY: currentY,
-    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+    theme: 'plain',
+    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak', lineWidth: 0 },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 240, 240] },
     margin: { top: 10 },
@@ -127,36 +130,130 @@ export const generatePartsListPdf = (listItems: SimplePartItem[], title: string 
 };
 
 export const generateCustomListPdf = (listItems: CustomListItem[], title: string): void => {
-  const doc = new jsPDF();
+  const doc = new jsPDF({ orientation: 'portrait' });
   let currentY = 22;
 
   doc.setFontSize(18);
-  doc.text(title, 14, currentY); // Usa o título fornecido como título principal
-  currentY += 8;
+  doc.text(title, 14, currentY);
+  currentY += 10;
 
-  // Colunas para a lista personalizada
-  const tableColumn = ["Qtd", "Nome", "Cód. Peça", "Descrição"];
-  const tableRows: (string | number | null)[][] = [];
+  let currentGroupType: 'item' | 'mangueira' | null = null;
+  let currentGroupRows: any[] = [];
+
+  const simpleItemHeader = ["Qtd", "Código", "Descrição"];
+  const simpleItemColumnStyles = {
+    0: { cellWidth: 15, halign: 'center' }, // Qtd
+    1: { cellWidth: 25 }, // Código
+    2: { cellWidth: 'auto' }, // Descrição
+  };
+
+  const mangueiraHeader = ["Qtd", "Mangueira", "Corte (cm)", "Conexão 1", "Conexão 2"];
+  const mangueiraColumnStyles = {
+    0: { cellWidth: 15, halign: 'center' }, // Qtd
+    1: { cellWidth: 45 }, // Mangueira
+    2: { cellWidth: 25, halign: 'center' }, // Corte
+    3: { cellWidth: 45 }, // Conexão 1
+    4: { cellWidth: 'auto' }, // Conexão 2
+  };
+
+  const renderGroup = () => {
+    if (currentGroupRows.length === 0) return;
+
+    let head, columnStyles;
+    if (currentGroupType === 'item') {
+      head = [simpleItemHeader];
+      columnStyles = simpleItemColumnStyles;
+    } else if (currentGroupType === 'mangueira') {
+      head = [mangueiraHeader];
+      columnStyles = mangueiraColumnStyles;
+    }
+
+    if (head) {
+      (doc as any).autoTable({
+        head: head,
+        body: currentGroupRows,
+        startY: currentY,
+        theme: 'plain',
+        styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak', lineWidth: 0 },
+        headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 249, 250] },
+        margin: { top: 10, left: 14, right: 14 },
+        columnStyles: columnStyles,
+      });
+      currentY = (doc as any).lastAutoTable.finalY;
+    }
+
+    currentGroupRows = [];
+    currentGroupType = null;
+  };
 
   listItems.forEach(item => {
-    const itemData = [
-      item.quantity,
-      item.item_name,
-      item.part_code || 'N/A',
-      item.description || 'N/A',
-    ];
-    tableRows.push(itemData);
+    if (item.type === 'separator') {
+      renderGroup();
+      currentY += 2;
+      doc.setDrawColor(200);
+      doc.line(14, currentY, 196, currentY);
+      currentY += 4;
+      return;
+    }
+
+    if (item.type === 'subtitle') {
+      renderGroup();
+      currentY += 5;
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(0, 0, 0); // primary color
+      doc.text(item.item_name, 14, currentY);
+      currentY += 7;
+      return;
+    }
+
+    if (item.type !== currentGroupType && currentGroupType !== null) {
+      renderGroup();
+    }
+    currentGroupType = item.type;
+
+    if (item.type === 'mangueira' && item.mangueira_data) {
+      const data = item.mangueira_data;
+      const createContent = (partData: MangueiraPartDetails) => {
+        let content = '';
+        if (partData.codigo) {
+          content += `Cód.: ${partData.codigo}\n`;
+        }
+        if (partData.name) {
+          content += `${partData.name}\n`;
+        }
+        if (partData.description) {
+          content += `${partData.description}`;
+        }
+        return content.trim();
+      };
+
+      currentGroupRows.push([
+        { content: '1', styles: { halign: 'center' } },
+        createContent(data.mangueira),
+        { content: `${data.corte_cm} cm`, styles: { halign: 'center' } },
+        createContent(data.conexao1),
+        createContent(data.conexao2),
+      ]);
+    } else if (item.type === 'item') {
+      let descriptionContent = '';
+      if (item.item_name) {
+        descriptionContent += item.item_name;
+      }
+      if (item.description) {
+        descriptionContent += `\n${item.description}`;
+      }
+
+      currentGroupRows.push([
+        { content: item.quantity, styles: { halign: 'center' } },
+        item.part_code ? `Cód.: ${item.part_code}` : '',
+        descriptionContent.trim(),
+      ]);
+    }
   });
 
-  (doc as any).autoTable({
-    head: [tableColumn],
-    body: tableRows,
-    startY: currentY,
-    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-    headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [240, 240, 240] },
-    margin: { top: 10 },
-  });
+  renderGroup(); // Render the last group
 
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);
 };
@@ -168,32 +265,39 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
   doc.setFontSize(18);
   doc.text(title, 14, 22);
 
-  const tableColumn = ["AF", "OS", "Início", "Fim", "Serviço Executado", "Peça", "Quantidade"];
+  const tableColumn = ["Detalhes da OS", "Peça", "Qtd."];
   const tableRows: any[] = [];
 
-  // A lista já vem agrupada e ordenada, então apenas a iteramos
   groupedServiceOrders.forEach(group => {
-    const partsToRender = group.parts.length > 0 ? group.parts : [{ id: 'no-parts', codigo_peca: 'Nenhuma peça', descricao: '', quantidade: '' }];
+    // Create the content for the first column
+    let detailsContent = `AF: ${group.af}`;
+    if (group.os) detailsContent += ` (OS: ${group.os})`;
+    if (group.hora_inicio || group.hora_final) {
+      detailsContent += `
+Horário: ${group.hora_inicio || '??'} - ${group.hora_final || '??'}`;
+    }
+    if (group.servico_executado) {
+      detailsContent += `
+Serviço: ${group.servico_executado}`;
+    }
+
+    const partsToRender = group.parts.length > 0 ? group.parts : [{ id: 'no-parts', codigo_peca: 'Nenhuma peça adicionada', descricao: '', quantidade: '' }];
     
     partsToRender.forEach((part: any, index: number) => {
       const partDescription = part.codigo_peca && part.descricao 
         ? `${part.codigo_peca} - ${part.descricao}` 
-        : part.codigo_peca || part.descricao || '';
+        : part.codigo_peca || part.descricao || 'N/A';
 
       if (index === 0) {
         tableRows.push([
-          { content: group.af, rowSpan: partsToRender.length, styles: { valign: 'top', fontStyle: 'bold' } },
-          { content: group.os || '', rowSpan: partsToRender.length, styles: { valign: 'top' } },
-          { content: group.hora_inicio || '', rowSpan: partsToRender.length, styles: { valign: 'top' } },
-          { content: group.hora_final || '', rowSpan: partsToRender.length, styles: { valign: 'top' } },
-          { content: group.servico_executado || '', rowSpan: partsToRender.length, styles: { valign: 'top', cellWidth: 40 } },
+          { content: detailsContent, rowSpan: partsToRender.length, styles: { valign: 'top' } },
           partDescription,
-          part.quantidade ?? '',
+          { content: part.quantidade ?? '', styles: { halign: 'center' } },
         ]);
       } else {
         tableRows.push([
           partDescription,
-          part.quantidade ?? '',
+          { content: part.quantidade ?? '', styles: { halign: 'center' } },
         ]);
       }
     });
@@ -203,19 +307,15 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
     head: [tableColumn],
     body: tableRows,
     startY: 30,
-    styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+    theme: 'plain',
+    styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak', lineWidth: 0 },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 240, 240] },
-    margin: { top: 10 },
-    didParseCell: (data: any) => {
-      if (data.section === 'body' && data.row.index > 0) {
-        // A lógica de agrupamento para a borda precisa ser ajustada para usar os dados do `sortedGroups`
-        // e não diretamente `listItems` que não está agrupado da mesma forma.
-        // Por simplicidade, vou remover a lógica de borda condicional por enquanto,
-        // pois ela se baseava em `listItems[data.row.index - 1]` que não reflete o agrupamento do PDF.
-        // Se a borda for essencial, precisaremos de uma abordagem mais robusta para rastrear os grupos no PDF.
-      }
-    }
+    columnStyles: {
+      0: { cellWidth: 60, fontStyle: 'bold' }, // Details column
+      1: { cellWidth: 'auto' }, // Part column
+      2: { cellWidth: 15, halign: 'center' }, // Quantity column
+    },
   });
 
   doc.save(`${title.replace(/\s/g, '_')}.pdf`);
@@ -231,8 +331,8 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
   const titleLines = title.split('\n').filter(line => line.trim() !== '');
   
   if (titleLines.length > 0) {
-    // Linha 1: Título Principal (Apontamento de Horas - Mês Ano)
     const mainTitle = titleLines[0];
+    // Linha 1: Título Principal (Apontamento de Horas - Mês Ano)
     doc.setFontSize(14); // Reduzido de 18 para 14
     doc.setFont(undefined, 'bold');
     doc.text(mainTitle, 14, currentY);
@@ -283,7 +383,8 @@ export const generateTimeTrackingPdf = (apontamentos: Apontamento[], title: stri
     head: [tableColumn],
     body: tableRows,
     startY: currentY,
-    styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' }, // Reduzido o tamanho da fonte e padding
+    theme: 'plain',
+    styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak', lineWidth: 0 }, // Reduzido o tamanho da fonte e padding
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 }, // Reduzido o tamanho da fonte do cabeçalho
     columnStyles: {
       0: { cellWidth: 25, halign: 'left' }, // Dia

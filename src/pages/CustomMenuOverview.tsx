@@ -5,20 +5,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Menu, List as ListIcon, ChevronRight, Loader2, Tag, Info } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { getMenuStructure } from '@/services/customListService';
-import { MenuItem, Part } from '@/types/supabase';
+import { MenuItem, Part, RelatedPart } from '@/types/supabase';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError } from '@/utils/toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { getParts } from '@/services/partListService'; // Importar getParts
+import RelatedPartDisplay from '@/components/RelatedPartDisplay';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface MenuItemProps {
   item: MenuItem;
   level: number;
-  allAvailableParts: Part[]; // Adicionado para resolver descrições
 }
 
-const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailableParts }) => {
+const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
   const [isExpanded, setIsExpanded] = useState(level === 0);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false); // Estado para controlar o tooltip
   const hasChildren = item.children && item.children.length > 0;
@@ -27,7 +29,11 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
 
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
-  const toggleExpand = () => {
+  const toggleExpand = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (hasChildren) {
       setIsExpanded(prev => !prev);
     }
@@ -38,15 +44,6 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
       e.stopPropagation(); // Evita que o clique no botão feche o menu pai
       setIsTooltipOpen(prev => !prev);
     }
-  };
-
-  // Helper function to get part description for display
-  const getPartDescription = (partCode: string): string => {
-    const part = allAvailableParts.find(p => p.codigo.toLowerCase() === partCode.toLowerCase());
-    if (part) {
-      return `${part.codigo} - ${part.descricao}`;
-    }
-    return partCode;
   };
 
   const content = (
@@ -85,11 +82,17 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
                   <Info className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
+              <TooltipContent className="max-w-xs p-2">
                 <p className="font-bold mb-1">Itens Relacionados:</p>
-                <ul className="list-disc list-inside">
-                  {item.itens_relacionados.map(rel => <li key={rel}>{getPartDescription(rel)}</li>)}
-                </ul>
+                <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
+                  <ul className="list-disc list-inside">
+                    {item.itens_relacionados.map(rel => (
+                      <li key={rel.codigo} className="list-none ml-0">
+                        <RelatedPartDisplay item={rel} />
+                      </li>
+                    ))}
+                  </ul>
+                </ScrollArea>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -111,7 +114,7 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
           {content}
         </Link>
       ) : (
-        <div onClick={toggleExpand} className="cursor-pointer">
+        <div onClick={() => toggleExpand()} className="cursor-pointer">
           {content}
         </div>
       )}
@@ -119,7 +122,7 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
       {hasChildren && isExpanded && (
         <div className="w-full">
           {item.children!.map(child => (
-            <MenuItemDisplay key={child.id} item={child} level={level + 1} allAvailableParts={allAvailableParts} />
+            <MenuItemDisplay key={child.id} item={child} level={level + 1} />
           ))}
         </div>
       )}
@@ -130,8 +133,6 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, allAvailablePar
 const CustomMenuOverview: React.FC = () => {
   const [menuHierarchy, setMenuHierarchy] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para resolver descrições
-  const [isLoadingAllParts, setIsLoadingAllParts] = useState(true); // Loading state for all parts
 
   useEffect(() => {
     document.title = "Catálogo de Peças - AutoBoard";
@@ -151,22 +152,9 @@ const CustomMenuOverview: React.FC = () => {
     }
   }, []);
 
-  const loadAllParts = useCallback(async () => {
-    setIsLoadingAllParts(true);
-    try {
-      const parts = await getParts();
-      setAllAvailableParts(parts);
-    } catch (error) {
-      console.error("Erro ao carregar todas as peças:", error);
-    } finally {
-      setIsLoadingAllParts(false);
-    }
-  }, []);
-
   useEffect(() => {
     loadMenu();
-    loadAllParts(); // Load all parts on component mount
-  }, [loadMenu, loadAllParts]);
+  }, [loadMenu]);
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -188,7 +176,7 @@ const CustomMenuOverview: React.FC = () => {
           <CardTitle className="text-xl">Estrutura de Listas</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading || isLoadingAllParts ? (
+          {isLoading ? (
             <div className="text-center text-muted-foreground py-8 flex items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando catálogo...
             </div>
@@ -197,7 +185,7 @@ const CustomMenuOverview: React.FC = () => {
           ) : (
             <div className="border rounded-lg overflow-hidden">
               {menuHierarchy.map(item => (
-                <MenuItemDisplay key={item.id} item={item} level={0} allAvailableParts={allAvailableParts} />
+                <MenuItemDisplay key={item.id} item={item} level={0} />
               ))}
             </div>
           )}

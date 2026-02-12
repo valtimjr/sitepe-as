@@ -22,24 +22,24 @@ import {
   updateLocalServiceOrderItem,
   deleteLocalServiceOrderItem,
   clearLocalServiceOrderItems,
-  getLocalMonthlyApontamento, // Importar novas funções para monthlyApontamentos
-  putLocalMonthlyApontamento,
-  bulkPutLocalMonthlyApontamentos,
-  clearLocalMonthlyApontamentos,
-  deleteLocalMonthlyApontamento,
+  isOnline,
+  getLocalMonthlyApontamento, // Importa diretamente
+  putLocalMonthlyApontamento, 
+  deleteLocalMonthlyApontamento 
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network'; // Importar Network
 import { format } from 'date-fns';
-import { DailyApontamento, MonthlyApontamento } from '@/types/supabase'; // Importar novos tipos
+import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart } from '@/types/supabase'; // Removido PartImage
 
-export interface Part extends LocalPart {
-  name?: string; // Adicionado o campo 'name'
-}
+export interface Part extends SupabasePart {}
 export interface SimplePartItem extends LocalSimplePartItem {}
 export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends LocalAf {}
 export type Apontamento = DailyApontamento; // Apontamento agora é o DailyApontamento
+
+// Re-exportar getLocalMonthlyApontamento para que outros módulos possam importá-lo de partListService
+export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;
 
 // Helper para garantir que DailyApontamento objetos não contenham um campo 'id' ou 'user_id'
 const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
@@ -47,83 +47,30 @@ const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
   return rest;
 };
 
-const seedPartsFromJson = async (): Promise<void> => {
-  // Primeiro, verifica se há peças no Supabase
-  const { count: supabasePartsCount, error: countError } = await supabase
-    .from('parts')
-    .select('*', { count: 'exact' });
-
-  if (countError) {
-    // Fallback para IndexedDB para verificar se já há dados localmente
-    const localPartsCount = await localDb.parts.count();
-    if (localPartsCount > 0) {
-      return;
-    }
-  }
-
-  if (supabasePartsCount && supabasePartsCount > 0) {
-    return;
-  }
-
+const seedPartsFromFile = async (): Promise<Part[]> => {
   try {
-    const response = await fetch('/data/parts.json'); // Caminho atualizado
+    const response = await fetch('/data/parts.json');
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const parsedParts: Part[] = await response.json();
-
-    // Adiciona ao Supabase
-    const { error: insertError } = await supabase
-      .from('parts')
-      .insert(parsedParts);
-
-    if (insertError) {
-      throw insertError;
-    }
-
-    // Também adiciona ao IndexedDB para cache local
-    await bulkPutLocalParts(parsedParts);
-
+    return await response.json();
   } catch (error) {
-    console.error("[seedPartsFromJson] Falha ao buscar ou analisar parts.json ou popular Supabase/IndexedDB:", error);
+    console.error("[seedPartsFromFile] Failed to fetch or parse parts.json:", error);
+    return [];
   }
 };
 
-const seedAfs = async (): Promise<void> => {
-  // 1. Primeiro, verifica se há AFs no Supabase
-  const { count: supabaseAfsCount, error: countError } = await supabase
-    .from('afs')
-    .select('*', { count: 'exact' });
-
-  if (countError) {
-    // Se houver erro ao contar, tenta carregar do IndexedDB como fallback
-    const localAfsCount = await localDb.afs.count();
-    if (localAfsCount > 0) {
-      return;
-    }
-  }
-
-  if (supabaseAfsCount && supabaseAfsCount > 0) {
-    return;
-  }
-
+const seedAfsFromFile = async (): Promise<Af[]> => {
   let parsedAfs: Af[] = [];
-  let source = '';
-
-  // 2. Tenta carregar do public/data/afs.json
   try {
-    const response = await fetch('/data/afs.json'); // Caminho atualizado
-    if (!response.ok) {
-      // console.warn('[seedAfs] Falha ao buscar afs.json, tentando CSV. Status:', response.status);
-    } else {
+    const response = await fetch('/data/afs.json');
+    if (response.ok) {
       parsedAfs = await response.json();
-      source = 'JSON';
     }
   } catch (jsonError) {
-    // console.warn('[seedAfs] Erro ao buscar afs.json, tentando CSV:', jsonError);
+    // console.warn('[seedAfsFromFile] Erro ao buscar afs.json, tentando CSV:', jsonError);
   }
 
-  // 3. Se JSON falhou ou estava vazio, tenta carregar do public/afs.csv
   if (parsedAfs.length === 0) {
     try {
       const response = await fetch('/afs.csv');
@@ -136,10 +83,9 @@ const seedAfs = async (): Promise<void> => {
             complete: (results: any) => {
               parsedAfs = results.data.map((row: any) => ({
                 id: row.id || uuidv4(),
-                af_number: row.af_number || row.codigo || row.AF, // Suporte a 'codigo' ou 'AF'
-                descricao: row.descricao || row.description || '', // Suporte a 'descricao' ou 'description'
-              })).filter(af => af.af_number);
-              source = 'CSV';
+                af_number: row.af_number || row.codigo || row.AF,
+                descricao: row.descricao || row.description || '',
+              })).filter((af: any) => af.af_number);
               resolve();
             },
             error: (error: Error) => {
@@ -147,88 +93,223 @@ const seedAfs = async (): Promise<void> => {
             }
           });
         });
-      } else {
-        throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch (csvError) {
-      console.error("[seedAfs] Falha ao buscar ou analisar afs.csv:", csvError);
+      console.error("[seedAfsFromFile] Falha ao buscar ou analisar afs.csv:", csvError);
     }
   }
-
-  // 4. Se dados foram encontrados, adiciona ao Supabase e IndexedDB
-  if (parsedAfs.length > 0) {
-    try {
-      const { error: upsertError } = await supabase
-        .from('afs')
-        .upsert(parsedAfs, { onConflict: 'af_number' }); // ALTERADO: Usando af_number como chave de conflito
-
-      if (upsertError) {
-        console.error('seedAfs: Failed to upsert AFs to Supabase:', upsertError);
-        throw upsertError;
-      }
-
-      await bulkPutLocalAfs(parsedAfs);
-    } catch (dbError) {
-      console.error("seedAfs: Failed to seed Supabase/IndexedDB with AFs:", dbError);
-    }
-  } else {
-    // console.warn('seedAfs: No AFs found in JSON or CSV to seed.');
-  }
+  return parsedAfs;
 };
 
-export const getParts = async (query?: string): Promise<Part[]> => {
-  await seedPartsFromJson(); // Garante que o Supabase esteja populado
+/**
+ * Função para buscar peças com paginação e contagem total (usada apenas na PartManagementTable).
+ * @param query Query de busca.
+ * @param page Número da página (base 1).
+ * @param pageSize Tamanho da página.
+ * @returns Um objeto contendo as peças e a contagem total.
+ */
+export const searchPartsPaginated = async (query: string, page: number = 1, pageSize: number = 50): Promise<{ parts: Part[], totalCount: number }> => {
+  const lowerCaseQuery = query.toLowerCase().trim();
+  const offset = (page - 1) * pageSize;
 
-  if (query) {
-    // --- Lógica para busca interativa (com query) ---
+  // 1. Busca remota (Supabase)
+  let queryBuilder = supabase
+    .from('parts')
+    .select('*', { count: 'exact' });
+
+  if (lowerCaseQuery) {
+    const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
+    queryBuilder = queryBuilder.or(
+      `codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},tags.ilike.${searchPattern},name.ilike.${searchPattern}`
+    );
+  }
+
+  // Adiciona uma ordenação no servidor para agrupar códigos.
+  // Isso aumenta a chance de uma busca por código trazer o resultado correto na primeira página.
+  // A ordenação final de prioridade é feita no cliente.
+  queryBuilder = queryBuilder.order('codigo', { ascending: true });
+
+  // Aplica paginação
+  queryBuilder = queryBuilder.range(offset, offset + pageSize - 1);
+
+  const { data, error, count } = await queryBuilder;
+
+  if (error) {
+    console.error('[searchPartsPaginated] Erro ao buscar peças no Supabase:', error);
+    // Fallback para IndexedDB se Supabase falhar
     const localResults = await searchLocalParts(query);
-    if (localResults.length > 0) {
-      return localResults;
-    }
-    // Recorre à busca remota (que tem um limite de 1000 para busca interativa)
-    return searchParts(query); // Isso chama a função searchParts existente
-  } else {
-    // --- Lógica para obter TODAS as peças (sem query) com verificação de atualização ---
+    const totalCount = localResults.length;
+    const paginatedLocalResults = localResults.slice(offset, offset + pageSize);
+    return { parts: paginatedLocalResults as Part[], totalCount };
+  }
 
-    const localParts = await getLocalParts();
-    let needsUpdate = false;
+  let results = data as Part[];
+  const totalCount = count || 0;
 
-    if (localParts.length === 0) {
-      needsUpdate = true;
+  // 2. Ordenação no cliente (para garantir consistência com a busca local)
+  const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
+    if (!fieldValue) return 0;
+    const lowerFieldValue = fieldValue.toLowerCase();
+
+    if (isMultiWord) {
+      // For multi-word, we just check if the sequence exists.
+      // A more complex scoring could be implemented here if needed.
+      return regex.test(lowerFieldValue) ? 1 : 0;
     } else {
-      // Verifica a contagem remota para decidir se precisa atualizar
-      try {
-        const { count: remoteCount, error: countError } = await supabase
-          .from('parts')
-          .select('*', { count: 'exact' });
+      // For single-word, we can have more granular scoring.
+      if (lowerFieldValue === query) return 4; // Exact match
+      if (lowerFieldValue.startsWith(query)) return 3; // Starts with
+      if (lowerFieldValue.includes(query)) return 2; // Includes
+    }
+    return 0;
+  };
 
-        if (countError) {
-          // Em caso de erro na contagem remota, assume que o cache local é válido para evitar falha total.
-        } else if (remoteCount !== null && localParts.length !== remoteCount) {
-          needsUpdate = true;
+  if (lowerCaseQuery) {
+    const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
+    const isMultiWordQuery = queryWords.length > 1;
+    const escapedWords = queryWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
+
+    results.sort((a, b) => {
+      const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
+
+      const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
+
+      const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+      
+      const combinedAScore = Math.max(aDescricaoScore, aNameScore);
+      const combinedBScore = Math.max(bDescricaoScore, bNameScore);
+
+      if (combinedAScore !== combinedBScore) return combinedBScore - combinedAScore;
+
+      return 0;
+    });
+  }
+
+  return { parts: results, totalCount };
+};
+
+/**
+ * Função para buscar peças (sem paginação) para uso em inputs de busca interativa.
+ * Retorna apenas o array de Part[].
+ * @param query Query de busca.
+ * @returns Array de Part[].
+ */
+export const searchParts = async (query: string): Promise<Part[]> => {
+  const lowerCaseQuery = query.toLowerCase().trim();
+  if (!lowerCaseQuery) return [];
+
+  // Fetch from all fields to get a candidate pool
+  const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
+  const { data, error } = await supabase
+    .from('parts')
+    .select('*')
+    .or(`codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},name.ilike.${searchPattern},tags.ilike.${searchPattern}`)
+    .limit(250); // Fetch a decent pool to sort from
+
+  if (error) {
+    console.error('[searchParts] Erro ao buscar no Supabase:', error);
+    return searchLocalParts(query) as Promise<Part[]>; // Fallback
+  }
+
+  let results = data || [];
+
+  // Now apply the user's priority sorting
+  const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
+    if (!fieldValue) return 0;
+    const lowerFieldValue = fieldValue.toLowerCase();
+
+    if (isMultiWord) {
+      // For multi-word, we just check if the sequence exists.
+      // A more complex scoring could be implemented here if needed.
+      return regex.test(lowerFieldValue) ? 1 : 0;
+    } else {
+      // For single-word, we can have more granular scoring.
+      if (lowerFieldValue === query) return 4; // Exact match
+      if (lowerFieldValue.startsWith(query)) return 3; // Starts with
+      if (lowerFieldValue.includes(query)) return 2; // Includes
+    }
+    return 0;
+  };
+
+  const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
+  const isMultiWordQuery = queryWords.length > 1;
+  const escapedWords = queryWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
+
+  results.sort((a, b) => {
+    const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
+
+    const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
+
+    const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
+    
+    const combinedAScore = Math.max(aDescricaoScore, aNameScore);
+    const combinedBScore = Math.max(bDescricaoScore, bNameScore);
+
+    if (combinedAScore !== combinedBScore) return combinedBScore - combinedAScore;
+
+    return 0;
+  });
+
+  return results.slice(0, 100) as Part[];
+};
+
+/**
+ * Função de conveniência para obter todas as peças (sem paginação) para cache/exportação.
+ */
+export const getParts = async (): Promise<Part[]> => {
+  const localParts = await getLocalParts();
+  if (localParts.length > 0) {
+    (async () => {
+      try {
+        const allRemoteParts = await getAllPartsForExport();
+        if (allRemoteParts.length !== localParts.length) {
+          await localDb.parts.clear();
+          await bulkPutLocalParts(allRemoteParts);
         }
       } catch (e) {
-        // console.warn('[getParts] Erro inesperado ao verificar contagem remota. Assumindo que o cache local está bom:', e);
+        console.warn('Background parts sync failed:', e);
       }
+    })();
+    return localParts as Part[];
+  }
+
+  try {
+    const allRemoteParts = await getAllPartsForExport();
+    if (allRemoteParts.length > 0) {
+      await bulkPutLocalParts(allRemoteParts);
+      return allRemoteParts;
     }
 
-    if (needsUpdate) {
-      try {
-        const allRemoteParts = await getAllPartsForExport(); // Esta função já lida com paginação
-        
-        // Atualiza o cache local
-        await localDb.parts.clear();
-        await bulkPutLocalParts(allRemoteParts);
-        return allRemoteParts;
-      } catch (error) {
-        console.error('[getParts] Erro ao buscar TODAS as peças do Supabase para atualização:', error);
-        throw new Error(`Erro ao buscar todas as peças do Supabase: ${error.message}`);
-      }
-    } else {
-      return localParts;
+    const partsFromFile = await seedPartsFromFile();
+    if (partsFromFile.length > 0) {
+      const { error: upsertError } = await supabase.from('parts').upsert(partsFromFile, { onConflict: 'id' });
+      if (upsertError) throw upsertError;
+      await bulkPutLocalParts(partsFromFile);
+      return partsFromFile;
     }
+    return [];
+  } catch (error) {
+    console.error('[getParts] Erro ao buscar peças:', error);
+    return [];
   }
 };
+
 
 export const getAllPartsForExport = async (): Promise<Part[]> => {
   let allData: Part[] = [];
@@ -253,6 +334,8 @@ export const getAllPartsForExport = async (): Promise<Part[]> => {
     } else {
       hasMore = false; // Não há mais dados para buscar
     }
+    // Adicionado: Pequeno atraso para evitar sobrecarga da API em loops grandes
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
   return allData;
 };
@@ -274,91 +357,17 @@ export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
   return data[0].id;
 };
 
-export const searchParts = async (query: string): Promise<Part[]> => {
-  await seedPartsFromJson(); // Garante que o Supabase esteja populado
-
-  const lowerCaseQuery = query.toLowerCase().trim();
-
-  let queryBuilder = supabase
-    .from('parts')
-    .select('*')
-    .limit(1000); // Limite de 1000 para exibição em busca interativa
-
-  if (lowerCaseQuery) {
-    // Divide a query em palavras, filtra strings vazias e junta com '%' para buscar em sequência
-    const searchPattern = lowerCaseQuery.split(/\s+/).filter(Boolean).join('%');
-    
-    // Usa o padrão construído para busca 'ilike' nos campos relevantes
-    queryBuilder = queryBuilder.or(
-      `codigo.ilike.%${searchPattern}%,descricao.ilike.%${searchPattern}%,tags.ilike.%${searchPattern}%,name.ilike.%${searchPattern}%`
-    );
-  }
-
-  const { data, error } = await queryBuilder;
-
-  if (error) {
-    console.error('[searchParts] Erro ao buscar peças no Supabase:', error);
-    // console.log('[searchParts] Tentando fallback para IndexedDB...');
-    const localResults = await searchLocalParts(query); // Passa a query original para a busca local
-    return localResults;
-  }
-
-  let results = data as Part[];
-
-  // Helper para determinar a qualidade da correspondência em um campo
-  const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
-    if (!fieldValue) return 0;
-    const lowerFieldValue = fieldValue.toLowerCase();
-
-    if (isMultiWord) {
-      return regex.test(lowerFieldValue) ? 1 : 0; // Apenas verifica se a sequência existe
-    } else { // Query de palavra única
-      if (lowerFieldValue === query) return 3; // Correspondência exata
-      if (lowerFieldValue.startsWith(query)) return 2; // Começa com
-      if (lowerFieldValue.includes(query)) return 1; // Inclui
-    }
-    return 0;
-  };
-
-  if (lowerCaseQuery) { // Apenas ordena se houver uma query
-    const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
-    const isMultiWordQuery = queryWords.length > 1;
-    // Cria regex para pontuação no lado do cliente, similar ao localDbService
-    const escapedWords = queryWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
-
-    results.sort((a, b) => {
-      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-
-      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-
-      // Prioriza nome
-      if (aNameScore !== bNameScore) return bNameScore - aNameScore;
-      // Depois tags
-      if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
-      // Depois código
-      if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
-      // Por último descrição
-      if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
-
-      return 0;
-    });
-  }
-
-  return results;
-};
-
 export const updatePart = async (updatedPart: Part): Promise<void> => {
   // Atualiza no Supabase
   const { error: supabaseError } = await supabase
     .from('parts')
-    .update({ codigo: updatedPart.codigo, descricao: updatedPart.descricao, tags: updatedPart.tags, name: updatedPart.name })
+    .update({ 
+      codigo: updatedPart.codigo, 
+      descricao: updatedPart.descricao, 
+      tags: updatedPart.tags, 
+      name: updatedPart.name,
+      itens_relacionados: updatedPart.itens_relacionados || [], // Inclui o novo campo
+    })
     .eq('id', updatedPart.id);
 
   if (supabaseError) {
@@ -388,26 +397,73 @@ export const deletePart = async (id: string): Promise<void> => {
 
 // --- Funções para AFs ---
 export const getAfsFromService = async (): Promise<Af[]> => {
-  await seedAfs(); // Garante que o Supabase esteja populado
-
-  const { data, error } = await supabase
-    .from('afs')
-    .select('*')
-    .order('af_number', { ascending: true }) // Ordena por número de AF
-    .limit(1000); // Limite de 1000 para exibição
-
-  if (error) {
-    console.error('[getAfsFromService] Erro ao buscar AFs do Supabase:', error);
-    // Fallback para IndexedDB se Supabase falhar
-    // console.log('[getAfsFromService] Tentando fallback para IndexedDB...');
-    const localAfs = await getLocalAfs();
+  const localAfs = await getLocalAfs();
+  if (localAfs.length > 0) {
+    (async () => {
+      try {
+        const { data, error } = await supabase.from('afs').select('*').order('af_number', { ascending: true });
+        if (error) throw error;
+        if (data.length !== localAfs.length) {
+          await localDb.afs.clear();
+          await bulkPutLocalAfs(data as Af[]);
+        }
+      } catch (e) {
+        console.warn('Background AF sync failed:', e);
+      }
+    })();
     return localAfs;
   }
 
-  // Atualiza o cache local com os dados do Supabase
-  await localDb.afs.clear();
-  await bulkPutLocalAfs(data as Af[]);
-  return data as Af[];
+  try {
+    const { data, error } = await supabase.from('afs').select('*').order('af_number', { ascending: true });
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      await bulkPutLocalAfs(data as Af[]);
+      return data as Af[];
+    }
+
+    const afsFromFile = await seedAfsFromFile();
+    if (afsFromFile.length > 0) {
+      const { error: upsertError } = await supabase.from('afs').upsert(afsFromFile, { onConflict: 'af_number' });
+      if (upsertError) throw upsertError;
+      await bulkPutLocalAfs(afsFromFile);
+      return afsFromFile;
+    }
+
+    return [];
+  } catch (error) {
+    console.error('[getAfsFromService] Erro ao buscar AFs:', error);
+    return [];
+  }
+};
+
+export const searchAfs = async (query: string): Promise<Af[]> => {
+  const lowerCaseQuery = query.toLowerCase().trim();
+  if (lowerCaseQuery.length < 1) return [];
+
+  try {
+    const searchPattern = `%${lowerCaseQuery}%`;
+    const { data, error } = await supabase
+      .from('afs')
+      .select('*')
+      .or(`af_number.ilike.${searchPattern},descricao.ilike.${searchPattern}`)
+      .order('af_number', { ascending: true })
+      .limit(50);
+
+    if (error) {
+      throw error;
+    }
+    return data as Af[];
+  } catch (error) {
+    console.error('[searchAfs] Erro ao buscar AFs:', error);
+    // Fallback para busca local
+    const allAfs = await getLocalAfs();
+    return allAfs.filter(af => 
+      af.af_number.toLowerCase().includes(lowerCaseQuery) ||
+      (af.descricao && af.descricao.toLowerCase().includes(lowerCaseQuery))
+    ).slice(0, 50);
+  }
 };
 
 export const getAllAfsForExport = async (): Promise<Af[]> => {
@@ -433,6 +489,8 @@ export const getAllAfsForExport = async (): Promise<Af[]> => {
     } else {
       hasMore = false; // Não há mais dados para buscar
     }
+    // Adicionado: Pequeno atraso para evitar sobrecarga da API em loops grandes
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
   return allData;
 };
@@ -502,7 +560,12 @@ export const updateSimplePartItem = async (updatedItem: SimplePartItem): Promise
 };
 
 export const deleteSimplePartItem = async (id: string): Promise<void> => {
-  await deleteLocalSimplePartItem(id);
+  try {
+    await deleteLocalSimplePartItem(id);
+  } catch (error) {
+    console.error('localDbService: Error deleting item with ID:', id, error);
+    throw error; // Re-lança o erro para que o chamador possa tratá-lo
+  }
 };
 
 export const clearSimplePartsList = async (): Promise<void> => {
@@ -517,8 +580,8 @@ export const getServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
 
 export const addServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
   const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
-  const id = await addLocalServiceOrderItem(newItem, customCreatedAt);
-  return id;
+  await addLocalServiceOrderItem(newItem, customCreatedAt);
+  return newItem.id;
 };
 
 export const updateServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
@@ -535,51 +598,17 @@ export const clearServiceOrderList = async (): Promise<void> => {
 
 export const getLocalUniqueAfs = async (): Promise<string[]> => {
   const afs = await localDb.afs.toArray();
-  const uniqueAfs = afs.map(af => af.af_number).sort();
-  return uniqueAfs;
+  return afs.map(af => af.af_number).sort();
 };
 
 // --- Monthly Apontamentos Management (IndexedDB) ---
 
-export const getLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<MonthlyApontamento | undefined> => {
-  const apontamento = await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).first();
-  return apontamento;
-};
-
-export const putLocalMonthlyApontamento = async (monthlyApontamento: MonthlyApontamento): Promise<void> => {
-  await localDb.monthlyApontamentos.put(monthlyApontamento);
-};
-
-export const bulkPutLocalMonthlyApontamentos = async (monthlyApontamentos: MonthlyApontamento[]): Promise<void> => {
-  await localDb.monthlyApontamentos.bulkPut(monthlyApontamentos);
-};
-
-export const clearLocalMonthlyApontamentos = async (userId: string): Promise<void> => {
-  const idsToDelete = await localDb.monthlyApontamentos.where('user_id').equals(userId).keys();
-  await localDb.monthlyApontamentos.bulkDelete(idsToDelete);
-};
-
-export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<void> => {
-  await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).delete();
-};
-
-// --- Funções para Apontamentos (Time Tracking) ---
-
-// Helper function to check network status
-const isOnline = async () => {
-    try {
-        const status = await Network.getStatus();
-        return status.connected;
-    } catch (e) {
-        // Fallback for browser environment without Capacitor plugin
-        return navigator.onLine;
-    }
-};
+//export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;
 
 // Sincroniza dados do Supabase para o IndexedDB
 export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
   
-  const localMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+  const localMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
 
   const { data, error } = await supabase
     .from('monthly_apontamentos')
@@ -684,7 +713,7 @@ export const getApontamentos = async (userId: string, monthYear: string): Promis
     monthlyApontamento = await syncMonthlyApontamentosFromSupabase(userId, monthYear);
   } else {
     // Se offline, tenta do cache local
-    monthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+    monthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
   }
 
   return monthlyApontamento?.data || [];
@@ -693,10 +722,10 @@ export const getApontamentos = async (userId: string, monthYear: string): Promis
 // Atualiza um apontamento diário dentro do blob JSON mensal
 export const updateApontamento = async (userId: string, monthYear: string, dailyApontamento: DailyApontamento): Promise<DailyApontamento> => {
   const online = await isOnline();
-  let currentMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+  let currentMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
 
   if (!currentMonthlyApontamento) {
-    // Se não existe localmente, tenta buscar do Supabase (com lógica de comparação)
+    // Se não existe localmente, tenta buscar do Supabase (se online)
     if (online) {
       currentMonthlyApontamento = await syncMonthlyApontamentosFromSupabase(userId, monthYear);
     }
@@ -756,7 +785,7 @@ export const updateApontamento = async (userId: string, monthYear: string, daily
 // Deleta um apontamento diário dentro do blob JSON mensal
 export const deleteApontamento = async (userId: string, monthYear: string, dailyApontamentoDate: string): Promise<void> => {
   const online = await isOnline();
-  let currentMonthlyApontamento = await getLocalMonthlyApontamento(userId, monthYear);
+  let currentMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
 
   if (!currentMonthlyApontamento) {
     // Se não existe localmente, não há o que deletar
@@ -890,7 +919,7 @@ export const cleanupEmptyParts = async (): Promise<number> => {
   while (hasMoreToFetch) {
     const { data, error } = await supabase
       .from('parts')
-      .select('id, codigo, descricao')
+      .select('id, codigo, descricao, name')
       .range(offset, offset + fetchPageSize - 1);
 
     if (error) {
@@ -911,6 +940,8 @@ export const cleanupEmptyParts = async (): Promise<number> => {
     } else {
       hasMoreToFetch = false;
     }
+    // Adicionado: Pequeno atraso para evitar sobrecarga da API em loops grandes
+    await new Promise(resolve => setTimeout(resolve, 50));
   }
 
   if (allIdsToDelete.length > 0) {
@@ -934,4 +965,70 @@ export const cleanupEmptyParts = async (): Promise<number> => {
   }
 
   return deletedCount;
+};
+
+// NOVO: Função para criar relações em lote
+export const batchUpdateRelations = async (codesToRelate: string[]): Promise<{ updatedCount: number, notFoundCodes: string[] }> => {
+  // 1. Buscar todas as peças envolvidas
+  const { data: foundParts, error: fetchError } = await supabase
+    .from('parts')
+    .select('*')
+    .in('codigo', codesToRelate);
+
+  if (fetchError) {
+    throw new Error(`Erro ao buscar peças: ${fetchError.message}`);
+  }
+
+  const foundCodes = new Set(foundParts.map(p => p.codigo));
+  const notFoundCodes = codesToRelate.filter(code => !foundCodes.has(code));
+
+  // 2. Preparar as atualizações
+  const updatedParts = foundParts.map(part => {
+    const otherCodes = codesToRelate.filter(code => code !== part.codigo);
+    const existingRelatedCodes = (part.itens_relacionados || []).map(r => r.codigo);
+    const allRelatedCodes = Array.from(new Set([...existingRelatedCodes, ...otherCodes]));
+
+    const newRelations = allRelatedCodes
+      .map(code => {
+        const relatedPart = foundParts.find(p => p.codigo === code);
+        if (relatedPart) {
+          return {
+            codigo: relatedPart.codigo,
+            name: relatedPart.name || relatedPart.descricao,
+            desc: (relatedPart.name && relatedPart.name.trim() !== '' && relatedPart.descricao !== (relatedPart.name || '')) ? relatedPart.descricao : ''
+          };
+        }
+        // Se uma relação existente não estiver no lote atual, busca-a na lista original da peça
+        const existingRelationObject = (part.itens_relacionados || []).find(r => r.codigo === code);
+        if (existingRelationObject) {
+          return existingRelationObject;
+        }
+        return null;
+      })
+      .filter((p): p is RelatedPart => p !== null)
+      .sort((a, b) => a.codigo.localeCompare(b.codigo));
+    
+    return {
+      ...part,
+      itens_relacionados: newRelations,
+    };
+  });
+
+  if (updatedParts.length === 0) {
+    return { updatedCount: 0, notFoundCodes };
+  }
+
+  // 3. Atualizar no Supabase
+  const { error: upsertError } = await supabase
+    .from('parts')
+    .upsert(updatedParts, { onConflict: 'id' });
+
+  if (upsertError) {
+    throw new Error(`Erro ao atualizar relações: ${upsertError.message}`);
+  }
+
+  // 4. Atualizar no IndexedDB
+  await bulkPutLocalParts(updatedParts);
+
+  return { updatedCount: updatedParts.length, notFoundCodes };
 };

@@ -2,28 +2,29 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Part } from '@/services/partListService';
+import { searchParts as searchPartsService } from '@/services/partListService'; // Importar a função de serviço
+import { Loader2 } from 'lucide-react'; // Adicionado: Importar Loader2
 
 interface PartSearchInputProps {
   onSearch: (query: string) => void;
   searchResults: Part[];
   onSelectPart: (part: Part) => void;
   searchQuery: string;
-  allParts: Part[];
   isLoading: boolean;
 }
 
-const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, allParts, isLoading }) => {
+const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, isLoading }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isFocused, setIsFocused] = useState(false); // Novo estado para controlar o foco
-  const containerRef = useRef<HTMLDivElement>(null); // Ref para o container para detectar cliques fora
+  const [isFocused, setIsFocused] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Effect para fechar o dropdown quando clicar fora do componente
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
-        setIsFocused(false); // Garante que o estado de foco seja resetado
+        setIsFocused(false);
       }
     };
 
@@ -35,7 +36,10 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
 
   const handleInputFocus = () => {
     setIsFocused(true);
-    setIsDropdownOpen(true);
+    // Abre o dropdown apenas se houver uma query ativa ou resultados recentes
+    if (searchQuery.length > 0 || searchResults.length > 0) {
+      setIsDropdownOpen(true);
+    }
   };
 
   const handleInputBlur = () => {
@@ -51,18 +55,15 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
 
   const handleSelectAndClose = (part: Part) => {
     onSelectPart(part);
-    onSearch(''); // Limpa a query de busca após a seleção
+    // onSearch(''); // Não limpa a query de busca aqui, o componente pai deve controlar isso
     setIsDropdownOpen(false); // Fecha o dropdown imediatamente
     if (inputRef.current) {
-      inputRef.current.blur(); // Desfoca manualmente o input para garantir que o onBlur seja acionado
+      inputRef.current.blur();
     }
   };
 
-  // Determina qual lista exibir: searchResults se houver query, allParts se focado e vazio
-  const displayList = searchQuery.length > 0 ? searchResults : allParts;
-
-  // A lista de sugestões deve aparecer se o dropdown estiver explicitamente aberto E houver itens para mostrar
-  const shouldShowDropdown = isDropdownOpen && (searchQuery.length > 0 || displayList.length > 0);
+  // A lista de sugestões deve aparecer se o dropdown estiver explicitamente aberto E houver uma query ativa
+  const shouldShowDropdown = isDropdownOpen && searchQuery.length > 0;
 
   return (
     <div className="relative flex w-full items-center space-x-2" ref={containerRef}>
@@ -73,7 +74,10 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           type="text"
           placeholder="Buscar peça por código ou descrição..."
           value={searchQuery}
-          onChange={(e) => onSearch(e.target.value)}
+          onChange={(e) => {
+            onSearch(e.target.value);
+            setIsDropdownOpen(true); // Abre o dropdown ao começar a digitar
+          }}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
           className="w-full"
@@ -82,18 +86,34 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
         {shouldShowDropdown && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto">
             {isLoading && searchQuery.length > 0 ? ( // Mostra carregando apenas se houver query
-              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Buscando peças...</li>
-            ) : displayList.length > 0 ? (
-              displayList.map((part) => (
-                <li
-                  key={part.id}
-                  className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onMouseDown={(e) => e.preventDefault()} // Previne o onBlur de fechar antes do onClick
-                  onClick={() => handleSelectAndClose(part)}
-                >
-                  {part.codigo} - {part.descricao}
-                </li>
-              ))
+              <li className="px-4 py-2 text-gray-500 dark:text-gray-400 flex items-center">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Buscando peças...
+              </li>
+            ) : searchResults.length > 0 ? (
+              searchResults.map((part) => {
+                const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
+                const subText = part.name && part.name.trim() !== '' ? part.descricao : '';
+
+                return (
+                  <li
+                    key={part.id}
+                    className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleSelectAndClose(part)}
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium text-sm">
+                        {part.codigo} - {mainText}
+                      </span>
+                      {subText && subText.trim() !== '' && (
+                        <span className="text-xs italic text-muted-foreground">
+                          {subText}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })
             ) : (
               <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhuma peça encontrada.</li>
             )}

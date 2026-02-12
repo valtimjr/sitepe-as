@@ -76,6 +76,7 @@ const AfManagementTable: React.FC = () => {
   }, []);
 
   const loadAfs = async () => {
+    console.time('AfManagementTable: loadAfs');
     setIsLoading(true);
     try {
       const fetchedAfs = await getAfsFromService();
@@ -84,6 +85,7 @@ const AfManagementTable: React.FC = () => {
       showError('Erro ao carregar AFs.');
     } finally {
       setIsLoading(false);
+      console.timeEnd('AfManagementTable: loadAfs');
     }
   };
 
@@ -128,7 +130,7 @@ const AfManagementTable: React.FC = () => {
     try {
       const payload: Omit<Af, 'id'> = {
         af_number: formAfNumber.trim(),
-        descricao: formDescricao.trim() || undefined,
+        descricao: formDescricao.trim(), // Garante que descricao é sempre uma string
       };
 
       if (currentAf) {
@@ -210,14 +212,14 @@ const AfManagementTable: React.FC = () => {
           let newAfs: Af[] = parsedData.map(row => {
             const afNumber = getRowValue(row, ['af_number', 'codigo', 'AF']);
             // CHAVES DE BUSCA ATUALIZADAS
-            const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']); 
+            const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']) || ''; // Garante que descricao é sempre uma string
             
             if (!afNumber) return null;
 
             return {
               id: getRowValue(row, ['id']) || uuidv4(),
               af_number: afNumber,
-              descricao: descricao || '',
+              descricao: descricao, // Atribui a string (pode ser vazia)
             };
           }).filter((af): af is Af => af !== null);
 
@@ -266,6 +268,7 @@ const AfManagementTable: React.FC = () => {
     const newAfs = parsedAfsToImport;
     const loadingToastId = showLoading('Importando e sincronizando AFs...');
     setImportLog(prev => [...prev, 'Iniciando importação para o banco de dados...']);
+    console.time('AfManagementTable: confirmImport');
 
     try {
       await importAfs(newAfs);
@@ -279,14 +282,16 @@ const AfManagementTable: React.FC = () => {
       dismissToast(loadingToastId);
       setIsImportConfirmOpen(false);
       setParsedAfsToImport([]);
+      console.timeEnd('AfManagementTable: confirmImport');
     }
   };
 
   const handleExportCsv = async () => {
     let dataToExport: Af[] = [];
-    let loadingToastId: string | undefined;
+    let loadingToastId: string | number | undefined;
     try {
       loadingToastId = showLoading('Preparando exportação de AFs...');
+      console.time('AfManagementTable: exportDataAsCsv');
       if (selectedAfIds.size > 0) {
         dataToExport = afs.filter(af => selectedAfIds.has(af.id));
         if (dataToExport.length === 0) {
@@ -308,14 +313,16 @@ const AfManagementTable: React.FC = () => {
       showError('Erro ao exportar AFs.');
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
+      console.timeEnd('AfManagementTable: exportDataAsCsv');
     }
   };
 
   const handleExportJson = async () => {
     let dataToExport: Af[] = [];
-    let loadingToastId: string | undefined;
+    let loadingToastId: string | number | undefined;
     try {
       loadingToastId = showLoading('Preparando exportação de AFs...');
+      console.time('AfManagementTable: exportDataAsJson');
       if (selectedAfIds.size > 0) {
         dataToExport = afs.filter(af => selectedAfIds.has(af.id));
         if (dataToExport.length === 0) {
@@ -337,6 +344,7 @@ const AfManagementTable: React.FC = () => {
       showError('Erro ao exportar AFs.');
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
+      console.timeEnd('AfManagementTable: exportDataAsJson');
     }
   };
 
@@ -433,8 +441,7 @@ const AfManagementTable: React.FC = () => {
                 <TableRow>
                   <TableHead className="w-[40px]">
                     <Checkbox
-                      checked={isAllSelected}
-                      indeterminate={isIndeterminate ? true : undefined}
+                      checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
                       onCheckedChange={(checked) => handleSelectAll(checked === true)}
                       aria-label="Selecionar todos os AFs"
                     />

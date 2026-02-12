@@ -69,6 +69,8 @@
 @layer base {
   * {
     @apply border-border;
+    /* Adicionado para tentar resolver o alto consumo de memória do will-change */
+    will-change: auto !important; 
   }
 
   body {
