@@ -1,89 +1,61 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, searchParts as searchPartsService, updatePart, getAfsFromService, Af, saveDailyServiceOrder, getDailyServiceOrdersByDate } from '@/services/partListService';
+import { Card, CardContent } from '@/components/ui/card';
+import { Part, searchParts as searchPartsService, getAfsFromService, Af } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Save, XCircle, Loader2, Tag, PlusCircle } from 'lucide-react';
+import { showSuccess, showError } from '@/utils/toast';
+import { Save, XCircle, PlusCircle, Trash2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
-import { useSession } from '@/components/SessionContextProvider';
-import { useIsMobile } from '@/hooks/use-mobile';
-import RelatedPartDisplay from './RelatedPartDisplay';
-import { ScrollArea } from './ui/scroll-area';
-import { RelatedPart, DailyServiceOrder, ServiceOrderData } from '@/types/supabase';
+import { ServiceOrderData } from '@/types/supabase';
 import { v4 as uuidv4 } from 'uuid';
-import { format } from 'date-fns';
-
-interface ServiceOrderDetails {
-  af: string;
-  os?: number;
-  hora_inicio?: string;
-  hora_final?: string;
-  servico_executado?: string;
-  createdAt?: Date;
-}
-
-type FormMode = 'create-new-so' | 'edit-so-details';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface ServiceOrderFormProps {
-  onItemAdded: () => void;
-  onNewServiceOrder: () => void;
-  onClose?: () => void;
-  mode: FormMode;
-  initialSoData?: ServiceOrderDetails | null;
+  initialData: ServiceOrderData | null;
+  onSave: (data: ServiceOrderData) => void;
+  onCancel: () => void;
 }
 
-const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ 
-  onItemAdded, 
-  onClose, 
-  mode, 
-  initialSoData, 
-}) => {
-  const { user, profile } = useSession();
-  const isMobile = useIsMobile();
-  
-  // Estados da OS
+const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave, onCancel }) => {
   const [af, setAf] = useState('');
-  const [os, setOs] = useState<string>('');
-  const [horaInicio, setHoraInicio] = useState<string>('');
-  const [horaFinal, setHoraFinal] = useState<string>('');
-  const [servicoExecutado, setServicoExecutado] = useState<string>('');
+  const [os, setOs] = useState('');
+  const [horaInicio, setHoraInicio] = useState('');
+  const [horaFinal, setHoraFinal] = useState('');
+  const [servicoExecutado, setServicoExecutado] = useState('');
+  const [parts, setParts] = useState<{codigo_peca: string, descricao: string, quantidade: number}[]>([]);
   
-  // Estados das Peças
-  const [addedParts, setAddedParts] = useState<{codigo_peca: string, descricao: string, quantidade: number}[]>([]);
-  const [selectedPart, setSelectedPart] = useState<Part | null>(null);
-  const [quantidade, setQuantidade] = useState<number>(1);
+  // Estados para busca de peças
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(false);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
+  const [selectedPart, setSelectedPart] = useState<Part | null>(null);
+  const [partQuantity, setPartQuantity] = useState(1);
+  const [availableAfs, setAvailableAfs] = useState<Af[]>([]);
 
   useEffect(() => {
     const loadAfs = async () => {
       const data = await getAfsFromService();
-      setAllAvailableAfs(data);
+      setAvailableAfs(data);
     };
     loadAfs();
-  }, []);
-
-  useEffect(() => {
-    if (initialSoData) {
-      setAf(initialSoData.af);
-      setOs(initialSoData.os?.toString() || '');
-      setHoraInicio(initialSoData.hora_inicio || '');
-      setHoraFinal(initialSoData.hora_final || '');
-      setServicoExecutado(initialSoData.servico_executado || '');
+    
+    if (initialData) {
+      setAf(initialData.af);
+      setOs(initialData.os || '');
+      setHoraInicio(initialData.hora_inicio || '');
+      setHoraFinal(initialData.hora_final || '');
+      setServicoExecutado(initialData.servico_executado || '');
+      setParts(initialData.parts || []);
     }
-  }, [initialSoData]);
+  }, [initialData]);
 
-  // Busca de peças
   useEffect(() => {
-    const fetchSearchResults = async () => {
+    const handler = setTimeout(async () => {
       if (searchQuery.length > 1) {
         setIsLoadingParts(true);
         const results = await searchPartsService(searchQuery);
@@ -92,78 +64,45 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       } else {
         setSearchResults([]);
       }
-    };
-    const handler = setTimeout(fetchSearchResults, 300);
+    }, 300);
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  const handleAddPartToList = () => {
+  const handleAddPart = () => {
     if (!selectedPart) return;
-    setAddedParts(prev => [...prev, {
+    setParts(prev => [...prev, {
       codigo_peca: selectedPart.codigo,
       descricao: selectedPart.descricao,
-      quantidade: quantidade
+      quantidade: partQuantity
     }]);
     setSelectedPart(null);
-    setQuantidade(1);
     setSearchQuery('');
+    setPartQuantity(1);
+    showSuccess('Peça adicionada à lista.');
   };
 
-  const handleRemovePartFromList = (index: number) => {
-    setAddedParts(prev => prev.filter((_, i) => i !== index));
+  const handleRemovePart = (index: number) => {
+    setParts(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
     if (!af) {
       showError('O número do AF é obrigatório.');
       return;
     }
 
-    const loadingId = showLoading('Salvando ordem de serviço...');
-    try {
-      const dateStr = format(initialSoData?.createdAt || new Date(), 'yyyy-MM-dd');
-      
-      // 1. Busca as ordens existentes do dia
-      const existingOrders = await getDailyServiceOrdersByDate(user.id, dateStr);
-      
-      // 2. Cria a nova OS ou atualiza a existente
-      const newOrderData: ServiceOrderData = {
-        id: mode === 'edit-so-details' && initialSoData ? (initialSoData as any).id || uuidv4() : uuidv4(),
-        af,
-        os,
-        hora_inicio: horaInicio,
-        hora_final: horaFinal,
-        servico_executado: servicoExecutado,
-        parts: addedParts
-      };
+    const data: ServiceOrderData = {
+      id: initialData?.id || uuidv4(),
+      af,
+      os,
+      hora_inicio: horaInicio,
+      hora_final: horaFinal,
+      servico_executado: servicoExecutado,
+      parts
+    };
 
-      let updatedOrders: ServiceOrderData[];
-      if (mode === 'edit-so-details') {
-        updatedOrders = existingOrders.map(o => o.af === initialSoData?.af && o.os === initialSoData?.os?.toString() ? newOrderData : o);
-      } else {
-        updatedOrders = [...existingOrders, newOrderData];
-      }
-
-      // 3. Salva o pacote completo do dia
-      const dailyOrder: DailyServiceOrder = {
-        id: uuidv4(), // O ID da linha na tabela pode ser novo, o conflito é em user_id+date
-        user_id: user.id,
-        date: dateStr,
-        user_badge: profile?.badge || null,
-        user_name: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || null,
-        os_list: updatedOrders,
-      };
-
-      await saveDailyServiceOrder(dailyOrder);
-      showSuccess('Ordem de serviço salva com sucesso!');
-      onItemAdded();
-    } catch (error: any) {
-      showError('Erro ao salvar: ' + error.message);
-    } finally {
-      dismissToast(loadingId);
-    }
+    onSave(data);
   };
 
   return (
@@ -175,7 +114,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             value={af}
             onChange={setAf}
             onSelectAf={setAf}
-            availableAfs={allAvailableAfs}
+            availableAfs={availableAfs}
           />
         </div>
         <div className="space-y-2">
@@ -188,7 +127,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Hora Início</Label>
           <Input type="time" value={horaInicio} onChange={e => setHoraInicio(e.target.value)} />
@@ -209,42 +148,47 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         />
       </div>
 
-      <Separator />
-
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold">Adicionar Peças</h3>
-        <div className="space-y-3">
-          <PartSearchInput
-            onSearch={setSearchQuery}
-            searchResults={searchResults}
-            onSelectPart={setSelectedPart}
-            searchQuery={searchQuery}
-            isLoading={isLoadingParts}
-          />
-          
-          {selectedPart && (
-            <div className="flex items-end gap-2 bg-muted/50 p-3 rounded-lg">
-              <div className="flex-1">
-                <p className="text-sm font-bold">{selectedPart.codigo}</p>
-                <p className="text-xs text-muted-foreground">{selectedPart.descricao}</p>
-              </div>
-              <div className="w-20">
-                <Label className="text-[10px]">Qtd</Label>
-                <Input 
-                  type="number" 
-                  value={quantidade} 
-                  onChange={e => setQuantidade(parseInt(e.target.value) || 1)} 
-                />
-              </div>
-              <Button type="button" size="icon" onClick={handleAddPartToList}>
-                <PlusCircle className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+      <div className="border-t pt-4 space-y-4">
+        <h3 className="font-bold text-lg">Peças Utilizadas</h3>
+        
+        <div className="flex flex-col sm:flex-row gap-3 items-end">
+          <div className="flex-1 w-full space-y-2">
+            <Label>Buscar Peça</Label>
+            <PartSearchInput
+              onSearch={setSearchQuery}
+              searchResults={searchResults}
+              onSelectPart={setSelectedPart}
+              searchQuery={searchQuery}
+              isLoading={isLoadingParts}
+            />
+          </div>
+          <div className="w-24 space-y-2">
+            <Label>Qtd</Label>
+            <Input 
+              type="number" 
+              value={partQuantity} 
+              onChange={e => setPartQuantity(Number(e.target.value))} 
+              min={1} 
+            />
+          </div>
+          <Button 
+            type="button" 
+            variant="secondary" 
+            onClick={handleAddPart}
+            disabled={!selectedPart}
+          >
+            <PlusCircle className="h-4 w-4 mr-2" /> Add
+          </Button>
         </div>
 
-        {addedParts.length > 0 && (
-          <div className="border rounded-lg overflow-hidden">
+        {selectedPart && (
+          <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
+            Selecionado: <strong>{selectedPart.codigo}</strong> - {selectedPart.descricao}
+          </div>
+        )}
+
+        {parts.length > 0 && (
+          <div className="border rounded-md overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -254,16 +198,16 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {addedParts.map((p, i) => (
+                {parts.map((p, i) => (
                   <TableRow key={i}>
-                    <TableCell className="py-2">
-                      <p className="font-medium text-xs">{p.codigo_peca}</p>
-                      <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{p.descricao}</p>
+                    <TableCell className="text-sm">
+                      <div className="font-medium">{p.codigo_peca}</div>
+                      <div className="text-xs text-muted-foreground truncate max-w-[200px]">{p.descricao}</div>
                     </TableCell>
                     <TableCell className="text-center">{p.quantidade}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemovePartFromList(i)}>
-                        <XCircle className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemovePart(i)}>
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -275,11 +219,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       </div>
 
       <div className="flex gap-3 pt-4">
-        <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
-          Cancelar
+        <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>
+          <XCircle className="h-4 w-4 mr-2" /> Cancelar
         </Button>
-        <Button type="submit" className="flex-1 gap-2">
-          <Save className="h-4 w-4" /> Salvar Ordem
+        <Button type="submit" className="flex-1">
+          <Save className="h-4 w-4 mr-2" /> Salvar OS
         </Button>
       </div>
     </form>
