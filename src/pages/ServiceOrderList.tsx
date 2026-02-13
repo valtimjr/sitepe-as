@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom'; // Adicionado import do Link
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import ServiceOrderForm from '@/components/ServiceOrderForm';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
@@ -112,8 +113,8 @@ const ServiceOrderList: React.FC = () => {
     const title = `Ordens de Serviço - ${format(selectedDate, 'dd/MM/yyyy')}`;
     await lazyGenerateServiceOrderPdf(osList.map(os => ({
       ...os,
-      createdAt: selectedDate, // Necessário para o gerador de PDF antigo se basear
-      parts: os.parts // Garante que as peças estão no formato correto
+      createdAt: selectedDate,
+      parts: os.parts
     })), title);
     showSuccess('PDF gerado com sucesso!');
   };
