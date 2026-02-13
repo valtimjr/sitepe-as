@@ -112,22 +112,33 @@ const ServiceOrderList: React.FC = () => {
     let text = `Ordens de Serviço - ${format(selectedDate, 'dd/MM/yyyy')}\n\n`;
 
     osList.forEach((group, idx) => {
-      text += `AF: ${group.af}${group.os ? ` (OS: ${group.os})` : ''}\n`;
+      // Linha AF e OS: AF: 15042 OS: 15042
+      text += `AF: ${group.af}${group.os ? ` OS: ${group.os}` : ''}\n`;
+      
+      // Linha Horário: 07:00-11:00
       if (group.hora_inicio || group.hora_final) {
-        text += `Horário: ${group.hora_inicio || '??'} - ${group.hora_final || '??'}\n`;
+        text += `${group.hora_inicio || '??'}-${group.hora_final || '??'}\n`;
       }
+      
+      // Linha Serviço: teste
       if (group.servico_executado) {
-        text += `Serviço: ${group.servico_executado}\n`;
+        text += `${group.servico_executado}\n`;
       }
       
       if (group.parts && group.parts.length > 0) {
         text += `Peças:\n`;
         group.parts.forEach(p => {
-          text += `- ${p.quantidade}x ${p.codigo_peca} ${p.descricao}\n`;
+          // Formato solicitado: 
+          // [qtd] - [descrição]
+          // Cód: [código]
+          text += `${p.quantidade} - ${p.descricao}\n`;
+          if (p.codigo_peca) {
+            text += `Cód: ${p.codigo_peca}\n`;
+          }
         });
       }
       
-      if (idx < osList.length - 1) text += `\n---\n\n`;
+      if (idx < osList.length - 1) text += `\n`;
     });
 
     return text.trim();
