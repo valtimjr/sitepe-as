@@ -210,7 +210,7 @@ const ServiceOrderList: React.FC = () => {
           </Alert>
         )}
 
-        {/* Navegação por Data */}
+        {/* Navegação por Data + Ordenação */}
         <Card className="bg-muted/30 border-none shadow-none">
           <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
@@ -235,21 +235,22 @@ const ServiceOrderList: React.FC = () => {
                 <ClipboardList className="h-4 w-4" /> Nova OS
               </Button>
 
-              <div className="flex gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
-                      className={cn(sortDirection === 'desc' && "bg-primary text-white border-primary")}
-                    >
-                      <ArrowUpDown className={cn("h-4 w-4", sortDirection === 'desc' && "rotate-180 transition-transform")} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Inverter Ordem (Início às 07:00)</TooltipContent>
-                </Tooltip>
+              {/* Botão de Ordenação no Cabeçalho */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                    className={cn(sortDirection === 'desc' && "bg-primary text-white border-primary")}
+                  >
+                    <ArrowUpDown className={cn("h-4 w-4", sortDirection === 'desc' && "rotate-180 transition-transform")} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{sortDirection === 'asc' ? 'Ordem crescente (07:00 →)' : 'Ordem decrescente (→ 07:00)'}</TooltipContent>
+              </Tooltip>
 
+              <div className="flex gap-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button 
