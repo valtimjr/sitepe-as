@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom'; // Adicionado import do Link
+import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import ServiceOrderForm from '@/components/ServiceOrderForm';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
@@ -16,6 +16,7 @@ import { useSession } from '@/components/SessionContextProvider';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,6 +106,54 @@ const ServiceOrderList: React.FC = () => {
     }
   };
 
+  const formatListText = () => {
+    if (osList.length === 0) return '';
+
+    let text = `Ordens de Serviço - ${format(selectedDate, 'dd/MM/yyyy')}\n\n`;
+
+    osList.forEach((group, idx) => {
+      text += `AF: ${group.af}${group.os ? ` (OS: ${group.os})` : ''}\n`;
+      if (group.hora_inicio || group.hora_final) {
+        text += `Horário: ${group.hora_inicio || '??'} - ${group.hora_final || '??'}\n`;
+      }
+      if (group.servico_executado) {
+        text += `Serviço: ${group.servico_executado}\n`;
+      }
+      
+      if (group.parts && group.parts.length > 0) {
+        text += `Peças:\n`;
+        group.parts.forEach(p => {
+          text += `- ${p.quantidade}x ${p.codigo_peca} ${p.descricao}\n`;
+        });
+      }
+      
+      if (idx < osList.length - 1) text += `\n---\n\n`;
+    });
+
+    return text.trim();
+  };
+
+  const handleCopyList = async () => {
+    const textToCopy = formatListText();
+    if (!textToCopy) return;
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      showSuccess('Ordens copiadas para a área de transferência!');
+    } catch (err) {
+      showError('Falha ao copiar.');
+    }
+  };
+
+  const handleShareOnWhatsApp = () => {
+    const textToShare = formatListText();
+    if (!textToShare) return;
+
+    const encodedText = encodeURIComponent(textToShare);
+    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+    showSuccess('Pronto para compartilhar no WhatsApp!');
+  };
+
   const handleExportPdf = async () => {
     if (osList.length === 0) {
       showError('Nenhuma OS para exportar neste dia.');
@@ -158,34 +207,75 @@ const ServiceOrderList: React.FC = () => {
               </Button>
             </div>
 
-            <div className="flex gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
               <Button className="flex-1 sm:flex-none gap-2" onClick={() => handleOpenForm()}>
                 <ClipboardList className="h-4 w-4" /> Nova OS
               </Button>
-              
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="icon" disabled={osList.length === 0}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Limpar dia inteiro?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Isso excluirá todas as ordens de serviço do dia {format(selectedDate, 'dd/MM/yyyy')}.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleClearDay}>Limpar Tudo</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              
-              <Button variant="outline" size="icon" onClick={handleExportPdf} disabled={osList.length === 0}>
-                <FileDown className="h-4 w-4" />
-              </Button>
+
+              <div className="flex gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={handleCopyList} 
+                      disabled={osList.length === 0}
+                      className="bg-white text-primary border-primary hover:bg-primary hover:text-white"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Copiar Ordens</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      onClick={handleShareOnWhatsApp} 
+                      disabled={osList.length === 0}
+                      className="h-10 w-10 p-0 rounded-full"
+                    >
+                      <img src="/icons/whatsapp.png" alt="WhatsApp" className="h-10 w-10" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Compartilhar no WhatsApp</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" onClick={handleExportPdf} disabled={osList.length === 0}>
+                      <FileDown className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Exportar PDF</TooltipContent>
+                </Tooltip>
+
+                <AlertDialog>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="icon" disabled={osList.length === 0}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Limpar Dia</TooltipContent>
+                  </Tooltip>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Limpar dia inteiro?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Isso excluirá todas as ordens de serviço do dia {format(selectedDate, 'dd/MM/yyyy')}.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleClearDay}>Limpar Tudo</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           </CardContent>
         </Card>
