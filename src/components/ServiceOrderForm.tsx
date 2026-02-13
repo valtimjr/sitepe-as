@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
 import { Part, searchParts as searchPartsService, getAfsFromService, Af } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
@@ -29,12 +28,16 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
   const [servicoExecutado, setServicoExecutado] = useState('');
   const [parts, setParts] = useState<{codigo_peca: string, descricao: string, quantidade: number}[]>([]);
   
-  // Estados para busca de peças
+  // Estados para busca e edição de peças
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(false);
-  const [selectedPart, setSelectedPart] = useState<Part | null>(null);
+  
+  // Novos estados para edição manual da peça antes de adicionar
+  const [partCode, setPartCode] = useState('');
+  const [partDescription, setPartDescription] = useState('');
   const [partQuantity, setPartQuantity] = useState(1);
+  
   const [availableAfs, setAvailableAfs] = useState<Af[]>([]);
 
   useEffect(() => {
@@ -68,15 +71,28 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  const handleAddPart = () => {
-    if (!selectedPart) return;
+  const handleSelectPartFromSearch = (part: Part) => {
+    setPartCode(part.codigo);
+    setPartDescription(part.descricao);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleAddPartToList = () => {
+    if (!partCode.trim() && !partDescription.trim()) {
+      showError('Informe ao menos o código ou a descrição da peça.');
+      return;
+    }
+
     setParts(prev => [...prev, {
-      codigo_peca: selectedPart.codigo,
-      descricao: selectedPart.descricao,
+      codigo_peca: partCode.trim(),
+      descricao: partDescription.trim(),
       quantidade: partQuantity
     }]);
-    setSelectedPart(null);
-    setSearchQuery('');
+
+    // Limpa os campos após adicionar
+    setPartCode('');
+    setPartDescription('');
     setPartQuantity(1);
     showSuccess('Peça adicionada à lista.');
   };
@@ -151,41 +167,57 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
       <div className="border-t pt-4 space-y-4">
         <h3 className="font-bold text-lg">Peças Utilizadas</h3>
         
-        <div className="flex flex-col sm:flex-row gap-3 items-end">
-          <div className="flex-1 w-full space-y-2">
-            <Label>Buscar Peça</Label>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label>Buscar Peça no Banco</Label>
             <PartSearchInput
               onSearch={setSearchQuery}
               searchResults={searchResults}
-              onSelectPart={setSelectedPart}
+              onSelectPart={handleSelectPartFromSearch}
               searchQuery={searchQuery}
               isLoading={isLoadingParts}
             />
           </div>
-          <div className="w-24 space-y-2">
-            <Label>Qtd</Label>
-            <Input 
-              type="number" 
-              value={partQuantity} 
-              onChange={e => setPartQuantity(Number(e.target.value))} 
-              min={1} 
-            />
-          </div>
-          <Button 
-            type="button" 
-            variant="secondary" 
-            onClick={handleAddPart}
-            disabled={!selectedPart}
-          >
-            <PlusCircle className="h-4 w-4 mr-2" /> Add
-          </Button>
-        </div>
 
-        {selectedPart && (
-          <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-            Selecionado: <strong>{selectedPart.codigo}</strong> - {selectedPart.descricao}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+            <div className="sm:col-span-4 space-y-1">
+              <Label className="text-xs">Código</Label>
+              <Input 
+                value={partCode} 
+                onChange={e => setPartCode(e.target.value)} 
+                placeholder="Cód. Peça" 
+              />
+            </div>
+            <div className="sm:col-span-5 space-y-1">
+              <Label className="text-xs">Descrição</Label>
+              <Input 
+                value={partDescription} 
+                onChange={e => setPartDescription(e.target.value)} 
+                placeholder="Descrição" 
+              />
+            </div>
+            <div className="sm:col-span-2 space-y-1">
+              <Label className="text-xs">Qtd</Label>
+              <Input 
+                type="number" 
+                value={partQuantity} 
+                onChange={e => setPartQuantity(Number(e.target.value))} 
+                min={1} 
+              />
+            </div>
+            <div className="sm:col-span-1">
+              <Button 
+                type="button" 
+                variant="secondary" 
+                size="icon"
+                onClick={handleAddPartToList}
+                className="w-full"
+              >
+                <PlusCircle className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
-        )}
+        </div>
 
         {parts.length > 0 && (
           <div className="border rounded-md overflow-hidden">
@@ -201,8 +233,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
                 {parts.map((p, i) => (
                   <TableRow key={i}>
                     <TableCell className="text-sm">
-                      <div className="font-medium">{p.codigo_peca}</div>
-                      <div className="text-xs text-muted-foreground truncate max-w-[200px]">{p.descricao}</div>
+                      <div className="font-medium">{p.codigo_peca || 'S/ Cód'}</div>
+                      <div className="text-xs text-muted-foreground truncate max-w-[200px]">{p.descricao || 'S/ Desc'}</div>
                     </TableCell>
                     <TableCell className="text-center">{p.quantidade}</TableCell>
                     <TableCell>
