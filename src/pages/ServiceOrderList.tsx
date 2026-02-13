@@ -6,7 +6,7 @@ import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
 import { getDailyServiceOrders, ServiceOrderData, saveDailyServiceOrder, clearDailyServiceOrders } from '@/services/partListService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ClipboardList, ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, Trash2, Copy, Share2, FileDown } from 'lucide-react';
+import { ClipboardList, ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, Trash2, Copy, Share2, FileDown, ArrowUpDown } from 'lucide-react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +39,7 @@ const ServiceOrderList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingOs, setEditingOs] = useState<ServiceOrderData | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const dateStr = useMemo(() => format(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
 
@@ -60,6 +62,26 @@ const ServiceOrderList: React.FC = () => {
   useEffect(() => {
     loadDailyOrders();
   }, [loadDailyOrders]);
+
+  // Lógica de ordenação: dia começa às 07:00
+  const sortedOsList = useMemo(() => {
+    const getSortValue = (time?: string) => {
+      if (!time) return sortDirection === 'asc' ? Infinity : -Infinity;
+      
+      const [h, m] = time.split(':').map(Number);
+      // Ajusta as horas para que 07:00 seja o ponto 0
+      let adjustedH = h - 7;
+      if (adjustedH < 0) adjustedH += 24;
+      
+      return adjustedH * 60 + m;
+    };
+
+    return [...osList].sort((a, b) => {
+      const valA = getSortValue(a.hora_inicio);
+      const valB = getSortValue(b.hora_inicio);
+      return sortDirection === 'asc' ? valA - valB : valB - valA;
+    });
+  }, [osList, sortDirection]);
 
   const handleDateChange = (days: number) => {
     setSelectedDate(prev => addDays(prev, days));
@@ -107,38 +129,28 @@ const ServiceOrderList: React.FC = () => {
   };
 
   const formatListText = () => {
-    if (osList.length === 0) return '';
+    if (sortedOsList.length === 0) return '';
 
     let text = `Ordens de Serviço - ${format(selectedDate, 'dd/MM/yyyy')}\n\n`;
 
-    osList.forEach((group, idx) => {
-      // Linha AF e OS: AF: 15042 OS: 15042
+    sortedOsList.forEach((group, idx) => {
       text += `AF: ${group.af}${group.os ? ` OS: ${group.os}` : ''}\n`;
-      
-      // Linha Horário: 07:00-11:00
       if (group.hora_inicio || group.hora_final) {
         text += `${group.hora_inicio || '??'}-${group.hora_final || '??'}\n`;
       }
-      
-      // Linha Serviço: teste
       if (group.servico_executado) {
         text += `${group.servico_executado}\n`;
       }
-      
       if (group.parts && group.parts.length > 0) {
         text += `Peças:\n`;
         group.parts.forEach(p => {
-          // Formato solicitado: 
-          // [qtd] - [descrição]
-          // Cód: [código]
           text += `${p.quantidade} - ${p.descricao}\n`;
           if (p.codigo_peca) {
             text += `Cód: ${p.codigo_peca}\n`;
           }
         });
       }
-      
-      if (idx < osList.length - 1) text += `\n`;
+      if (idx < sortedOsList.length - 1) text += `\n`;
     });
 
     return text.trim();
@@ -166,12 +178,12 @@ const ServiceOrderList: React.FC = () => {
   };
 
   const handleExportPdf = async () => {
-    if (osList.length === 0) {
+    if (sortedOsList.length === 0) {
       showError('Nenhuma OS para exportar neste dia.');
       return;
     }
     const title = `Ordens de Serviço - ${format(selectedDate, 'dd/MM/yyyy')}`;
-    await lazyGenerateServiceOrderPdf(osList.map(os => ({
+    await lazyGenerateServiceOrderPdf(sortedOsList.map(os => ({
       ...os,
       createdAt: selectedDate,
       parts: os.parts
@@ -224,6 +236,20 @@ const ServiceOrderList: React.FC = () => {
               </Button>
 
               <div className="flex gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                      className={cn(sortDirection === 'desc' && "bg-primary text-white border-primary")}
+                    >
+                      <ArrowUpDown className={cn("h-4 w-4", sortDirection === 'desc' && "rotate-180 transition-transform")} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Inverter Ordem (Início às 07:00)</TooltipContent>
+                </Tooltip>
+
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button 
@@ -295,7 +321,7 @@ const ServiceOrderList: React.FC = () => {
           <div className="flex justify-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
-        ) : osList.length === 0 ? (
+        ) : sortedOsList.length === 0 ? (
           <Card className="border-dashed py-16">
             <CardContent className="flex flex-col items-center text-muted-foreground">
               <CalendarIcon className="h-12 w-12 mb-4 opacity-20" />
@@ -305,7 +331,7 @@ const ServiceOrderList: React.FC = () => {
           </Card>
         ) : (
           <div className="space-y-4">
-            {osList.map(os => (
+            {sortedOsList.map(os => (
               <ServiceOrderListDisplay 
                 key={os.id}
                 group={os}
