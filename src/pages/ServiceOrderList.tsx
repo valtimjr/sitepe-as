@@ -6,7 +6,7 @@ import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
 import { getDailyServiceOrders, ServiceOrderData, saveDailyServiceOrder, clearDailyServiceOrders } from '@/services/partListService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ClipboardList, ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, Trash2, Copy, Share2, FileDown, ArrowUpDown } from 'lucide-react';
+import { ClipboardList, ChevronLeft, ChevronRight, CalendarIcon, AlertCircle, Trash2, Copy, Share2, FileDown, ArrowUpDown } from 'lucide-react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
@@ -35,8 +35,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
-import { useState } from 'react';
 
 const ServiceOrderList: React.FC = () => {
   const { user, session } = useSession();
