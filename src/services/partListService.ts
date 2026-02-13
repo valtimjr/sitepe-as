@@ -8,12 +8,20 @@ import {
   updateLocalPart,
   bulkPutLocalAfs,
   getLocalAfs,
+  Part as LocalPart,
   SimplePartItem as LocalSimplePartItem,
+  ServiceOrderItem as LocalServiceOrderItem,
+  Af as LocalAf,
   addLocalSimplePartItem,
   getLocalSimplePartsListItems,
   updateLocalSimplePartItem,
   deleteLocalSimplePartItem,
   clearLocalSimplePartsList,
+  addLocalServiceOrderItem,
+  getLocalServiceOrderItems,
+  updateLocalServiceOrderItem,
+  deleteLocalServiceOrderItem,
+  clearLocalServiceOrderItems,
   isOnline,
   getLocalMonthlyApontamento,
   putLocalMonthlyApontamento, 
@@ -23,104 +31,76 @@ import {
   deleteLocalDailyServiceOrder
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
-import { DailyApontamento, MonthlyApontamento, Part as SupabasePart, DailyServiceOrder, ServiceOrderData, Af as SupabaseAf } from '@/types/supabase';
+import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, DailyServiceOrder, ServiceOrderData, Af as SupabaseAf } from '@/types/supabase';
 
 export interface Part extends SupabasePart {}
 export interface SimplePartItem extends LocalSimplePartItem {}
+export interface ServiceOrderItem extends LocalServiceOrderItem {}
 export interface Af extends SupabaseAf {}
 export type Apontamento = DailyApontamento;
 
-// Re-exportando a função do banco local com o nome esperado pelo componente
 export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;
 
-// ID fixo para salvar as OS locais de visitantes
-const GUEST_USER_ID = "00000000-0000-0000-0000-000000000000";
-
-// --- Daily Service Orders Service ---
-
-export const getDailyServiceOrders = async (userId: string | undefined, date: string): Promise<ServiceOrderData[]> => {
-  const online = await isOnline();
-  const effectiveUserId = userId || GUEST_USER_ID;
-
-  if (userId && online) {
-    const { data, error } = await supabase
-      .from('daily_service_orders')
-      .select('os_list')
-      .eq('user_id', userId)
-      .eq('date', date)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('[getDailyServiceOrders] Supabase Error:', error);
-    }
-
-    if (data) {
-      // Atualiza cache local
-      await putLocalDailyServiceOrder({
-        id: uuidv4(),
-        user_id: userId,
-        date,
-        user_badge: null,
-        user_name: null,
-        os_list: data.os_list as ServiceOrderData[]
-      });
-      return data.os_list as ServiceOrderData[];
-    }
-  }
-
-  // Fallback para cache local ou modo visitante
-  const localData = await getLocalDailyServiceOrder(effectiveUserId, date);
-  return localData?.os_list || [];
+const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
+  const { id, user_id, ...rest } = ap as any;
+  return rest;
 };
 
-export const saveDailyServiceOrder = async (userId: string | undefined, date: string, osList: ServiceOrderData[]): Promise<void> => {
+// --- Daily Service Orders Service (Supabase Sync) ---
+
+export const syncDailyServiceOrderFromSupabase = async (userId: string, date: string): Promise<DailyServiceOrder | undefined> => {
+  const { data, error } = await supabase
+    .from('daily_service_orders')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('date', date)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error(`[syncDailyServiceOrderFromSupabase] Error:`, error);
+    return undefined;
+  }
+
+  if (data) {
+    const remoteOrder = data as DailyServiceOrder;
+    await putLocalDailyServiceOrder(remoteOrder);
+    return remoteOrder;
+  }
+  return undefined;
+};
+
+export const saveDailyServiceOrder = async (order: DailyServiceOrder): Promise<void> => {
   const online = await isOnline();
-  const effectiveUserId = userId || GUEST_USER_ID;
-
-  const dailyOrder: DailyServiceOrder = {
-    id: uuidv4(),
-    user_id: effectiveUserId,
-    date,
-    user_badge: null,
-    user_name: null,
-    os_list: osList,
+  
+  // Salva localmente primeiro
+  await putLocalDailyServiceOrder({
+    ...order,
     updated_at: new Date().toISOString()
-  };
+  });
 
-  // 1. Salva localmente (Sempre)
-  await putLocalDailyServiceOrder(dailyOrder);
-
-  // 2. Tenta salvar no Supabase se logado
-  if (userId && online) {
+  if (online) {
     const { error } = await supabase
       .from('daily_service_orders')
-      .upsert({
-        user_id: userId,
-        date,
-        os_list: osList,
-        updated_at: dailyOrder.updated_at
-      }, { onConflict: 'user_id,date' });
+      .upsert(order, { onConflict: 'user_id,date' });
 
     if (error) {
       console.error('[saveDailyServiceOrder] Supabase Error:', error);
-      throw new Error(`Erro ao salvar no servidor: ${error.message}`);
+      throw new Error(`Erro ao sincronizar com servidor: ${error.message}`);
     }
   }
 };
 
-export const clearDailyServiceOrders = async (userId: string | undefined, date: string): Promise<void> => {
+export const getDailyServiceOrdersByDate = async (userId: string, date: string): Promise<ServiceOrderData[]> => {
   const online = await isOnline();
-  const effectiveUserId = userId || GUEST_USER_ID;
+  let dailyOrder: DailyServiceOrder | undefined;
 
-  await deleteLocalDailyServiceOrder(effectiveUserId, date);
-
-  if (userId && online) {
-    await supabase
-      .from('daily_service_orders')
-      .delete()
-      .eq('user_id', userId)
-      .eq('date', date);
+  if (online) {
+    dailyOrder = await syncDailyServiceOrderFromSupabase(userId, date);
+  } else {
+    dailyOrder = await getLocalDailyServiceOrder(userId, date);
   }
+
+  return dailyOrder?.os_list || [];
 };
 
 // --- Parts Management ---
@@ -294,16 +274,44 @@ export const clearSimplePartsList = async (): Promise<void> => {
   await clearLocalSimplePartsList();
 };
 
+// --- Legacy Service Orders ---
+
+export const getServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
+  return await getLocalServiceOrderItems();
+};
+
+export const addServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
+  return await addLocalServiceOrderItem(item, customCreatedAt);
+};
+
+export const updateServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
+  await updateLocalServiceOrderItem(updatedItem);
+};
+
+export const deleteServiceOrderItem = async (id: string): Promise<void> => {
+  await deleteLocalServiceOrderItem(id);
+};
+
+export const clearServiceOrderList = async (): Promise<void> => {
+  await clearLocalServiceOrderItems();
+};
+
+export const getLocalUniqueAfs = async (): Promise<string[]> => {
+  const afs = await localDb.afs.toArray();
+  return afs.map(af => af.af_number).sort();
+};
+
 // --- Apontamentos ---
 
 export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
+  const local = await getLocalMonthlyApontamento(userId, monthYear);
   const { data } = await supabase.from('monthly_apontamentos').select('*').eq('user_id', userId).eq('month_year', monthYear).single();
   if (data) {
-    const remote = data as MonthlyApontamento;
+    const remote = { ...data, data: (data.data as DailyApontamento[]).map(cleanDailyApontamento) };
     await putLocalMonthlyApontamento(remote);
     return remote;
   }
-  return await getLocalMonthlyApontamento(userId, monthYear);
+  return local;
 };
 
 export const syncMonthlyApontamentoToSupabase = async (apontamento: MonthlyApontamento): Promise<MonthlyApontamento> => {

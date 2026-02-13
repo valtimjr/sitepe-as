@@ -1,326 +1,143 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import ServiceOrderForm from '@/components/ServiceOrderForm';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
-import { getDailyServiceOrders, ServiceOrderData, saveDailyServiceOrder, clearDailyServiceOrders } from '@/services/partListService';
+import { getServiceOrderItems, ServiceOrderItem } from '@/services/partListService'; // Usar getServiceOrderItems e ServiceOrderItem
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ClipboardList, ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, Trash2, Copy, Share2, FileDown } from 'lucide-react';
-import { format, addDays, subDays, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useSession } from '@/components/SessionContextProvider';
-import { Input } from '@/components/ui/input';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils';
+import { ArrowLeft, FilePlus, ClipboardList, Clock, ArrowUpNarrowWide, ArrowDownNarrowWide } from 'lucide-react';
+import { showSuccess, showError } from '@/utils/toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Importar Sheet
+// Dialog não será mais usado para o formulário principal
+// import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; 
+import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
+
+type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
+
+interface ServiceOrderDetails {
+  af: string;
+  os?: number;
+  hora_inicio?: string;
+  hora_final?: string;
+  servico_executado?: string;
+  createdAt?: Date; // createdAt é opcional aqui, mas será obrigatório no ServiceOrderGroupDetails
+  mode?: FormMode;
+}
+
+type SortOrder = 'manual' | 'asc' | 'desc';
+
+interface ServiceOrderListProps {
+  onItemAdded: () => void;
+  onNewServiceOrder: () => void;
+  listItems: ServiceOrderItem[]; // Ainda necessário para a lógica de item em branco
+  onClose?: () => void; // Para fechar o Sheet/Dialog
+  
+  mode: FormMode; // Modo explícito do formulário
+  initialSoData?: ServiceOrderDetails | null; // Dados da OS (para criar nova, editar detalhes, adicionar peça)
+  initialPartData?: ServiceOrderItem | null; // Dados da peça (apenas para editar peça)
+}
 
 const ServiceOrderList: React.FC = () => {
-  const { user, session } = useSession();
-  const isMobile = useIsMobile();
-  
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [osList, setOsList] = useState<ServiceOrderData[]>([]);
+  const [listItems, setListItems] = useState<ServiceOrderItem[]>([]); // Agora usa ServiceOrderItem
   const [isLoading, setIsLoading] = useState(true);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingOs, setEditingOs] = useState<ServiceOrderData | null>(null);
+  const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc'); // Alterado para 'asc' como padrão
+  const [isFormOpen, setIsFormOpen] = useState(false); // Novo estado para controlar a abertura do formulário principal
 
-  const dateStr = useMemo(() => format(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
+  const isMobile = useIsMobile(); // Hook para detectar mobile
 
   useEffect(() => {
     document.title = "Ordens de Serviço - AutoBoard";
   }, []);
 
-  const loadDailyOrders = useCallback(async () => {
+  const loadListItems = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await getDailyServiceOrders(user?.id, dateStr);
-      setOsList(data);
+      const items = await getServiceOrderItems(); // Chama a nova função
+      setListItems(items);
     } catch (error) {
-      showError('Erro ao carregar ordens do dia.');
+      showError('Erro ao carregar a lista de ordens de serviço.');
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, dateStr]);
+  }, []);
 
   useEffect(() => {
-    loadDailyOrders();
-  }, [loadDailyOrders]);
+    loadListItems();
+  }, [loadListItems]);
 
-  const handleDateChange = (days: number) => {
-    setSelectedDate(prev => addDays(prev, days));
-  };
+  const handleEditServiceOrder = useCallback((details: ServiceOrderDetails) => {
+    setEditingServiceOrder(details);
+    setIsFormOpen(true); // Abre o formulário
+  }, [setEditingServiceOrder, setIsFormOpen]);
 
-  const handleOpenForm = (os?: ServiceOrderData) => {
-    setEditingOs(os || null);
-    setIsFormOpen(true);
-  };
+  const handleNewServiceOrder = useCallback(() => {
+    setEditingServiceOrder(null); // Garante que é uma nova OS
+    setIsFormOpen(true); // Abre o formulário
+    handleEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' });
+  }, [handleEditServiceOrder, setIsFormOpen]);
 
-  const handleSaveOS = async (updatedOs: ServiceOrderData) => {
-    const newList = editingOs 
-      ? osList.map(o => o.id === editingOs.id ? updatedOs : o)
-      : [...osList, updatedOs];
-    
-    try {
-      await saveDailyServiceOrder(user?.id, dateStr, newList);
-      setOsList(newList);
-      setIsFormOpen(false);
-      showSuccess(editingOs ? 'OS atualizada!' : 'OS adicionada!');
-    } catch (error) {
-      showError('Erro ao salvar as ordens.');
-    }
-  };
+  const handleFormClose = useCallback(() => {
+    setIsFormOpen(false);
+    setEditingServiceOrder(null); // Limpa o item de edição ao fechar
+    loadListItems(); // Recarrega a lista para refletir as alterações
+  }, [setIsFormOpen, setEditingServiceOrder, loadListItems]);
 
-  const handleDeleteOS = async (id: string) => {
-    const newList = osList.filter(o => o.id !== id);
-    try {
-      await saveDailyServiceOrder(user?.id, dateStr, newList);
-      setOsList(newList);
-      showSuccess('OS removida.');
-    } catch (error) {
-      showError('Erro ao remover OS.');
-    }
-  };
+  const handleSortChange = useCallback((order: SortOrder) => {
+    setSortOrder(order);
+  }, []);
 
-  const handleClearDay = async () => {
-    try {
-      await clearDailyServiceOrders(user?.id, dateStr);
-      setOsList([]);
-      showSuccess('Todas as ordens do dia foram removidas.');
-    } catch (error) {
-      showError('Erro ao limpar o dia.');
-    }
-  };
-
-  const formatListText = () => {
-    if (osList.length === 0) return '';
-
-    let text = `Ordens de Serviço - ${format(selectedDate, 'dd/MM/yyyy')}\n\n`;
-
-    osList.forEach((group, idx) => {
-      text += `AF: ${group.af}${group.os ? ` (OS: ${group.os})` : ''}\n`;
-      if (group.hora_inicio || group.hora_final) {
-        text += `Horário: ${group.hora_inicio || '??'} - ${group.hora_final || '??'}\n`;
-      }
-      if (group.servico_executado) {
-        text += `Serviço: ${group.servico_executado}\n`;
-      }
-      
-      if (group.parts && group.parts.length > 0) {
-        text += `Peças:\n`;
-        group.parts.forEach(p => {
-          text += `- ${p.quantidade}x ${p.codigo_peca} ${p.descricao}\n`;
-        });
-      }
-      
-      if (idx < osList.length - 1) text += `\n---\n\n`;
-    });
-
-    return text.trim();
-  };
-
-  const handleCopyList = async () => {
-    const textToCopy = formatListText();
-    if (!textToCopy) return;
-
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-      showSuccess('Ordens copiadas para a área de transferência!');
-    } catch (err) {
-      showError('Falha ao copiar.');
-    }
-  };
-
-  const handleShareOnWhatsApp = () => {
-    const textToShare = formatListText();
-    if (!textToShare) return;
-
-    const encodedText = encodeURIComponent(textToShare);
-    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
-    showSuccess('Pronto para compartilhar no WhatsApp!');
-  };
-
-  const handleExportPdf = async () => {
-    if (osList.length === 0) {
-      showError('Nenhuma OS para exportar neste dia.');
-      return;
-    }
-    const title = `Ordens de Serviço - ${format(selectedDate, 'dd/MM/yyyy')}`;
-    await lazyGenerateServiceOrderPdf(osList.map(os => ({
-      ...os,
-      createdAt: selectedDate,
-      parts: os.parts
-    })), title);
-    showSuccess('PDF gerado com sucesso!');
-  };
+  // Usar Sheet para ambos mobile e desktop
+  const ModalComponent = Sheet;
+  const ModalContentComponent = SheetContent;
+  const ModalHeaderComponent = SheetHeader;
+  const ModalTitleComponent = SheetTitle;
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <div className="w-full max-w-4xl space-y-6">
-        <h1 className="text-4xl font-extrabold mt-8 text-center text-primary flex items-center justify-center gap-3">
-          <ClipboardList className="h-10 w-10" />
-          Ordens de Serviço
-        </h1>
-
-        {!session && (
-          <Alert variant="default" className="bg-amber-50 border-amber-200 dark:bg-amber-950/20">
-            <AlertCircle className="h-4 w-4 text-amber-600" />
-            <AlertTitle>Modo Visitante</AlertTitle>
-            <AlertDescription>
-              Você não está logado. Suas ordens serão salvas apenas neste dispositivo. 
-              <Link to="/login" className="font-bold underline ml-1 text-primary">Faça login</Link> para salvar na nuvem.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Navegação por Data */}
-        <Card className="bg-muted/30 border-none shadow-none">
-          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={() => handleDateChange(-1)}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex flex-col items-center min-w-[150px]">
-                <span className="text-sm font-medium text-muted-foreground uppercase">
-                  {format(selectedDate, 'EEEE', { locale: ptBR })}
-                </span>
-                <span className="text-xl font-bold">
-                  {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
-                </span>
-              </div>
-              <Button variant="outline" size="icon" onClick={() => handleDateChange(1)}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
-              <Button className="flex-1 sm:flex-none gap-2" onClick={() => handleOpenForm()}>
-                <ClipboardList className="h-4 w-4" /> Nova OS
-              </Button>
-
-              <div className="flex gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={handleCopyList} 
-                      disabled={osList.length === 0}
-                      className="bg-white text-primary border-primary hover:bg-primary hover:text-white"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Copiar Ordens</TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      onClick={handleShareOnWhatsApp} 
-                      disabled={osList.length === 0}
-                      className="h-10 w-10 p-0 rounded-full"
-                    >
-                      <img src="/icons/whatsapp.png" alt="WhatsApp" className="h-10 w-10" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Compartilhar no WhatsApp</TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={handleExportPdf} disabled={osList.length === 0}>
-                      <FileDown className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Exportar PDF</TooltipContent>
-                </Tooltip>
-
-                <AlertDialog>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="icon" disabled={osList.length === 0}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>Limpar Dia</TooltipContent>
-                  </Tooltip>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Limpar dia inteiro?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Isso excluirá todas as ordens de serviço do dia {format(selectedDate, 'dd/MM/yyyy')}.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleClearDay}>Limpar Tudo</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {isLoading ? (
-          <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          </div>
-        ) : osList.length === 0 ? (
-          <Card className="border-dashed py-16">
-            <CardContent className="flex flex-col items-center text-muted-foreground">
-              <CalendarIcon className="h-12 w-12 mb-4 opacity-20" />
-              <p>Nenhuma ordem de serviço para esta data.</p>
-              <Button variant="link" onClick={() => handleOpenForm()}>Começar agora</Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {osList.map(os => (
-              <ServiceOrderListDisplay 
-                key={os.id}
-                group={os}
-                onEdit={() => handleOpenForm(os)}
-                onDelete={() => handleDeleteOS(os.id)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{editingOs ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}</SheetTitle>
-          </SheetHeader>
-          <div className="py-6">
+      <h1 className="text-4xl font-extrabold mb-4 mt-8 text-center text-primary dark:text-primary flex items-center justify-center gap-3">
+        <ClipboardList className="h-8 w-8 text-primary" />
+        Lista de Ordens de Serviço
+      </h1>
+      
+      {/* O formulário principal agora é um modal/sheet */}
+      <ModalComponent open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <ModalContentComponent 
+          side="right" // Sempre da direita para a esquerda
+          className={isMobile ? "w-full sm:max-w-lg overflow-y-auto" : "sm:max-w-lg md:max-w-xl overflow-y-auto"} // Ajuste de largura para desktop
+        >
+          <ModalHeaderComponent>
+            <ModalTitleComponent>
+              {editingServiceOrder?.mode === 'edit-so-details' ? 'Editar Detalhes da Ordem de Serviço' :
+               editingServiceOrder?.mode === 'add-part-to-existing-so' ? 'Adicionar Peça à Ordem de Serviço' :
+               'Criar Nova Ordem de Serviço'}
+            </ModalTitleComponent>
+          </ModalHeaderComponent>
+          <div className="py-4">
             <ServiceOrderForm 
-              initialData={editingOs}
-              onSave={handleSaveOS}
-              onCancel={() => setIsFormOpen(false)}
+              onItemAdded={handleFormClose} 
+              onNewServiceOrder={handleNewServiceOrder} // Passa para o formulário poder iniciar uma nova OS
+              listItems={listItems}
+              mode={editingServiceOrder?.mode || 'create-new-so'} // Garante um modo padrão
+              initialSoData={editingServiceOrder} // Passa o objeto ServiceOrderDetails completo
+              initialPartData={null} // Não há peça inicial para este formulário principal
+              onClose={handleFormClose}
             />
           </div>
-        </SheetContent>
-      </Sheet>
-      
+        </ModalContentComponent>
+      </ModalComponent>
+
+      {/* ServiceOrderListDisplay - Agora é um filho direto do container principal */}
+      <ServiceOrderListDisplay 
+        listItems={listItems} 
+        onListChanged={loadListItems} 
+        onEditServiceOrder={handleEditServiceOrder}
+        editingServiceOrder={editingServiceOrder}
+        isLoading={isLoading} 
+        sortOrder={sortOrder}
+        onSortOrderChange={handleSortChange}
+      />
       <MadeWithDyad />
     </div>
   );
