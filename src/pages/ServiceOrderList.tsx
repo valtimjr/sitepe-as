@@ -29,12 +29,21 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon } from "lucide-react";
+import { useState } from 'react';
 
 const ServiceOrderList: React.FC = () => {
   const { user, session } = useSession();
   const isMobile = useIsMobile();
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [osList, setOsList] = useState<ServiceOrderData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -210,21 +219,43 @@ const ServiceOrderList: React.FC = () => {
           </Alert>
         )}
 
-        {/* Navegação por Data */}
+        {/* Navegação por Data com Calendário */}
         <Card className="bg-muted/30 border-none shadow-none">
           <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Button variant="outline" size="icon" onClick={() => handleDateChange(-1)}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <div className="flex flex-col items-center min-w-[150px]">
-                <span className="text-sm font-medium text-muted-foreground uppercase">
-                  {format(selectedDate, 'EEEE', { locale: ptBR })}
-                </span>
-                <span className="text-xl font-bold">
-                  {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
-                </span>
-              </div>
+              
+              {/* Botão com calendário */}
+              <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className={cn(
+                      "flex items-center gap-2 min-w-[200px] justify-start text-left font-normal",
+                      !isDatePickerOpen && "h-10"
+                    )}
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                    {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        setSelectedDate(date);
+                        setIsDatePickerOpen(false);
+                      }
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
               <Button variant="outline" size="icon" onClick={() => handleDateChange(1)}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
