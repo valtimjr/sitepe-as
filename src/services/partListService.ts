@@ -34,10 +34,9 @@ export const getDailyServiceOrders = async (userId: string | undefined, date: st
   if (userId) {
     const { data, error } = await supabase
       .from('daily_service_orders')
-      .select('os_list, order_index')
+      .select('os_list')
       .eq('user_id', userId)
       .eq('date', date)
-      .order('order_index', { ascending: true }) // NOVO: Ordenação consistente no Supabase
       .maybeSingle();
 
     if (error) {
@@ -58,7 +57,6 @@ export const saveDailyServiceOrder = async (userId: string | undefined, date: st
     user_id: userId || 'guest',
     date: date,
     os_list: osList,
-    order_index: osList.length, // NOVO: Campo para manter ordem consistente
     updated_at: new Date().toISOString()
   };
 
@@ -75,7 +73,6 @@ export const saveDailyServiceOrder = async (userId: string | undefined, date: st
     user_id: userId || 'guest',
     date: date,
     os_list: osList,
-    order_index: payload.order_index!,
     updated_at: payload.updated_at!
   });
 };
