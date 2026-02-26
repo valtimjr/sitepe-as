@@ -18,7 +18,11 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<Af[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [displayValue, setDisplayValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  
+  // Initialize displayValue with value prop
+  const [displayValue, setDisplayValue] = useState(value || '');
+  
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -35,19 +39,30 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
     return afItem.descricao ? `${afItem.af_number} - ${afItem.descricao}` : afItem.af_number;
   };
 
-  // Sincroniza o valor externo com o valor de exibição interno
+  // Sync displayValue with value prop
   useEffect(() => {
-    if (value) {
-      const matchingAf = afsMap.get(value);
-      if (matchingAf) {
-        setDisplayValue(getFullDisplayName(matchingAf));
-      } else {
-        setDisplayValue(value);
+    // We update the display value if:
+    // 1. The input is NOT focused (external update or initial load)
+    // 2. The input IS focused but currently empty, and we have a value coming in (fixes race conditions on mount/focus)
+    const shouldUpdate = !isFocused || (isFocused && !displayValue && value);
+
+    if (shouldUpdate) {
+      if (value) {
+        const matchingAf = afsMap.get(value);
+        if (matchingAf) {
+          setDisplayValue(getFullDisplayName(matchingAf));
+        } else {
+          // Keep the value as is if it's a custom AF or not found in the list yet
+          setDisplayValue(value);
+        }
+      } else if (!isFocused) {
+        // Only clear if not focused to avoid interrupting user clearing the input manually
+        setDisplayValue('');
       }
     } else {
       setDisplayValue('');
     }
-  }, [value, afsMap]);
+  }, [value, isFocused, afsMap, displayValue]);
 
   // Lógica de busca/filtro
   useEffect(() => {
@@ -55,9 +70,13 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
       if (isDropdownOpen && displayValue.length > 0) {
         setIsSearching(true);
         const lowerCaseQuery = displayValue.toLowerCase();
+        
+        // Split to handle "NUMBER - DESC" format during search if user is editing
+        const rawTerm = displayValue.split(' - ')[0].trim().toLowerCase();
+
         const results = availableAfs.filter(af => 
-          af.af_number.toLowerCase().includes(lowerCaseQuery) ||
-          (af.descricao && af.descricao.toLowerCase().includes(lowerCaseQuery))
+          af.af_number.toLowerCase().includes(rawTerm) ||
+          (af.descricao && af.descricao.toLowerCase().includes(rawTerm))
         ).slice(0, 50);
         setSearchResults(results);
         setIsSearching(false);
@@ -74,6 +93,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
+        setIsFocused(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -88,6 +108,40 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
     const afPart = newValue.split(' - ')[0].trim();
     onChange(afPart);
     setIsDropdownOpen(true);
+  };
+
+  const handleInputFocus = () => {
+    if (readOnly) return;
+    setIsFocused(true);
+    setIsDropdownOpen(true);
+  };
+
+  const handleInputBlur = () => {
+    // Delay hiding to allow click on dropdown items
+    setTimeout(() => {
+      if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
+        setIsFocused(false);
+        setIsDropdownOpen(false);
+        
+        const typedValue = displayValue.split(' - ')[0].trim();
+        const matchingAf = afsMap.get(typedValue);
+
+        if (matchingAf) {
+          // If match found, standardize format
+          onSelectAf(matchingAf.af_number);
+          setDisplayValue(getFullDisplayName(matchingAf));
+        } else {
+          // If not found in map, accept the typed value as custom AF
+          if (typedValue) {
+             onSelectAf(typedValue);
+             setDisplayValue(typedValue);
+          } else {
+             onSelectAf('');
+             setDisplayValue('');
+          }
+        }
+      }
+    }, 150);
   };
 
   const handleSelectAndClose = (afItem: Af) => {
@@ -106,7 +160,8 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
           placeholder="Digite o número do AF..."
           value={displayValue}
           onChange={handleInputChange}
-          onFocus={() => setIsDropdownOpen(true)}
+          onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
           className="w-full pr-8"
           readOnly={readOnly}
           ref={inputRef}
@@ -123,6 +178,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
             <li
               key={afItem.id}
               className="px-4 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground text-sm border-b last:border-b-0"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleSelectAndClose(afItem)}
             >
               {getFullDisplayName(afItem)}
