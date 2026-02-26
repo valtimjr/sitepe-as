@@ -30,9 +30,25 @@ const ServiceOrderPartRow: React.FC<{
   part: { codigo_peca: string; descricao: string; quantidade: number };
   index: number;
   onDelete: (index: number) => void;
-}> = ({ part, index, onDelete }) => {
+  onUpdate: (index: number, updatedPart: { codigo_peca: string; descricao: string; quantidade: number }) => void;
+}> = ({ part, index, onDelete, onUpdate }) => {
   const [relatedItems, setRelatedItems] = useState<RelatedItem[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
+  
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editCode, setEditCode] = useState(part.codigo_peca);
+  const [editDesc, setEditDesc] = useState(part.descricao);
+  const [editQty, setEditQty] = useState(part.quantidade);
+
+  // Sync state with props when not editing
+  useEffect(() => {
+    if (!isEditing) {
+      setEditCode(part.codigo_peca);
+      setEditDesc(part.descricao);
+      setEditQty(part.quantidade);
+    }
+  }, [part, isEditing]);
   
   // Fetch immediately on mount to show count
   useEffect(() => {
@@ -89,6 +105,68 @@ const ServiceOrderPartRow: React.FC<{
     fetchRelatedItems();
   }, [part.codigo_peca]);
 
+  const handleSaveEdit = () => {
+    onUpdate(index, {
+      codigo_peca: editCode,
+      descricao: editDesc,
+      quantidade: editQty
+    });
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditCode(part.codigo_peca);
+    setEditDesc(part.descricao);
+    setEditQty(part.quantidade);
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <div className="p-4 pl-8 md:pl-14 bg-blue-50/50 border-b border-blue-100 animate-in fade-in duration-200">
+         <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3 items-center">
+           <div className="space-y-1">
+             <span className="text-xs font-medium text-muted-foreground md:hidden">Código</span>
+             <Input 
+                value={editCode} 
+                onChange={(e) => setEditCode(e.target.value)} 
+                placeholder="Código" 
+                className="h-9 text-sm font-mono"
+                autoFocus
+             />
+           </div>
+           <div className="space-y-1">
+             <span className="text-xs font-medium text-muted-foreground md:hidden">Descrição</span>
+             <Input 
+                value={editDesc} 
+                onChange={(e) => setEditDesc(e.target.value)} 
+                placeholder="Descrição" 
+                className="h-9 text-sm" 
+             />
+           </div>
+           <div className="space-y-1">
+             <span className="text-xs font-medium text-muted-foreground md:hidden">Qtd</span>
+             <Input 
+                type="number" 
+                value={editQty} 
+                onChange={(e) => setEditQty(parseInt(e.target.value) || 1)} 
+                className="w-full md:w-20 h-9 text-sm text-center" 
+                min={1} 
+             />
+           </div>
+           <div className="flex items-end justify-end gap-1 pt-1 md:pt-0">
+              <Button size="sm" onClick={handleSaveEdit} className="h-9 w-9 p-0 bg-green-600 hover:bg-green-700">
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </Button>
+           </div>
+         </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 pl-8 md:pl-14 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-4 items-center hover:bg-muted/20 transition-colors">
       <div className="space-y-1">
@@ -132,7 +210,12 @@ const ServiceOrderPartRow: React.FC<{
          <div className="text-center w-16 font-medium text-sm">{part.quantidade}</div>
          
          <div className="flex items-center justify-end gap-1 w-20">
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setIsEditing(true)}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            >
               <Pencil className="h-3.5 w-3.5" />
             </Button>
             <Tooltip>
@@ -236,6 +319,20 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
     onSave(updatedGroup);
   };
 
+  const handleUpdatePart = (index: number, updatedPart: { codigo_peca: string; descricao: string; quantidade: number }) => {
+    if (!onSave) return;
+
+    const updatedParts = [...(group.parts || [])];
+    updatedParts[index] = updatedPart;
+
+    const updatedGroup = {
+      ...group,
+      parts: updatedParts
+    };
+
+    onSave(updatedGroup);
+  };
+
   const toggleAddPart = () => {
     if (onSave) {
       setIsAddingPart(!isAddingPart);
@@ -322,6 +419,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                 part={part}
                 index={index}
                 onDelete={handleDeletePart}
+                onUpdate={handleUpdatePart}
               />
             ))}
           </div>
