@@ -1,20 +1,21 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ServiceOrderData } from '@/types/supabase';
-import { Clock, Pencil, Trash2, Tag, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Pencil, Trash2, Tag, ChevronDown, ChevronUp, PlusCircle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useState } from 'react';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ServiceOrderListDisplayProps {
   group: ServiceOrderData;
   onEdit: () => void;
   onDelete: () => void;
+  onAddPart: () => void;
 }
 
-const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group, onEdit, onDelete }) => {
+const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group, onEdit, onDelete, onAddPart }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
@@ -46,12 +47,39 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
           </div>
 
           <div className="flex gap-2 shrink-0">
-            <Button variant="ghost" size="icon" onClick={onEdit} className="h-9 w-9">
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={onDelete} className="h-9 w-9 text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {/* Botão Adicionar Peça - Simplificado e com cor primária para visibilidade */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={onAddPart} 
+                  className="h-9 w-9 text-primary border-primary/50 hover:bg-primary/10"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Adicionar Peça</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={onEdit} className="h-9 w-9">
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Editar</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={onDelete} className="h-9 w-9 text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Excluir</TooltipContent>
+            </Tooltip>
+
             <Button variant="ghost" size="icon" onClick={() => setIsExpanded(!isExpanded)} className="h-9 w-9">
               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
