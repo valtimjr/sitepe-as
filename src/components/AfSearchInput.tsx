@@ -41,27 +41,29 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
 
   // Sync displayValue with value prop
   useEffect(() => {
-    // We update the display value if:
-    // 1. The input is NOT focused (external update or initial load)
-    // 2. The input IS focused but currently empty, and we have a value coming in (fixes race conditions on mount/focus)
-    const shouldUpdate = !isFocused || (isFocused && !displayValue && value);
-
-    if (shouldUpdate) {
-      if (value) {
-        const matchingAf = afsMap.get(value);
-        if (matchingAf) {
-          setDisplayValue(getFullDisplayName(matchingAf));
-        } else {
-          // Keep the value as is if it's a custom AF or not found in the list yet
-          setDisplayValue(value);
-        }
-      } else if (!isFocused) {
-        // Only clear if not focused to avoid interrupting user clearing the input manually
-        setDisplayValue('');
+    // Calculate the expected display value based on the current prop 'value'
+    let desiredDisplayValue = '';
+    if (value) {
+      const matchingAf = afsMap.get(value);
+      if (matchingAf) {
+        desiredDisplayValue = getFullDisplayName(matchingAf);
+      } else {
+        desiredDisplayValue = value;
       }
-    } else {
-      setDisplayValue('');
     }
+
+    // We only update the internal displayValue state if:
+    // 1. The input is NOT focused (external update or initial load)
+    // 2. The input IS focused but currently empty (fixes race conditions on mount/focus where value loads late)
+    // 3. We absolutely DO NOT update if focused and user is typing (displayValue has content), to avoid overwriting user input or causing loops.
+    const shouldSync = !isFocused || (isFocused && !displayValue && !!value);
+
+    if (shouldSync) {
+      if (displayValue !== desiredDisplayValue) {
+        setDisplayValue(desiredDisplayValue);
+      }
+    }
+    // Crucially, no 'else' block here. If we shouldn't sync, we leave displayValue alone (user controls it).
   }, [value, isFocused, afsMap, displayValue]);
 
   // Lógica de busca/filtro
@@ -69,8 +71,6 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
     const handler = setTimeout(() => {
       if (isDropdownOpen && displayValue.length > 0) {
         setIsSearching(true);
-        const lowerCaseQuery = displayValue.toLowerCase();
-        
         // Split to handle "NUMBER - DESC" format during search if user is editing
         const rawTerm = displayValue.split(' - ')[0].trim().toLowerCase();
 
