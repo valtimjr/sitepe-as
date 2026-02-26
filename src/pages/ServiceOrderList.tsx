@@ -276,7 +276,7 @@ const ServiceOrderList: React.FC = () => {
              onClick={handleShareOnWhatsApp}
              disabled={osList.length === 0}
            >
-              <img src="/icons/whatsapp.png" alt="WhatsApp" className="h-5 w-5" />
+              <img src="/icons/whatsapp.png" alt="WhatsApp" className="h-10 w-10" />
            </Button>
 
            <Button 
