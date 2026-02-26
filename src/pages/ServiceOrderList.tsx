@@ -281,6 +281,7 @@ const ServiceOrderList: React.FC = () => {
 
            <Button 
              className="bg-blue-600 hover:bg-blue-700 text-white"
+             aria-label="Compartilhar no WhatsApp"
              onClick={handleExportPdf}
              disabled={osList.length === 0}
            >
