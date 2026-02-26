@@ -19,16 +19,62 @@ import {
   addLocalSimplePartItem,
   updateLocalSimplePartItem,
   deleteLocalSimplePartItem,
-  clearLocalSimplePartsList
+  clearLocalSimplePartsList,
+  getLocalServiceOrderItems,
+  addLocalServiceOrderItem,
+  updateLocalServiceOrderItem,
+  deleteLocalServiceOrderItem,
+  clearLocalServiceOrderItems
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
-import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, DailyServiceOrder, ServiceOrderData, Af as SupabaseAf } from '@/types/supabase';
+import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, DailyServiceOrder, ServiceOrderData, Af as SupabaseAf, ServiceOrderPart } from '@/types/supabase';
 
 export interface Part extends SupabasePart {}
 export interface Af extends SupabaseAf {}
 export type Apontamento = DailyApontamento;
 
-// --- Service Order Functions (Daily JSON based) ---
+// --- Visitor Mode Service Orders (Flat List) ---
+
+export const getVisitorServiceOrders = async (): Promise<ServiceOrderData[]> => {
+  const items = await getLocalServiceOrderItems();
+  // Map internal ServiceOrderItem to ServiceOrderData for UI consistency
+  return items.map(item => ({
+    id: item.id,
+    af: item.af,
+    os: item.os || '',
+    hora_inicio: item.hora_inicio || '',
+    hora_final: item.hora_final || '',
+    servico_executado: item.servico_executado || '',
+    parts: item.parts || []
+  }));
+};
+
+export const saveVisitorServiceOrder = async (os: ServiceOrderData): Promise<void> => {
+  const all = await getLocalServiceOrderItems();
+  const exists = all.find(item => item.id === os.id);
+  
+  if (exists) {
+    await updateLocalServiceOrderItem({
+      ...os,
+      created_at: exists.created_at
+    });
+  } else {
+    await addLocalServiceOrderItem({
+      ...os,
+      created_at: new Date()
+    });
+  }
+};
+
+export const deleteVisitorServiceOrder = async (id: string): Promise<void> => {
+  await deleteLocalServiceOrderItem(id);
+};
+
+export const clearVisitorServiceOrders = async (): Promise<void> => {
+  await clearLocalServiceOrderItems();
+};
+
+// --- Service Order Functions (Daily JSON based - Logged Mode) ---
 
 export const getDailyServiceOrders = async (userId: string | undefined, date: string): Promise<ServiceOrderData[]> => {
   if (userId) {

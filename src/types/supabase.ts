@@ -110,3 +110,31 @@ export interface MenuItem {
   children?: MenuItem[]; // Para a estrutura hierárquica
   isDynamic?: boolean; // NOVO: Marcador para itens gerados dinamicamente
 }
+
+// NOVOS TIPOS PARA ORDENS DE SERVIÇO
+export interface ServiceOrderPart {
+  codigo_peca: string;
+  descricao: string;
+  quantidade: number;
+}
+
+export interface ServiceOrderData {
+  id: string;
+  af: string;
+  os: string;
+  hora_inicio: string;
+  hora_final: string;
+  servico_executado: string;
+  parts: ServiceOrderPart[];
+}
+
+export interface DailyServiceOrder {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  user_badge: string | null;
+  user_name: string | null;
+  os_list: ServiceOrderData[];
+  created_at?: string;
+  updated_at?: string;
+}

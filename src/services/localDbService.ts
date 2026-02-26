@@ -18,14 +18,12 @@ export interface SimplePartItem {
 
 export interface ServiceOrderItem {
   id: string;
-  codigo_peca?: string;
-  descricao?: string;
-  quantidade?: number;
   af: string;
-  os?: number;
+  os?: string;
   hora_inicio?: string;
   hora_final?: string;
   servico_executado?: string;
+  parts: { codigo_peca: string; descricao: string; quantidade: number }[];
   created_at?: Date;
 }
 
