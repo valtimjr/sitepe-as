@@ -31,7 +31,7 @@ import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart
 
 // Export types used in other files
 export type { SimplePartItem, ServiceOrderItem } from '@/services/localDbService';
-export type { ServiceOrderData, Apontamento, MonthlyApontamento } from '@/types/supabase';
+export type { ServiceOrderData, DailyApontamento as Apontamento, MonthlyApontamento } from '@/types/supabase';
 
 export interface Part extends SupabasePart {}
 export interface Af extends SupabaseAf {}
