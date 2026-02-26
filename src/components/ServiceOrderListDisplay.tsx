@@ -195,26 +195,24 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
               </span>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3 items-start">
-               {/* Manual Code Input */}
-               <div>
-                 <Input 
-                   placeholder="Código" 
-                   value={manualCode}
-                   onChange={(e) => setManualCode(e.target.value)}
-                   className="font-mono text-sm"
-                 />
-               </div>
-
-               {/* Search / Description Input */}
+            <div className="space-y-3">
+              {/* Row 1: Search */}
               <div className="relative">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Descrição / Buscar peça..."
+                    placeholder="Buscar peça (código, nome, tag)..."
                     value={searchQuery}
-                    onChange={(e) => handleManualDescriptionChange(e.target.value)}
-                    className={cn("pl-9", selectedPart && "font-medium text-primary")}
+                    onChange={(e) => {
+                      if (selectedPart) {
+                         // If editing when part is selected, clear selection and reset manual fields
+                         setSelectedPart(null);
+                         setManualCode('');
+                         setManualDescription(e.target.value); // Use as base for description
+                      }
+                      setSearchQuery(e.target.value);
+                    }}
+                    className={cn("pl-9", selectedPart && "font-medium bg-primary/5 border-primary/30 text-primary")}
                     autoFocus
                   />
                   {searchQuery && (
@@ -255,22 +253,45 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                 )}
               </div>
 
-              {/* Quantity */}
-              <div className="w-20">
-                 <Input
-                    type="number"
-                    min="1"
-                    value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                    className="text-center"
-                    placeholder="Qtd"
-                 />
-              </div>
+              {/* Row 2: Code, Description, Quantity, Button */}
+              <div className="grid grid-cols-[1fr_2fr_auto_auto] gap-3 items-center">
+                 {/* Manual Code Input */}
+                 <div>
+                   <Input 
+                     placeholder="Código" 
+                     value={manualCode}
+                     onChange={(e) => setManualCode(e.target.value)}
+                     className="font-mono text-sm h-9"
+                   />
+                 </div>
 
-              {/* Add Button */}
-              <Button onClick={handleAddPartConfirm} disabled={!manualDescription || quantity < 1}>
-                <Check className="h-4 w-4 mr-1" /> Add
-              </Button>
+                 {/* Manual Description Input */}
+                 <div>
+                   <Input 
+                     placeholder="Descrição" 
+                     value={manualDescription}
+                     onChange={(e) => setManualDescription(e.target.value)}
+                     className="text-sm h-9"
+                   />
+                 </div>
+
+                {/* Quantity */}
+                <div className="w-20">
+                   <Input
+                      type="number"
+                      min="1"
+                      value={quantity}
+                      onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                      className="text-center h-9"
+                      placeholder="Qtd"
+                   />
+                </div>
+
+                {/* Add Button */}
+                <Button onClick={handleAddPartConfirm} disabled={!manualDescription || quantity < 1} className="h-9">
+                  <Check className="h-4 w-4 mr-1" /> Add
+                </Button>
+              </div>
             </div>
           </div>
         )}
