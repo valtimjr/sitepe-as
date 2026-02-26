@@ -20,13 +20,18 @@ interface ServiceOrderListDisplayProps {
   onAddPart?: () => void; 
 }
 
+interface RelatedItem {
+  code: string;
+  description: string;
+}
+
 // Sub-component for individual part row to handle its own state (related items fetching)
 const ServiceOrderPartRow: React.FC<{
   part: { codigo_peca: string; descricao: string; quantidade: number };
   index: number;
   onDelete: (index: number) => void;
 }> = ({ part, index, onDelete }) => {
-  const [relatedItems, setRelatedItems] = useState<any[]>([]);
+  const [relatedItems, setRelatedItems] = useState<RelatedItem[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
   
   // Fetch immediately on mount to show count
@@ -41,10 +46,38 @@ const ServiceOrderPartRow: React.FC<{
           .single();
 
         if (data?.itens_relacionados) {
-          const items = Array.isArray(data.itens_relacionados) 
+          const rawItems = Array.isArray(data.itens_relacionados) 
             ? data.itens_relacionados 
             : [];
-          setRelatedItems(items);
+            
+          // Extract codes (handling both string arrays and object arrays if legacy data exists)
+          const codes = rawItems.map((item: any) => 
+            typeof item === 'string' ? item : (item.codigo || item.code)
+          ).filter((c: any) => typeof c === 'string');
+
+          if (codes.length > 0) {
+            // Fetch descriptions from DB for these codes
+            const { data: partsData } = await supabase
+              .from('parts')
+              .select('codigo, descricao')
+              .in('codigo', codes);
+              
+            if (partsData) {
+               // Create a map for easy lookup
+               const partsMap = new Map(partsData.map(p => [p.codigo, p.descricao]));
+               
+               // Map original codes to include description found in DB
+               const formattedItems: RelatedItem[] = codes.map((code: string) => ({
+                 code,
+                 description: partsMap.get(code) || 'Descrição não encontrada'
+               }));
+               
+               setRelatedItems(formattedItems);
+            } else {
+               // Fallback if DB fetch fails but we have codes
+               setRelatedItems(codes.map((c: string) => ({ code: c, description: '' })));
+            }
+          }
         }
       } catch (err) {
         console.error("Error fetching related items:", err);
@@ -77,14 +110,15 @@ const ServiceOrderPartRow: React.FC<{
                  <span>{relatedItems.length} item(s) relacionado(s)</span>
               </div>
             </PopoverTrigger>
-            <PopoverContent className="w-auto max-w-[350px] p-4 bg-white shadow-lg border" align="start">
-               <h4 className="font-bold text-sm mb-2 text-foreground">Itens Relacionados:</h4>
-               <ul className="space-y-1 list-disc list-outside pl-4">
+            <PopoverContent className="w-auto max-w-[450px] p-4 bg-white shadow-lg border" align="start">
+               <h4 className="font-bold text-sm mb-2 text-foreground flex items-center gap-2">
+                  <Package className="h-4 w-4" /> Itens Relacionados:
+               </h4>
+               <ul className="space-y-2 list-none pl-1">
                   {relatedItems.map((item, idx) => (
-                     <li key={idx} className="text-xs text-muted-foreground leading-snug">
-                        {typeof item === 'string' 
-                           ? item 
-                           : `${item.codigo || item.code || ''} - ${item.descricao || item.description || ''}`}
+                     <li key={idx} className="text-xs text-muted-foreground leading-snug border-b last:border-0 pb-1 last:pb-0 border-dashed border-gray-200">
+                        <span className="font-bold text-blue-600 mr-1">{item.code}</span>
+                        <span className="text-gray-600">- {item.description}</span>
                      </li>
                   ))}
                </ul>
