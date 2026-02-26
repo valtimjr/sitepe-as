@@ -44,7 +44,10 @@ const ServiceOrderList: React.FC = () => {
   const [editingOs, setEditingOs] = useState<ServiceOrderData | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const dateStr = useMemo(() => format(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
+  const dateStr = useMemo(() => {
+    if (!session) return 'visitor';
+    return format(selectedDate, 'yyyy-MM-dd');
+  }, [selectedDate, session]);
 
   useEffect(() => {
     document.title = "Ordens de Serviço - AutoBoard";
@@ -213,49 +216,57 @@ const ServiceOrderList: React.FC = () => {
           </Alert>
         )}
 
-        {/* Navegação por Data */}
+        {/* Navegação por Data (Apenas para Logados) */}
         <Card className="bg-muted/30 border-none shadow-none">
           <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="min-w-[200px] justify-center">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    <span className="font-semibold">
-                      {format(selectedDate, "EEEE", { locale: ptBR })}
-                    </span>
+            {session && (
+              <>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))}>
+                    <ChevronLeft className="h-4 w-4" />
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="center">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={handleDateChange}
-                    locale={ptBR}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+                  
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="min-w-[200px] justify-center">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <span className="font-semibold">
+                          {format(selectedDate, "EEEE", { locale: ptBR })}
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="center">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={handleDateChange}
+                        locale={ptBR}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
 
-              <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+                  <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
 
-            <div className="text-center">
-              <span className="text-sm font-medium text-muted-foreground uppercase block">
-                {format(selectedDate, 'MMMM', { locale: ptBR })}
-              </span>
-              <span className="text-xl font-bold">
-                {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
-              </span>
-            </div>
+                <div className="text-center">
+                  <span className="text-sm font-medium text-muted-foreground uppercase block">
+                    {format(selectedDate, 'MMMM', { locale: ptBR })}
+                  </span>
+                  <span className="text-xl font-bold">
+                    {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+                  </span>
+                </div>
+              </>
+            )}
 
-            <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
+            <div className={cn(
+              "flex flex-wrap items-center justify-center gap-2 w-full",
+              session ? "sm:w-auto" : ""
+            )}>
+
               <Button className="flex-1 sm:flex-none gap-2" onClick={() => handleOpenForm()}>
                 <ClipboardList className="h-4 w-4" /> Nova OS
               </Button>
