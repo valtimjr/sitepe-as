@@ -248,7 +248,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
   };
 
   return (
-    <div className="bg-card shadow-sm rounded-sm overflow-hidden">
+    <div className="bg-card shadow-sm rounded-sm overflow-hidden overflow-visible">
       {/* Top Border */}
       <div className="h-1 bg-blue-600 w-full"></div>
       
@@ -336,8 +336,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                   </Button>
                </div>
 
-               <div className="grid gap-3">
-                  <div className="relative">
+               <div className="grid gap-3 relative">
+                  <div className="relative z-50">
                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                      <Input 
                         placeholder="Buscar peça..." 
@@ -354,7 +354,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                         autoFocus
                      />
                      {searchQuery && !selectedPart && searchResults.length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-popover rounded-md border shadow-md max-h-48 overflow-y-auto">
+                        <div className="absolute z-[60] w-full mt-1 bg-popover rounded-md border shadow-2xl max-h-60 overflow-y-auto">
                            {searchResults.map((part) => (
                               <div
                                  key={part.id}
@@ -369,7 +369,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                      )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3 relative z-40">
                      <Input 
                         placeholder="Código" 
                         value={manualCode}
