@@ -312,7 +312,7 @@ const ServiceOrderList: React.FC = () => {
 
       {/* List Header Row (Desktop visible) */}
       <div className="mt-8 mb-2 px-4 hidden md:grid grid-cols-[auto_1fr_auto_auto] gap-4 text-sm text-muted-foreground font-medium">
-         <div className="flex items-center gap-6">
+         <div className="flex items-center gap-4">
             <GripVertical className="h-4 w-4 opacity-50" />
             <div className="flex items-center gap-2">
                <Clock className="h-4 w-4" />

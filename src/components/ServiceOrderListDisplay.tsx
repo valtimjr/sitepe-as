@@ -28,38 +28,33 @@ const ServiceOrderPartRow: React.FC<{
 }> = ({ part, index, onDelete }) => {
   const [relatedItems, setRelatedItems] = useState<any[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
+  
+  // Fetch immediately on mount to show count
+  useEffect(() => {
+    const fetchRelatedItems = async () => {
+      setIsLoadingRelated(true);
+      try {
+        const { data, error } = await supabase
+          .from('parts')
+          .select('itens_relacionados')
+          .eq('codigo', part.codigo_peca)
+          .single();
 
-  const fetchRelatedItems = async () => {
-    if (relatedItems.length > 0) return; // Already loaded
-
-    setIsLoadingRelated(true);
-    try {
-      const { data, error } = await supabase
-        .from('parts')
-        .select('itens_relacionados')
-        .eq('codigo', part.codigo_peca)
-        .single();
-
-      if (data?.itens_relacionados) {
-        const items = Array.isArray(data.itens_relacionados) 
-          ? data.itens_relacionados 
-          : [];
-        setRelatedItems(items);
+        if (data?.itens_relacionados) {
+          const items = Array.isArray(data.itens_relacionados) 
+            ? data.itens_relacionados 
+            : [];
+          setRelatedItems(items);
+        }
+      } catch (err) {
+        console.error("Error fetching related items:", err);
+      } finally {
+        setIsLoadingRelated(false);
       }
-    } catch (err) {
-      console.error("Error fetching related items:", err);
-    } finally {
-      setIsLoadingRelated(false);
-    }
-  };
-
-  const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
-    if (open) {
-      fetchRelatedItems();
-    }
-  };
+    };
+    
+    fetchRelatedItems();
+  }, [part.codigo_peca]);
 
   return (
     <div className="p-4 pl-8 md:pl-14 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-4 items-center hover:bg-muted/20 transition-colors">
@@ -71,48 +66,31 @@ const ServiceOrderPartRow: React.FC<{
           {part.descricao}
         </div>
         
-        <Popover open={isOpen} onOpenChange={handleOpenChange}>
-          <PopoverTrigger asChild>
-            <div 
-              className="flex items-center text-xs text-blue-500 font-medium cursor-pointer hover:text-blue-700 w-fit transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-               <Tag className="h-3 w-3 mr-1" />
-               <span>Ver itens relacionados</span>
-            </div>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="start">
-             <div className="p-3 border-b bg-muted/40 font-medium text-sm flex items-center gap-2">
-                <Package className="h-4 w-4" /> Itens Relacionados
-             </div>
-             <ScrollArea className="h-[200px]">
-                {isLoadingRelated ? (
-                   <div className="flex flex-col items-center justify-center h-20 text-muted-foreground gap-2">
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      <span className="text-xs">Carregando itens...</span>
-                   </div>
-                ) : relatedItems.length > 0 ? (
-                   <div className="p-2 space-y-1">
-                      {relatedItems.map((item, idx) => (
-                         <div key={idx} className="p-2 hover:bg-muted rounded-md text-sm border border-transparent hover:border-border transition-all">
-                            <div className="font-semibold text-blue-600 text-xs mb-0.5">
-                               {typeof item === 'string' ? item : item.codigo || item.code || 'N/A'}
-                            </div>
-                            <div className="text-xs text-muted-foreground leading-snug">
-                               {typeof item === 'string' ? 'Item relacionado' : item.descricao || item.description || 'Sem descrição'}
-                            </div>
-                         </div>
-                      ))}
-                   </div>
-                ) : (
-                   <div className="flex flex-col items-center justify-center h-20 text-muted-foreground text-xs">
-                      <Tag className="h-8 w-8 mb-2 opacity-20" />
-                      Nenhum item relacionado encontrado.
-                   </div>
-                )}
-             </ScrollArea>
-          </PopoverContent>
-        </Popover>
+        {relatedItems.length > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <div 
+                className="flex items-center text-xs text-blue-500 font-medium cursor-pointer hover:text-blue-700 w-fit transition-colors mt-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                 <Tag className="h-3 w-3 mr-1" />
+                 <span>{relatedItems.length} item(s) relacionado(s)</span>
+              </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto max-w-[350px] p-4 bg-white shadow-lg border" align="start">
+               <h4 className="font-bold text-sm mb-2 text-foreground">Itens Relacionados:</h4>
+               <ul className="space-y-1 list-disc list-outside pl-4">
+                  {relatedItems.map((item, idx) => (
+                     <li key={idx} className="text-xs text-muted-foreground leading-snug">
+                        {typeof item === 'string' 
+                           ? item 
+                           : `${item.codigo || item.code || ''} - ${item.descricao || item.description || ''}`}
+                     </li>
+                  ))}
+               </ul>
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
 
       <div className="flex items-center justify-between md:contents">
