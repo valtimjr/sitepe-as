@@ -29,7 +29,7 @@ import {
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
 import { Network } from '@capacitor/network'; // Importar Network
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart } from '@/types/supabase'; // Removido PartImage
 
 export interface Part extends SupabasePart {}
@@ -573,27 +573,149 @@ export const clearSimplePartsList = async (): Promise<void> => {
 };
 
 // --- Funções para ServiceOrderItem (Lista de Ordens de Serviço) ---
+
+// Helper para sincronizar OS para o Supabase (Date based)
+const syncServiceOrdersForDate = async (date: Date, userId: string) => {
+  const dateStr = format(date, 'yyyy-MM-dd');
+  
+  // Pega todos os itens locais
+  const allItems = await localDb.serviceOrderItems.toArray();
+  // Filtra itens que correspondem à data (ignorando hora para o agrupamento diário)
+  const itemsForDate = allItems.filter(i => {
+    const itemDate = i.created_at ? new Date(i.created_at) : new Date();
+    return format(itemDate, 'yyyy-MM-dd') === dateStr;
+  });
+
+  const payload = {
+    user_id: userId,
+    date: dateStr,
+    os_list: itemsForDate, // Salva o array de itens diretamente no JSONB
+    updated_at: new Date().toISOString()
+  };
+
+  const { error } = await supabase
+    .from('daily_service_orders')
+    .upsert(payload, { onConflict: 'user_id,date' });
+
+  if (error) {
+    console.error(`[syncServiceOrdersForDate] Erro ao sincronizar OS para ${dateStr}:`, error);
+  }
+};
+
+// Helper para baixar OS do Supabase e atualizar local
+const syncServiceOrdersFromSupabase = async (userId: string) => {
+  try {
+    // Busca todas as ordens de serviço do usuário
+    const { data, error } = await supabase
+      .from('daily_service_orders')
+      .select('os_list')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('[syncServiceOrdersFromSupabase] Erro ao buscar OS do Supabase:', error);
+      return;
+    }
+
+    if (data) {
+      let allRemoteItems: ServiceOrderItem[] = [];
+      data.forEach(row => {
+        if (Array.isArray(row.os_list)) {
+          // Garante que created_at seja Date objeto
+          const parsedItems = row.os_list.map((item: any) => ({
+            ...item,
+            created_at: item.created_at ? new Date(item.created_at) : new Date()
+          }));
+          allRemoteItems = [...allRemoteItems, ...parsedItems];
+        }
+      });
+
+      // Limpa tabela local e insere os dados do remoto (estratégia de substituição total para simplificar sync)
+      // Nota: Isso substitui dados locais não sincronizados se houver conflito, mas assume que 'get' é chamado ao carregar.
+      await clearLocalServiceOrderItems();
+      // Dexie bulkAdd pode falhar se chaves primárias colidirem, mas aqui estamos substituindo tudo.
+      // Se quisermos ser mais gentis, poderíamos fazer merge, mas para este app simples, substituir garante consistência.
+      if (allRemoteItems.length > 0) {
+        await localDb.serviceOrderItems.bulkAdd(allRemoteItems);
+      }
+    }
+  } catch (e) {
+    console.error('[syncServiceOrdersFromSupabase] Falha geral:', e);
+  }
+};
+
 export const getServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (session?.user && await isOnline()) {
+    await syncServiceOrdersFromSupabase(session.user.id);
+  }
+  
   const items = await getLocalServiceOrderItems();
   return items;
 };
 
 export const addServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
-  const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
-  await addLocalServiceOrderItem(newItem, customCreatedAt);
-  return newItem.id;
+  const newItemId = await addLocalServiceOrderItem(item, customCreatedAt);
+  
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user && await isOnline()) {
+    const dateToSync = customCreatedAt || new Date();
+    await syncServiceOrdersForDate(dateToSync, session.user.id);
+  }
+  
+  return newItemId;
 };
 
 export const updateServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
   await updateLocalServiceOrderItem(updatedItem);
+  
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user && await isOnline()) {
+    const dateToSync = updatedItem.created_at ? new Date(updatedItem.created_at) : new Date();
+    await syncServiceOrdersForDate(dateToSync, session.user.id);
+  }
 };
 
 export const deleteServiceOrderItem = async (id: string): Promise<void> => {
+  // Precisamos pegar o item antes de deletar para saber a data
+  const itemToDelete = await localDb.serviceOrderItems.get(id);
   await deleteLocalServiceOrderItem(id);
+  
+  if (itemToDelete) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user && await isOnline()) {
+      const dateToSync = itemToDelete.created_at ? new Date(itemToDelete.created_at) : new Date();
+      await syncServiceOrdersForDate(dateToSync, session.user.id);
+    }
+  }
 };
 
 export const clearServiceOrderList = async (): Promise<void> => {
+  // Para limpar, precisamos saber quais datas foram afetadas para sincronizar "vazio" ou deletar
+  // Simplificação: Pega todas as datas únicas locais, limpa local, e então atualiza essas datas no servidor
+  const allItems = await localDb.serviceOrderItems.toArray();
+  const datesToUpdate = new Set<string>();
+  allItems.forEach(item => {
+    if (item.created_at) {
+      datesToUpdate.add(format(new Date(item.created_at), 'yyyy-MM-dd'));
+    }
+  });
+
   await clearLocalServiceOrderItems();
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user && await isOnline()) {
+    // Para cada data que tinha itens, enviamos uma lista vazia (ou deletamos a row)
+    for (const dateStr of datesToUpdate) {
+      const payload = {
+        user_id: session.user.id,
+        date: dateStr,
+        os_list: [], // Lista vazia
+        updated_at: new Date().toISOString()
+      };
+      await supabase.from('daily_service_orders').upsert(payload, { onConflict: 'user_id,date' });
+    }
+  }
 };
 
 export const getLocalUniqueAfs = async (): Promise<string[]> => {
