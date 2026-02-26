@@ -232,9 +232,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
               <TableBody>
                 {parts.map((p, i) => (
                   <TableRow key={i}>
-                    <TableCell className="text-sm">
-                      <div className="font-medium">{p.codigo_peca || 'S/ Cód'}</div>
-                      <div className="text-xs text-muted-foreground truncate max-w-[200px]">{p.descricao || 'S/ Desc'}</div>
+                    <TableCell className="text-sm break-all md:break-normal whitespace-normal">
+                      <div className="font-medium text-xs md:text-sm">{p.codigo_peca || 'S/ Cód'}</div>
+                      <div className="text-xs text-muted-foreground break-words whitespace-normal">{p.descricao || 'S/ Desc'}</div>
                     </TableCell>
                     <TableCell className="text-center">{p.quantidade}</TableCell>
                     <TableCell>
