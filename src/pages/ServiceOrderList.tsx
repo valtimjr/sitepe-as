@@ -8,7 +8,7 @@ import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
 import { getDailyServiceOrders, ServiceOrderData, saveDailyServiceOrder, clearDailyServiceOrders } from '@/services/partListService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ClipboardList, ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, Trash2, Copy, Share2, FileDown, ArrowUpDown, PlusCircle, GripVertical, Clock } from 'lucide-react';
+import { ClipboardList, ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, Trash2, Copy, Share2, FileDown, ArrowUpNarrowWide, ArrowDownWideNarrow, PlusCircle, GripVertical, Clock } from 'lucide-react';
 import { format, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { showSuccess, showError } from '@/utils/toast';
@@ -318,14 +318,17 @@ const ServiceOrderList: React.FC = () => {
       <div className="mt-8 mb-2 px-4 hidden md:grid grid-cols-[auto_1fr_auto_auto] gap-4 text-sm text-muted-foreground font-medium">
          <div className="flex items-center gap-4">
             <GripVertical className="h-4 w-4 opacity-50" />
-            <div className="flex items-center gap-2">
-               <Clock className="h-4 w-4" />
-            </div>
             <div 
-              className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+              className="flex items-center gap-2 cursor-pointer hover:text-foreground transition-colors group"
               onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+              title="Ordenar por horário"
             >
-               <ArrowUpDown className="h-3 w-3" /> Peça
+               <Clock className="h-4 w-4 group-hover:text-primary transition-colors" />
+               {sortDirection === 'asc' ? (
+                 <ArrowUpNarrowWide className="h-4 w-4 text-primary" />
+               ) : (
+                 <ArrowDownWideNarrow className="h-4 w-4 text-primary" />
+               )}
             </div>
          </div>
          <div></div> {/* Spacer for description/service */}
