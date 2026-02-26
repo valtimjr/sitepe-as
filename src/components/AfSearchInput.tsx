@@ -55,9 +55,13 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
       if (isFocused && displayValue.length > 0) {
         setIsSearching(true);
         const lowerCaseQuery = displayValue.toLowerCase();
+        
+        // Split to handle "NUMBER - DESC" format during search if user is editing
+        const rawTerm = displayValue.split(' - ')[0].trim().toLowerCase();
+
         const results = availableAfs.filter(af => 
-          af.af_number.toLowerCase().includes(lowerCaseQuery) ||
-          (af.descricao && af.descricao.toLowerCase().includes(lowerCaseQuery))
+          af.af_number.toLowerCase().includes(rawTerm) ||
+          (af.descricao && af.descricao.toLowerCase().includes(rawTerm))
         ).slice(0, 50);
         setSearchResults(results);
         setIsSearching(false);
@@ -97,12 +101,13 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
           onSelectAf(matchingAf.af_number);
           setDisplayValue(getDisplayValue(matchingAf));
         } else {
-          const originalAf = afsMap.get(value);
-          if (originalAf) {
-            setDisplayValue(getDisplayValue(originalAf));
+          // If not found in map, keep the typed value (custom AF)
+          if (typedValue) {
+             onSelectAf(typedValue);
+             setDisplayValue(typedValue);
           } else {
-            onSelectAf('');
-            setDisplayValue('');
+             onSelectAf('');
+             setDisplayValue('');
           }
         }
       }
@@ -133,27 +138,24 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
             className="w-full pr-8"
             readOnly={readOnly}
             ref={inputRef}
+            autoComplete="off"
           />
           {isSearching && (
             <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>
-        {isDropdownOpen && !readOnly && (
+        {isDropdownOpen && !readOnly && searchResults.length > 0 && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto">
-            {searchResults.length > 0 ? (
-              searchResults.map((afItem) => (
-                <li
-                  key={afItem.id}
-                  className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleSelectAndClose(afItem)}
-                >
-                  {getDisplayValue(afItem)}
-                </li>
-              ))
-            ) : (isFocused && displayValue.length > 0 && !isSearching) ? (
-              <li className="px-4 py-2 text-gray-500 dark:text-gray-400">Nenhum AF encontrado.</li>
-            ) : null}
+            {searchResults.map((afItem) => (
+              <li
+                key={afItem.id}
+                className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelectAndClose(afItem)}
+              >
+                {getDisplayValue(afItem)}
+              </li>
+            ))}
           </ul>
         )}
       </div>
