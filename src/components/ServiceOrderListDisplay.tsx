@@ -254,9 +254,9 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
               </div>
 
               {/* Row 2: Code, Description, Quantity, Button */}
-              <div className="grid grid-cols-[1fr_2fr_auto_auto] gap-3 items-center">
+              <div className="grid gap-3 items-center grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto]">
                  {/* Manual Code Input */}
-                 <div>
+                 <div className="w-full">
                    <Input 
                      placeholder="Código" 
                      value={manualCode}
@@ -266,7 +266,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                  </div>
 
                  {/* Manual Description Input */}
-                 <div>
+                 <div className="w-full">
                    <Input 
                      placeholder="Descrição" 
                      value={manualDescription}
@@ -275,22 +275,25 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                    />
                  </div>
 
-                {/* Quantity */}
-                <div className="w-20">
-                   <Input
-                      type="number"
-                      min="1"
-                      value={quantity}
-                      onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                      className="text-center h-9"
-                      placeholder="Qtd"
-                   />
-                </div>
+                {/* Qty and Button Wrapper for Mobile alignment */}
+                <div className="flex gap-3 items-center justify-between md:contents">
+                  {/* Quantity */}
+                  <div className="w-20 md:w-20">
+                     <Input
+                        type="number"
+                        min="1"
+                        value={quantity}
+                        onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                        className="text-center h-9"
+                        placeholder="Qtd"
+                     />
+                  </div>
 
-                {/* Add Button */}
-                <Button onClick={handleAddPartConfirm} disabled={!manualDescription || quantity < 1} className="h-9">
-                  <Check className="h-4 w-4 mr-1" /> Add
-                </Button>
+                  {/* Add Button */}
+                  <Button onClick={handleAddPartConfirm} disabled={!manualDescription || quantity < 1} className="h-9 flex-1 md:flex-none">
+                    <Check className="h-4 w-4 mr-1" /> Add
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
