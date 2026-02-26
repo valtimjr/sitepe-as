@@ -3,11 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ServiceOrderData } from '@/types/supabase';
-import { Clock, Pencil, Trash2, PlusCircle, Search, X, Check, GripVertical, Tag } from 'lucide-react';
+import { Clock, Pencil, Trash2, PlusCircle, Search, X, Check, GripVertical, Tag, Loader2, Package } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { searchParts, Part } from '@/services/partListService';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { supabase } from "@/integrations/supabase/client";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ServiceOrderListDisplayProps {
   group: ServiceOrderData;
@@ -16,6 +19,123 @@ interface ServiceOrderListDisplayProps {
   onSave?: (updatedOs: ServiceOrderData) => void;
   onAddPart?: () => void; 
 }
+
+// Sub-component for individual part row to handle its own state (related items fetching)
+const ServiceOrderPartRow: React.FC<{
+  part: { codigo_peca: string; descricao: string; quantidade: number };
+  index: number;
+  onDelete: (index: number) => void;
+}> = ({ part, index, onDelete }) => {
+  const [relatedItems, setRelatedItems] = useState<any[]>([]);
+  const [isLoadingRelated, setIsLoadingRelated] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const fetchRelatedItems = async () => {
+    if (relatedItems.length > 0) return; // Already loaded
+
+    setIsLoadingRelated(true);
+    try {
+      const { data, error } = await supabase
+        .from('parts')
+        .select('itens_relacionados')
+        .eq('codigo', part.codigo_peca)
+        .single();
+
+      if (data?.itens_relacionados) {
+        const items = Array.isArray(data.itens_relacionados) 
+          ? data.itens_relacionados 
+          : [];
+        setRelatedItems(items);
+      }
+    } catch (err) {
+      console.error("Error fetching related items:", err);
+    } finally {
+      setIsLoadingRelated(false);
+    }
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      fetchRelatedItems();
+    }
+  };
+
+  return (
+    <div className="p-4 pl-8 md:pl-14 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-4 items-center hover:bg-muted/20 transition-colors">
+      <div className="space-y-1">
+        <div className="font-semibold text-blue-600 hover:underline cursor-pointer text-sm">
+          {part.codigo_peca}
+        </div>
+        <div className="text-sm text-foreground uppercase leading-tight">
+          {part.descricao}
+        </div>
+        
+        <Popover open={isOpen} onOpenChange={handleOpenChange}>
+          <PopoverTrigger asChild>
+            <div 
+              className="flex items-center text-xs text-blue-500 font-medium cursor-pointer hover:text-blue-700 w-fit transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+               <Tag className="h-3 w-3 mr-1" />
+               <span>Ver itens relacionados</span>
+            </div>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="start">
+             <div className="p-3 border-b bg-muted/40 font-medium text-sm flex items-center gap-2">
+                <Package className="h-4 w-4" /> Itens Relacionados
+             </div>
+             <ScrollArea className="h-[200px]">
+                {isLoadingRelated ? (
+                   <div className="flex flex-col items-center justify-center h-20 text-muted-foreground gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="text-xs">Carregando itens...</span>
+                   </div>
+                ) : relatedItems.length > 0 ? (
+                   <div className="p-2 space-y-1">
+                      {relatedItems.map((item, idx) => (
+                         <div key={idx} className="p-2 hover:bg-muted rounded-md text-sm border border-transparent hover:border-border transition-all">
+                            <div className="font-semibold text-blue-600 text-xs mb-0.5">
+                               {typeof item === 'string' ? item : item.codigo || item.code || 'N/A'}
+                            </div>
+                            <div className="text-xs text-muted-foreground leading-snug">
+                               {typeof item === 'string' ? 'Item relacionado' : item.descricao || item.description || 'Sem descrição'}
+                            </div>
+                         </div>
+                      ))}
+                   </div>
+                ) : (
+                   <div className="flex flex-col items-center justify-center h-20 text-muted-foreground text-xs">
+                      <Tag className="h-8 w-8 mb-2 opacity-20" />
+                      Nenhum item relacionado encontrado.
+                   </div>
+                )}
+             </ScrollArea>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <div className="flex items-center justify-between md:contents">
+         <span className="md:hidden text-sm font-medium text-muted-foreground">Qtd:</span>
+         <div className="text-center w-16 font-medium text-sm">{part.quantidade}</div>
+         
+         <div className="flex items-center justify-end gap-1 w-20">
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => onDelete(index)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Excluir item</TooltipContent>
+            </Tooltip>
+         </div>
+      </div>
+    </div>
+  );
+};
 
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group, onEdit, onDelete, onSave, onAddPart }) => {
   // States for Inline Add Part
@@ -160,7 +280,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={onDelete} className="h-8 w-8 text-destructive hover:text-destructive/80">
+                <Button variant="ghost" size="icon" onClick={onDelete} className="h-8 w-8 text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -175,37 +295,12 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
         {group.parts && group.parts.length > 0 && (
           <div className="divide-y divide-border/40">
             {group.parts.map((part, index) => (
-              <div key={index} className="p-4 pl-8 md:pl-14 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-4 items-center hover:bg-muted/20 transition-colors">
-                
-                <div className="space-y-1">
-                  <div className="font-semibold text-blue-600 hover:underline cursor-pointer text-sm">
-                    {part.codigo_peca}
-                  </div>
-                  <div className="text-sm text-foreground uppercase leading-tight">
-                    {part.descricao}
-                  </div>
-                  {/* Placeholder for related items if we had that data structure */}
-                  <div className="flex items-center text-xs text-blue-500 font-medium">
-                     <Tag className="h-3 w-3 mr-1" />
-                     <span>Item relacionado</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between md:contents">
-                   <span className="md:hidden text-sm font-medium text-muted-foreground">Qtd:</span>
-                   <div className="text-center w-16 font-medium text-sm">{part.quantidade}</div>
-                   
-                   <div className="flex items-center justify-end gap-1 w-20">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeletePart(index)} className="h-8 w-8 text-destructive hover:text-destructive/80">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                   </div>
-                </div>
-
-              </div>
+              <ServiceOrderPartRow 
+                key={index}
+                part={part}
+                index={index}
+                onDelete={handleDeletePart}
+              />
             ))}
           </div>
         )}
