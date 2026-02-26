@@ -204,6 +204,13 @@ const ServiceOrderList: React.FC = () => {
 
   return (
     <div className="min-h-screen p-4 bg-background text-foreground max-w-5xl mx-auto w-full">
+      
+      {/* Title */}
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center justify-center gap-3">
+        <ClipboardList className="h-8 w-8 text-primary" />
+        Lista de Ordens de Serviço
+      </h1>
+
       {/* Date Navigation */}
       {session && (
         <div className="flex items-center justify-center gap-4 mb-8">
@@ -250,10 +257,7 @@ const ServiceOrderList: React.FC = () => {
 
       {/* Main Header & Actions */}
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-left text-foreground">
-          Lista de Ordens de Serviço
-        </h1>
-
+        
         <Button 
           className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11 text-base font-medium"
           onClick={() => handleOpenForm()}
