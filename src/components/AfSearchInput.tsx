@@ -19,7 +19,10 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
   const [isFocused, setIsFocused] = useState(false);
   const [searchResults, setSearchResults] = useState<Af[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [displayValue, setDisplayValue] = useState('');
+  
+  // Initialize displayValue with value prop to ensure it shows up in edit mode immediately
+  const [displayValue, setDisplayValue] = useState(value || '');
+  
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -35,6 +38,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
     return afItem.descricao ? `${afItem.af_number} - ${afItem.descricao}` : afItem.af_number;
   };
 
+  // Sync displayValue with value prop when not editing
   useEffect(() => {
     if (!isFocused) {
       if (value) {
@@ -42,6 +46,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
         if (matchingAf) {
           setDisplayValue(getDisplayValue(matchingAf));
         } else {
+          // Keep the value as is if it's a custom AF or not found in the list yet
           setDisplayValue(value);
         }
       } else {
@@ -89,6 +94,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
   };
 
   const handleInputBlur = () => {
+    // Delay hiding to allow click on dropdown items
     setTimeout(() => {
       if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
         setIsFocused(false);
@@ -98,10 +104,11 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
         const matchingAf = afsMap.get(typedValue);
 
         if (matchingAf) {
+          // If match found, standardize format
           onSelectAf(matchingAf.af_number);
           setDisplayValue(getDisplayValue(matchingAf));
         } else {
-          // If not found in map, keep the typed value (custom AF)
+          // If not found in map, accept the typed value as custom AF
           if (typedValue) {
              onSelectAf(typedValue);
              setDisplayValue(typedValue);
