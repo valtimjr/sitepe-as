@@ -29,9 +29,12 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, DailyServiceOrder, ServiceOrderData, Af as SupabaseAf, ServiceOrderPart } from '@/types/supabase';
 
+// Export types used in other files
+export type { SimplePartItem, ServiceOrderItem } from '@/services/localDbService';
+export type { ServiceOrderData, Apontamento, MonthlyApontamento } from '@/types/supabase';
+
 export interface Part extends SupabasePart {}
 export interface Af extends SupabaseAf {}
-export type Apontamento = DailyApontamento;
 
 // --- Visitor Mode Service Orders (Flat List) ---
 
@@ -119,7 +122,9 @@ export const saveDailyServiceOrder = async (userId: string | undefined, date: st
     user_id: userId || 'guest',
     date: date,
     os_list: osList,
-    updated_at: payload.updated_at!
+    updated_at: payload.updated_at!,
+    user_badge: null,
+    user_name: null
   });
 };
 
@@ -339,7 +344,7 @@ export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthY
   return local;
 };
 
-export const syncMonthlyApontamentoToSupabase = async (apontamento: MonthlyApontamento): Promise<MonthlyApontamento> => {
+export const syncMonthlyApontamentoToSupabase = async (apontamento: MonthlyApontamento, forceSync: boolean = false): Promise<MonthlyApontamento> => {
   await supabase.from('monthly_apontamentos').upsert(apontamento, { onConflict: 'user_id,month_year' });
   await putLocalMonthlyApontamento(apontamento);
   return apontamento;

@@ -72,6 +72,10 @@ export const putLocalMonthlyApontamento = async (ap: MonthlyApontamento): Promis
   await localDb.monthlyApontamentos.put(ap);
 };
 
+export const bulkPutLocalMonthlyApontamentos = async (items: MonthlyApontamento[]): Promise<void> => {
+  await localDb.monthlyApontamentos.bulkPut(items);
+};
+
 export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<void> => {
   await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).delete();
 };
@@ -172,7 +176,7 @@ export const addLocalServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'
 };
 
 export const updateLocalServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
-  await localDb.serviceOrderItems.update(updatedItem.id, updatedItem);
+  await localDb.serviceOrderItems.update(updatedItem.id, updatedItem as any);
 };
 
 export const deleteLocalServiceOrderItem = async (id: string): Promise<void> => {

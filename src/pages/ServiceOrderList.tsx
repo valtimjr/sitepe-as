@@ -373,6 +373,7 @@ const ServiceOrderList: React.FC = () => {
                 group={os}
                 onEdit={() => handleOpenForm(os)}
                 onDelete={() => handleDeleteOS(os.id)}
+                onAddPart={() => handleOpenForm(os)}
               />
             ))}
           </div>
