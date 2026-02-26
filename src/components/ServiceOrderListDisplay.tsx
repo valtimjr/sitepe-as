@@ -33,7 +33,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
   const [manualCode, setManualCode] = useState('');
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    if (!searchQuery.trim() || selectedPart) {
       setSearchResults([]);
       return;
     }
@@ -51,25 +51,33 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, selectedPart]);
 
   const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
-    setSearchQuery('');
-    setSearchResults([]);
+    setSearchQuery(part.descricao);
     setManualDescription(part.descricao);
     setManualCode(part.codigo);
+    setSearchResults([]);
+  };
+
+  const handleManualDescriptionChange = (text: string) => {
+    setSearchQuery(text);
+    setManualDescription(text);
+    if (selectedPart && text !== selectedPart.descricao) {
+        setSelectedPart(null); // Deselect if user edits the description
+    }
   };
 
   const handleAddPartConfirm = () => {
     if (!onSave) return;
     
     // Validate inputs
-    if (!selectedPart && !manualDescription) return;
+    if (!manualDescription) return;
 
     const newPart = {
-      codigo_peca: selectedPart ? selectedPart.codigo : manualCode,
-      descricao: selectedPart ? selectedPart.descricao : manualDescription,
+      codigo_peca: manualCode,
+      descricao: manualDescription,
       quantidade: quantity
     };
 
@@ -187,27 +195,29 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
               </span>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3 items-start">
+               {/* Manual Code Input */}
+               <div>
+                 <Input 
+                   placeholder="Código" 
+                   value={manualCode}
+                   onChange={(e) => setManualCode(e.target.value)}
+                   className="font-mono text-sm"
+                 />
+               </div>
+
+               {/* Search / Description Input */}
               <div className="relative">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder={selectedPart ? "Peça selecionada" : "Buscar peça (código, nome, tag)..."}
-                    value={selectedPart ? selectedPart.descricao : searchQuery}
-                    onChange={(e) => {
-                      if (selectedPart) {
-                         // If editing the selected part text, switch to manual mode
-                         setSelectedPart(null);
-                         setManualDescription(e.target.value);
-                      } else {
-                        setSearchQuery(e.target.value);
-                        setManualDescription(e.target.value);
-                      }
-                    }}
-                    className={cn("pl-9", selectedPart && "font-medium bg-primary/5 border-primary/30 text-primary")}
+                    placeholder="Descrição / Buscar peça..."
+                    value={searchQuery}
+                    onChange={(e) => handleManualDescriptionChange(e.target.value)}
+                    className={cn("pl-9", selectedPart && "font-medium text-primary")}
                     autoFocus
                   />
-                  {selectedPart && (
+                  {searchQuery && (
                      <Button 
                        variant="ghost" 
                        size="icon" 
@@ -225,11 +235,11 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                 </div>
 
                 {/* Search Results Dropdown */}
-                {searchQuery && !selectedPart && (
+                {searchQuery && !selectedPart && searchResults.length > 0 && (
                   <div className="absolute z-10 w-full mt-1 bg-popover rounded-md border shadow-md max-h-48 overflow-y-auto">
                     {isSearching ? (
                       <div className="p-3 text-xs text-center text-muted-foreground">Buscando...</div>
-                    ) : searchResults.length > 0 ? (
+                    ) : (
                       searchResults.map((part) => (
                         <div
                           key={part.id}
@@ -240,29 +250,13 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                           <div className="text-xs text-muted-foreground truncate">{part.descricao}</div>
                         </div>
                       ))
-                    ) : (
-                      <div className="p-3 text-xs text-center text-muted-foreground">
-                        Nenhuma peça encontrada. <br/>
-                        <span className="opacity-70">Use o texto digitado como descrição manual.</span>
-                      </div>
                     )}
                   </div>
                 )}
-                
-                {/* Manual Fields if needed */}
-                {!selectedPart && searchQuery.length > 0 && searchResults.length === 0 && (
-                   <div className="mt-2 grid grid-cols-2 gap-2">
-                      <Input 
-                        placeholder="Código (Opcional)" 
-                        value={manualCode}
-                        onChange={(e) => setManualCode(e.target.value)}
-                        className="text-xs h-8"
-                      />
-                   </div>
-                )}
               </div>
 
-              <div className="w-24">
+              {/* Quantity */}
+              <div className="w-20">
                  <Input
                     type="number"
                     min="1"
@@ -273,8 +267,9 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                  />
               </div>
 
-              <Button onClick={handleAddPartConfirm} disabled={(!selectedPart && !manualDescription) || quantity < 1}>
-                <Check className="h-4 w-4 mr-1" /> Adicionar
+              {/* Add Button */}
+              <Button onClick={handleAddPartConfirm} disabled={!manualDescription || quantity < 1}>
+                <Check className="h-4 w-4 mr-1" /> Add
               </Button>
             </div>
           </div>
