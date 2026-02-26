@@ -115,31 +115,35 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
   };
 
   return (
-    <Card className="border-l-4 border-l-primary overflow-visible transition-all hover:shadow-md">
+    <Card className="border-l-[6px] border-l-primary shadow-sm rounded-lg hover:shadow-md transition-shadow bg-card overflow-hidden">
       <CardContent className="p-0">
-        <div className="p-4 flex flex-col sm:flex-row justify-between items-start gap-4">
-          <div className="flex-1 space-y-1">
-            <div className="flex items-center gap-3">
-              <h3 className="text-lg font-bold text-primary">AF: {group.af}</h3>
+        <div className="p-5 flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div className="flex-1 space-y-2">
+            {/* Header / Status Line */}
+            <h3 className="text-sm font-bold text-primary uppercase tracking-tight">
+              AF: {group.af}
+            </h3>
+            
+            {/* Main Title / Description */}
+            <p className="text-lg font-semibold text-card-foreground leading-tight">
+              {group.servico_executado || <span className="text-muted-foreground italic font-normal">Sem descrição</span>}
+            </p>
+
+            {/* Meta Info */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground pt-1">
               {group.os && (
-                <span className="bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">
-                  OS: {group.os}
+                <span className="flex items-center">
+                  OS: <span className="font-medium text-foreground ml-1">{group.os}</span>
                 </span>
               )}
+              
+              {(group.hora_inicio || group.hora_final) && (
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>{group.hora_inicio || '--:--'} - {group.hora_final || '--:--'}</span>
+                </div>
+              )}
             </div>
-            
-            {(group.hora_inicio || group.hora_final) && (
-              <div className="flex items-center text-sm text-muted-foreground gap-1.5">
-                <Clock className="h-3.5 w-3.5" />
-                <span>{group.hora_inicio || '??:??'} - {group.hora_final || '??:??'}</span>
-              </div>
-            )}
-
-            {group.servico_executado && (
-              <p className="text-sm text-foreground/80 leading-relaxed pt-1">
-                {group.servico_executado}
-              </p>
-            )}
           </div>
 
           <div className="flex gap-2 shrink-0">
@@ -164,7 +168,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={onEdit} className="h-9 w-9">
+                <Button variant="ghost" size="icon" onClick={onEdit} className="h-9 w-9 text-muted-foreground hover:text-foreground">
                   <Pencil className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -173,14 +177,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={onDelete} className="h-9 w-9 text-destructive">
+                <Button variant="ghost" size="icon" onClick={onDelete} className="h-9 w-9 text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Excluir</TooltipContent>
             </Tooltip>
 
-            <Button variant="ghost" size="icon" onClick={() => setIsExpanded(!isExpanded)} className="h-9 w-9">
+            <Button variant="ghost" size="icon" onClick={() => setIsExpanded(!isExpanded)} className="h-9 w-9 text-muted-foreground">
               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </div>
