@@ -8,7 +8,7 @@ import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
 import { getDailyServiceOrders, ServiceOrderData, saveDailyServiceOrder, clearDailyServiceOrders } from '@/services/partListService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ClipboardList, ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, Trash2, Copy, Share2, FileDown, ArrowUpDown } from 'lucide-react';
+import { ClipboardList, ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, Trash2, Copy, Share2, FileDown, ArrowUpDown, PlusCircle, GripVertical, Clock } from 'lucide-react';
 import { format, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { showSuccess, showError } from '@/utils/toast';
@@ -203,187 +203,157 @@ const ServiceOrderList: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <div className="w-full max-w-4xl space-y-6">
-        <h1 className="text-4xl font-extrabold mt-8 text-center text-primary flex items-center justify-center gap-3">
-          <ClipboardList className="h-10 w-10" />
-          Ordens de Serviço
+    <div className="min-h-screen p-4 bg-background text-foreground max-w-5xl mx-auto w-full">
+      {/* Date Navigation */}
+      {session && (
+        <div className="flex items-center justify-center gap-4 mb-8">
+          <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="min-w-[200px] justify-center">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                <span className="font-semibold">
+                  {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="center">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleDateChange}
+                locale={ptBR}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {!session && (
+        <Alert variant="default" className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 mb-6">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertTitle>Modo Visitante</AlertTitle>
+          <AlertDescription>
+            Você não está logado. Suas ordens serão salvas apenas neste dispositivo. 
+            <Link to="/login" className="font-bold underline ml-1 text-primary">Faça login</Link> para salvar na nuvem.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Main Header & Actions */}
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-left text-foreground">
+          Lista de Ordens de Serviço
         </h1>
 
-        {!session && (
-          <Alert variant="default" className="bg-amber-50 border-amber-200 dark:bg-amber-950/20">
-            <AlertCircle className="h-4 w-4 text-amber-600" />
-            <AlertTitle>Modo Visitante</AlertTitle>
-            <AlertDescription>
-              Você não está logado. Suas ordens serão salvas apenas neste dispositivo. 
-              <Link to="/login" className="font-bold underline ml-1 text-primary">Faça login</Link> para salvar na nuvem.
-            </AlertDescription>
-          </Alert>
-        )}
+        <Button 
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11 text-base font-medium"
+          onClick={() => handleOpenForm()}
+        >
+          <PlusCircle className="mr-2 h-5 w-5" /> Iniciar Nova OS
+        </Button>
 
-        {/* Navegação por Data (Apenas para Logados) */}
-        <Card className="bg-muted/30 border-none shadow-none">
-          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            {session && (
-              <>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="min-w-[200px] justify-center">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        <span className="font-semibold">
-                          {format(selectedDate, "EEEE", { locale: ptBR })}
-                        </span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="center">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={handleDateChange}
-                        locale={ptBR}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+           <Button 
+             variant="outline" 
+             className="text-blue-600 border-blue-200 hover:bg-blue-50"
+             onClick={handleCopyList}
+             disabled={osList.length === 0}
+           >
+             <Copy className="mr-2 h-4 w-4" /> Copiar Lista
+           </Button>
 
-                  <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
+           <Button 
+             className="bg-[#25D366] hover:bg-[#128C7E] text-white rounded-full w-10 h-10 p-0 shadow-sm"
+             onClick={handleShareOnWhatsApp}
+             disabled={osList.length === 0}
+           >
+              <img src="/icons/whatsapp.png" alt="WhatsApp" className="h-5 w-5" />
+           </Button>
 
-                <div className="text-center">
-                  <span className="text-sm font-medium text-muted-foreground uppercase block">
-                    {format(selectedDate, 'MMMM', { locale: ptBR })}
-                  </span>
-                  <span className="text-xl font-bold">
-                    {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
-                  </span>
-                </div>
-              </>
-            )}
+           <Button 
+             className="bg-blue-600 hover:bg-blue-700 text-white"
+             onClick={handleExportPdf}
+             disabled={osList.length === 0}
+           >
+             <FileDown className="mr-2 h-4 w-4" /> Exportar PDF
+           </Button>
 
-            <div className={cn(
-              "flex flex-wrap items-center justify-center gap-2 w-full",
-              session ? "sm:w-auto" : ""
-            )}>
+           <AlertDialog>
+             <AlertDialogTrigger asChild>
+               <Button variant="destructive" className="bg-red-500 hover:bg-red-600" disabled={osList.length === 0}>
+                 <Trash2 className="mr-2 h-4 w-4" /> Limpar Lista
+               </Button>
+             </AlertDialogTrigger>
+             <AlertDialogContent>
+               <AlertDialogHeader>
+                 <AlertDialogTitle>Limpar dia inteiro?</AlertDialogTitle>
+                 <AlertDialogDescription>
+                   Isso excluirá todas as ordens de serviço do dia {format(selectedDate, 'dd/MM/yyyy')}.
+                 </AlertDialogDescription>
+               </AlertDialogHeader>
+               <AlertDialogFooter>
+                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                 <AlertDialogAction onClick={handleClearDay}>Limpar Tudo</AlertDialogAction>
+               </AlertDialogFooter>
+             </AlertDialogContent>
+           </AlertDialog>
+        </div>
+      </div>
 
-              <Button className="flex-1 sm:flex-none gap-2" onClick={() => handleOpenForm()}>
-                <ClipboardList className="h-4 w-4" /> Nova OS
-              </Button>
-
-              <div className="flex gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
-                      className={cn(sortDirection === 'desc' && "bg-primary text-white border-primary")}
-                    >
-                      <ArrowUpDown className={cn("h-4 w-4", sortDirection === 'desc' && "rotate-180 transition-transform")} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Inverter Ordem (Início às 07:00)</TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={handleCopyList} 
-                      disabled={osList.length === 0}
-                      className="bg-white text-primary border-primary hover:bg-primary hover:text-white"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Copiar Ordens</TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      onClick={handleShareOnWhatsApp} 
-                      disabled={osList.length === 0}
-                      className="h-10 w-10 p-0 rounded-full"
-                    >
-                      <img src="/icons/whatsapp.png" alt="WhatsApp" className="h-10 w-10" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Compartilhar no WhatsApp</TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={handleExportPdf} disabled={osList.length === 0}>
-                      <FileDown className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Exportar PDF</TooltipContent>
-                </Tooltip>
-
-                <AlertDialog>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="icon" disabled={osList.length === 0}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>Limpar Dia</TooltipContent>
-                  </Tooltip>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Limpar dia inteiro?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Isso excluirá todas as ordens de serviço do dia {format(selectedDate, 'dd/MM/yyyy')}.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleClearDay}>Limpar Tudo</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+      {/* List Header Row (Desktop visible) */}
+      <div className="mt-8 mb-2 px-4 hidden md:grid grid-cols-[auto_1fr_auto_auto] gap-4 text-sm text-muted-foreground font-medium">
+         <div className="flex items-center gap-6">
+            <GripVertical className="h-4 w-4 opacity-50" />
+            <div className="flex items-center gap-2">
+               <Clock className="h-4 w-4" />
             </div>
+            <div 
+              className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+              onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+            >
+               <ArrowUpDown className="h-3 w-3" /> Peça
+            </div>
+         </div>
+         <div></div> {/* Spacer for description/service */}
+         <div className="text-center w-16">Qtd</div>
+         <div className="text-right w-20">Opções</div>
+      </div>
+
+      <div className="border-t border-border/50 md:hidden mb-4"></div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      ) : sortedOsList.length === 0 ? (
+        <Card className="border-dashed py-16 mt-4">
+          <CardContent className="flex flex-col items-center text-muted-foreground">
+            <ClipboardList className="h-12 w-12 mb-4 opacity-20" />
+            <p>Nenhuma ordem de serviço para esta data.</p>
           </CardContent>
         </Card>
-
-        {isLoading ? (
-          <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          </div>
-        ) : sortedOsList.length === 0 ? (
-          <Card className="border-dashed py-16">
-            <CardContent className="flex flex-col items-center text-muted-foreground">
-              <CalendarIcon className="h-12 w-12 mb-4 opacity-20" />
-              <p>Nenhuma ordem de serviço para esta data.</p>
-              <Button variant="link" onClick={() => handleOpenForm()}>Começar agora</Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {sortedOsList.map(os => (
-              <ServiceOrderListDisplay 
-                key={os.id}
-                group={os}
-                onEdit={() => handleOpenForm(os)}
-                onDelete={() => handleDeleteOS(os.id)}
-                onSave={handleSaveOS}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      ) : (
+        <div className="space-y-6 mt-2">
+          {sortedOsList.map(os => (
+            <ServiceOrderListDisplay 
+              key={os.id}
+              group={os}
+              onEdit={() => handleOpenForm(os)}
+              onDelete={() => handleDeleteOS(os.id)}
+              onSave={handleSaveOS}
+            />
+          ))}
+        </div>
+      )}
 
       <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">

@@ -2,26 +2,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { ServiceOrderData } from '@/types/supabase';
-import { Clock, Pencil, Trash2, Tag, ChevronDown, ChevronUp, PlusCircle, Search, X, Check } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Clock, Pencil, Trash2, PlusCircle, Search, X, Check, GripVertical, Tag } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { searchParts, Part } from '@/services/partListService';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ServiceOrderListDisplayProps {
   group: ServiceOrderData;
   onEdit: () => void;
   onDelete: () => void;
   onSave?: (updatedOs: ServiceOrderData) => void;
-  onAddPart?: () => void; // Mantendo para compatibilidade, mas o comportamento será inline se onSave existir
+  onAddPart?: () => void; 
 }
 
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group, onEdit, onDelete, onSave, onAddPart }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
-  
   // States for Inline Add Part
   const [isAddingPart, setIsAddingPart] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,14 +57,6 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
     setSearchResults([]);
   };
 
-  const handleManualDescriptionChange = (text: string) => {
-    setSearchQuery(text);
-    setManualDescription(text);
-    if (selectedPart && text !== selectedPart.descricao) {
-        setSelectedPart(null); // Deselect if user edits the description
-    }
-  };
-
   const handleAddPartConfirm = () => {
     if (!onSave) return;
     
@@ -95,7 +83,20 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
     setManualDescription('');
     setManualCode('');
     setQuantity(1);
-    setIsExpanded(true); // Ensure list is expanded to show new part
+  };
+
+  const handleDeletePart = (index: number) => {
+    if (!onSave) return;
+    
+    const updatedParts = [...(group.parts || [])];
+    updatedParts.splice(index, 1);
+    
+    const updatedGroup = {
+      ...group,
+      parts: updatedParts
+    };
+    
+    onSave(updatedGroup);
   };
 
   const toggleAddPart = () => {
@@ -115,226 +116,182 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
   };
 
   return (
-    <Card className="border-l-[6px] border-l-primary shadow-sm rounded-lg hover:shadow-md transition-shadow bg-card overflow-hidden">
-      <CardContent className="p-0">
-        <div className="p-5 flex flex-col sm:flex-row justify-between items-start gap-4">
-          <div className="flex-1 space-y-2">
-            {/* Header / Status Line */}
-            <h3 className="text-sm font-bold text-primary uppercase tracking-tight">
-              AF: {group.af}
-            </h3>
+    <div className="bg-card shadow-sm rounded-sm overflow-hidden">
+      {/* Top Border */}
+      <div className="h-1 bg-blue-600 w-full"></div>
+      
+      {/* Header Section */}
+      <div className="p-4 bg-blue-50/30 border-b border-blue-100/50">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="hidden md:flex pt-1 text-muted-foreground/40 cursor-grab active:cursor-grabbing">
+              <GripVertical className="h-5 w-5" />
+            </div>
             
-            {/* Main Title / Description */}
-            <p className="text-lg font-semibold text-card-foreground leading-tight">
-              {group.servico_executado || <span className="text-muted-foreground italic font-normal">Sem descrição</span>}
-            </p>
-
-            {/* Meta Info */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground pt-1">
-              {group.os && (
-                <span className="flex items-center">
-                  OS: <span className="font-medium text-foreground ml-1">{group.os}</span>
-                </span>
-              )}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold text-blue-600">
+                  AF: {group.af} {group.os && <span className="text-blue-600/80 text-base font-semibold">(OS: {group.os})</span>}
+                </h3>
+              </div>
               
               {(group.hora_inicio || group.hora_final) && (
-                <div className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5" />
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5 mr-2" />
                   <span>{group.hora_inicio || '--:--'} - {group.hora_final || '--:--'}</span>
                 </div>
               )}
+              
+              <div className="text-foreground font-medium">
+                Serviço: {group.servico_executado || <span className="text-muted-foreground italic font-normal">Sem descrição</span>}
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-2 shrink-0">
+          {/* Service Actions */}
+          <div className="flex items-center gap-1 self-end md:self-start">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant={isAddingPart ? "default" : "outline"}
-                  size="icon" 
-                  onClick={toggleAddPart} 
-                  className={cn(
-                    "h-9 w-9", 
-                    isAddingPart 
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                      : "text-primary border-primary/50 hover:bg-primary/10"
-                  )}
-                >
-                  {isAddingPart ? <X className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{isAddingPart ? "Cancelar" : "Adicionar Peça"}</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={onEdit} className="h-9 w-9 text-muted-foreground hover:text-foreground">
+                <Button variant="ghost" size="icon" onClick={onEdit} className="h-8 w-8 text-muted-foreground hover:text-foreground">
                   <Pencil className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Editar</TooltipContent>
+              <TooltipContent>Editar OS</TooltipContent>
             </Tooltip>
-
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={onDelete} className="h-9 w-9 text-muted-foreground hover:text-destructive">
+                <Button variant="ghost" size="icon" onClick={onDelete} className="h-8 w-8 text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Excluir</TooltipContent>
+              <TooltipContent>Excluir OS</TooltipContent>
             </Tooltip>
-
-            <Button variant="ghost" size="icon" onClick={() => setIsExpanded(!isExpanded)} className="h-9 w-9 text-muted-foreground">
-              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
           </div>
         </div>
+      </div>
 
-        {/* Inline Add Part Form */}
-        {isAddingPart && (
-          <div className="border-t bg-muted/40 p-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-1">
-                <PlusCircle className="h-3 w-3" /> Adicionar Peça
-              </span>
-            </div>
-            
-            <div className="space-y-3">
-              {/* Row 1: Search */}
-              <div className="relative">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar peça (código, nome, tag)..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      if (selectedPart) {
-                         // If editing when part is selected, clear selection and reset manual fields
-                         setSelectedPart(null);
-                         setManualCode('');
-                         setManualDescription(e.target.value); // Use as base for description
-                      }
-                      setSearchQuery(e.target.value);
-                    }}
-                    className={cn("pl-9", selectedPart && "font-medium bg-primary/5 border-primary/30 text-primary")}
-                    autoFocus
-                  />
-                  {searchQuery && (
-                     <Button 
-                       variant="ghost" 
-                       size="icon" 
-                       className="absolute right-1 top-1 h-7 w-7 text-muted-foreground hover:text-foreground"
-                       onClick={() => {
-                         setSelectedPart(null);
-                         setSearchQuery('');
-                         setManualDescription('');
-                         setManualCode('');
-                       }}
-                     >
-                       <X className="h-3 w-3" />
-                     </Button>
-                  )}
+      {/* Parts List */}
+      <div className="p-0">
+        {group.parts && group.parts.length > 0 && (
+          <div className="divide-y divide-border/40">
+            {group.parts.map((part, index) => (
+              <div key={index} className="p-4 pl-8 md:pl-14 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-4 items-center hover:bg-muted/20 transition-colors">
+                
+                <div className="space-y-1">
+                  <div className="font-semibold text-blue-600 hover:underline cursor-pointer text-sm">
+                    {part.codigo_peca}
+                  </div>
+                  <div className="text-sm text-foreground uppercase leading-tight">
+                    {part.descricao}
+                  </div>
+                  {/* Placeholder for related items if we had that data structure */}
+                  <div className="flex items-center text-xs text-blue-500 font-medium">
+                     <Tag className="h-3 w-3 mr-1" />
+                     <span>Item relacionado</span>
+                  </div>
                 </div>
 
-                {/* Search Results Dropdown */}
-                {searchQuery && !selectedPart && searchResults.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-popover rounded-md border shadow-md max-h-48 overflow-y-auto">
-                    {isSearching ? (
-                      <div className="p-3 text-xs text-center text-muted-foreground">Buscando...</div>
-                    ) : (
-                      searchResults.map((part) => (
-                        <div
-                          key={part.id}
-                          className="px-3 py-2 text-sm hover:bg-muted cursor-pointer transition-colors border-b last:border-0"
-                          onClick={() => handleSelectPart(part)}
-                        >
-                          <div className="font-medium text-foreground">{part.codigo}</div>
-                          <div className="text-xs text-muted-foreground truncate">{part.descricao}</div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
+                <div className="flex items-center justify-between md:contents">
+                   <span className="md:hidden text-sm font-medium text-muted-foreground">Qtd:</span>
+                   <div className="text-center w-16 font-medium text-sm">{part.quantidade}</div>
+                   
+                   <div className="flex items-center justify-end gap-1 w-20">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeletePart(index)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                   </div>
+                </div>
+
               </div>
+            ))}
+          </div>
+        )}
 
-              {/* Row 2: Code, Description, Quantity, Button */}
-              <div className="grid gap-3 items-center grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto]">
-                 {/* Manual Code Input */}
-                 <div className="w-full">
-                   <Input 
-                     placeholder="Código" 
-                     value={manualCode}
-                     onChange={(e) => setManualCode(e.target.value)}
-                     className="font-mono text-sm h-9"
-                   />
-                 </div>
+        {/* Add Part Area */}
+        <div className="p-4 border-t border-border/40">
+          {!isAddingPart ? (
+            <div className="flex justify-center">
+              <Button variant="outline" onClick={toggleAddPart} className="gap-2 text-foreground/80 hover:text-foreground">
+                <PlusCircle className="h-4 w-4" /> Adicionar Peça
+              </Button>
+            </div>
+          ) : (
+            <div className="bg-muted/30 p-4 rounded-md border animate-in fade-in zoom-in-95 duration-200">
+               <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                     <PlusCircle className="h-4 w-4" /> Nova Peça
+                  </h4>
+                  <Button variant="ghost" size="sm" onClick={toggleAddPart} className="h-6 w-6 p-0 rounded-full">
+                     <X className="h-3 w-3" />
+                  </Button>
+               </div>
 
-                 {/* Manual Description Input */}
-                 <div className="w-full">
-                   <Input 
-                     placeholder="Descrição" 
-                     value={manualDescription}
-                     onChange={(e) => setManualDescription(e.target.value)}
-                     className="text-sm h-9"
-                   />
-                 </div>
+               <div className="grid gap-3">
+                  <div className="relative">
+                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                     <Input 
+                        placeholder="Buscar peça..." 
+                        value={searchQuery}
+                        onChange={(e) => {
+                           if (selectedPart) {
+                              setSelectedPart(null);
+                              setManualCode('');
+                              setManualDescription(e.target.value);
+                           }
+                           setSearchQuery(e.target.value);
+                        }}
+                        className="pl-9"
+                        autoFocus
+                     />
+                     {searchQuery && !selectedPart && searchResults.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-popover rounded-md border shadow-md max-h-48 overflow-y-auto">
+                           {searchResults.map((part) => (
+                              <div
+                                 key={part.id}
+                                 className="px-3 py-2 text-sm hover:bg-muted cursor-pointer border-b last:border-0"
+                                 onClick={() => handleSelectPart(part)}
+                              >
+                                 <div className="font-bold text-blue-600">{part.codigo}</div>
+                                 <div className="text-xs text-muted-foreground">{part.descricao}</div>
+                              </div>
+                           ))}
+                        </div>
+                     )}
+                  </div>
 
-                {/* Qty and Button Wrapper for Mobile alignment */}
-                <div className="flex gap-3 items-center justify-between md:justify-end md:contents">
-                  {/* Quantity */}
-                  <div className="w-20 md:w-20">
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3">
+                     <Input 
+                        placeholder="Código" 
+                        value={manualCode}
+                        onChange={(e) => setManualCode(e.target.value)}
+                        className="font-mono text-sm"
+                     />
+                     <Input 
+                        placeholder="Descrição" 
+                        value={manualDescription}
+                        onChange={(e) => setManualDescription(e.target.value)}
+                        className="text-sm"
+                     />
                      <Input
                         type="number"
                         min="1"
                         value={quantity}
                         onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                        className="text-center h-9"
-                        placeholder="Qtd"
+                        className="w-20 text-center"
                      />
+                     <Button onClick={handleAddPartConfirm} disabled={!manualDescription}>
+                        <Check className="h-4 w-4 mr-2" /> Salvar
+                     </Button>
                   </div>
-
-                  {/* Add Button */}
-                  <Button onClick={handleAddPartConfirm} disabled={!manualDescription || quantity < 1} className="h-9 w-9 p-0 flex-none" title="Adicionar">
-                    <Check className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+               </div>
             </div>
-          </div>
-        )}
-
-        {isExpanded && group.parts && group.parts.length > 0 && (
-          <div className="border-t bg-muted/20">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow className="h-10 hover:bg-transparent">
-                  <TableHead className="text-[10px] uppercase font-bold py-0">Peça</TableHead>
-                  <TableHead className="w-16 text-center text-[10px] uppercase font-bold py-0">Qtd</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {group.parts.map((part, i) => (
-                  <TableRow key={i} className="hover:bg-muted/40">
-                    <TableCell className="py-2.5">
-                      <div className="flex items-center gap-2">
-                        <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold">{part.codigo_peca}</span>
-                          <span className="text-[10px] text-muted-foreground truncate max-w-[250px]">
-                            {part.descricao}
-                          </span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center text-xs font-medium">{part.quantidade}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
