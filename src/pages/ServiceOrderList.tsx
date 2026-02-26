@@ -272,7 +272,7 @@ const ServiceOrderList: React.FC = () => {
            </Button>
 
            <Button 
-             className="bg-[#ffffff] hover:bg-[#128C7E] text-white w-10 h-10 "
+             className="bg-[#ffffff] hover:bg-blue-700 w-10 h-10"
              onClick={handleShareOnWhatsApp}
              disabled={osList.length === 0}
            >
