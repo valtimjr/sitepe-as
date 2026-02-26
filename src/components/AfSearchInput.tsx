@@ -20,7 +20,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
   const [searchResults, setSearchResults] = useState<Af[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   
-  // Initialize displayValue with value prop to ensure it shows up in edit mode immediately
+  // Initialize displayValue with value prop
   const [displayValue, setDisplayValue] = useState(value || '');
   
   const inputRef = useRef<HTMLInputElement>(null);
@@ -38,9 +38,14 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
     return afItem.descricao ? `${afItem.af_number} - ${afItem.descricao}` : afItem.af_number;
   };
 
-  // Sync displayValue with value prop when not editing
+  // Sync displayValue with value prop
   useEffect(() => {
-    if (!isFocused) {
+    // We update the display value if:
+    // 1. The input is NOT focused (external update or initial load)
+    // 2. The input IS focused but currently empty, and we have a value coming in (fixes race conditions on mount/focus)
+    const shouldUpdate = !isFocused || (isFocused && !displayValue && value);
+
+    if (shouldUpdate) {
       if (value) {
         const matchingAf = afsMap.get(value);
         if (matchingAf) {
@@ -49,11 +54,12 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
           // Keep the value as is if it's a custom AF or not found in the list yet
           setDisplayValue(value);
         }
-      } else {
+      } else if (!isFocused) {
+        // Only clear if not focused to avoid interrupting user clearing the input manually
         setDisplayValue('');
       }
     }
-  }, [value, isFocused, afsMap]);
+  }, [value, isFocused, afsMap, displayValue]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
