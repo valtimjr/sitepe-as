@@ -99,15 +99,20 @@ const ServiceOrderList: React.FC = () => {
   };
 
   const handleSaveOS = async (updatedOs: ServiceOrderData) => {
-    const newList = editingOs 
-      ? osList.map(o => o.id === editingOs.id ? updatedOs : o)
+    const newList = osList.some(o => o.id === updatedOs.id) 
+      ? osList.map(o => o.id === updatedOs.id ? updatedOs : o)
       : [...osList, updatedOs];
     
     try {
       await saveDailyServiceOrder(user?.id, dateStr, newList);
       setOsList(newList);
-      setIsFormOpen(false);
-      showSuccess(editingOs ? 'OS atualizada!' : 'OS adicionada!');
+      if (isFormOpen) {
+        setIsFormOpen(false);
+        showSuccess(editingOs ? 'OS atualizada!' : 'OS adicionada!');
+      } else {
+        // Silent success for inline updates
+        showSuccess('OS atualizada!');
+      }
     } catch (error) {
       showError('Erro ao salvar as ordens.');
     }
@@ -373,7 +378,7 @@ const ServiceOrderList: React.FC = () => {
                 group={os}
                 onEdit={() => handleOpenForm(os)}
                 onDelete={() => handleDeleteOS(os.id)}
-                onAddPart={() => handleOpenForm(os)}
+                onSave={handleSaveOS}
               />
             ))}
           </div>
