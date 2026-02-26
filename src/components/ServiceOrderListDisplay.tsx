@@ -276,7 +276,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                  </div>
 
                 {/* Qty and Button Wrapper for Mobile alignment */}
-                <div className="flex gap-3 items-center justify-between md:contents">
+                <div className="flex gap-3 items-center justify-between md:justify-end md:contents">
                   {/* Quantity */}
                   <div className="w-20 md:w-20">
                      <Input
@@ -290,8 +290,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                   </div>
 
                   {/* Add Button */}
-                  <Button onClick={handleAddPartConfirm} disabled={!manualDescription || quantity < 1} className="h-9 flex-1 md:flex-none">
-                    <Check className="h-4 w-4 mr-1" /> Add
+                  <Button onClick={handleAddPartConfirm} disabled={!manualDescription || quantity < 1} className="h-9 w-9 p-0 flex-none" title="Adicionar">
+                    <Check className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
