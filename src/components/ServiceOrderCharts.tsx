@@ -210,7 +210,7 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="icon" className="ml-2 text-blue-600 border-blue-200 hover:bg-blue-50">
+        <Button variant="outline" size="icon" className="text-blue-600 border-blue-200 hover:bg-blue-50">
           <PieChartIcon className="h-5 w-5" />
         </Button>
       </PopoverTrigger>
