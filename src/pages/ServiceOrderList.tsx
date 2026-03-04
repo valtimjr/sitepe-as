@@ -33,6 +33,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+import { ServiceOrderCharts } from '@/components/ServiceOrderCharts';
+
 const ServiceOrderList: React.FC = () => {
   const { user, session } = useSession();
   const isMobile = useIsMobile();
@@ -266,14 +268,16 @@ const ServiceOrderList: React.FC = () => {
         </Button>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-           <Button 
-             variant="outline" 
+           <Button
+             variant="outline"
              className="text-blue-600 border-blue-200 hover:bg-blue-50"
              onClick={handleCopyList}
              disabled={osList.length === 0}
            >
              <Copy className="mr-2 h-4 w-4" /> Copiar Lista
            </Button>
+
+           <ServiceOrderCharts osList={osList} currentDate={selectedDate} />
 
            <Button 
              className="bg-[#ffffff] hover:bg-blue-700  rounded-full w-10 h-10 p-0"

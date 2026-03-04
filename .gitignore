@@ -25,3 +25,4 @@ dist-ssr
 
 # Ignorar arquivos de imagem específicos que podem ser alterados externamente
 public/Lista.png
+.dyad/
