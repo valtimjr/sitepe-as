@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SearchParts from "./pages/SearchParts";
@@ -24,8 +24,20 @@ import AppHeader from "./components/AppHeader";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 import { useOfflineSync } from "./hooks/useOfflineSync";
 import WelcomeModal from "./components/WelcomeModal";
+import { CompanyProvider } from "./context/CompanyContext";
 
 const queryClient = new QueryClient();
+
+const CompanyLayout = () => {
+  return (
+    <CompanyProvider>
+      <AppHeader />
+      <Outlet />
+      <WelcomeModal />
+      <CookieConsentBanner />
+    </CompanyProvider>
+  );
+};
 
 const AppWrapper = () => {
   return (
@@ -41,30 +53,32 @@ const AppContent = () => {
   useOfflineSync();
   
   return (
-    <>
-      <AppHeader />
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/search-parts" element={<SearchParts />} />
-        <Route path="/parts-list" element={<PartsList />} />
-        <Route path="/service-orders" element={<ServiceOrderList />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/admin" element={<DatabaseManagerPage />} />
-        <Route path="/signup/:uuid" element={<SignupPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/settings" element={<UserSettingsPage />} />
-        <Route path="/time-tracking" element={<TimeTrackingPage />} />
-        <Route path="/custom-list/:listId" element={<CustomListPage />} />
-        <Route path="/my-custom-lists" element={<MyCustomListsPage />} />
-        <Route path="/custom-menu-view" element={<CustomMenuOverview />} />
-        <Route path="/cookie-policy" element={<CookiePolicyPage />} />
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-      <WelcomeModal />
-      <CookieConsentBanner /> {/* Movido para dentro do BrowserRouter */}
-    </>
+    <Routes>
+      <Route path="/" element={<Navigate to="/usina_vale" replace />} />
+      
+      {/* Routes that DON'T need company prefix (auth related mostly) */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup/:uuid" element={<SignupPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/cookie-policy" element={<CookiePolicyPage />} />
+
+      {/* Routes WITH company prefix */}
+      <Route path="/:company" element={<CompanyLayout />}>
+        <Route index element={<Index />} />
+        <Route path="search-parts" element={<SearchParts />} />
+        <Route path="parts-list" element={<PartsList />} />
+        <Route path="service-orders" element={<ServiceOrderList />} />
+        <Route path="admin" element={<DatabaseManagerPage />} />
+        <Route path="settings" element={<UserSettingsPage />} />
+        <Route path="time-tracking" element={<TimeTrackingPage />} />
+        <Route path="custom-list/:listId" element={<CustomListPage />} />
+        <Route path="my-custom-lists" element={<MyCustomListsPage />} />
+        <Route path="custom-menu-view" element={<CustomMenuOverview />} />
+      </Route>
+
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 };
 

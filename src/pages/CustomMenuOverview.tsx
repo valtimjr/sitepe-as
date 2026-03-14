@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Menu, List as ListIcon, ChevronRight, Loader2, Tag, Info } from 'lucide-react';
+import { ArrowLeft, Menu, List as ListIcon, ChevronRight, Loader2, Tag, Info, ChevronLeft } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { getMenuStructure } from '@/services/customListService';
 import { MenuItem, Part, RelatedPart } from '@/types/supabase';
@@ -14,13 +14,15 @@ import { getParts } from '@/services/partListService'; // Importar getParts
 import RelatedPartDisplay from '@/components/RelatedPartDisplay';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useCompany } from '@/context/CompanyContext';
 
 interface MenuItemProps {
   item: MenuItem;
   level: number;
+  company: string;
 }
 
-const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
+const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, company }) => {
   const [isExpanded, setIsExpanded] = useState(level === 0);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false); // Estado para controlar o tooltip
   const hasChildren = item.children && item.children.length > 0;
@@ -110,7 +112,7 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
   return (
     <div className="w-full">
       {isListLink ? (
-        <Link to={`/custom-list/${item.list_id}`} className="block">
+        <Link to={`/${company}/custom-list/${item.list_id}`} className="block">
           {content}
         </Link>
       ) : (
@@ -122,7 +124,7 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
       {hasChildren && isExpanded && (
         <div className="w-full">
           {item.children!.map(child => (
-            <MenuItemDisplay key={child.id} item={child} level={level + 1} />
+            <MenuItemDisplay key={child.id} item={child} level={level + 1} company={company} />
           ))}
         </div>
       )}
@@ -131,17 +133,18 @@ const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level }) => {
 };
 
 const CustomMenuOverview: React.FC = () => {
+  const { company, branding } = useCompany();
   const [menuHierarchy, setMenuHierarchy] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    document.title = "Catálogo de Peças - AutoBoard";
-  }, []);
+    document.title = `Catálogo de Peças - AutoBoard (${branding.name})`;
+  }, [branding.name]);
 
   const loadMenu = useCallback(async () => {
     setIsLoading(true);
     try {
-      const structure = await getMenuStructure();
+      const structure = await getMenuStructure(company);
       setMenuHierarchy(structure);
     } catch (error) {
       console.error('Erro ao carregar o catálogo de peças:', error);
@@ -150,7 +153,7 @@ const CustomMenuOverview: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [company]);
 
   useEffect(() => {
     loadMenu();
@@ -159,21 +162,24 @@ const CustomMenuOverview: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <div className="w-full max-w-4xl flex justify-between items-center mb-4 mt-8">
-        <Link to="/">
+        <Link to={`/${company}`}>
           <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar para o Início
+            <ChevronLeft className="h-4 w-4" /> Voltar para o Início
           </Button>
         </Link>
       </div>
       
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <Menu className="h-8 w-8 text-primary" />
-        Catálogo de Peças
+      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
+        <div className="flex items-center gap-3">
+          <Menu className="h-8 w-8 text-primary" />
+          Catálogo de Peças
+        </div>
+        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
       </h1>
 
       <Card className="w-full max-w-4xl mx-auto mb-8">
         <CardHeader>
-          <CardTitle className="text-xl">Estrutura de Listas</CardTitle>
+          <CardTitle className="text-xl">Estrutura de Listas ({branding.name})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
@@ -181,11 +187,11 @@ const CustomMenuOverview: React.FC = () => {
               <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando catálogo...
             </div>
           ) : menuHierarchy.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Nenhuma lista ou categoria configurada.</p>
+            <p className="text-center text-muted-foreground py-8">Nenhuma lista ou categoria configurada para esta empresa.</p>
           ) : (
             <div className="border rounded-lg overflow-hidden">
               {menuHierarchy.map(item => (
-                <MenuItemDisplay key={item.id} item={item} level={0} />
+                <MenuItemDisplay key={item.id} item={item} level={0} company={company} />
               ))}
             </div>
           )}

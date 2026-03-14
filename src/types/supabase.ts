@@ -53,6 +53,7 @@ export interface DailyApontamento {
 export interface MonthlyApontamento {
   id: string;
   user_id: string;
+  company?: string; // Adicionado para multi-empresa
   month_year: string; // Formato 'YYYY-MM'
   data: DailyApontamento[]; // Array de apontamentos diários
   created_at?: string;
@@ -77,6 +78,7 @@ export interface MangueiraItemData {
 export interface CustomList {
   id: string;
   user_id: string;
+  company?: string; // Adicionado para multi-empresa
   title: string;
   created_at?: Date;
   updated_at?: string; // Adicionado o campo updated_at
@@ -131,6 +133,7 @@ export interface ServiceOrderData {
 export interface DailyServiceOrder {
   id: string;
   user_id: string;
+  company?: string; // Adicionado para multi-empresa
   date: string; // YYYY-MM-DD
   user_badge: string | null;
   user_name: string | null;

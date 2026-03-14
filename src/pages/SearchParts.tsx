@@ -12,22 +12,24 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import RelatedPartDisplay from '@/components/RelatedPartDisplay'; // Importado o novo componente
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useCompany } from '@/context/CompanyContext';
 
 const SearchParts = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [displayedParts, setDisplayedParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const isMobile = useIsMobile();
+  const { company, branding } = useCompany();
 
   useEffect(() => {
-    document.title = "Pesquisar Peças - AutoBoard";
-  }, []);
+    document.title = `Pesquisar Peças - AutoBoard (${branding.name})`;
+  }, [branding.name]);
 
   useEffect(() => {
     const performSearch = async () => {
       setIsLoading(true);
       // Usando a função searchParts (não paginada)
-      const results = await searchPartsService(searchQuery);
+      const results = await searchPartsService(searchQuery, company);
       setDisplayedParts(results);
       setIsLoading(false);
     };
@@ -35,7 +37,7 @@ const SearchParts = () => {
       performSearch();
     }, 300); // Debounce search input
     return () => clearTimeout(handler);
-  }, [searchQuery]);
+  }, [searchQuery, company]);
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -46,7 +48,7 @@ const SearchParts = () => {
 
       <Card className="w-full max-w-4xl mx-auto mb-8">
         <CardHeader>
-          <CardTitle>Buscar Peça</CardTitle>
+          <CardTitle>Buscar Peça ({branding.name})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -121,6 +123,13 @@ const SearchParts = () => {
           </div>
         </CardContent>
       </Card>
+      <div className="flex justify-center mb-8">
+        <Link to={`/${company}`}>
+          <Button variant="outline" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" /> Voltar ao Início
+          </Button>
+        </Link>
+      </div>
       <MadeWithDyad />
     </div>
   );

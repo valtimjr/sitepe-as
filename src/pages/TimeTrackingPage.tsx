@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays, FileDown, Syringe } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays, FileDown, Syringe, ChevronLeft } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth, syncMonthlyApontamentoToSupabase, getLocalMonthlyApontamentoService } from '@/services/partListService'; // Importar getLocalMonthlyApontamentoService e syncMonthlyApontamentoToSupabase
@@ -40,6 +40,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/com
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { MonthlyApontamento } from '@/types/supabase'; // Importar MonthlyApontamento
 import { v4 as uuidv4 } from 'uuid'; // Importar uuidv4
+import { useCompany } from '@/context/CompanyContext';
 
 // Mapeamento de Status para Ícone e Estilo
 const STATUS_MAP = {
@@ -77,6 +78,7 @@ const STATUS_MAP = {
 
 const TimeTrackingPage: React.FC = () => {
   const { user, profile, isLoading: isSessionLoading } = useSession();
+  const { company, branding } = useCompany();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [apontamentos, setApontamentos] = useState<Apontamento[]>([]); // Agora é DailyApontamento[]
   const [isLoading, setIsLoading] = useState(true);
@@ -90,8 +92,8 @@ const TimeTrackingPage: React.FC = () => {
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
   useEffect(() => {
-    document.title = "Apontamento de Horas - AutoBoard";
-  }, []);
+    document.title = `Apontamento de Horas - AutoBoard (${branding.name})`;
+  }, [branding.name]);
 
   const userId = user?.id;
 
@@ -109,14 +111,14 @@ const TimeTrackingPage: React.FC = () => {
     setIsLoading(true);
     try {
       const monthYear = format(currentDate, 'yyyy-MM');
-      const fetchedApontamentos = await getApontamentos(userId, monthYear);
+      const fetchedApontamentos = await getApontamentos(userId, monthYear, company);
       setApontamentos(fetchedApontamentos);
     } catch (error) {
       showError('Erro ao carregar apontamentos.');
     } finally {
       setIsLoading(false);
     }
-  }, [userId, currentDate]); // Adicionado currentDate como dependência
+  }, [userId, currentDate, company]); // Adicionado currentDate como dependência
 
   useEffect(() => {
     loadApontamentos();
@@ -145,13 +147,13 @@ const TimeTrackingPage: React.FC = () => {
     }
     const monthYear = format(day, 'yyyy-MM');
     try {
-      await deleteApontamento(userId, monthYear, dailyApontamentoDate); // Passar a data
+      await deleteApontamento(userId, monthYear, dailyApontamentoDate, company); // Passar a data
       setApontamentos(prev => prev.filter(a => a.date !== dailyApontamentoDate)); // Filtrar por data
       showSuccess('Apontamento excluído.');
     } catch (error) {
       showError('Erro ao excluir apontamento.');
     }
-  }, [userId]);
+  }, [userId, company]);
 
   const handleTimeChange = useCallback(async (day: Date, field: 'entry_time' | 'exit_time', value: string) => {
     if (!userId) {
@@ -172,6 +174,7 @@ const TimeTrackingPage: React.FC = () => {
           entry_time: field === 'entry_time' ? newValue : undefined,
           exit_time: field === 'exit_time' ? newValue : undefined,
           created_at: new Date().toISOString(),
+          company: company
         };
 
     if (!newApontamento.entry_time && !newApontamento.exit_time && !newApontamento.status && existingApontamento) {
@@ -181,7 +184,7 @@ const TimeTrackingPage: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const updated = await updateApontamento(userId, monthYear, newApontamento);
+      const updated = await updateApontamento(userId, monthYear, newApontamento, company);
       updateApontamentoState(updated);
       showSuccess('Apontamento salvo!');
     } catch (error) {
@@ -189,7 +192,7 @@ const TimeTrackingPage: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [userId, handleDeleteApontamento, apontamentos]);
+  }, [userId, handleDeleteApontamento, apontamentos, company]);
 
   const handleClearStatus = useCallback(async (day: Date) => {
     if (!userId) {
@@ -205,7 +208,7 @@ const TimeTrackingPage: React.FC = () => {
     } else {
       setIsSaving(true);
       try {
-        const updated = await updateApontamento(userId, monthYear, { ...existingApontamento, status: undefined });
+        const updated = await updateApontamento(userId, monthYear, { ...existingApontamento, status: undefined }, company);
         updateApontamentoState(updated);
         showSuccess('Status removido. Campos de hora liberados.');
       } catch (error) {
@@ -214,7 +217,7 @@ const TimeTrackingPage: React.FC = () => {
         setIsSaving(false);
       }
     }
-  }, [userId, handleDeleteApontamento, apontamentos]);
+  }, [userId, handleDeleteApontamento, apontamentos, company]);
 
   const handleStatusChange = useCallback(async (day: Date, status: string) => {
     if (!userId) {
@@ -232,11 +235,12 @@ const TimeTrackingPage: React.FC = () => {
           date: dateString,
           status,
           created_at: new Date().toISOString(),
+          company: company
         };
 
     setIsSaving(true);
     try {
-      const updated = await updateApontamento(userId, monthYear, newApontamento);
+      const updated = await updateApontamento(userId, monthYear, newApontamento, company);
       updateApontamentoState(updated);
       showSuccess(`Dia marcado como ${status.split(':')[0]}!`);
     } catch (error) {
@@ -244,7 +248,7 @@ const TimeTrackingPage: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [userId, apontamentos]);
+  }, [userId, apontamentos, company]);
 
   const handleOpenOtherStatusDialog = (day: Date) => {
     setDayForOtherStatus(day);
@@ -311,7 +315,7 @@ const TimeTrackingPage: React.FC = () => {
   const formatListText = () => {
     const monthName = format(currentDate, 'MMMM', { locale: ptBR });
     
-    let text = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)}\n`;
+    let text = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} (${branding.name})\n`;
     text += `${employeeHeader}\n`;
 
     const currentMonthApontamentos = apontamentos
@@ -371,7 +375,7 @@ const TimeTrackingPage: React.FC = () => {
   const handleExportPdf = async () => { // Alterado para async
     const monthName = format(currentDate, 'MMMM yyyy', { locale: ptBR });
     
-    const pdfTitle = `Apontamento de Horas - ${monthYearTitle}\n${employeeHeader}`;
+    const pdfTitle = `Apontamento de Horas (${branding.name}) - ${monthYearTitle}\n${employeeHeader}`;
 
     const currentMonthApontamentos = apontamentos
       .filter(a => {
@@ -413,7 +417,7 @@ const TimeTrackingPage: React.FC = () => {
       }
 
       // 1. Tenta buscar o MonthlyApontamento existente (local ou Supabase)
-      let existingMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
+      let existingMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear, company);
 
       // 2. Cria o objeto MonthlyApontamento completo com os novos dados
       const newMonthlyApontamento: MonthlyApontamento = {
@@ -421,6 +425,7 @@ const TimeTrackingPage: React.FC = () => {
         user_id: userId,
         month_year: monthYear,
         data: generatedDailyApontamentos, // O array completo de DailyApontamento
+        company: company,
         created_at: existingMonthlyApontamento?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -447,7 +452,7 @@ const TimeTrackingPage: React.FC = () => {
     const monthYear = format(currentDate, 'yyyy-MM');
     const loadingToastId = showLoading('Limpando apontamentos do mês...');
     try {
-      const deletedCount = await deleteApontamentosByMonth(userId, monthYear);
+      const deletedCount = await deleteApontamentosByMonth(userId, monthYear, company);
       
       if (deletedCount > 0) {
         showSuccess(`${deletedCount} apontamentos de ${format(currentDate, 'MMMM yyyy', { locale: ptBR })} foram removidos!`);
@@ -477,9 +482,12 @@ const TimeTrackingPage: React.FC = () => {
       <div className="w-full max-w-4xl">
         <div className="flex justify-between items-center mb-4 mt-8">
           <div className="flex flex-col items-start">
-            <h1 className="text-4xl font-extrabold text-primary dark:text-primary flex items-center gap-3">
-              <Clock className="h-8 w-8 text-primary" />
-              Apontamento de Horas
+            <h1 className="text-4xl font-extrabold text-primary dark:text-primary flex flex-col items-start gap-1">
+              <div className="flex items-center gap-3">
+                <Clock className="h-8 w-8 text-primary" />
+                Apontamento de Horas
+              </div>
+              <span className="text-xl font-bold opacity-80 ml-11">{branding.name}</span>
             </h1>
             <p className="text-lg font-semibold text-foreground/70 mt-1">
               {employeeHeader}
@@ -764,6 +772,15 @@ const TimeTrackingPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      <div className="flex justify-center mt-8 mb-8">
+        <Link to={`/${company}`}>
+          <Button variant="outline" className="flex items-center gap-2">
+            <ChevronLeft className="h-4 w-4" /> Voltar ao Início
+          </Button>
+        </Link>
+      </div>
+
       <MadeWithDyad />
 
       {/* Sheet para Outros Status */}

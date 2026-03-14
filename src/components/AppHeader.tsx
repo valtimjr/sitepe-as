@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,22 +19,25 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
+
 import { getMenuStructure } from '@/services/customListService';
 import { MenuItem } from '@/types/supabase';
+import { useCompany } from '@/context/CompanyContext';
 
 const AppHeader: React.FC = () => {
   const { session, user, profile, isLoading, checkPageAccess } = useSession();
+  const { company, branding, setCompany } = useCompany();
   const navigate = useNavigate();
   const [rootMenuItems, setRootMenuItems] = useState<MenuItem[]>([]);
 
   const loadDynamicMenu = useCallback(async () => {
     try {
-      const structure = await getMenuStructure();
+      const structure = await getMenuStructure(company);
       setRootMenuItems(structure);
     } catch (error) {
       // console.error('Failed to load dynamic menu:', error);
     }
-  }, []);
+  }, [company]);
 
   useEffect(() => {
     loadDynamicMenu();
@@ -82,7 +85,7 @@ const AppHeader: React.FC = () => {
         return (
           <Link 
             to={{
-              pathname: `/custom-list/${item.list_id}`,
+              pathname: `/${company}/custom-list/${item.list_id}`,
               hash: item.hash ? `#${item.hash}` : ''
             }} 
             key={item.id}
@@ -108,7 +111,7 @@ const AppHeader: React.FC = () => {
     // Se for um link direto para uma lista
     if (item.list_id && (!item.children || item.children.length === 0)) {
       return (
-        <Link to={`/custom-list/${item.list_id}`} key={item.id}>
+        <Link to={`/${company}/custom-list/${item.list_id}`} key={item.id}>
           <Button variant="ghost" className="flex items-center gap-1">
             {item.title}
           </Button>
@@ -151,17 +154,17 @@ const AppHeader: React.FC = () => {
 
   // Itens de navegação padrão (sempre no dropdown)
   const standardDropdownItems = [
-    { path: "/search-parts", title: "Pesquisar Peças", icon: Search },
-    { path: "/parts-list", title: "Minha Lista de Peças", icon: List },
-    { path: "/service-orders", title: "Ordens de Serviço", icon: ClipboardList },
+    { path: `/${company}/search-parts`, title: "Pesquisar Peças", icon: Search },
+    { path: `/${company}/parts-list`, title: "Minha Lista de Peças", icon: List },
+    { path: `/${company}/service-orders`, title: "Ordens de Serviço", icon: ClipboardList },
     // CORRIGIDO: Escala Anual agora é um link externo
     { path: "https://escala.eletricarpm.com.br", title: "Escala Anual", icon: CalendarDays, external: true },
   ];
 
   const authDropdownItems = [
-    ...(canAccessTimeTracking ? [{ path: "/time-tracking", title: "Apontamento de Horas", icon: Clock }] : []),
-    ...(canAccessAdmin ? [{ path: "/admin", title: "Gerenciador de Banco de Dados", icon: Database }] : []),
-    ...(canAccessMenuManager ? [{ path: "/menu-manager", title: "Gerenciar Menus", icon: Menu }] : []),
+    ...(canAccessTimeTracking ? [{ path: `/${company}/time-tracking`, title: "Apontamento de Horas", icon: Clock }] : []),
+    ...(canAccessAdmin ? [{ path: `/${company}/admin`, title: "Gerenciador de Banco de Dados", icon: Database }] : []),
+    ...(canAccessMenuManager ? [{ path: `/${company}/menu-manager`, title: "Gerenciar Menus", icon: Menu }] : []),
   ];
 
   // Filtra itens dinâmicos que são links diretos ou submenus
@@ -176,14 +179,33 @@ const AppHeader: React.FC = () => {
           {/* Banner/Logo */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Link to="/" className="flex items-center gap-2 h-10 shrink-0">
-                <img src="/Banner.png" alt="AutoBoard Banner" className="h-full w-auto" />
+              <Link to={`/${company}`} className="flex items-center gap-2 h-10 shrink-0">
+                <img src={branding.logo} alt={`${branding.name} Logo`} className="h-full w-auto" />
                 <span className="sr-only">Página Inicial</span>
               </Link>
             </TooltipTrigger>
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
           
+          {/* Selector de Empresa (Simples) */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="hidden sm:flex items-center gap-2 ml-2">
+                    <Building2 className="h-4 w-4" />
+                    {branding.name}
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Mudar Empresa</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setCompany('usina_vale')}>Usina Vale</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCompany('citrosuco')}>Citrosuco</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {/* Dropdown Menu Principal (Hambúrguer) */}
           <DropdownMenu>
             <Tooltip>
@@ -236,6 +258,20 @@ const AppHeader: React.FC = () => {
                   ))}
                 </>
               )}
+              
+              {/* Empresa (Mobile) */}
+              <div className="md:hidden">
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Building2 className="h-4 w-4 mr-2" /> Empresa: {branding.name}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={() => setCompany('usina_vale')}>Usina Vale</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setCompany('citrosuco')}>Citrosuco</DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -256,7 +292,7 @@ const AppHeader: React.FC = () => {
               </span>
               
               {/* Avatar (link para configurações) */}
-              <Link to="/settings">
+              <Link to={`/${company}/settings`}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Avatar className="h-8 w-8 rounded-full cursor-pointer">
@@ -282,7 +318,7 @@ const AppHeader: React.FC = () => {
                 </Tooltip>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem asChild>
-                    <Link to="/settings">
+                    <Link to={`/${company}/settings`}>
                       <Settings className="h-4 w-4 mr-2" /> Configurações
                     </Link>
                   </DropdownMenuItem>

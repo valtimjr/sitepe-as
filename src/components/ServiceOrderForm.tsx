@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ServiceOrderData } from '@/types/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useCompany } from '@/context/CompanyContext';
 
 interface ServiceOrderFormProps {
   initialData: ServiceOrderData | null;
@@ -21,6 +22,7 @@ interface ServiceOrderFormProps {
 }
 
 const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave, onCancel }) => {
+  const { company } = useCompany();
   const [af, setAf] = useState('');
   const [os, setOs] = useState('');
   const [horaInicio, setHoraInicio] = useState('');
@@ -42,7 +44,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
 
   useEffect(() => {
     const loadAfs = async () => {
-      const data = await getAfsFromService();
+      const data = await getAfsFromService(company);
       setAvailableAfs(data);
     };
     loadAfs();
@@ -55,13 +57,13 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
       setServicoExecutado(initialData.servico_executado || '');
       setParts(initialData.parts || []);
     }
-  }, [initialData]);
+  }, [initialData, company]);
 
   useEffect(() => {
     const handler = setTimeout(async () => {
       if (searchQuery.length > 1) {
         setIsLoadingParts(true);
-        const results = await searchPartsService(searchQuery);
+        const results = await searchPartsService(searchQuery, company);
         setSearchResults(results);
         setIsLoadingParts(false);
       } else {
@@ -69,7 +71,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
       }
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQuery]);
+  }, [searchQuery, company]);
 
   const handleSelectPartFromSearch = (part: Part) => {
     setPartCode(part.codigo);

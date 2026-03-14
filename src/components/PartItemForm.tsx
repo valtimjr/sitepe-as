@@ -15,6 +15,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { RelatedPart } from '@/types/supabase';
+import { useCompany } from '@/context/CompanyContext';
 
 interface PartItemFormProps {
   onItemAdded: () => void;
@@ -24,6 +25,7 @@ interface PartItemFormProps {
 
 const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, onCloseEdit }) => {
   const { checkPageAccess } = useSession();
+  const { company } = useCompany();
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
   const [quantidade, setQuantidade] = useState<number>(1);
   const [af, setAf] = useState('');
@@ -44,7 +46,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
         
         if (editingItem.codigo_peca) {
           setIsLoadingParts(true);
-          const results = await searchPartsService(editingItem.codigo_peca);
+          const results = await searchPartsService(editingItem.codigo_peca, company);
           const partFromEdit = results.find(p => p.codigo === editingItem.codigo_peca);
           setSelectedPart(partFromEdit || null);
           setEditedTags(partFromEdit?.tags || '');
@@ -66,28 +68,28 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     };
 
     initializeForm();
-  }, [editingItem]);
+  }, [editingItem, company]);
 
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoadingParts(true);
-      const parts = await getParts();
+      const parts = await getParts(company);
       setAllAvailableParts(parts);
       setIsLoadingParts(false);
 
       setIsLoadingAfs(true);
-      const afs = await getAfsFromService();
+      const afs = await getAfsFromService(company);
       setAllAvailableAfs(afs);
       setIsLoadingAfs(false);
     };
     loadInitialData();
-  }, []);
+  }, [company]);
 
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQuery.length > 1) {
         setIsLoadingParts(true);
-        const results = await searchPartsService(searchQuery);
+        const results = await searchPartsService(searchQuery, company);
         setSearchResults(results);
         setIsLoadingParts(false);
       } else {
@@ -98,7 +100,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQuery]);
+  }, [searchQuery, company]);
 
   useEffect(() => {
     setEditedTags(selectedPart?.tags || '');
@@ -135,7 +137,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     }
 
     try {
-      await updatePart({ ...selectedPart, tags: editedTags });
+      await updatePart({ ...selectedPart, tags: editedTags }, company);
       showSuccess('Tags da peça atualizadas com sucesso!');
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
@@ -166,7 +168,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
         showSuccess('Item atualizado com sucesso!');
         onCloseEdit?.();
       } else {
-        await addSimplePartItem(itemData);
+        await addSimplePartItem(itemData, company);
         showSuccess('Item adicionado à lista de Peças!');
       }
       
@@ -284,10 +286,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
                 <div className="flex flex-col gap-2">
                   {selectedPart.itens_relacionados.map(relatedItem => {
-                      const relatedPart = allAvailableParts.find(p => p.codigo === relatedItem.codigo);
-                      if (relatedPart) {
-                        return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
-                      }
                       return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
                   })}
                 </div>

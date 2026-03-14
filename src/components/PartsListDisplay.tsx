@@ -34,6 +34,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 import { RelatedPart } from '@/types/supabase';
+import { useCompany } from '@/context/CompanyContext';
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
@@ -45,6 +46,7 @@ interface PartsListDisplayProps {
 }
 
 const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged, onListReordered, listTitle, onTitleChange, onOpenEditForm }) => {
+  const { company, branding } = useCompany();
   const [orderedItems, setOrderedItems] = useState<SimplePartItem[]>(listItems);
   const [draggedItem, setDraggedItem] = useState<SimplePartItem | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -73,7 +75,6 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
-  const [editedTags, setEditedTags] = useState<string>('');
   
   // Cache para itens relacionados
   const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, RelatedPart[]>>(new Map());
@@ -87,17 +88,17 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoadingParts(true);
-      const parts = await getParts();
+      const parts = await getParts(company);
       setAllAvailableParts(parts);
       setIsLoadingParts(false);
 
       setIsLoadingAfs(true);
-      const afs = await getAfsFromService();
+      const afs = await getAfsFromService(company);
       setAllAvailableAfs(afs);
       setIsLoadingAfs(false);
     };
     loadInitialData();
-  }, []);
+  }, [company]);
 
   // Effect to populate related parts cache
   useEffect(() => {
@@ -114,7 +115,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQueryForEdit.length > 1) {
-        const results = await searchPartsService(searchQueryForEdit);
+        const results = await searchPartsService(searchQueryForEdit, company);
         setSearchResultsForEdit(results);
       } else {
         setSearchResultsForEdit([]);
@@ -124,13 +125,13 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQueryForEdit]);
+  }, [searchQueryForEdit, company]);
 
   // Effect for inline part search (add mode)
   useEffect(() => {
     const fetchInlineSearchResults = async () => {
       if (inlineSearchQuery.length > 1) {
-        const results = await searchPartsService(inlineSearchQuery);
+        const results = await searchPartsService(inlineSearchQuery, company);
         setInlineSearchResults(results);
       } else {
         setInlineSearchResults([]);
@@ -140,7 +141,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       fetchInlineSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [inlineSearchQuery]);
+  }, [inlineSearchQuery, company]);
 
 
   const handleExportPdf = async () => { // Alterado para async
@@ -148,14 +149,15 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    await lazyGeneratePartsListPdf(orderedItems, listTitle); // Usa a função lazy
+    const fullTitle = `${listTitle} (${branding.name})`;
+    await lazyGeneratePartsListPdf(orderedItems, fullTitle); // Usa a função lazy
     showSuccess('PDF gerado com sucesso!');
   };
 
   const formatListText = () => {
     if (orderedItems.length === 0) return '';
 
-    let formattedText = `${listTitle}\n\n`; // Adiciona o título da lista aqui
+    let formattedText = `${listTitle} (${branding.name})\n\n`; // Adiciona o título da lista aqui
 
     orderedItems.forEach(item => {
       const quantidade = item.quantidade ?? 1;
@@ -201,7 +203,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
   const handleClearList = async () => {
     try {
-      await clearSimplePartsList();
+      await clearSimplePartsList(company);
       onListChanged();
       showSuccess('Lista de peças simples limpa com sucesso!');
     } catch (error) {
@@ -364,7 +366,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     };
 
     try {
-      await addSimplePartItem(newItem);
+      await addSimplePartItem(newItem, company);
       showSuccess('Novo item adicionado com sucesso!');
       setIsAddingInline(false);
       onListChanged();
@@ -401,7 +403,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader className="pb-2">
-        <CardTitle className="text-2xl font-bold">Lista de Peças</CardTitle>
+        <CardTitle className="text-2xl font-bold">Lista de Peças ({branding.name})</CardTitle>
       </CardHeader>
       <CardContent className="p-4 pt-0">
         <div className="mb-4">

@@ -5,12 +5,14 @@ import PartsListDisplay from '@/components/PartsListDisplay';
 import { getSimplePartsListItems, SimplePartItem } from '@/services/partListService';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, List } from 'lucide-react';
+import { ArrowLeft, List, ChevronLeft } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Importar Sheet
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
+import { useCompany } from '@/context/CompanyContext';
 
 const PartsList = () => {
+  const { company, branding } = useCompany();
   const [listItems, setListItems] = useState<SimplePartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [listTitle, setListTitle] = useState('Lista de Peças Simples');
@@ -22,20 +24,20 @@ const PartsList = () => {
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
   useEffect(() => {
-    document.title = "Minha Lista de Peças - AutoBoard";
-  }, []);
+    document.title = `Minha Lista de Peças - AutoBoard (${branding.name})`;
+  }, [branding.name]);
 
   const loadListItems = useCallback(async () => {
     setIsLoading(true);
     try {
-      const items = await getSimplePartsListItems();
+      const items = await getSimplePartsListItems(company);
       setListItems(items);
     } catch (error) {
       showError('Erro ao carregar a lista de peças.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [company]);
 
   useEffect(() => {
     loadListItems();
@@ -61,9 +63,12 @@ const PartsList = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <List className="h-8 w-8 text-primary" />
-        Minha Lista de Peças
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
+        <div className="flex items-center gap-3">
+          <List className="h-8 w-8 text-primary" />
+          Minha Lista de Peças
+        </div>
+        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
       </h1>
       {isLoading ? (
         <p className="text-center text-muted-foreground py-8">Carregando sua lista de peças...</p>
@@ -81,6 +86,15 @@ const PartsList = () => {
           />
         </div>
       )}
+      
+      <div className="flex justify-center mt-8 mb-8">
+        <Link to={`/${company}`}>
+          <Button variant="outline" className="flex items-center gap-2">
+            <ChevronLeft className="h-4 w-4" /> Voltar ao Início
+          </Button>
+        </Link>
+      </div>
+
       <MadeWithDyad />
 
       {/* Sheet para o formulário de edição em mobile */}

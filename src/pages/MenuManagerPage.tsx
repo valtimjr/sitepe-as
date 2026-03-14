@@ -1,13 +1,14 @@
 import React, { useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Menu, List as ListIcon } from 'lucide-react';
+import { ArrowLeft, Menu, List as ListIcon, ChevronLeft } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import MenuStructureEditor from '@/components/MenuStructureEditor';
 import CustomListManager from '@/components/CustomListManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { showSuccess } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
+import { useCompany } from '@/context/CompanyContext';
 
 interface MenuManagerPageProps {
   isEmbedded?: boolean;
@@ -15,12 +16,13 @@ interface MenuManagerPageProps {
 
 const MenuManagerPage: React.FC<MenuManagerPageProps> = ({ isEmbedded = false }) => {
   const { checkPageAccess } = useSession();
+  const { company, branding } = useCompany();
 
   useEffect(() => {
     if (!isEmbedded) {
-      document.title = "Gerenciador de Menus e Listas - AutoBoard";
+      document.title = `Gerenciador de Menus - AutoBoard (${branding.name})`;
     }
-  }, [isEmbedded]);
+  }, [isEmbedded, branding.name]);
 
   const handleMenuUpdate = useCallback(() => {
     // Força a atualização do AppHeader
@@ -35,18 +37,21 @@ const MenuManagerPage: React.FC<MenuManagerPageProps> = ({ isEmbedded = false })
     <div className={isEmbedded ? "w-full" : "min-h-screen flex flex-col items-center p-4 bg-background text-foreground"}>
       {!isEmbedded && (
         <div className="w-full max-w-6xl flex justify-between items-center mb-4 mt-8">
-          <Link to="/admin">
+          <Link to={`/${company}/admin`}>
             <Button variant="outline" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" /> Voltar para Admin
+              <ChevronLeft className="h-4 w-4" /> Voltar para Admin
             </Button>
           </Link>
         </div>
       )}
       
       {!isEmbedded && (
-        <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
-          <Menu className="h-8 w-8 text-primary" />
-          Gerenciador de Menus e Listas
+        <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
+          <div className="flex items-center gap-3">
+            <Menu className="h-8 w-8 text-primary" />
+            Gerenciador de Menus e Listas
+          </div>
+          <span className="text-2xl font-bold opacity-80">{branding.name}</span>
         </h1>
       )}
 

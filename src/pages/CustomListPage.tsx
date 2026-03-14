@@ -5,7 +5,7 @@ import { useParams, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Tag, Info, Loader2, FileDown, Check, PlusCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Tag, Info, Loader2, FileDown, Check, PlusCircle, XCircle, ChevronLeft } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
@@ -24,9 +24,11 @@ import { Separator } from '@/components/ui/separator';
 import RelatedPartDisplay from '@/components/RelatedPartDisplay';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { useCompany } from '@/context/CompanyContext';
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
+  const { company, branding } = useCompany();
   const location = useLocation();
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [listTitle, setListTitle] = useState('Carregando Lista...');
@@ -47,7 +49,7 @@ const CustomListPage: React.FC = () => {
     if (!listId) return;
     setIsLoading(true);
     try {
-      const listData = await getCustomListById(listId);
+      const listData = await getCustomListById(listId, company);
       if (listData) {
         setListTitle(listData.title);
       } else {
@@ -56,7 +58,7 @@ const CustomListPage: React.FC = () => {
         setIsLoading(false);
         return;
       }
-      const fetchedItems = await getCustomListItems(listId);
+      const fetchedItems = await getCustomListItems(listId, company);
       setItems(fetchedItems);
     } catch (error) {
       console.error('Erro ao carregar a lista personalizada:', error);
@@ -65,12 +67,12 @@ const CustomListPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [listId]);
+  }, [listId, company]);
 
   const loadAfsAndParts = useCallback(async () => {
     setIsLoadingAfs(true);
     try {
-      const [afs, parts] = await Promise.all([getAfsFromService(), getParts()]);
+      const [afs, parts] = await Promise.all([getAfsFromService(company), getParts(company)]);
       setAllAvailableAfs(afs);
       setAllAvailableParts(parts);
     } catch (error) {
@@ -78,7 +80,7 @@ const CustomListPage: React.FC = () => {
     } finally {
       setIsLoadingAfs(false);
     }
-  }, []);
+  }, [company]);
 
   useEffect(() => {
     loadList();
@@ -86,8 +88,8 @@ const CustomListPage: React.FC = () => {
   }, [loadList, loadAfsAndParts]);
 
   useEffect(() => {
-    document.title = `${listTitle} - AutoBoard`;
-  }, [listTitle]);
+    document.title = `${listTitle} - AutoBoard (${branding.name})`;
+  }, [listTitle, branding.name]);
 
   useEffect(() => {
     if (!isLoading && location.hash) {
@@ -136,7 +138,7 @@ const CustomListPage: React.FC = () => {
 
   const formatListText = (itemsToFormat: CustomListItem[]) => {
     if (itemsToFormat.length === 0) return '';
-    let formattedText = `${listTitle}\n\n`;
+    let formattedText = `${listTitle} (${branding.name})\n\n`;
     itemsToFormat.forEach(item => {
       if (item.type === 'separator') {
         formattedText += '--------------------\n';
@@ -191,7 +193,8 @@ const CustomListPage: React.FC = () => {
       showError('Nenhum item para exportar.');
       return;
     }
-    await lazyGenerateCustomListPdf(itemsToProcess, listTitle);
+    const fullTitle = `${listTitle} (${branding.name})`;
+    await lazyGenerateCustomListPdf(itemsToProcess, fullTitle);
     showSuccess('PDF gerado com sucesso!');
   };
 
@@ -273,7 +276,7 @@ const CustomListPage: React.FC = () => {
             descricao: `Mangueira: ${data.mangueira.name || data.mangueira.codigo} - Corte: ${data.corte_cm} cm`,
             quantidade: 1,
             af: afForExport.trim(),
-          });
+          }, company);
 
           // Exporta Conexão 1
           await addSimplePartItem({
@@ -281,7 +284,7 @@ const CustomListPage: React.FC = () => {
             descricao: `Conexão 1: ${data.conexao1.name || data.conexao1.codigo}`,
             quantidade: 1,
             af: afForExport.trim(),
-          });
+          }, company);
 
           // Exporta Conexão 2
           await addSimplePartItem({
@@ -289,7 +292,7 @@ const CustomListPage: React.FC = () => {
             descricao: `Conexão 2: ${data.conexao2.name || data.conexao2.codigo}`,
             quantidade: 1,
             af: afForExport.trim(),
-          });
+          }, company);
 
         } else if (item.type === 'item') {
           await addSimplePartItem({
@@ -297,7 +300,7 @@ const CustomListPage: React.FC = () => {
             descricao: item.description || item.item_name,
             quantidade: item.quantity,
             af: afForExport.trim(),
-          });
+          }, company);
         }
       }
       showSuccess(`${itemsToExport.length} item(s) exportado(s) para 'Minha Lista de Peças' com sucesso!`);
@@ -538,21 +541,24 @@ const CustomListPage: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
-        <Link to="/custom-menu-view">
+        <Link to={`/${company}/custom-menu-view`}>
           <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar ao Catálogo
+            <ChevronLeft className="h-4 w-4" /> Voltar ao Catálogo
           </Button>
         </Link>
-        <Link to="/parts-list">
+        <Link to={`/${company}/parts-list`}>
           <Button variant="outline" className="flex items-center gap-2">
             <ListIcon className="h-4 w-4" /> Minha Lista de Peças
           </Button>
         </Link>
       </div>
       
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <ListIcon className="h-8 w-8 text-primary" />
-        {listTitle}
+      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
+        <div className="flex items-center gap-3">
+          <ListIcon className="h-8 w-8 text-primary" />
+          {listTitle}
+        </div>
+        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
       </h1>
 
       <Card className="w-full max-w-4xl mx-auto mb-8">

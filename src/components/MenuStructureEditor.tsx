@@ -38,6 +38,7 @@ import PartSearchInput from './PartSearchInput';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import RelatedPartDisplay from './RelatedPartDisplay';
+import { useCompany } from '@/context/CompanyContext';
 
 interface MenuStructureEditorProps {
   onMenuUpdated: () => void;
@@ -83,6 +84,7 @@ const buildMenuHierarchy = (items: MenuItem[]): MenuItem[] => {
 
 const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated }) => {
   const { user } = useSession();
+  const { company } = useCompany();
   const [flatMenuItems, setFlatMenuItems] = useState<MenuItem[]>([]);
   const [menuHierarchy, setMenuHierarchy] = useState<MenuItem[]>([]);
   const [customLists, setCustomLists] = useState<CustomList[]>([]);
@@ -112,8 +114,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     setIsLoading(true);
     try {
       const [fetchedFlatItems, fetchedLists] = await Promise.all([
-        getAllMenuItemsFlat(),
-        user ? getCustomLists(user.id) : Promise.resolve([]),
+        getAllMenuItemsFlat(company),
+        user ? getCustomLists(user.id, company) : Promise.resolve([]),
       ]);
       
       setFlatMenuItems(fetchedFlatItems);
@@ -125,7 +127,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       setIsLoading(false);
       console.timeEnd('MenuStructureEditor: loadData');
     }
-  }, [user]);
+  }, [user, company]);
 
   useEffect(() => {
     loadData();
@@ -136,7 +138,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     const fetchSearchResults = async () => {
       if (searchQueryRelated.length > 1) {
         setIsLoadingParts(true);
-        const results = await searchPartsService(searchQueryRelated);
+        const results = await searchPartsService(searchQueryRelated, company);
         setSearchResultsRelated(results);
         setIsLoadingParts(false);
       } else {
@@ -147,7 +149,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQueryRelated]);
+  }, [searchQueryRelated, company]);
 
   const handleAddMenuItem = (parentId: string | null = null) => {
     setCurrentMenuItem(null);
@@ -178,7 +180,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   const handleDeleteMenuItem = async (id: string) => {
     console.time('MenuStructureEditor: handleDeleteMenuItem');
     try {
-      await deleteMenuItem(id);
+      await deleteMenuItem(id, company);
       showSuccess('Item de menu excluído com sucesso!');
       await loadData();
       onMenuUpdated();
@@ -207,10 +209,10 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
       };
 
       if (currentMenuItem) {
-        await updateMenuItem({ ...currentMenuItem, ...payload });
+        await updateMenuItem({ ...currentMenuItem, ...payload }, company);
         showSuccess('Item de menu atualizado com sucesso!');
       } else {
-        await createMenuItem(payload);
+        await createMenuItem(payload, company);
         showSuccess('Item de menu criado com sucesso!');
       }
       
@@ -262,7 +264,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
 
     try {
       // Save the entire updated structure in one go
-      await saveAllMenuItems(updatedFlatItems);
+      await saveAllMenuItems(updatedFlatItems, company);
       showSuccess('Ordem atualizada!');
       
       // After saving, reload data from the source of truth to ensure consistency
@@ -386,7 +388,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
 
         const loadingToastId = showLoading('Reordenando itens...');
         try {
-          await saveAllMenuItems(updatedFlatItems);
+          await saveAllMenuItems(updatedFlatItems, company);
           showSuccess('Ordem atualizada com sucesso!');
           await loadData();
           onMenuUpdated();
@@ -539,7 +541,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando estrutura do menu...</p>
         ) : menuHierarchy.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum item de menu cadastrado.</p>
+          <p className="text-center text-muted-foreground py-8">Nenhum item de menu cadastrado para esta empresa.</p>
         ) : (
           <div className="border rounded-lg overflow-hidden">
             {menuHierarchy.map(item => renderMenuItem(item, 0, menuHierarchy))}

@@ -34,10 +34,12 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { ServiceOrderCharts } from '@/components/ServiceOrderCharts';
+import { useCompany } from '@/context/CompanyContext';
 
 const ServiceOrderList: React.FC = () => {
   const { user, session } = useSession();
   const isMobile = useIsMobile();
+  const { company, branding } = useCompany();
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [osList, setOsList] = useState<ServiceOrderData[]>([]);
@@ -52,20 +54,20 @@ const ServiceOrderList: React.FC = () => {
   }, [selectedDate, session]);
 
   useEffect(() => {
-    document.title = "Ordens de Serviço - AutoBoard";
-  }, []);
+    document.title = `Ordens de Serviço - AutoBoard (${branding.name})`;
+  }, [branding.name]);
 
   const loadDailyOrders = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await getDailyServiceOrders(user?.id, dateStr);
+      const data = await getDailyServiceOrders(user?.id, dateStr, company);
       setOsList(data);
     } catch (error) {
       showError('Erro ao carregar ordens do dia.');
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, dateStr]);
+  }, [user?.id, dateStr, company]);
 
   useEffect(() => {
     loadDailyOrders();
@@ -106,7 +108,7 @@ const ServiceOrderList: React.FC = () => {
       : [...osList, updatedOs];
     
     try {
-      await saveDailyServiceOrder(user?.id, dateStr, newList);
+      await saveDailyServiceOrder(user?.id, dateStr, newList, company);
       setOsList(newList);
       if (isFormOpen) {
         setIsFormOpen(false);
@@ -123,7 +125,7 @@ const ServiceOrderList: React.FC = () => {
   const handleDeleteOS = async (id: string) => {
     const newList = osList.filter(o => o.id !== id);
     try {
-      await saveDailyServiceOrder(user?.id, dateStr, newList);
+      await saveDailyServiceOrder(user?.id, dateStr, newList, company);
       setOsList(newList);
       showSuccess('OS removida.');
     } catch (error) {
@@ -133,7 +135,7 @@ const ServiceOrderList: React.FC = () => {
 
   const handleClearDay = async () => {
     try {
-      await clearDailyServiceOrders(user?.id, dateStr);
+      await clearDailyServiceOrders(user?.id, dateStr, company);
       setOsList([]);
       showSuccess('Todas as ordens do dia foram removidas.');
     } catch (error) {
@@ -144,7 +146,7 @@ const ServiceOrderList: React.FC = () => {
   const formatListText = () => {
     if (sortedOsList.length === 0) return '';
 
-    let text = `Ordens de Serviço - ${format(selectedDate, 'dd/MM/yyyy')}\n\n`;
+    let text = `Ordens de Serviço (${branding.name}) - ${format(selectedDate, 'dd/MM/yyyy')}\n\n`;
 
     sortedOsList.forEach((group, idx) => {
       text += `AF: ${group.af}${group.os ? ` OS: ${group.os}` : ''}\n`;
@@ -195,7 +197,7 @@ const ServiceOrderList: React.FC = () => {
       showError('Nenhuma OS para exportar neste dia.');
       return;
     }
-    const title = `Ordens de Serviço - ${format(selectedDate, 'dd/MM/yyyy')}`;
+    const title = `Ordens de Serviço (${branding.name}) - ${format(selectedDate, 'dd/MM/yyyy')}`;
     await lazyGenerateServiceOrderPdf(sortedOsList.map(os => ({
       ...os,
       createdAt: selectedDate,
@@ -208,9 +210,12 @@ const ServiceOrderList: React.FC = () => {
     <div className="min-h-screen p-4 bg-background text-foreground max-w-5xl mx-auto w-full">
       
       {/* Title */}
-      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center justify-center gap-3">
-        <ClipboardList className="h-8 w-8 text-primary" />
-        Lista de Ordens de Serviço
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center justify-center gap-2">
+        <div className="flex items-center gap-3">
+          <ClipboardList className="h-8 w-8 text-primary" />
+          Lista de Ordens de Serviço
+        </div>
+        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
       </h1>
 
       {/* Date Navigation */}
@@ -382,6 +387,13 @@ const ServiceOrderList: React.FC = () => {
         </SheetContent>
       </Sheet>
       
+      <div className="flex justify-center mt-8 mb-8">
+        <Link to={`/${company}`}>
+          <Button variant="outline" className="flex items-center gap-2">
+            <ChevronLeft className="h-4 w-4" /> Voltar ao Início
+          </Button>
+        </Link>
+      </div>
       <MadeWithDyad />
     </div>
   );

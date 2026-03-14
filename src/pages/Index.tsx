@@ -6,13 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Database, Home, Clock, Search, List, ClipboardList, CalendarDays, FileText, Menu } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
 import { getParts, getAfsFromService } from '@/services/partListService';
+import { useCompany } from '@/context/CompanyContext';
 
 const Index = () => {
   const { checkPageAccess, session } = useSession();
+  const { company, branding } = useCompany();
 
   useEffect(() => {
-    document.title = "Início - AutoBoard";
-  }, []);
+    document.title = `Início - AutoBoard (${branding.name})`;
+  }, [branding.name]);
 
   // Efeito para pré-carregar dados em segundo plano
   useEffect(() => {
@@ -20,8 +22,8 @@ const Index = () => {
       try {
         // Inicia o carregamento de peças e AFs em paralelo
         await Promise.all([
-          getParts(),
-          getAfsFromService()
+          getParts(company),
+          getAfsFromService(company)
         ]);
         // console.log("Pré-carregamento de dados em segundo plano concluído.");
       } catch (error) {
@@ -31,7 +33,7 @@ const Index = () => {
 
     // Executa a função de pré-carregamento uma vez quando o componente é montado
     prefetchAllData();
-  }, []); // O array de dependências vazio garante que isso rode apenas uma vez
+  }, [company]); // Roda quando a empresa muda
 
   const canAccessAdmin = checkPageAccess('/admin');
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
@@ -40,9 +42,12 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <h1 className="text-5xl font-extrabold mb-12 mt-8 text-center text-primary dark:text-primary flex items-center gap-4">
-        <Home className="h-10 w-10 text-primary" />
-        Bem-vindo ao AutoBoard
+      <h1 className="text-5xl font-extrabold mb-12 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-4">
+        <div className="flex items-center gap-4">
+          <Home className="h-10 w-10 text-primary" />
+          Bem-vindo ao AutoBoard
+        </div>
+        <span className="text-3xl font-bold opacity-80">{branding.name}</span>
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl">
@@ -57,7 +62,7 @@ const Index = () => {
             <p className="mb-6 text-muted-foreground">
               Visualize e gerencie as ordens de serviço com suas peças associadas.
             </p>
-            <Link to="/service-orders">
+            <Link to={`/${company}/service-orders`}>
               <Button className="w-full">Ir para Ordens</Button>
             </Link>
           </CardContent>
@@ -74,7 +79,7 @@ const Index = () => {
             <p className="mb-6 text-muted-foreground">
               Encontre rapidamente qualquer peça automotiva por código ou descrição.
             </p>
-            <Link to="/search-parts">
+            <Link to={`/${company}/search-parts`}>
               <Button className="w-full">Ir para Pesquisa</Button>
             </Link>
           </CardContent>
@@ -92,7 +97,7 @@ const Index = () => {
               <p className="mb-6 text-muted-foreground">
                 Navegue pelas listas de peças personalizadas em uma estrutura de menu.
               </p>
-              <Link to="/custom-menu-view">
+              <Link to={`/${company}/custom-menu-view`}>
                 <Button className="w-full">Ver Catálogo</Button>
               </Link>
             </CardContent>
@@ -110,7 +115,7 @@ const Index = () => {
             <p className="mb-6 text-muted-foreground">
               Gerencie sua lista de peças, adicione novos itens e exporte para PDF.
             </p>
-            <Link to="/parts-list">
+            <Link to={`/${company}/parts-list`}>
               <Button className="w-full">Ir para Lista</Button>
             </Link>
           </CardContent>
@@ -145,7 +150,7 @@ const Index = () => {
               <p className="mb-6 text-muted-foreground">
                 Registre suas horas de entrada e saída para controle mensal.
               </p>
-              <Link to="/time-tracking">
+              <Link to={`/${company}/time-tracking`}>
                 <Button className="w-full">Fazer Apontamento</Button>
               </Link>
             </CardContent>
@@ -164,7 +169,7 @@ const Index = () => {
               <p className="mb-6 text-muted-foreground">
                 Adicione, edite e gerencie peças e AFs diretamente no banco de dados.
               </p>
-              <Link to="/admin">
+              <Link to={`/${company}/admin`}>
                 <Button className="w-full">Acessar Gerenciador</Button>
               </Link>
             </CardContent>
