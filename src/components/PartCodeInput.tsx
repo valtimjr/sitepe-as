@@ -2,18 +2,17 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
-import { Loader2 } from 'lucide-react'; // Adicionado: Importar Loader2
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Part, searchPartsPaginated } from '@/services/partListService'; // Import searchPartsPaginated
+import { Part, searchPartsPaginated } from '@/services/partListService';
 import { useCompany } from '@/context/CompanyContext';
 
 interface PartCodeInputProps {
-
-  value: string; // O código da peça digitado ou o código da peça selecionada
-  onChange: (value: string) => void; // Chamado quando o usuário digita
-  onSelectPart: (part: Part | null) => void; // Chamado quando uma peça é encontrada/selecionada ou não
-  selectedPart?: Part | null; // A peça atualmente selecionada (passada pelo pai)
-  isLoading?: boolean; // Prop para indicar carregamento externo (ex: do formulário pai)
+  value: string;
+  onChange: (value: string) => void;
+  onSelectPart: (part: Part | null) => void;
+  selectedPart?: Part | null;
+  isLoading?: boolean;
 }
 
 const PartCodeInput: React.FC<PartCodeInputProps> = ({ value, onChange, onSelectPart, selectedPart, isLoading = false }) => {
@@ -21,10 +20,7 @@ const PartCodeInput: React.FC<PartCodeInputProps> = ({ value, onChange, onSelect
   const [isSearchingInternal, setIsSearchingInternal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Sincroniza o valor interno com a prop 'value' (útil para resetar o campo do pai)
   useEffect(() => {
-    // Apenas atualiza o estado interno se o valor da prop for diferente
-    // e se o campo não estiver focado para evitar sobrescrever a digitação do usuário
     if (inputRef.current && document.activeElement !== inputRef.current) {
       if (value !== inputRef.current.value) {
         inputRef.current.value = value;
@@ -32,7 +28,6 @@ const PartCodeInput: React.FC<PartCodeInputProps> = ({ value, onChange, onSelect
     }
   }, [value]);
 
-  // Debounce para a busca da peça no Supabase
   useEffect(() => {
     const handler = setTimeout(async () => {
       const currentInputValue = inputRef.current?.value || '';
@@ -41,14 +36,12 @@ const PartCodeInput: React.FC<PartCodeInputProps> = ({ value, onChange, onSelect
       if (trimmedQuery.length > 0) {
         setIsSearchingInternal(true);
         try {
-          // Usando searchPartsPaginated para buscar o resultado exato (limit 1)
           const { parts: results } = await searchPartsPaginated(trimmedQuery, company, 1, 1);
           
           if (results.length === 1 && results[0].codigo.toLowerCase() === trimmedQuery.toLowerCase()) {
-
-            onSelectPart(results[0]); // Peça encontrada e exata
+            onSelectPart(results[0]);
           } else {
-            onSelectPart(null); // Nenhuma peça exata ou múltiplas encontradas
+            onSelectPart(null);
           }
         } catch (error) {
           onSelectPart(null);
@@ -56,26 +49,20 @@ const PartCodeInput: React.FC<PartCodeInputProps> = ({ value, onChange, onSelect
           setIsSearchingInternal(false);
         }
       } else {
-        onSelectPart(null); // Campo vazio, nenhuma peça selecionada
+        onSelectPart(null);
       }
-    }, 300); // 300ms debounce
+    }, 300);
 
     return () => {
       clearTimeout(handler);
     };
-  }, [inputRef.current?.value, onSelectPart]); // Depende do valor atual do input
+  }, [inputRef.current?.value, onSelectPart, company]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(e.target.value); // Notifica o componente pai sobre a digitação
-  };
-
-  const handleFocus = () => {
-    // Removida a lógica de limpar o campo ao focar novamente.
-    // O campo agora manterá seu valor atual.
+    onChange(e.target.value);
   };
 
   const handleBlur = () => {
-    // Quando desfocar, se o input estiver vazio e houver uma peça selecionada, reseta a seleção
     if (inputRef.current?.value.trim() === '' && selectedPart) {
       onSelectPart(null);
     }
@@ -87,14 +74,13 @@ const PartCodeInput: React.FC<PartCodeInputProps> = ({ value, onChange, onSelect
         id="part-code-input"
         type="text"
         placeholder="Digite o código da peça"
-        defaultValue={value} // Usa defaultValue para permitir controle interno via ref
+        defaultValue={value}
         onChange={handleInputChange}
-        onFocus={handleFocus} // onFocus agora não faz nada para limpar
         onBlur={handleBlur}
         disabled={isLoading}
         ref={inputRef}
         className={cn(
-          "pr-8", // Espaço para o ícone de carregamento
+          "pr-8",
           (isSearchingInternal || isLoading) && "opacity-70"
         )}
       />
