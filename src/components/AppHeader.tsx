@@ -192,9 +192,11 @@ const AppHeader: React.FC = () => {
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-10 w-10 p-0 ml-2 overflow-hidden hover:bg-muted transition-colors rounded-lg flex items-center justify-center border border-border/50">
-                    <img src={branding.logo} alt={branding.name} className="h-8 w-auto object-contain" />
-                  </Button>
+                  <img 
+                    src={branding.logo} 
+                    alt={branding.name} 
+                    className="h-10 w-10 ml-2 object-contain cursor-pointer hover:bg-muted transition-colors rounded-lg border border-border/50 p-1" 
+                  />
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent>Mudar Empresa ({branding.name})</TooltipContent>
