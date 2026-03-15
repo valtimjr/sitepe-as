@@ -47,7 +47,11 @@ const Index = () => {
           <Home className="h-10 w-10 text-primary" />
           Bem-vindo ao AutoBoard
         </div>
-        <span className="text-3xl font-bold opacity-80">{branding.name}</span>
+        <img 
+          src={branding.logo} 
+          alt={branding.name} 
+          className="h-20 w-auto object-contain opacity-90" 
+        />
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl">
