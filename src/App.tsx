@@ -25,6 +25,7 @@ import CookieConsentBanner from "./components/CookieConsentBanner";
 import { useOfflineSync } from "./hooks/useOfflineSync";
 import WelcomeModal from "./components/WelcomeModal";
 import { CompanyProvider } from "./context/CompanyContext";
+import AdminReportPage from "./pages/AdminReportPage";
 
 const queryClient = new QueryClient();
 
@@ -72,7 +73,9 @@ const AppContent = () => {
         <Route path="admin" element={<DatabaseManagerPage />} />
         <Route path="settings" element={<UserSettingsPage />} />
         <Route path="time-tracking" element={<TimeTrackingPage />} />
+        <Route path="admin-report" element={<AdminReportPage />} />
         <Route path="custom-list/:listId" element={<CustomListPage />} />
+
         <Route path="my-custom-lists" element={<MyCustomListsPage />} />
         <Route path="custom-menu-view" element={<CustomMenuOverview />} />
       </Route>

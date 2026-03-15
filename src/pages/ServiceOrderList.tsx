@@ -35,9 +35,10 @@ import {
 
 import { ServiceOrderCharts } from '@/components/ServiceOrderCharts';
 import { useCompany } from '@/context/CompanyContext';
+import { FileChartLine } from 'lucide-react';
 
 const ServiceOrderList: React.FC = () => {
-  const { user, session } = useSession();
+  const { user, session, profile } = useSession();
   const isMobile = useIsMobile();
   const { company, branding } = useCompany();
   
@@ -47,6 +48,8 @@ const ServiceOrderList: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingOs, setEditingOs] = useState<ServiceOrderData | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
 
   const dateStr = useMemo(() => {
     if (!session) return 'visitor';
@@ -251,7 +254,19 @@ const ServiceOrderList: React.FC = () => {
         </div>
       )}
 
+      {isAdmin && (
+        <div className="flex justify-center mb-6">
+          <Link to={`/${company}/admin-report`} className="w-full">
+            <Button variant="outline" className="w-full border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-100 hover:border-blue-300">
+              <FileChartLine className="mr-2 h-4 w-4" />
+              Ver Relatório Geral (Admin/Moderador)
+            </Button>
+          </Link>
+        </div>
+      )}
+
       {!session && (
+
         <Alert variant="default" className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 mb-6">
           <AlertCircle className="h-4 w-4 text-amber-600" />
           <AlertTitle>Modo Visitante</AlertTitle>
