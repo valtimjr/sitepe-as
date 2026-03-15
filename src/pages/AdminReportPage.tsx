@@ -404,10 +404,8 @@ const AdminReportPage = () => {
                     <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                       Usuário: {os.userName}
                     </span>
-                    <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                      AF: {os.af} {os.os ? `| OS: ${os.os}` : ''} | {os.hora_inicio || '--:--'} - {os.hora_final || '--:--'}
-                    </span>
                   </div>
+
                   <ServiceOrderListDisplay
                     group={os}
                     onEdit={() => {}}
