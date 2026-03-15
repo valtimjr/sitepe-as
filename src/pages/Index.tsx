@@ -50,7 +50,7 @@ const Index = () => {
         <img 
           src={branding.logo} 
           alt={branding.name} 
-          className="h-20 w-auto object-contain opacity-90" 
+          className="h-40 w-auto object-contain opacity-90" 
         />
       </h1>
 
