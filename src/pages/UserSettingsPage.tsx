@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Save, User as UserIcon, Loader2, Settings } from 'lucide-react';
+import { ArrowLeft, Save, User as UserIcon, Loader2, Settings, ChevronLeft } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
@@ -13,9 +13,11 @@ import ChangePasswordForm from '@/components/ChangePasswordForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserProfile } from '@/types/supabase';
+import { useCompany } from '@/context/CompanyContext';
 
 const UserSettingsPage: React.FC = () => {
   const { user, isLoading: isSessionLoading, profile: sessionProfile } = useSession();
+  const { company, branding } = useCompany();
   const navigate = useNavigate();
   
   // States for form fields, initialized from sessionProfile or empty
@@ -27,8 +29,8 @@ const UserSettingsPage: React.FC = () => {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
-    document.title = "Configurações do Usuário - AutoBoard";
-  }, []);
+    document.title = `Configurações do Usuário - AutoBoard (${branding.name})`;
+  }, [branding.name]);
 
   // Populate form fields when sessionProfile changes or becomes available
   useEffect(() => {
@@ -104,9 +106,12 @@ const UserSettingsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <Settings className="h-8 w-8 text-primary" />
-        Configurações do Usuário
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
+        <div className="flex items-center gap-3">
+          <Settings className="h-8 w-8 text-primary" />
+          Configurações do Usuário
+        </div>
+        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
       </h1>
 
       <Tabs defaultValue="profile" className="w-full max-w-2xl">
@@ -200,6 +205,15 @@ const UserSettingsPage: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <div className="flex justify-center mt-8 mb-8">
+        <Link to={`/${company}`}>
+          <Button variant="outline" className="flex items-center gap-2">
+            <ChevronLeft className="h-4 w-4" /> Voltar ao Início
+          </Button>
+        </Link>
+      </div>
+
       <MadeWithDyad />
     </div>
   );

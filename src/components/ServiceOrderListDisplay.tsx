@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useCompany } from '@/context/CompanyContext';
 
 interface ServiceOrderListDisplayProps {
   group: ServiceOrderData;
@@ -31,7 +32,8 @@ const ServiceOrderPartRow: React.FC<{
   index: number;
   onDelete: (index: number) => void;
   onUpdate: (index: number, updatedPart: { codigo_peca: string; descricao: string; quantidade: number }) => void;
-}> = ({ part, index, onDelete, onUpdate }) => {
+  company: string;
+}> = ({ part, index, onDelete, onUpdate, company }) => {
   const [relatedItems, setRelatedItems] = useState<RelatedItem[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
   
@@ -54,9 +56,10 @@ const ServiceOrderPartRow: React.FC<{
   useEffect(() => {
     const fetchRelatedItems = async () => {
       setIsLoadingRelated(true);
+      const tableName = company === 'citrosuco' ? 'parts_citrosuco' : 'parts';
       try {
         const { data, error } = await supabase
-          .from('parts')
+          .from(tableName)
           .select('itens_relacionados')
           .eq('codigo', part.codigo_peca)
           .single();
@@ -74,7 +77,7 @@ const ServiceOrderPartRow: React.FC<{
           if (codes.length > 0) {
             // Fetch descriptions from DB for these codes
             const { data: partsData } = await supabase
-              .from('parts')
+              .from(tableName)
               .select('codigo, descricao')
               .in('codigo', codes);
               
@@ -103,7 +106,7 @@ const ServiceOrderPartRow: React.FC<{
     };
     
     fetchRelatedItems();
-  }, [part.codigo_peca]);
+  }, [part.codigo_peca, company]);
 
   const handleSaveEdit = () => {
     onUpdate(index, {
@@ -238,6 +241,7 @@ const ServiceOrderPartRow: React.FC<{
 };
 
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group, onEdit, onDelete, onSave, onAddPart }) => {
+  const { company } = useCompany();
   // States for Inline Add Part
   const [isAddingPart, setIsAddingPart] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -257,7 +261,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const results = await searchParts(searchQuery);
+        const results = await searchParts(searchQuery, company);
         setSearchResults(results || []);
       } catch (error) {
         console.error("Error searching parts", error);
@@ -267,7 +271,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, selectedPart]);
+  }, [searchQuery, selectedPart, company]);
 
   const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
@@ -420,6 +424,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ group
                 index={index}
                 onDelete={handleDeletePart}
                 onUpdate={handleUpdatePart}
+                company={company}
               />
             ))}
           </div>

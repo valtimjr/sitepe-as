@@ -10,6 +10,8 @@ import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
 
+import { useCompany } from '@/context/CompanyContext';
+
 // Helper to calculate duration in minutes
 const calculateDuration = (start?: string, end?: string): number => {
   if (!start || !end) return 0;
@@ -35,7 +37,7 @@ const formatDuration = (minutes: number): string => {
 
 const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#1d4ed8', '#1e40af', '#1e3a8a'];
 
-const MonthlyPerformanceContent: React.FC<{ currentDate: Date }> = ({ currentDate }) => {
+const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }> = ({ currentDate, company }) => {
   const { user } = useSession();
   const [loading, setLoading] = useState(true);
   const [monthlyData, setMonthlyData] = useState<{ date: string; minutes: number }[]>([]);
@@ -54,6 +56,7 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date }> = ({ currentDat
           .from('daily_service_orders')
           .select('date, os_list')
           .eq('user_id', user.id)
+          .eq('company', company)
           .gte('date', start)
           .lte('date', end);
 
@@ -169,6 +172,7 @@ interface ServiceOrderChartsProps {
 }
 
 export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, currentDate }) => {
+  const { company } = useCompany();
   const [isMonthlyOpen, setIsMonthlyOpen] = useState(false);
 
   // Prepare data for Daily Donut Chart
@@ -263,8 +267,9 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl">
-              <MonthlyPerformanceContent currentDate={currentDate} />
+              <MonthlyPerformanceContent currentDate={currentDate} company={company} />
             </DialogContent>
+
           </Dialog>
         </div>
       </PopoverContent>

@@ -174,7 +174,6 @@ const TimeTrackingPage: React.FC = () => {
           entry_time: field === 'entry_time' ? newValue : undefined,
           exit_time: field === 'exit_time' ? newValue : undefined,
           created_at: new Date().toISOString(),
-          company: company
         };
 
     if (!newApontamento.entry_time && !newApontamento.exit_time && !newApontamento.status && existingApontamento) {
@@ -235,7 +234,6 @@ const TimeTrackingPage: React.FC = () => {
           date: dateString,
           status,
           created_at: new Date().toISOString(),
-          company: company
         };
 
     setIsSaving(true);

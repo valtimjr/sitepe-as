@@ -126,21 +126,36 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   // Função para verificar o acesso à página
   const checkPageAccess = useCallback((path: string): boolean => {
-    const normalizedPath = path.split('/')[1] === 'signup' ? '/signup' : path.split('/')[1] === 'custom-list' ? '/custom-list' : path;
-    const isAuthRequiredRoute = AUTH_REQUIRED_ROUTES.includes(normalizedPath);
+    // Normaliza o caminho removendo o prefixo da empresa, se houver
+    const pathParts = path.split('/').filter(Boolean);
+    let normalizedPath = path;
+    
+    // Se o primeiro segmento for usina_vale ou citrosuco, removemos
+    if (pathParts[0] === 'usina_vale' || pathParts[0] === 'citrosuco') {
+      normalizedPath = '/' + pathParts.slice(1).join('/');
+    }
+
+    const segments = normalizedPath.split('/').filter(Boolean);
+    const firstSegment = segments[0] || '';
+    
+    let pathToCheck = normalizedPath;
+    if (firstSegment === 'signup') pathToCheck = '/signup';
+    if (firstSegment === 'custom-list') pathToCheck = '/custom-list';
+
+    const isAuthRequiredRoute = AUTH_REQUIRED_ROUTES.includes(pathToCheck);
 
     // 1. Se a sessão estiver carregando, permite apenas rotas públicas
     if (isLoadingSessionAndProfile) {
-      return PUBLIC_ROUTES.includes(normalizedPath);
+      return PUBLIC_ROUTES.includes(pathToCheck);
     }
 
     // 2. Se o usuário não está logado
     if (!session) {
-      if (PUBLIC_ROUTES.includes(normalizedPath)) {
+      if (PUBLIC_ROUTES.includes(pathToCheck)) {
         return true;
       }
       // Verifica se há regra de convidado no DB
-      const rule = pageAccessRules.find(r => r.page_path === normalizedPath);
+      const rule = pageAccessRules.find(r => r.page_path === pathToCheck);
       return rule?.guest_access || false;
     }
 
@@ -150,11 +165,11 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     // 4. Verifica acesso baseado em regras do DB (para rotas não públicas/não AUTH_REQUIRED)
-    const rule = pageAccessRules.find(r => r.page_path === normalizedPath);
+    const rule = pageAccessRules.find(r => r.page_path === pathToCheck);
 
     if (!rule) {
       // Se não houver regra no DB, e não for rota pública/AUTH_REQUIRED, nega por padrão
-      return PUBLIC_ROUTES.includes(normalizedPath);
+      return PUBLIC_ROUTES.includes(pathToCheck);
     }
 
     // 5. Verifica o acesso baseado na regra e no perfil
@@ -175,16 +190,31 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     if (!isLoadingSessionAndProfile) {
       const currentPath = location.pathname;
-      const normalizedPath = currentPath.split('/')[1] === 'signup' ? '/signup' : currentPath.split('/')[1] === 'custom-list' ? '/custom-list' : currentPath;
-      const isLoginPage = normalizedPath === '/login';
-      const isSignupPage = normalizedPath === '/signup';
-      const isResetPasswordPage = normalizedPath === '/reset-password';
-      const isForgotPasswordPage = normalizedPath === '/forgot-password';
+      const pathParts = currentPath.split('/').filter(Boolean);
+      let normalizedPath = currentPath;
+      let currentCompanyPrefix = '';
+
+      if (pathParts[0] === 'usina_vale' || pathParts[0] === 'citrosuco') {
+        currentCompanyPrefix = '/' + pathParts[0];
+        normalizedPath = '/' + pathParts.slice(1).join('/');
+      }
+
+      const segments = normalizedPath.split('/').filter(Boolean);
+      const firstSegment = segments[0] || '';
+      
+      let pathToCheck = normalizedPath;
+      if (firstSegment === 'signup') pathToCheck = '/signup';
+      if (firstSegment === 'custom-list') pathToCheck = '/custom-list';
+
+      const isLoginPage = pathToCheck === '/login';
+      const isSignupPage = pathToCheck === '/signup';
+      const isResetPasswordPage = pathToCheck === '/reset-password';
+      const isForgotPasswordPage = pathToCheck === '/forgot-password';
       const isAuthPage = isLoginPage || isSignupPage || isResetPasswordPage || isForgotPasswordPage;
 
       // Se o usuário está logado, redireciona de páginas de autenticação
       if (session && isAuthPage) {
-        navigate('/');
+        navigate(currentCompanyPrefix || '/usina_vale');
         showError('Você já está logado.');
         return;
       }
@@ -195,7 +225,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         if (!session) {
           navigate('/login');
         } else {
-          navigate('/');
+          navigate(currentCompanyPrefix || '/usina_vale');
         }
       }
     }

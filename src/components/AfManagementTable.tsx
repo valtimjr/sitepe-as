@@ -1,7 +1,7 @@
 /** @jsxImportSource react */
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,6 +37,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
+import { useCompany } from '@/context/CompanyContext';
 
 // Função auxiliar para obter valor de uma linha, ignorando case e variações
 const getRowValue = (row: any, keys: string[]): string | undefined => {
@@ -55,6 +56,7 @@ const getRowValue = (row: any, keys: string[]): string | undefined => {
 };
 
 const AfManagementTable: React.FC = () => {
+  const { company, branding } = useCompany();
   const [afs, setAfs] = useState<Af[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
@@ -71,15 +73,11 @@ const AfManagementTable: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    loadAfs();
-  }, []);
-
-  const loadAfs = async () => {
+  const loadAfs = useCallback(async () => {
     console.time('AfManagementTable: loadAfs');
     setIsLoading(true);
     try {
-      const fetchedAfs = await getAfsFromService();
+      const fetchedAfs = await getAfsFromService(company);
       setAfs(fetchedAfs);
     } catch (error) {
       showError('Erro ao carregar AFs.');
@@ -87,7 +85,11 @@ const AfManagementTable: React.FC = () => {
       setIsLoading(false);
       console.timeEnd('AfManagementTable: loadAfs');
     }
-  };
+  }, [company]);
+
+  useEffect(() => {
+    loadAfs();
+  }, [loadAfs]);
 
   const filteredAfs = afs.filter(af => {
     const lowerCaseQuery = searchQuery.toLowerCase();
@@ -96,6 +98,7 @@ const AfManagementTable: React.FC = () => {
   });
 
   const handleAddAf = () => {
+    console.log('AfManagementTable: Abrindo formulário para adicionar novo AF.');
     setCurrentAf(null);
     setFormAfNumber('');
     setFormDescricao('');
@@ -103,6 +106,7 @@ const AfManagementTable: React.FC = () => {
   };
 
   const handleEditAf = (af: Af) => {
+    console.log(`AfManagementTable: Abrindo formulário para editar AF com ID: ${af.id}`);
     setCurrentAf(af);
     setFormAfNumber(af.af_number);
     setFormDescricao(af.descricao || '');
@@ -112,7 +116,7 @@ const AfManagementTable: React.FC = () => {
   const handleDeleteAf = async (id: string) => {
     if (!window.confirm('Tem certeza que deseja excluir este AF?')) return;
     try {
-      await deleteAf(id);
+      await deleteAf(id, company);
       showSuccess('AF excluído com sucesso!');
       loadAfs();
     } catch (error) {
@@ -137,10 +141,10 @@ const AfManagementTable: React.FC = () => {
         await updateAf({
           ...currentAf,
           ...payload,
-        });
+        }, company);
         showSuccess('AF atualizado com sucesso!');
       } else {
-        await addAf(payload);
+        await addAf(payload, company);
         showSuccess('AF adicionado com sucesso!');
       }
       setIsSheetOpen(false); // Fecha o Sheet
@@ -177,7 +181,7 @@ const AfManagementTable: React.FC = () => {
       return;
     }
     try {
-      await Promise.all(Array.from(selectedAfIds).map(id => deleteAf(id)));
+      await Promise.all(Array.from(selectedAfIds).map(id => deleteAf(id, company)));
       showSuccess(`${selectedAfIds?.size ?? 0} AFs excluídos com sucesso!`);
       setSelectedAfIds(new Set());
       loadAfs();
@@ -271,7 +275,7 @@ const AfManagementTable: React.FC = () => {
     console.time('AfManagementTable: confirmImport');
 
     try {
-      await importAfs(newAfs);
+      await importAfs(newAfs, company);
       setImportLog(prev => [...prev, `Sucesso: ${newAfs.length} AFs importados/atualizados.`]);
       showSuccess(`${newAfs.length} AFs importados/atualizados com sucesso!`);
       loadAfs();
@@ -301,12 +305,12 @@ const AfManagementTable: React.FC = () => {
         exportDataAsCsv(dataToExport, 'afs_selecionados.csv');
         showSuccess(`${dataToExport.length} AFs selecionados exportados para CSV com sucesso!`);
       } else {
-        dataToExport = await getAllAfsForExport();
+        dataToExport = await getAllAfsForExport(company);
         if (dataToExport.length === 0) {
           showError('Nenhum AF para exportar.');
           return;
         }
-        exportDataAsCsv(dataToExport, 'todos_afs.csv');
+        exportDataAsCsv(dataToExport, `todos_afs_${company}.csv`);
         showSuccess('Todos os AFs exportados para CSV com sucesso!');
       }
     } catch (error) {
@@ -332,12 +336,12 @@ const AfManagementTable: React.FC = () => {
         exportDataAsJson(dataToExport, 'afs_selecionados.json');
         showSuccess(`${dataToExport.length} AFs selecionados exportados para JSON com sucesso!`);
       } else {
-        dataToExport = await getAllAfsForExport();
+        dataToExport = await getAllAfsForExport(company);
         if (dataToExport.length === 0) {
           showError('Nenhum AF para exportar.');
           return;
         }
-        exportDataAsJson(dataToExport, 'todos_afs.json');
+        exportDataAsJson(dataToExport, `todos_afs_${company}.json`);
         showSuccess('Todos os AFs exportados para JSON com sucesso!');
       }
     } catch (error) {
@@ -354,7 +358,7 @@ const AfManagementTable: React.FC = () => {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
-        <CardTitle className="text-2xl font-bold">Gerenciar AFs</CardTitle>
+        <CardTitle className="text-2xl font-bold">Gerenciar AFs ({branding.name})</CardTitle>
         <div className="flex flex-wrap gap-2 justify-end">
           {selectedAfIds.size > 0 && (
             <AlertDialog>
@@ -431,9 +435,9 @@ const AfManagementTable: React.FC = () => {
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando AFs...</p>
         ) : filteredAfs.length === 0 && searchQuery.length > 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum AF encontrado para "{searchQuery}".</p>
+          <p className="text-center text-muted-foreground py-8">Nenhuma AF encontrada para "{searchQuery}".</p>
         ) : filteredAfs.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum AF cadastrado.</p>
+          <p className="text-center text-muted-foreground py-8">Nenhuma AF cadastrada para esta empresa.</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -532,7 +536,7 @@ const AfManagementTable: React.FC = () => {
             <AlertDialogDescription asChild>
               <div> {/* Usando div para corrigir o aninhamento de DOM */}
                 <p className="mb-4">
-                  Você está prestes a importar {parsedAfsToImport.length} AFs. Isso irá atualizar os AFs existentes com o mesmo AF ou criar novos.
+                  Você está prestes a importar {parsedAfsToImport.length} AFs para {branding.name}. Isso irá atualizar os AFs existentes com o mesmo AF ou criar novos.
                 </p>
                 <h4 className="font-semibold text-foreground mb-2">Log de Processamento:</h4>
                 <ScrollArea className="h-40 w-full rounded-md border p-4 text-sm font-mono bg-muted/50">

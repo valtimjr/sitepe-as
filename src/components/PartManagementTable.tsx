@@ -44,6 +44,7 @@ import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo compo
 import { RelatedPart } from '@/types/supabase';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { CheckedState } from '@radix-ui/react-checkbox'; // Importar CheckedState
+import { useCompany } from '@/context/CompanyContext';
 
 // Função auxiliar para obter valor de uma linha, ignorando case e variações
 const getRowValue = (row: any, keys: string[]): string | undefined => {
@@ -65,6 +66,7 @@ const PAGE_SIZE = 50;
 
 const PartManagementTable: React.FC = () => {
   const { checkPageAccess } = useSession();
+  const { company, branding } = useCompany();
   const [parts, setParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
@@ -108,16 +110,16 @@ const PartManagementTable: React.FC = () => {
     return { codigo: part.codigo, name: mainText, desc: subText };
   };
 
-  const loadParts = useCallback(async (query: string, page: number) => {
+  const loadParts = useCallback(async (query: string, page: number, currentCompany: string) => {
     console.time('PartManagementTable: loadParts');
     setIsLoading(true);
     try {
       // Carrega todas as peças para o cache local (necessário para itens relacionados)
-      const allParts = await getParts();
+      const allParts = await getParts(company);
       setAllAvailableParts(allParts);
 
       // Usando a função paginada
-      const { parts: fetchedParts, totalCount: fetchedTotalCount } = await searchPartsPaginated(query, page, PAGE_SIZE);
+      const { parts: fetchedParts, totalCount: fetchedTotalCount } = await searchPartsPaginated(query, company, page, PAGE_SIZE);
       setParts(fetchedParts);
       setTotalCount(fetchedTotalCount);
       setSelectedPartIds(new Set()); // Limpa seleção ao carregar nova página/busca
@@ -130,18 +132,18 @@ const PartManagementTable: React.FC = () => {
       setIsLoading(false);
       console.timeEnd('PartManagementTable: loadParts');
     }
-  }, []);
+  }, [company]);
 
   useEffect(() => {
-    loadParts(searchQuery, currentPage);
-  }, [searchQuery, currentPage, loadParts]);
+    loadParts(searchQuery, currentPage, company);
+  }, [searchQuery, currentPage, loadParts, company]);
 
   // Efeito para a busca de peças relacionadas
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (relatedSearchQuery.length > 1) {
         setIsLoadingRelatedParts(true);
-        const results = await searchPartsService(relatedSearchQuery);
+        const results = await searchPartsService(relatedSearchQuery, company);
         setRelatedSearchResults(results);
       } else {
         setRelatedSearchResults([]);
@@ -152,7 +154,7 @@ const PartManagementTable: React.FC = () => {
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [relatedSearchQuery]); // Depende apenas da query de busca
+  }, [relatedSearchQuery, company]); // Depende apenas da query de busca
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -195,10 +197,10 @@ const PartManagementTable: React.FC = () => {
     console.log(`PartManagementTable: Iniciando exclusão da peça com ID: ${id}`);
     try {
       console.log('PartManagementTable: Chamando deletePart() para excluir peça.');
-      await deletePart(id);
+      await deletePart(id, company);
       showSuccess('Peça excluída com sucesso!');
       console.log(`PartManagementTable: Peça com ID: ${id} excluída com sucesso.`);
-      loadParts(searchQuery, currentPage); // Recarrega a página atual
+      loadParts(searchQuery, currentPage, company); // Recarrega a página atual
     } catch (error) {
       console.error(`PartManagementTable: Erro ao excluir peça com ID: ${id}:`, error);
       showError('Erro ao excluir peça.');
@@ -236,17 +238,17 @@ const PartManagementTable: React.FC = () => {
         await updatePart({
           ...currentPart,
           ...payload,
-        });
+        }, company);
         showSuccess('Peça atualizada com sucesso!');
         console.log(`PartManagementTable: Peça com ID: ${currentPart.id} atualizada com sucesso.`);
       } else {
         console.log('PartManagementTable: Chamando addPart() para adicionar nova peça.');
-        await addPart(payload);
+        await addPart(payload, company);
         showSuccess('Peça adicionada com sucesso!');
         console.log('PartManagementTable: Nova peça adicionada com sucesso.');
       }
       setIsSheetOpen(false); // Fecha o Sheet
-      loadParts(searchQuery, currentPage);
+      loadParts(searchQuery, currentPage, company);
     } catch (error) {
       console.error('PartManagementTable: Erro ao salvar peça:', error);
       showError('Erro ao salvar peça.');
@@ -287,10 +289,10 @@ const PartManagementTable: React.FC = () => {
     console.log(`PartManagementTable: Iniciando exclusão em massa de ${selectedPartIds.size} peças.`);
     try {
       console.log('PartManagementTable: Chamando deletePart() para cada peça selecionada.');
-      await Promise.all(Array.from(selectedPartIds).map(id => deletePart(id)));
+      await Promise.all(Array.from(selectedPartIds).map(id => deletePart(id, company)));
       showSuccess(`${selectedPartIds?.size ?? 0} peças excluídas com sucesso!`);
       console.log(`PartManagementTable: ${selectedPartIds.size} peças excluídas em massa com sucesso.`);
-      loadParts(searchQuery, currentPage);
+      loadParts(searchQuery, currentPage, company);
     } catch (error) {
       console.error('PartManagementTable: Erro ao excluir peças selecionadas em massa:', error);
       showError('Erro ao excluir peças selecionadas.');
@@ -309,10 +311,10 @@ const PartManagementTable: React.FC = () => {
     try {
       const partsToUpdate = parts.filter(part => selectedPartIds.has(part.id));
       console.log('PartManagementTable: Chamando updatePart() para limpar tags de cada peça selecionada.');
-      await Promise.all(partsToUpdate.map(part => updatePart({ ...part, tags: '' })));
+      await Promise.all(partsToUpdate.map(part => updatePart({ ...part, tags: '' }, company)));
       showSuccess(`Tags de ${selectedPartIds.size ?? 0} peças limpas com sucesso!`);
       console.log(`PartManagementTable: Tags de ${selectedPartIds.size} peças limpas com sucesso.`);
-      loadParts(searchQuery, currentPage);
+      loadParts(searchQuery, currentPage, company);
     } catch (error) {
       console.error('PartManagementTable: Erro ao limpar tags das peças selecionadas:', error);
       showError('Erro ao limpar tags das peças selecionadas.');
@@ -454,11 +456,11 @@ const PartManagementTable: React.FC = () => {
 
     try {
       console.log(`PartManagementTable: Chamando importParts() para ${newParts.length} peças.`);
-      await importParts(newParts);
+      await importParts(newParts, company);
       setImportLog(prev => [...prev, `Sucesso: ${newParts.length} peças importadas/atualizadas.`]);
       showSuccess(`${newParts.length} peças importadas/atualizadas com sucesso!`);
       console.log(`PartManagementTable: ${newParts.length} peças importadas/atualizadas com sucesso.`);
-      loadParts(searchQuery, currentPage);
+      loadParts(searchQuery, currentPage, company);
     } catch (error) {
       console.error('PartManagementTable: Erro na importação para o Supabase:', error);
       setImportLog(prev => [...prev, 'ERRO: Falha na importação para o Supabase.']);
@@ -489,12 +491,12 @@ const PartManagementTable: React.FC = () => {
         showSuccess(`${dataToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
       } else {
         console.log('PartManagementTable: Exportando todas as peças. Chamando getAllPartsForExport().');
-        dataToExport = await getAllPartsForExport();
+        dataToExport = await getAllPartsForExport(company);
         if (dataToExport.length === 0) {
           showError('Nenhuma peça para exportar.');
           return;
         }
-        exportDataAsCsv(dataToExport, 'todas_pecas.csv');
+        exportDataAsCsv(dataToExport, `todas_pecas_${company}.csv`);
         showSuccess('Todas as peças exportadas para CSV com sucesso!');
       }
       console.log(`PartManagementTable: Exportação para CSV concluída. Total de ${dataToExport.length} itens.`);
@@ -525,12 +527,12 @@ const PartManagementTable: React.FC = () => {
         showSuccess(`${dataToExport.length} peças selecionadas exportadas para JSON com sucesso!`);
       } else {
         console.log('PartManagementTable: Exportando todas as peças. Chamando getAllPartsForExport().');
-        dataToExport = await getAllPartsForExport();
+        dataToExport = await getAllPartsForExport(company);
         if (dataToExport.length === 0) {
           showError('Nenhuma peça para exportar.');
           return;
         }
-        exportDataAsJson(dataToExport, 'todas_pecas.json');
+        exportDataAsJson(dataToExport, `todas_pecas_${company}.json`);
         showSuccess('Todas as peças exportadas para JSON com sucesso!');
       }
       console.log(`PartManagementTable: Exportação para JSON concluída. Total de ${dataToExport.length} itens.`);
@@ -549,11 +551,11 @@ const PartManagementTable: React.FC = () => {
       loadingToastId = showLoading('Limpando peças vazias...');
       console.time('PartManagementTable: cleanupEmptyParts');
       console.log('PartManagementTable: Iniciando limpeza de peças vazias. Chamando cleanupEmptyParts().');
-      const deletedCount = await cleanupEmptyParts();
+      const deletedCount = await cleanupEmptyParts(company);
       if (deletedCount > 0) {
         showSuccess(`${deletedCount} peças vazias foram removidas com sucesso!`);
         console.log(`PartManagementTable: ${deletedCount} peças vazias removidas com sucesso.`);
-        loadParts(searchQuery, currentPage);
+        loadParts(searchQuery, currentPage, company);
       } else {
         showSuccess('Nenhuma peça vazia encontrada para remover.');
         console.log('PartManagementTable: Nenhuma peça vazia encontrada para remover.');
@@ -685,7 +687,7 @@ const PartManagementTable: React.FC = () => {
 
     const loadingToastId = showLoading('Criando relações em lote...');
     try {
-      const { updatedCount, notFoundCodes } = await batchUpdateRelations(codesToRelate);
+      const { updatedCount, notFoundCodes } = await batchUpdateRelations(codesToRelate, company);
       let successMessage = `${updatedCount} peças foram relacionadas entre si com sucesso!`;
       if (notFoundCodes.length > 0) {
         successMessage += ` Códigos não encontrados: ${notFoundCodes.join(', ')}.`;
@@ -693,7 +695,7 @@ const PartManagementTable: React.FC = () => {
       showSuccess(successMessage);
       setIsBatchRelateOpen(false);
       setBatchRelateInput('');
-      loadParts(searchQuery, currentPage);
+      loadParts(searchQuery, currentPage, company);
     } catch (error: any) {
       showError(`Erro ao criar relações: ${error.message}`);
     } finally {
@@ -704,7 +706,7 @@ const PartManagementTable: React.FC = () => {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-col space-y-2 pb-2">
-        <CardTitle className="text-2xl font-bold">Gerenciar Peças</CardTitle>
+        <CardTitle className="text-2xl font-bold">Gerenciar Peças ({branding.name})</CardTitle>
         <div className="flex flex-wrap gap-2 justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -740,7 +742,7 @@ const PartManagementTable: React.FC = () => {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Esta ação irá remover todas as peças que não possuem Código e Descrição preenchidos. Esta ação não pode ser desfeita.
+                      Esta ação irá remover todas as peças que não possuem Código e Descrição preenchidos nesta empresa. Esta ação não pode ser desfeita.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -937,7 +939,7 @@ const PartManagementTable: React.FC = () => {
 
       {/* Sheet de Edição/Adição */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow */}
+        <SheetContent side="right" className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow */}
           <SheetHeader>
             <SheetTitle>{currentPart ? 'Editar Peça' : 'Adicionar Nova Peça'}</SheetTitle>
           </SheetHeader>
@@ -1098,7 +1100,7 @@ const PartManagementTable: React.FC = () => {
               <div> {/* Usando div para corrigir o aninhamento de DOM */}
                 {parsedPartsToImport.length > 0 ? (
                   <p className="mb-4">
-                    Você está prestes a importar {parsedPartsToImport.length} peças. Isso irá atualizar as peças existentes com o mesmo Código ou criar novas.
+                    Você está prestes a importar {parsedPartsToImport.length} peças para {branding.name}. Isso irá atualizar as peças existentes com o mesmo Código ou criar novas.
                   </p>
                 ) : (
                   <p className="mb-4 text-destructive">

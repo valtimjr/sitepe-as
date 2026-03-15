@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import RelatedPartDisplay from './RelatedPartDisplay';
 import PartSearchInput from './PartSearchInput';
 import { SheetFooter } from '@/components/ui/sheet'; // Adicionado SheetFooter
+import { useCompany } from '@/context/CompanyContext';
 
 interface CustomListItemFormProps {
   list: CustomList;
@@ -43,6 +44,7 @@ const formatRelatedPartObject = (part: Part): MangueiraPartDetails => {
 
 const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingItem, onItemSaved, onClose, allAvailableParts }) => {
   const isMobile = useIsMobile();
+  const { company } = useCompany();
   
   const [formType, setFormType] = useState<'item' | 'subtitle' | 'separator' | 'mangueira'>('item');
   const [formItemName, setFormItemName] = useState('');
@@ -145,7 +147,7 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
     const fetchSearchResults = async () => {
       if (searchQuery.length > 1) {
         setIsLoadingParts(true);
-        const results = await searchPartsService(searchQuery);
+        const results = await searchPartsService(searchQuery, company);
         setSearchResults(results);
         setIsLoadingParts(false);
       } else {
@@ -156,13 +158,13 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQuery]);
+  }, [searchQuery, company]);
 
   // Efeito para a busca de peças relacionadas
   useEffect(() => {
     const fetchRelatedSearchResults = async () => {
       if (relatedSearchQuery.length > 1) {
-        const results = await searchPartsService(relatedSearchQuery);
+        const results = await searchPartsService(relatedSearchQuery, company);
         setSearchResultsRelated(results);
       } else {
         setSearchResultsRelated([]);
@@ -172,18 +174,18 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
       fetchRelatedSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [relatedSearchQuery]);
+  }, [relatedSearchQuery, company]);
 
   // Helper to handle search for a specific sub-part
   const handleSubPartSearch = useCallback(async (query: string, setState: React.Dispatch<React.SetStateAction<SubPartSearchState>>) => {
     setState(prev => ({ ...prev, query, isLoading: true }));
     if (query.length > 1) {
-      const results = await searchPartsService(query);
+      const results = await searchPartsService(query, company);
       setState(prev => ({ ...prev, results, isLoading: false }));
     } else {
       setState(prev => ({ ...prev, results: [], isLoading: false }));
     }
-  }, []);
+  }, [company]);
 
   // Effect for Mangueira sub-part searches
   useEffect(() => {
@@ -265,7 +267,7 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
   
     const loadingToastId = showLoading('Atualizando nome global da peça...');
     try {
-      await updatePart({ ...selectedPartFromSearch, name: formItemName.trim() });
+      await updatePart({ ...selectedPartFromSearch, name: formItemName.trim() }, company);
       showSuccess('Nome global da peça atualizado com sucesso!');
       setSelectedPartFromSearch(prev => prev ? { ...prev, name: formItemName.trim() } : null);
     } catch (error) {
@@ -448,10 +450,10 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
 
     try {
       if (editingItem) {
-        await updateCustomListItem(list.id, { id: editingItem.id, ...payload } as CustomListItem);
+        await updateCustomListItem(list.id, { id: editingItem.id, ...payload } as CustomListItem, company);
         showSuccess('Item atualizado com sucesso!');
       } else {
-        await addCustomListItem(list.id, payload);
+        await addCustomListItem(list.id, payload, company);
         showSuccess('Item adicionado com sucesso!');
       }
       

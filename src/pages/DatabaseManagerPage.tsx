@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogOut, Database, Menu, List as ListIcon } from 'lucide-react';
+import { ArrowLeft, LogOut, Database, Menu, List as ListIcon, ChevronLeft } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PartManagementTable from '@/components/PartManagementTable';
@@ -12,17 +12,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
 import { cn } from '@/lib/utils';
+import { useCompany } from '@/context/CompanyContext';
 
 const DATABASE_MANAGER_ACTIVE_TAB_KEY = 'database_manager_active_tab';
 
 const DatabaseManagerPage: React.FC = () => {
   const { isLoading, checkPageAccess, profile } = useSession();
+  const { company, branding } = useCompany();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>('');
 
   useEffect(() => {
-    document.title = "Gerenciador de Banco de Dados - Gerenciador de Peças";
-  }, []);
+    document.title = `Gerenciador de Banco de Dados - AutoBoard (${branding.name})`;
+  }, [branding.name]);
 
   const { visibleTabs, defaultTab } = useMemo(() => {
     if (isLoading) {
@@ -72,9 +74,12 @@ const DatabaseManagerPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <Database className="h-8 w-8 text-primary" />
-        Gerenciador de Banco de Dados
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
+        <div className="flex items-center gap-3">
+          <Database className="h-8 w-8 text-primary" />
+          Gerenciador de Banco de Dados
+        </div>
+        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
       </h1>
 
       <Tabs 
@@ -119,6 +124,15 @@ const DatabaseManagerPage: React.FC = () => {
           </TabsContent>
         )}
       </Tabs>
+
+      <div className="flex justify-center mt-8 mb-8">
+        <Link to={`/${company}`}>
+          <Button variant="outline" className="flex items-center gap-2">
+            <ChevronLeft className="h-4 w-4" /> Voltar ao Início
+          </Button>
+        </Link>
+      </div>
+
       <MadeWithDyad />
     </div>
   );
