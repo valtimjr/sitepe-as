@@ -5,8 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react'; // Adicionado: Importar Loader2
 import { cn } from '@/lib/utils';
 import { Part, searchPartsPaginated } from '@/services/partListService'; // Import searchPartsPaginated
+import { useCompany } from '@/context/CompanyContext';
 
 interface PartCodeInputProps {
+
   value: string; // O código da peça digitado ou o código da peça selecionada
   onChange: (value: string) => void; // Chamado quando o usuário digita
   onSelectPart: (part: Part | null) => void; // Chamado quando uma peça é encontrada/selecionada ou não
@@ -15,6 +17,7 @@ interface PartCodeInputProps {
 }
 
 const PartCodeInput: React.FC<PartCodeInputProps> = ({ value, onChange, onSelectPart, selectedPart, isLoading = false }) => {
+  const { company } = useCompany();
   const [isSearchingInternal, setIsSearchingInternal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -39,9 +42,10 @@ const PartCodeInput: React.FC<PartCodeInputProps> = ({ value, onChange, onSelect
         setIsSearchingInternal(true);
         try {
           // Usando searchPartsPaginated para buscar o resultado exato (limit 1)
-          const { parts: results } = await searchPartsPaginated(trimmedQuery, 1, 1); 
+          const { parts: results } = await searchPartsPaginated(trimmedQuery, company, 1, 1);
           
           if (results.length === 1 && results[0].codigo.toLowerCase() === trimmedQuery.toLowerCase()) {
+
             onSelectPart(results[0]); // Peça encontrada e exata
           } else {
             onSelectPart(null); // Nenhuma peça exata ou múltiplas encontradas
