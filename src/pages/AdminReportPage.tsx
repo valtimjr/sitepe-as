@@ -73,7 +73,24 @@ const formatDuration = (minutes: number): string => {
   return `${h}h ${m}m`;
 };
 
+const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, time }: any) => {
+  const RADIAN = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  if (percent < 0.05) return null;
+
+  return (
+    <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={10} className="font-bold drop-shadow-md">
+      <tspan x={x} dy="-0.5em" textAnchor="middle">{name}</tspan>
+      <tspan x={x} dy="1.2em" textAnchor="middle">{time}</tspan>
+    </text>
+  );
+};
+
 const AdminReportPage = () => {
+
   const { user, profile, checkPageAccess } = useSession();
   const { company, branding } = useCompany();
   const navigate = useNavigate();
@@ -154,7 +171,10 @@ const AdminReportPage = () => {
           if (os.hora_inicio && os.hora_final) {
             osData.push({
               name: os.os || os.af || 'Sem ID',
-              value: calculateDuration(os.hora_inicio, os.hora_final)
+              value: calculateDuration(os.hora_inicio, os.hora_final),
+              os: os.os,
+              af: os.af,
+              time: `${os.hora_inicio} - ${os.hora_final}`
             });
           }
         });
@@ -309,11 +329,14 @@ const AdminReportPage = () => {
                       outerRadius={100}
                       paddingAngle={2}
                       dataKey="value"
+                      label={renderCustomPieLabel}
+                      labelLine={false}
                     >
                       {dailyChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
+
                     <RechartsTooltip formatter={(value: number) => formatDuration(value)} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -377,12 +400,15 @@ const AdminReportPage = () => {
             <div className="space-y-6">
               {filteredOSList.map((os, idx) => (
                 <div key={idx} className="border rounded-lg overflow-hidden">
-                  <div className="bg-muted/50 p-2 px-4 border-b flex justify-between items-center">
+                  <div className="bg-muted/50 p-2 px-4 border-b flex flex-wrap justify-between items-center gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                       Usuário: {os.userName}
                     </span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                      AF: {os.af} {os.os ? `| OS: ${os.os}` : ''} | {os.hora_inicio || '--:--'} - {os.hora_final || '--:--'}
+                    </span>
                   </div>
-                  <ServiceOrderListDisplay 
+                  <ServiceOrderListDisplay
                     group={os}
                     onEdit={() => {}}
                     onDelete={() => {}}
@@ -390,6 +416,7 @@ const AdminReportPage = () => {
                   />
                 </div>
               ))}
+
             </div>
           ) : (
             <div className="py-12 text-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">

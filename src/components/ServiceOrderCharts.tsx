@@ -194,7 +194,7 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
   }, [dailyData]);
 
   // Custom label for Pie Chart
-  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }: any) => {
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value, fullData }: any) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
@@ -203,10 +203,12 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
     // Only show if slice is big enough
     if (percent < 0.05) return null;
 
+    const timeStr = fullData ? `${fullData.hora_inicio} - ${fullData.hora_final}` : formatDuration(value);
+
     return (
       <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={10} className="font-bold drop-shadow-md">
         <tspan x={x} dy="-0.5em" textAnchor="middle">{name}</tspan>
-        <tspan x={x} dy="1.2em" textAnchor="middle">{formatDuration(value)}</tspan>
+        <tspan x={x} dy="1.2em" textAnchor="middle">{timeStr}</tspan>
       </text>
     );
   };
