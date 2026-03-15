@@ -176,33 +176,38 @@ const AppHeader: React.FC = () => {
         
         {/* Lado Esquerdo: Banner + Menu Hambúrguer + Menus Dinâmicos Desktop */}
         <div className="flex items-center gap-2">
-          {/* Banner/Logo */}
+          {/* Banner/Logo do AutoBoard */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Link to={`/${company}`} className="flex items-center gap-2 h-10 shrink-0">
-                <img src={branding.logo} alt={`${branding.name} Logo`} className="h-full w-auto" />
+                <img src="/Logo.png" alt="AutoBoard Logo" className="h-full w-auto" />
                 <span className="sr-only">Página Inicial</span>
               </Link>
             </TooltipTrigger>
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
           
-          {/* Selector de Empresa (Simples) */}
+          {/* Selector de Empresa (Baseado em Logo) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="hidden sm:flex items-center gap-2 ml-2">
-                    <Building2 className="h-4 w-4" />
-                    {branding.name}
+                  <Button variant="ghost" className="h-10 w-10 p-0 ml-2 overflow-hidden hover:bg-muted transition-colors rounded-lg flex items-center justify-center border border-border/50">
+                    <img src={branding.logo} alt={branding.name} className="h-8 w-auto object-contain" />
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent>Mudar Empresa</TooltipContent>
+              <TooltipContent>Mudar Empresa ({branding.name})</TooltipContent>
             </Tooltip>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setCompany('usina_vale')}>Usina Vale</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCompany('citrosuco')}>Citrosuco</DropdownMenuItem>
+            <DropdownMenuContent className="w-48">
+              <DropdownMenuItem onClick={() => setCompany('usina_vale')} className="flex items-center gap-3">
+                <img src="/Usina Vale.png" alt="Usina Vale" className="h-6 w-auto object-contain" />
+                <span>Usina Vale</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCompany('citrosuco')} className="flex items-center gap-3">
+                <img src="/CitroSuco.png" alt="Citrosuco" className="h-6 w-auto object-contain" />
+                <span>Citrosuco</span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -267,8 +272,14 @@ const AppHeader: React.FC = () => {
                     <Building2 className="h-4 w-4 mr-2" /> Empresa: {branding.name}
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
-                    <DropdownMenuItem onClick={() => setCompany('usina_vale')}>Usina Vale</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setCompany('citrosuco')}>Citrosuco</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setCompany('usina_vale')} className="flex items-center gap-3">
+                      <img src="/Usina Vale.png" alt="Usina Vale" className="h-5 w-auto" />
+                      <span>Usina Vale</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setCompany('citrosuco')} className="flex items-center gap-3">
+                      <img src="/CitroSuco.png" alt="Citrosuco" className="h-5 w-auto" />
+                      <span>Citrosuco</span>
+                    </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               </div>
