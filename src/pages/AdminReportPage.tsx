@@ -88,10 +88,19 @@ const AdminReportPage = () => {
 
   // Redirect if not admin
   useEffect(() => {
+    console.log('AdminReportPage: Checking access', {
+      loading,
+      role: profile?.role,
+      isAdmin,
+      profileExists: !!profile
+    });
     if (!loading && !isAdmin) {
+      console.warn('AdminReportPage: Unauthorized access, redirecting');
+      showError('Acesso negado: Esta página é restrita a administradores e moderadores.');
       navigate(`/${company}`);
     }
-  }, [loading, isAdmin, navigate, company]);
+
+  }, [loading, isAdmin, navigate, company, profile]);
 
   useEffect(() => {
     const fetchData = async () => {
