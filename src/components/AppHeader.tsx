@@ -180,7 +180,7 @@ const AppHeader: React.FC = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Link to={`/${company}`} className="flex items-center gap-2 h-10 shrink-0">
-                <img src="/favicon.ico" alt="AutoBoard Logo" className="h-full w-auto" />
+                <img src="/Logo.png" alt="AutoBoard Logo" className="h-full w-auto" />
                 <span className="sr-only">Página Inicial</span>
               </Link>
             </TooltipTrigger>
