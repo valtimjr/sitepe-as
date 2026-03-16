@@ -257,7 +257,7 @@ const ServiceOrderList: React.FC = () => {
       {isAdmin && (
         <div className="flex justify-center mb-6">
           <Link to={`/${company}/admin-report`} className="w-full">
-            <Button variant="outline" className="w-full border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-100 hover:border-blue-300">
+            <Button variant="outline" className="w-full border-primary/20 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/30">
               <FileChartLine className="mr-2 h-4 w-4" />
               Ver Relatório Geral (Admin/Moderador)
             </Button>
@@ -280,8 +280,8 @@ const ServiceOrderList: React.FC = () => {
       {/* Main Header & Actions */}
       <div className="space-y-4">
         
-        <Button 
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11 text-base font-medium"
+        <Button
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11 text-base font-medium"
           onClick={() => handleOpenForm()}
         >
           <PlusCircle className="mr-2 h-5 w-5" /> Iniciar Nova OS
@@ -292,24 +292,24 @@ const ServiceOrderList: React.FC = () => {
 
            <Button
              variant="outline"
-             className="text-blue-600 border-blue-200 hover:bg-blue-50"
+             className="text-primary border-primary/20 hover:bg-primary/5"
              onClick={handleCopyList}
              disabled={osList.length === 0}
            >
              <Copy className="mr-2 h-4 w-4" /> Copiar Lista
            </Button>
 
-           <Button 
-             className="bg-[#ffffff] hover:bg-blue-700  rounded-full w-10 h-10 p-0"
+           <Button
+             className="bg-white hover:bg-gray-50 rounded-full w-10 h-10 p-0 border shadow-sm"
              onClick={handleShareOnWhatsApp}
              disabled={osList.length === 0}
            >
               <img src="/icons/whatsapp.png" alt="WhatsApp" className="h-10 w-10" />
            </Button>
 
-           <Button 
-             className="bg-blue-600 hover:bg-blue-700 text-white"
-             aria-label="Compartilhar no WhatsApp"
+           <Button
+             className="bg-primary hover:bg-primary/90 text-primary-foreground"
+             aria-label="Exportar PDF"
              onClick={handleExportPdf}
              disabled={osList.length === 0}
            >
