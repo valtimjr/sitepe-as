@@ -257,7 +257,10 @@ const ServiceOrderList: React.FC = () => {
       {isAdmin && (
         <div className="flex justify-center mb-6">
           <Link to={`/${company}/admin-report`} className="w-full">
-            <Button variant="outline" className="w-full border-primary/20 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/30">
+            <Button
+              variant="outline"
+              className="w-full text-primary border-primary/20 hover:bg-primary/5"
+            >
               <FileChartLine className="mr-2 h-4 w-4" />
               Ver Relatório Geral (Admin/Moderador)
             </Button>
