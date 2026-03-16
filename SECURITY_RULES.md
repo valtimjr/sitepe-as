@@ -1,0 +1,1 @@
+Todos os usuarios tem que ler os afs e pecas para conseguir fazer as ordens de serviçoes e pesquisar peças
