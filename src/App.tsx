@@ -6,6 +6,7 @@ import { SessionContextProvider } from './components/SessionContextProvider';
 import { CompanyProvider } from './context/CompanyContext';
 import Layout from './components/Layout';
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 // Páginas
 import Index from './pages/Index';
@@ -29,32 +30,34 @@ function App() {
     <BrowserRouter>
       <SessionContextProvider>
         <CompanyProvider>
-          <Routes>
-            {/* Rotas Públicas de Autenticação */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup/:uuid" element={<SignupPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/cookie-policy" element={<CookiePolicyPage />} />
+          <TooltipProvider>
+            <Routes>
+              {/* Rotas Públicas de Autenticação */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup/:uuid" element={<SignupPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/cookie-policy" element={<CookiePolicyPage />} />
 
-            {/* Redirecionamento Inicial */}
-            <Route path="/" element={<Navigate to="/usina_vale" replace />} />
+              {/* Redirecionamento Inicial */}
+              <Route path="/" element={<Navigate to="/usina_vale" replace />} />
 
-            {/* Rotas com Layout (Header + Sidebar) */}
-            <Route path="/:company" element={<Layout />}>
-              <Route index element={<Index />} />
-              <Route path="parts-list" element={<PartsList />} />
-              <Route path="service-orders" element={<ServiceOrderList />} />
-              <Route path="time-tracking" element={<TimeTrackingPage />} />
-              <Route path="admin" element={<DatabaseManagerPage />} />
-              <Route path="admin-report" element={<AdminReportPage />} />
-              <Route path="settings" element={<UserSettingsPage />} />
-              <Route path="custom-menu-view" element={<CustomMenuOverview />} />
-              <Route path="custom-list/:listId" element={<CustomListPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
-          <Toaster />
+              {/* Rotas com Layout (Header + Sidebar) */}
+              <Route path="/:company" element={<Layout />}>
+                <Route index element={<Index />} />
+                <Route path="parts-list" element={<PartsList />} />
+                <Route path="service-orders" element={<ServiceOrderList />} />
+                <Route path="time-tracking" element={<TimeTrackingPage />} />
+                <Route path="admin" element={<DatabaseManagerPage />} />
+                <Route path="admin-report" element={<AdminReportPage />} />
+                <Route path="settings" element={<UserSettingsPage />} />
+                <Route path="custom-menu-view" element={<CustomMenuOverview />} />
+                <Route path="custom-list/:listId" element={<CustomListPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Route>
+            </Routes>
+            <Toaster />
+          </TooltipProvider>
         </CompanyProvider>
       </SessionContextProvider>
     </BrowserRouter>
