@@ -400,8 +400,7 @@ const AdminReportPage = () => {
 
                   <ServiceOrderListDisplay
                     group={os}
-                    onEdit={() => {}}
-                    onDelete={() => {}}
+                    readOnly={true}
                   />
                 </div>
               ))}
