@@ -180,7 +180,17 @@ const AppHeader: React.FC = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Link to={`/${company}`} className="flex items-center gap-2 h-10 shrink-0">
-                <img src="/public/banner.png" alt="AutoBoard Logo" className="h-full w-auto" />
+                <img
+                  src={company === 'citrosuco' ? '/Banner_Citrosuco.png' : '/Banner.png'}
+                  alt="AutoBoard Logo"
+                  className="h-full w-auto transition-all duration-300"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src.includes('Banner_Citrosuco.png')) {
+                      target.src = '/Banner.png';
+                    }
+                  }}
+                />
                 <span className="sr-only">Página Inicial</span>
               </Link>
             </TooltipTrigger>
