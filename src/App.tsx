@@ -1,49 +1,63 @@
 "use client";
 
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { SessionContextProvider } from './components/SessionContextProvider';
+import { CompanyProvider } from './context/CompanyContext';
+import Layout from './components/Layout';
+import { Toaster } from "@/components/ui/sonner";
+
+// Páginas
 import Index from './pages/Index';
 import Login from './pages/Login';
-import Profile from './pages/Profile';
-import UserManagement from './pages/UserManagement';
-import Layout from './components/Layout';
-import { SessionContextProvider, useSession } from './components/SessionContextProvider';
-import { CompanyProvider } from './context/CompanyContext';
-import { Toaster } from 'react-hot-toast';
-
-const ProtectedRoute = ({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) => {
-  const { session, loading, isAdmin } = useSession();
-
-  if (loading) return <div className="flex h-screen items-center justify-center">Carregando...</div>;
-  if (!session) return <Navigate to="/login" replace />;
-  if (adminOnly && !isAdmin) return <Navigate to="/" replace />;
-
-  return <>{children}</>;
-};
-
-function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route element={<Layout />}>
-        <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/admin/users" element={<ProtectedRoute adminOnly><UserManagement /></ProtectedRoute>} />
-        {/* Rota de pesquisa removida conforme solicitado */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
-  );
-}
+import SignupPage from './pages/SignupPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import UserSettingsPage from './pages/UserSettingsPage';
+import DatabaseManagerPage from './pages/DatabaseManagerPage';
+import PartsList from './pages/PartsList';
+import ServiceOrderList from './pages/ServiceOrderList';
+import TimeTrackingPage from './pages/TimeTrackingPage';
+import CustomMenuOverview from './pages/CustomMenuOverview';
+import CustomListPage from './pages/CustomListPage';
+import AdminReportPage from './pages/AdminReportPage';
+import CookiePolicyPage from './pages/CookiePolicyPage';
+import NotFound from './pages/NotFound';
 
 function App() {
   return (
-    <SessionContextProvider>
-      <CompanyProvider>
-        <AppRoutes />
-        <Toaster position="top-right" />
-      </CompanyProvider>
-    </SessionContextProvider>
+    <BrowserRouter>
+      <SessionContextProvider>
+        <CompanyProvider>
+          <Routes>
+            {/* Rotas Públicas de Autenticação */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup/:uuid" element={<SignupPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/cookie-policy" element={<CookiePolicyPage />} />
+
+            {/* Redirecionamento Inicial */}
+            <Route path="/" element={<Navigate to="/usina_vale" replace />} />
+
+            {/* Rotas com Layout (Header + Sidebar) */}
+            <Route path="/:company" element={<Layout />}>
+              <Route index element={<Index />} />
+              <Route path="parts-list" element={<PartsList />} />
+              <Route path="service-orders" element={<ServiceOrderList />} />
+              <Route path="time-tracking" element={<TimeTrackingPage />} />
+              <Route path="admin" element={<DatabaseManagerPage />} />
+              <Route path="admin-report" element={<AdminReportPage />} />
+              <Route path="settings" element={<UserSettingsPage />} />
+              <Route path="custom-menu-view" element={<CustomMenuOverview />} />
+              <Route path="custom-list/:listId" element={<CustomListPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+          <Toaster />
+        </CompanyProvider>
+      </SessionContextProvider>
+    </BrowserRouter>
   );
 }
 
