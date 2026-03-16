@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,14 +9,13 @@ import { Part, addSimplePartItem, getParts, searchParts as searchPartsService, u
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save, XCircle, Loader2, Tag } from 'lucide-react';
+import { Save, XCircle, Tag, Info } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
 import { SimplePartItem } from '@/services/localDbService';
 import RelatedPartDisplay from './RelatedPartDisplay';
 import { ScrollArea } from './ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { RelatedPart } from '@/types/supabase';
 import { useCompany } from '@/context/CompanyContext';
 
 interface PartItemFormProps {
@@ -31,12 +32,10 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const [af, setAf] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(false);
   const [editedTags, setEditedTags] = useState<string>('');
   const isMobile = useIsMobile();
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
-  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -52,10 +51,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
           setEditedTags(partFromEdit?.tags || '');
           setSearchQuery(editingItem.codigo_peca || ''); 
           setIsLoadingParts(false);
-        } else {
-          setSelectedPart(null);
-          setEditedTags('');
-          setSearchQuery('');
         }
       } else {
         setSelectedPart(null);
@@ -72,15 +67,8 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
 
   useEffect(() => {
     const loadInitialData = async () => {
-      setIsLoadingParts(true);
-      const parts = await getParts(company);
-      setAllAvailableParts(parts);
-      setIsLoadingParts(false);
-
-      setIsLoadingAfs(true);
       const afs = await getAfsFromService(company);
       setAllAvailableAfs(afs);
-      setIsLoadingAfs(false);
     };
     loadInitialData();
   }, [company]);
@@ -106,12 +94,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
 
-  const formatRelatedPartString = (part: Part): RelatedPart => {
-    const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
-    const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
-    return { codigo: part.codigo, name: mainText, desc: subText };
-  };
-
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
@@ -127,28 +109,20 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   };
 
   const handleUpdateTags = async () => {
-    if (!selectedPart) {
-      showError('Nenhuma peça selecionada para atualizar as tags.');
-      return;
-    }
-    if (selectedPart.tags === editedTags) {
-      showError('As tags não foram alteradas.');
-      return;
-    }
-
+    if (!selectedPart) return;
     try {
       await updatePart({ ...selectedPart, tags: editedTags }, company);
-      showSuccess('Tags da peça atualizadas com sucesso!');
+      showSuccess('Tags da peça atualizadas!');
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
-      showError('Erro ao atualizar as tags da peça.');
+      showError('Erro ao atualizar as tags.');
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPart || quantidade <= 0) {
-      showError('Por favor, selecione uma peça e insira a quantidade.');
+      showError('Selecione uma peça e a quantidade.');
       return;
     }
 
@@ -161,42 +135,38 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
       };
 
       if (editingItem) {
-        await updateSimplePartItem({
-          ...editingItem,
-          ...itemData,
-        });
-        showSuccess('Item atualizado com sucesso!');
+        await updateSimplePartItem({ ...editingItem, ...itemData });
+        showSuccess('Item atualizado!');
         onCloseEdit?.();
       } else {
         await addSimplePartItem(itemData, company);
-        showSuccess('Item adicionado à lista de Peças!');
+        showSuccess('Item adicionado!');
       }
       
       setSelectedPart(null);
       setQuantidade(1);
       setAf('');
-      setEditedTags('');
       setSearchQuery('');
-      setSearchResults([]);
       onItemAdded();
     } catch (error) {
-      showError('Erro ao salvar item na lista.');
+      showError('Erro ao salvar item.');
     }
   };
 
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
-  const isSubmitDisabled = isLoadingParts || !selectedPart;
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>{editingItem ? 'Editar Item' : 'Adicionar Item à Lista de Peças'}</CardTitle>
+    <Card className="w-full max-w-md mx-auto border-primary/20 shadow-md">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          {editingItem ? 'Editar Item' : 'Adicionar Item à Lista'}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="search-part">Buscar Peça</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="search-part" className="text-sm font-semibold">Buscar Peça (Código ou Nome)</Label>
             <PartSearchInput
               onSearch={handleSearch}
               searchResults={searchResults}
@@ -205,44 +175,65 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               isLoading={isLoadingParts}
             />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2 md:col-span-1">
-              <Label htmlFor="codigo_peca">Cód. Peça</Label> {/* Rótulo encurtado */}
-              <Input
-                id="codigo_peca"
-                type="text"
-                value={selectedPart?.codigo || ''}
-                placeholder="Código da peça selecionada"
-                readOnly
-                className="bg-muted"
-              />
+
+          {selectedPart && (
+            <div className="bg-muted/30 p-3 rounded-lg border border-muted space-y-3 animate-in fade-in duration-300">
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-primary uppercase tracking-wider">Informações da Peça</span>
+                  <p className="text-sm font-medium">{selectedPart.name || 'Sem nome definido'}</p>
+                  <p className="text-xs text-muted-foreground">{selectedPart.descricao}</p>
+                  <p className="text-xs font-mono bg-background px-1.5 py-0.5 rounded border inline-block mt-1">
+                    Cód: {selectedPart.codigo}
+                  </p>
+                </div>
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </div>
+
+              {selectedPart.itens_relacionados && selectedPart.itens_relacionados.length > 0 && (
+                <div className="pt-2 border-t border-muted">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1 mb-2">
+                    <Tag className="h-3 w-3" /> Itens Relacionados
+                  </Label>
+                  <ScrollArea className={cn("w-full rounded border bg-background/50", isMobile ? "h-28" : "max-h-40")}>
+                    <div className="p-2 space-y-1">
+                      {selectedPart.itens_relacionados.map(relatedItem => (
+                        <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="tags" className="text-[10px] font-bold uppercase text-muted-foreground">Tags</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="tags"
+                    value={editedTags}
+                    onChange={(e) => setEditedTags(e.target.value)}
+                    placeholder="tag1; tag2..."
+                    className="h-8 text-xs"
+                    disabled={!canEditTags}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleUpdateTags}
+                    disabled={isUpdateTagsDisabled}
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="name">Nome da Peça</Label> {/* Rótulo encurtado */}
-              <Input
-                id="name"
-                type="text"
-                value={selectedPart?.name || ''}
-                placeholder="Nome da peça selecionada"
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="descricao">Descrição</Label>
-              <Input
-                id="descricao"
-                type="text"
-                value={selectedPart?.descricao || ''}
-                placeholder="Descrição da peça selecionada"
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-            <div className="space-y-2 md:col-span-1">
-              <Label htmlFor="quantidade">Quantidade</Label>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="quantidade" className="text-sm">Quantidade</Label>
               <Input
                 id="quantidade"
                 type="number"
@@ -252,63 +243,25 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
                 required
               />
             </div>
-          </div>
-          {selectedPart && (
-            <div>
-              <Label htmlFor="tags">Tags (separadas por ';')</Label>
-              <div className="flex items-center space-x-2">
-                <Input
-                  id="tags"
-                  type="text"
-                  value={editedTags}
-                  onChange={(e) => setEditedTags(e.target.value)}
-                  placeholder="Adicione tags separadas por ';'"
-                  disabled={!canEditTags}
-                />
-                <Button
-                  type="button"
-                  onClick={handleUpdateTags}
-                  disabled={isUpdateTagsDisabled}
-                  variant="outline"
-                  size="icon"
-                  aria-label="Atualizar Tags"
-                >
-                  <Save className="h-4 w-4" />
-                </Button>
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="af" className="text-sm">AF (Frota)</Label>
+              <AfSearchInput
+                value={af}
+                onChange={setAf}
+                onSelectAf={handleSelectAf}
+                availableAfs={allAvailableAfs}
+              />
             </div>
-          )}
-          {selectedPart && selectedPart.itens_relacionados && selectedPart.itens_relacionados.length > 0 && (
-            <div className="space-y-2 border-t pt-4">
-              <Label className="flex items-center gap-2">
-                <Tag className="h-4 w-4" /> Itens Relacionados da Peça
-              </Label>
-              <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
-                <div className="flex flex-col gap-2">
-                  {selectedPart.itens_relacionados.map(relatedItem => {
-                      return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
-                  })}
-                </div>
-              </ScrollArea>
-            </div>
-          )}
-          <div>
-            <Label htmlFor="af">AF (Número de Frota) (Opcional)</Label>
-            <AfSearchInput
-              value={af}
-              onChange={setAf}
-              onSelectAf={handleSelectAf}
-              availableAfs={allAvailableAfs}
-            />
           </div>
-          <div className="flex gap-2">
+
+          <div className="flex gap-2 pt-2">
             {editingItem && (
-              <Button type="button" variant="outline" onClick={onCloseEdit} className="w-full">
+              <Button type="button" variant="outline" onClick={onCloseEdit} className="flex-1">
                 <XCircle className="mr-2 h-4 w-4" /> Cancelar
               </Button>
             )}
-            <Button type="submit" className="w-full" disabled={isSubmitDisabled}>
-              <Save className="mr-2 h-4 w-4" /> {editingItem ? 'Salvar Alterações' : 'Adicionar à Lista'}
+            <Button type="submit" className="flex-1" disabled={!selectedPart}>
+              <Save className="mr-2 h-4 w-4" /> {editingItem ? 'Salvar' : 'Adicionar'}
             </Button>
           </div>
         </form>
