@@ -2,31 +2,28 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
   Loader2,
-  Search,
   User as UserIcon,
   BarChart3,
   PieChart as PieChartIcon,
-  Filter,
   Users,
   ClipboardList
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
 import { useCompany } from '@/context/CompanyContext';
 import { ServiceOrderData } from '@/types/supabase';
-import { showSuccess, showError } from '@/utils/toast';
+import { showError } from '@/utils/toast';
 import { 
   PieChart, 
   Pie, 
@@ -48,6 +45,7 @@ interface UserProfile {
   first_name: string | null;
   last_name: string | null;
   role: string;
+  badge: string | null;
 }
 
 // Helper to calculate duration in minutes
@@ -73,7 +71,7 @@ const formatDuration = (minutes: number): string => {
   return `${h}h ${m}m`;
 };
 
-const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, time }: any) => {
+const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, time }: any) => {
   const RADIAN = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
@@ -91,7 +89,7 @@ const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, perc
 
 const AdminReportPage = () => {
 
-  const { user, profile, checkPageAccess } = useSession();
+  const { user, profile } = useSession();
   const { company, branding } = useCompany();
   const navigate = useNavigate();
 
@@ -105,19 +103,11 @@ const AdminReportPage = () => {
 
   // Redirect if not admin
   useEffect(() => {
-    console.log('AdminReportPage: Checking access', {
-      loading,
-      role: profile?.role,
-      isAdmin,
-      profileExists: !!profile
-    });
     if (!loading && !isAdmin) {
-      console.warn('AdminReportPage: Unauthorized access, redirecting');
       showError('Acesso negado: Esta página é restrita a administradores e moderadores.');
       navigate(`/${company}`);
     }
-
-  }, [loading, isAdmin, navigate, company, profile]);
+  }, [loading, isAdmin, navigate, company]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -125,10 +115,10 @@ const AdminReportPage = () => {
       setLoading(true);
 
       try {
-        // 1. Fetch all users
+        // 1. Fetch all users including badge
         const { data: userData, error: userError } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, role');
+          .select('id, first_name, last_name, role, badge');
         
         if (userError) throw userError;
         setUsers(userData || []);
@@ -221,14 +211,16 @@ const AdminReportPage = () => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const dayRecords = allData.filter(r => r.date === dateStr && (selectedUserId === 'all' || r.user_id === selectedUserId));
     
-    const osList: (ServiceOrderData & { userName: string })[] = [];
+    const osList: (ServiceOrderData & { userDisplayName: string })[] = [];
     dayRecords.forEach(record => {
       const userProfile = users.find(u => u.id === record.user_id);
-      const userName = userProfile ? `${userProfile.first_name} ${userProfile.last_name}` : 'Desconhecido';
+      const userDisplayName = userProfile 
+        ? `${userProfile.badge ? userProfile.badge + ' - ' : ''}${userProfile.first_name} ${userProfile.last_name || ''}` 
+        : 'Desconhecido';
       
       if (Array.isArray(record.os_list)) {
         record.os_list.forEach((os: any) => {
-          osList.push({ ...os, userName });
+          osList.push({ ...os, userDisplayName });
         });
       }
     });
@@ -299,7 +291,7 @@ const AdminReportPage = () => {
                 <SelectItem value="all">Todos os usuários</SelectItem>
                 {users.map(u => (
                   <SelectItem key={u.id} value={u.id}>
-                    {u.first_name} {u.last_name} ({u.role})
+                    {u.badge ? `${u.badge} - ` : ''}{u.first_name} {u.last_name || ''} ({u.role})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -402,7 +394,7 @@ const AdminReportPage = () => {
                 <div key={idx} className="border rounded-lg overflow-hidden">
                   <div className="bg-muted/50 p-2 px-4 border-b flex flex-wrap justify-between items-center gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Usuário: {os.userName}
+                      Usuário: {os.userDisplayName}
                     </span>
                   </div>
 
@@ -410,7 +402,6 @@ const AdminReportPage = () => {
                     group={os}
                     onEdit={() => {}}
                     onDelete={() => {}}
-                    // Note: In report view, editing is disabled for now to simplify
                   />
                 </div>
               ))}
