@@ -160,25 +160,34 @@ const AdminReportPage = () => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const dayRecords = allData.filter(r => r.date === dateStr && (selectedUserId === 'all' || r.user_id === selectedUserId));
     
-    const osData: any[] = [];
+    const osDataMap = new Map<string, any>();
+    
     dayRecords.forEach(record => {
       const osList = record.os_list as any[];
       if (Array.isArray(osList)) {
         osList.forEach(os => {
           if (os.hora_inicio && os.hora_final) {
-            osData.push({
-              name: os.os || os.af || 'Sem ID',
-              value: calculateDuration(os.hora_inicio, os.hora_final),
-              os: os.os,
-              af: os.af,
-              time: `${os.hora_inicio} - ${os.hora_final}`
-            });
+            const duration = calculateDuration(os.hora_inicio, os.hora_final);
+            const key = os.os || os.af || 'Sem ID';
+            
+            if (osDataMap.has(key)) {
+              const existing = osDataMap.get(key);
+              existing.value += duration;
+            } else {
+              osDataMap.set(key, {
+                name: key,
+                value: duration,
+                os: os.os,
+                af: os.af,
+                time: `${os.hora_inicio} - ${os.hora_final}`
+              });
+            }
           }
         });
       }
     });
 
-    return osData;
+    return Array.from(osDataMap.values());
   }, [allData, selectedDate, selectedUserId]);
 
   const totalDailyMinutes = dailyChartData.reduce((acc, curr) => acc + curr.value, 0);
@@ -218,15 +227,18 @@ const AdminReportPage = () => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const dayRecords = allData.filter(r => r.date === dateStr && (selectedUserId === 'all' || r.user_id === selectedUserId));
     
+    console.log("[AdminReportPage] Filtering list for", dateStr, "SelectedUser:", selectedUserId, "Records found:", dayRecords.length);
+    
     const osList: (ServiceOrderData & { userDisplayName: string })[] = [];
     dayRecords.forEach(record => {
       const userProfile = users.find(u => u.id === record.user_id);
-      const userDisplayName = userProfile 
-        ? `${userProfile.badge ? userProfile.badge + ' - ' : ''}${userProfile.first_name} ${userProfile.last_name || ''}` 
+      const userDisplayName = userProfile
+        ? `${userProfile.badge ? userProfile.badge + ' - ' : ''}${userProfile.first_name} ${userProfile.last_name || ''}`
         : 'Desconhecido';
       
-      if (Array.isArray(record.os_list)) {
-        record.os_list.forEach((os: any) => {
+      const recordOsList = record.os_list as any[];
+      if (Array.isArray(recordOsList)) {
+        recordOsList.forEach((os: any) => {
           osList.push({ ...os, userDisplayName });
         });
       }
