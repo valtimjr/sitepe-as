@@ -116,17 +116,20 @@ const AdminReportPage = () => {
 
       try {
         // 1. Fetch all users including badge
+        console.log("[AdminReportPage] Fetching users as", user.id);
         const { data: userData, error: userError } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, role, badge');
         
-        if (userError) throw userError;
+        if (userError) {
+          console.error("[AdminReportPage] Error fetching users:", userError);
+          throw userError;
+        }
+        console.log("[AdminReportPage] Found users:", userData?.length, userData);
         setUsers(userData || []);
 
         // 2. Fetch all service orders for the current month across ALL users
-        const start = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
-        const end = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
-
+        console.log("[AdminReportPage] Fetching orders for range", start, "to", end);
         const { data: records, error: recordError } = await supabase
           .from('daily_service_orders')
           .select('id, user_id, date, os_list')
@@ -134,7 +137,11 @@ const AdminReportPage = () => {
           .gte('date', start)
           .lte('date', end);
 
-        if (recordError) throw recordError;
+        if (recordError) {
+          console.error("[AdminReportPage] Error fetching records:", recordError);
+          throw recordError;
+        }
+        console.log("[AdminReportPage] Found records:", records?.length);
         setAllData(records || []);
 
       } catch (err) {
