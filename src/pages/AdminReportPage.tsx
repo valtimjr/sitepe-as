@@ -129,6 +129,9 @@ const AdminReportPage = () => {
         setUsers(userData || []);
 
         // 2. Fetch all service orders for the current month across ALL users
+        const start = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
+        const end = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
+
         console.log("[AdminReportPage] Fetching orders for range", start, "to", end);
         const { data: records, error: recordError } = await supabase
           .from('daily_service_orders')
