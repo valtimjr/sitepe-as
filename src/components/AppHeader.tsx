@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,7 +28,10 @@ const AppHeader: React.FC = () => {
   const { session, user, profile, isLoading, checkPageAccess } = useSession();
   const { company, branding, setCompany } = useCompany();
   const navigate = useNavigate();
+  const location = useLocation();
   const [rootMenuItems, setRootMenuItems] = useState<MenuItem[]>([]);
+
+  const isLoginPage = location.pathname === '/login';
 
   const loadDynamicMenu = useCallback(async () => {
     try {
@@ -64,7 +67,6 @@ const AppHeader: React.FC = () => {
     return (first + last).toUpperCase() || <UserIcon className="h-6 w-6" />;
   };
 
-  // Função recursiva para renderizar submenus
   const renderDynamicMenu = (items: MenuItem[]) => {
     return items.map(item => {
       if (item.children && item.children.length > 0) {
@@ -80,7 +82,6 @@ const AppHeader: React.FC = () => {
         );
       }
       
-      // Item final que aponta para uma lista (com ou sem âncora)
       if (item.list_id) {
         return (
           <Link 
@@ -97,7 +98,6 @@ const AppHeader: React.FC = () => {
         );
       }
 
-      // Item que não é submenu e não tem link (deve ser evitado no gerenciador)
       return (
         <DropdownMenuItem key={item.id} disabled>
           {item.title} (Sem Link)
@@ -106,9 +106,7 @@ const AppHeader: React.FC = () => {
     });
   };
 
-  // Função para renderizar itens de nível raiz no cabeçalho (desktop)
   const renderRootItem = (item: MenuItem) => {
-    // Se for um link direto para uma lista
     if (item.list_id && (!item.children || item.children.length === 0)) {
       return (
         <Link to={`/${company}/custom-list/${item.list_id}`} key={item.id}>
@@ -119,7 +117,6 @@ const AppHeader: React.FC = () => {
       );
     }
 
-    // Se for um item que tem filhos (submenu)
     if (item.children && item.children.length > 0) {
       return (
         <DropdownMenu key={item.id}>
@@ -140,24 +137,21 @@ const AppHeader: React.FC = () => {
       );
     }
 
-    // Item raiz sem link e sem filhos (deve ser evitado)
     return null;
   };
 
   if (isLoading) {
-    return null; // Ou um skeleton de cabeçalho se preferir um carregamento visível
+    return null;
   }
 
   const canAccessAdmin = checkPageAccess('/admin');
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
   const canAccessMenuManager = checkPageAccess('/menu-manager');
 
-  // Itens de navegação padrão (sempre no dropdown)
   const standardDropdownItems = [
     { path: `/${company}/search-parts`, title: "Pesquisar Peças", icon: Search },
     { path: `/${company}/parts-list`, title: "Minha Lista de Peças", icon: List },
     { path: `/${company}/service-orders`, title: "Ordens de Serviço", icon: ClipboardList },
-    // CORRIGIDO: Escala Anual agora é um link externo
     { path: "https://escala.eletricarpm.com.br", title: "Escala Anual", icon: CalendarDays, external: true },
   ];
 
@@ -167,16 +161,13 @@ const AppHeader: React.FC = () => {
     ...(canAccessMenuManager ? [{ path: `/${company}/menu-manager`, title: "Gerenciar Menus", icon: Menu }] : []),
   ];
 
-  // Filtra itens dinâmicos que são links diretos ou submenus
   const dynamicMenuLinks = rootMenuItems.filter(item => item.list_id || (item.children && item.children.length > 0));
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         
-        {/* Lado Esquerdo: Banner + Menu Hambúrguer + Menus Dinâmicos Desktop */}
         <div className="flex items-center gap-2">
-          {/* Banner/Logo do AutoBoard */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Link to={`/${company}`} className="flex items-center gap-2 h-10 shrink-0">
@@ -197,7 +188,6 @@ const AppHeader: React.FC = () => {
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
           
-          {/* Selector de Empresa (Baseado em Logo) */}
           <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -223,90 +213,85 @@ const AppHeader: React.FC = () => {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Dropdown Menu Principal (Hambúrguer) */}
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 shrink-0" aria-label="Abrir Menu de Navegação">
-                    <Menu className="h-5 w-5" />
-                    <span className="hidden sm:inline">Menu</span>
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>Menu de Navegação</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="start" className="w-52 sm:w-64"> {/* Ajuste de largura para mobile */}
-              {/* Navegação Padrão */}
-              {standardDropdownItems.map(item => (
-                item.external ? (
-                  <a href={item.path} target="_blank" rel="noopener noreferrer" key={item.path}>
-                    <DropdownMenuItem>
-                      <item.icon className="h-4 w-4 mr-2" /> {item.title}
-                    </DropdownMenuItem>
-                  </a>
-                ) : (
-                  <Link to={item.path} key={item.path}>
-                    <DropdownMenuItem>
-                      <item.icon className="h-4 w-4 mr-2" /> {item.title}
-                    </DropdownMenuItem>
-                  </Link>
-                )
-              ))}
-              
-              {/* Itens Dinâmicos (dentro do dropdown para mobile/fallback) */}
-              {dynamicMenuLinks.length > 0 && (
-                <>
-                  <DropdownMenuSeparator />
-                  {renderDynamicMenu(dynamicMenuLinks)}
-                </>
-              )}
-
-              {/* Administração e Time Tracking */}
-              {authDropdownItems.length > 0 && (
-                <>
-                  <DropdownMenuSeparator />
-                  {authDropdownItems.map(item => (
+          {!isLoginPage && (
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="flex items-center gap-1 shrink-0" aria-label="Abrir Menu de Navegação">
+                      <Menu className="h-5 w-5" />
+                      <span className="hidden sm:inline">Menu</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Menu de Navegação</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="start" className="w-52 sm:w-64">
+                {standardDropdownItems.map(item => (
+                  item.external ? (
+                    <a href={item.path} target="_blank" rel="noopener noreferrer" key={item.path}>
+                      <DropdownMenuItem>
+                        <item.icon className="h-4 w-4 mr-2" /> {item.title}
+                      </DropdownMenuItem>
+                    </a>
+                  ) : (
                     <Link to={item.path} key={item.path}>
                       <DropdownMenuItem>
                         <item.icon className="h-4 w-4 mr-2" /> {item.title}
                       </DropdownMenuItem>
                     </Link>
-                  ))}
-                </>
-              )}
-              
-              {/* Empresa (Mobile) */}
-              <div className="md:hidden">
-                <DropdownMenuSeparator />
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Building2 className="h-4 w-4 mr-2" /> Empresa: {branding.name}
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuItem onClick={() => setCompany('usina_vale')} className="flex items-center gap-3">
-                      <img src="/Usina Vale.png" alt="Usina Vale" className="h-5 w-auto" />
-                      <span>Usina Vale</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setCompany('citrosuco')} className="flex items-center gap-3">
-                      <img src="/CitroSuco.png" alt="Citrosuco" className="h-5 w-auto" />
-                      <span>Citrosuco</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  )
+                ))}
+                
+                {dynamicMenuLinks.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {renderDynamicMenu(dynamicMenuLinks)}
+                  </>
+                )}
 
-          {/* Menus Dinâmicos Desktop - Reposicionados aqui */}
-          {dynamicMenuLinks.length > 0 && (
+                {authDropdownItems.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {authDropdownItems.map(item => (
+                      <Link to={item.path} key={item.path}>
+                        <DropdownMenuItem>
+                          <item.icon className="h-4 w-4 mr-2" /> {item.title}
+                        </DropdownMenuItem>
+                      </Link>
+                    ))}
+                  </>
+                )}
+                
+                <div className="md:hidden">
+                  <DropdownMenuSeparator />
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Building2 className="h-4 w-4 mr-2" /> Empresa: {branding.name}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem onClick={() => setCompany('usina_vale')} className="flex items-center gap-3">
+                        <img src="/Usina Vale.png" alt="Usina Vale" className="h-5 w-auto" />
+                        <span>Usina Vale</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCompany('citrosuco')} className="flex items-center gap-3">
+                        <img src="/CitroSuco.png" alt="Citrosuco" className="h-5 w-auto" />
+                        <span>Citrosuco</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {!isLoginPage && dynamicMenuLinks.length > 0 && (
             <nav className="hidden md:flex items-center gap-1">
               {dynamicMenuLinks.map(renderRootItem)}
             </nav>
           )}
         </div>
 
-        {/* Lado Direito: Status do Usuário/Login (Menus Interativos) */}
         <div className="flex items-center gap-2 shrink-0">
           {session ? (
             <div className="flex items-center gap-2">
@@ -314,7 +299,6 @@ const AppHeader: React.FC = () => {
                 Olá, {profile?.first_name || 'Usuário'}
               </span>
               
-              {/* Avatar (link para configurações) */}
               <Link to={`/${company}/settings`}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -327,7 +311,6 @@ const AppHeader: React.FC = () => {
                 </Tooltip>
               </Link>
 
-              {/* Menu de Ações do Perfil (Três Pontos) */}
               <DropdownMenu>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -353,12 +336,14 @@ const AppHeader: React.FC = () => {
               </DropdownMenu>
             </div>
           ) : (
-            <Link to="/login">
-              <Button variant="default" size="sm" className="flex items-center gap-1">
-                <LogIn className="h-4 w-4" />
-                <span className="hidden sm:inline">Entrar</span>
-              </Button>
-            </Link>
+            !isLoginPage && (
+              <Link to="/login">
+                <Button variant="default" size="sm" className="flex items-center gap-1">
+                  <LogIn className="h-4 w-4" />
+                  <span className="hidden sm:inline">Entrar</span>
+                </Button>
+              </Link>
+            )
           )}
         </div>
       </div>
