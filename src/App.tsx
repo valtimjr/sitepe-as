@@ -31,12 +31,12 @@ const queryClient = new QueryClient();
 
 const CompanyLayout = () => {
   return (
-    <CompanyProvider>
+    <>
       <AppHeader />
       <Outlet />
       <WelcomeModal />
       <CookieConsentBanner />
-    </CompanyProvider>
+    </>
   );
 };
 
@@ -44,7 +44,9 @@ const AppWrapper = () => {
   return (
     <BrowserRouter>
       <SessionContextProvider>
-        <AppContent />
+        <CompanyProvider>
+          <AppContent />
+        </CompanyProvider>
       </SessionContextProvider>
     </BrowserRouter>
   );
