@@ -26,11 +26,37 @@ const UserSettingsPage: React.FC = () => {
   const [profession, setProfession] = useState('');
   const [shift, setShift] = useState('');
   
+  const [availableProfessions, setAvailableProfessions] = useState<string[]>(['eletricista', 'mecanico']);
+  const [availableShifts, setAvailableShifts] = useState<string[]>(['Turno A', 'Turno B', 'Turno C']);
+  
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
     document.title = `Configurações do Usuário - AutoBoard (${branding.name})`;
-  }, [branding.name]);
+    
+    // Carregar opções dinâmicas do banco
+    const fetchDynamicOptions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('app_config')
+          .select('key, value')
+          .in('key', ['professions_list', 'shifts_list'])
+          .eq('company', company);
+
+        if (!error && data) {
+          const profs = data.find(c => c.key === 'professions_list')?.value;
+          const shifts = data.find(c => c.key === 'shifts_list')?.value;
+          
+          if (Array.isArray(profs)) setAvailableProfessions(profs);
+          if (Array.isArray(shifts)) setAvailableShifts(shifts);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar opções dinâmicas:', err);
+      }
+    };
+
+    fetchDynamicOptions();
+  }, [branding.name, company]);
 
   useEffect(() => {
     if (!isSessionLoading && sessionProfile) {
@@ -69,9 +95,7 @@ const UserSettingsPage: React.FC = () => {
         throw error;
       }
 
-      // IMPORTANTE: Atualiza o contexto global para que outras páginas vejam a mudança
       await refreshProfile();
-      
       showSuccess('Perfil atualizado com sucesso!');
     } catch (error: any) {
       showError(`Erro ao atualizar perfil: ${error.message}`);
@@ -163,7 +187,7 @@ const UserSettingsPage: React.FC = () => {
                   <div className="space-y-2">
                     <Label htmlFor="profession">Profissão</Label>
                     <Select 
-                      key={`prof-${profession}`} 
+                      key={`prof-${profession}-${availableProfessions.length}`} 
                       value={profession || undefined} 
                       onValueChange={setProfession} 
                       disabled={isSavingProfile}
@@ -172,15 +196,16 @@ const UserSettingsPage: React.FC = () => {
                         <SelectValue placeholder="Selecione sua profissão" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="eletricista">Eletricista</SelectItem>
-                        <SelectItem value="mecanico">Mecânico</SelectItem>
+                        {availableProfessions.map(p => (
+                          <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="shift">Turno</Label>
                     <Select 
-                      key={`shift-${shift}`}
+                      key={`shift-${shift}-${availableShifts.length}`}
                       value={shift || undefined} 
                       onValueChange={setShift} 
                       disabled={isSavingProfile}
@@ -189,9 +214,9 @@ const UserSettingsPage: React.FC = () => {
                         <SelectValue placeholder="Selecione seu turno" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Turno A">Turno A</SelectItem>
-                        <SelectItem value="Turno B">Turno B</SelectItem>
-                        <SelectItem value="Turno C">Turno C</SelectItem>
+                        {availableShifts.map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

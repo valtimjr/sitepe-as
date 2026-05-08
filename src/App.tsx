@@ -1,98 +1,59 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import SearchParts from "./pages/SearchParts";
-import PartsList from "./pages/PartsList";
-import ServiceOrderList from "./pages/ServiceOrderList";
-import Login from "./pages/Login";
-import DatabaseManagerPage from "./pages/DatabaseManagerPage";
-import SignupPage from "./pages/SignupPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import UserSettingsPage from "./pages/UserSettingsPage";
-import TimeTrackingPage from "./pages/TimeTrackingPage";
-import CustomListPage from "./pages/CustomListPage";
-import MyCustomListsPage from "./pages/MyCustomListsPage";
-import CustomMenuOverview from "./pages/CustomMenuOverview";
-import CookiePolicyPage from "./pages/CookiePolicyPage";
-import { SessionContextProvider } from "./components/SessionContextProvider";
-import AppHeader from "./components/AppHeader";
-import CookieConsentBanner from "./components/CookieConsentBanner";
-import { useOfflineSync } from "./hooks/useOfflineSync";
-import WelcomeModal from "./components/WelcomeModal";
-import { CompanyProvider } from "./context/CompanyContext";
-import AdminReportPage from "./pages/AdminReportPage";
+"use client";
 
-const queryClient = new QueryClient();
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { SessionContextProvider } from './components/SessionContextProvider';
+import { CompanyProvider } from './context/CompanyContext';
+import LandingPage from './pages/LandingPage';
+import Index from './pages/Index';
+import ServiceOrderPage from './pages/ServiceOrderPage';
+import TimeTrackingPage from './pages/TimeTrackingPage';
+import MonthlySummaryPage from './pages/MonthlySummaryPage';
+import UserSettingsPage from './pages/UserSettingsPage';
+import AdminReportPage from './pages/AdminReportPage';
+import MenuManagerPage from './pages/MenuManagerPage';
+import AdminConfigPage from './pages/AdminConfigPage';
+import CustomMenuView from './pages/CustomMenuView';
+import TagManagerPage from './pages/TagManagerPage';
+import LoginPage from './pages/Login';
+import InviteValidator from './pages/InviteValidator';
+import ToasterProvider from './components/ToastProvider';
 
-const CompanyLayout = () => {
+function App() {
   return (
-    <>
-      <AppHeader />
-      <Outlet />
-      <WelcomeModal />
-      <CookieConsentBanner />
-    </>
+    <SessionContextProvider>
+      <CompanyProvider>
+        <Router>
+          <Routes>
+            {/* Landing & Auth */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/validate-invite" element={<InviteValidator />} />
+            
+            {/* Company Routes */}
+            <Route path="/:company" element={<Index />} />
+            <Route path="/:company/service-orders" element={<ServiceOrderPage />} />
+            <Route path="/:company/time-tracking" element={<TimeTrackingPage />} />
+            <Route path="/:company/monthly-summary" element={<MonthlySummaryPage />} />
+            <Route path="/:company/settings" element={<UserSettingsPage />} />
+            
+            {/* Admin Routes */}
+            <Route path="/:company/admin-report" element={<AdminReportPage />} />
+            <Route path="/:company/menu-manager" element={<MenuManagerPage />} />
+            <Route path="/:company/admin-config" element={<AdminConfigPage />} />
+            <Route path="/:company/manage-tags" element={<TagManagerPage />} />
+            
+            {/* Dynamic Custom Menu */}
+            <Route path="/:company/menu/:menuId" element={<CustomMenuView />} />
+            
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          <ToasterProvider />
+        </Router>
+      </CompanyProvider>
+    </SessionContextProvider>
   );
-};
-
-const AppWrapper = () => {
-  return (
-    <BrowserRouter>
-      <SessionContextProvider>
-        <CompanyProvider>
-          <AppContent />
-        </CompanyProvider>
-      </SessionContextProvider>
-    </BrowserRouter>
-  );
-};
-
-const AppContent = () => {
-  useOfflineSync();
-  
-  return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/usina_vale" replace />} />
-      
-      {/* Routes that DON'T need company prefix (auth related mostly) */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup/:uuid" element={<SignupPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/cookie-policy" element={<CookiePolicyPage />} />
-
-      {/* Routes WITH company prefix */}
-      <Route path="/:company" element={<CompanyLayout />}>
-        <Route index element={<Index />} />
-        <Route path="search-parts" element={<SearchParts />} />
-        <Route path="parts-list" element={<PartsList />} />
-        <Route path="service-orders" element={<ServiceOrderList />} />
-        <Route path="admin" element={<DatabaseManagerPage />} />
-        <Route path="settings" element={<UserSettingsPage />} />
-        <Route path="time-tracking" element={<TimeTrackingPage />} />
-        <Route path="admin-report" element={<AdminReportPage />} />
-        <Route path="custom-list/:listId" element={<CustomListPage />} />
-
-        <Route path="my-custom-lists" element={<MyCustomListsPage />} />
-        <Route path="custom-menu-view" element={<CustomMenuOverview />} />
-      </Route>
-
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  );
-};
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AppWrapper />
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+}
 
 export default App;
