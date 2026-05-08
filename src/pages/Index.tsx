@@ -1,155 +1,186 @@
-"use client";
-
-import React from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { 
-  ClipboardList, 
-  BarChart3, 
-  Settings, 
-  LayoutDashboard, 
-  LogOut,
-  ChevronRight,
-  Menu,
-  Wrench,
-  Clock,
-  Briefcase
-} from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MadeWithDyad } from '@/components/made-with-dyad';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Database, Home, Clock, Search, List, ClipboardList, CalendarDays, FileText, Menu } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
-import { supabase } from '@/integrations/supabase/client';
-import { showSuccess, showError } from '@/utils/toast';
+import { getParts, getAfsFromService } from '@/services/partListService';
 import { useCompany } from '@/context/CompanyContext';
 
 const Index = () => {
-  const { user, profile, isLoading } = useSession();
+  const { checkPageAccess, session } = useSession();
   const { company, branding } = useCompany();
-  const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      showError('Erro ao sair.');
-    } else {
-      showSuccess('Saiu com sucesso!');
-      navigate('/login');
-    }
-  };
+  useEffect(() => {
+    document.title = `Início - AutoBoard (${branding.name})`;
+  }, [branding.name]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-2">
-          <Settings className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Carregando painel...</p>
-        </div>
-      </div>
-    );
-  }
+  // Efeito para pré-carregar dados em segundo plano
+  useEffect(() => {
+    const prefetchAllData = async () => {
+      try {
+        // Inicia o carregamento de peças e AFs em paralelo
+        await Promise.all([
+          getParts(company),
+          getAfsFromService(company)
+        ]);
+        // console.log("Pré-carregamento de dados em segundo plano concluído.");
+      } catch (error) {
+        console.warn("Falha no pré-carregamento de dados em segundo plano. Os dados serão carregados sob demanda.", error);
+      }
+    };
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+    // Executa a função de pré-carregamento uma vez quando o componente é montado
+    prefetchAllData();
+  }, [company]); // Roda quando a empresa muda
 
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
+  const canAccessAdmin = checkPageAccess('/admin');
+  const canAccessTimeTracking = checkPageAccess('/time-tracking');
+  // Acesso ao catálogo de menus agora verifica a permissão da rota
+  const canAccessCustomMenu = checkPageAccess('/custom-menu-view'); 
 
   return (
-    <div className="min-h-screen flex flex-col p-4 bg-background max-w-5xl mx-auto w-full">
-      <header className="flex flex-col sm:flex-row justify-between items-center mb-12 gap-4 mt-8">
-        <div className="text-center sm:text-left">
-          <h1 className="text-4xl font-extrabold text-primary flex items-center gap-3">
-            <LayoutDashboard className="h-9 w-9" />
-            AutoBoard
-          </h1>
-          <p className="text-muted-foreground font-medium">Unidade: <span className="text-foreground">{branding.name}</span></p>
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
+      <h1 className="text-5xl font-extrabold mb-12 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-4">
+        <div className="flex items-center gap-4">
+          <Home className="h-10 w-10 text-primary" />
+          Bem-vindo ao AutoBoard
         </div>
-        
-        <div className="flex items-center gap-2">
-          <Link to={`/${company}/settings`}>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Configurações
-            </Button>
-          </Link>
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10">
-            <LogOut className="h-4 w-4" />
-            Sair
-          </Button>
-        </div>
-      </header>
+        <img 
+          src={branding.logo} 
+          alt={branding.name} 
+          className="h-40 w-auto object-contain opacity-90" 
+        />
+      </h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-        {/* Main Features */}
-        <Card className="hover:shadow-lg transition-shadow border-primary/20 group">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl">
+        {/* 1. Ordens de Serviço (MOVido para a primeira posição) */}
+        <Card className="text-center">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5 text-primary" />
-              Ordens de Serviço
+            <CardTitle className="text-2xl flex items-center justify-center gap-2">
+              <ClipboardList className="h-6 w-6" /> Ordens de Serviço
             </CardTitle>
-            <CardDescription>Registre e visualize seus apontamentos diários.</CardDescription>
           </CardHeader>
           <CardContent>
+            <p className="mb-6 text-muted-foreground">
+              Visualize e gerencie as ordens de serviço com suas peças associadas.
+            </p>
             <Link to={`/${company}/service-orders`}>
-              <Button className="w-full group-hover:gap-3 transition-all">
-                Acessar OS <ChevronRight className="h-4 w-4" />
-              </Button>
+              <Button className="w-full">Ir para Ordens</Button>
             </Link>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow border-primary/20 group">
+        {/* 2. Pesquisar Peças */}
+        <Card className="text-center">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
-              Apontamentos Mensais
+            <CardTitle className="text-2xl flex items-center justify-center gap-2">
+              <Search className="h-6 w-6" /> Pesquisar Peças
             </CardTitle>
-            <CardDescription>Resumo de todas as suas horas trabalhadas no mês.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link to={`/${company}/monthly-summary`}>
-              <Button className="w-full group-hover:gap-3 transition-all" variant="outline">
-                Ver Resumo <ChevronRight className="h-4 w-4" />
-              </Button>
+            <p className="mb-6 text-muted-foreground">
+              Encontre rapidamente qualquer peça automotiva por código ou descrição.
+            </p>
+            <Link to={`/${company}/search-parts`}>
+              <Button className="w-full">Ir para Pesquisa</Button>
             </Link>
           </CardContent>
         </Card>
 
-        {/* Admin Tools */}
-        {isAdmin && (
-          <div className="md:col-span-2 mt-4">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 opacity-80">
-              <Settings className="h-5 w-5" /> Ferramentas Administrativas
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Link to={`/${company}/admin-report`}>
-                <Button variant="secondary" className="w-full justify-start gap-3 h-12">
-                  <BarChart3 className="h-5 w-5" /> Relatórios Gerais
-                </Button>
+        {/* 3. Catálogo de Peças */}
+        {canAccessCustomMenu && (
+          <Card className="text-center">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <Menu className="h-6 w-6" /> Catálogo de Peças
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-6 text-muted-foreground">
+                Navegue pelas listas de peças personalizadas em uma estrutura de menu.
+              </p>
+              <Link to={`/${company}/custom-menu-view`}>
+                <Button className="w-full">Ver Catálogo</Button>
               </Link>
-              <Link to={`/${company}/menu-manager`}>
-                <Button variant="secondary" className="w-full justify-start gap-3 h-12">
-                  <Menu className="h-5 w-5" /> Gerenciar Menus
-                </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 4. Minha Lista de Peças */}
+        <Card className="text-center">
+          <CardHeader>
+            <CardTitle className="text-2xl flex items-center justify-center gap-2">
+              <List className="h-6 w-6" /> Minha Lista de Peças
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-6 text-muted-foreground">
+              Gerencie sua lista de peças, adicione novos itens e exporte para PDF.
+            </p>
+            <Link to={`/${company}/parts-list`}>
+              <Button className="w-full">Ir para Lista</Button>
+            </Link>
+          </CardContent>
+        </Card>
+        
+        {/* 5. Escala Anual - AGORA ABRE EM NOVA ABA */}
+        <Card className="text-center">
+          <CardHeader>
+            <CardTitle className="text-2xl flex items-center justify-center gap-2">
+              <CalendarDays className="h-6 w-6" /> Escala Anual
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-6 text-muted-foreground">
+              Visualize a escala de turnos rotativos para o ano inteiro.
+            </p>
+            <a href="https://escala.eletricarpm.com.br" target="_blank" rel="noopener noreferrer">
+              <Button className="w-full">Ver Escala</Button>
+            </a>
+          </CardContent>
+        </Card>
+
+        {/* 6. Apontamento de Horas */}
+        {canAccessTimeTracking && (
+          <Card className="text-center">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <Clock className="h-6 w-6" /> Apontamento de Horas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-6 text-muted-foreground">
+                Registre suas horas de entrada e saída para controle mensal.
+              </p>
+              <Link to={`/${company}/time-tracking`}>
+                <Button className="w-full">Fazer Apontamento</Button>
               </Link>
-              <Link to={`/${company}/admin-config`}>
-                <Button variant="secondary" className="w-full justify-start gap-3 h-12">
-                  <Briefcase className="h-5 w-5" /> Profissões e Turnos
-                </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 7. Gerenciador de Banco de Dados */}
+        {canAccessAdmin && (
+          <Card className="text-center">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <Database className="h-6 w-6" /> Gerenciador de Banco de Dados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-6 text-muted-foreground">
+                Adicione, edite e gerencie peças e AFs diretamente no banco de dados.
+              </p>
+              <Link to={`/${company}/admin`}>
+                <Button className="w-full">Acessar Gerenciador</Button>
               </Link>
-              <Link to={`/${company}/manage-tags`}>
-                <Button variant="secondary" className="w-full justify-start gap-3 h-12">
-                  <Wrench className="h-5 w-5" /> Gerenciar Tags
-                </Button>
-              </Link>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         )}
       </div>
-
-      <div className="mt-auto py-8">
-        <MadeWithDyad />
-      </div>
+      <MadeWithDyad />
     </div>
   );
 };
