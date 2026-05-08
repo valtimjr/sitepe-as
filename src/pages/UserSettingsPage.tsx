@@ -26,8 +26,8 @@ const UserSettingsPage: React.FC = () => {
   const [profession, setProfession] = useState('');
   const [shift, setShift] = useState('');
   
-  const [availableProfessions, setAvailableProfessions] = useState<string[]>(['Eletricista', 'Mecânico']);
-  const [availableShifts, setAvailableShifts] = useState<string[]>(['Turno A', 'Turno B', 'Turno C']);
+  const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
+  const [availableShifts, setAvailableShifts] = useState<string[]>([]);
 
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
@@ -49,20 +49,15 @@ const UserSettingsPage: React.FC = () => {
   useEffect(() => {
     const fetchAttributes = async () => {
       try {
-        const { data, error } = await supabase
-          .from('app_config')
-          .select('value')
-          .eq('key', 'user_attributes')
-          .eq('company', company)
-          .maybeSingle();
-          
-        if (data && data.value) {
-          const val = data.value as any;
-          if (val.professions && val.professions.length > 0) setAvailableProfessions(val.professions);
-          if (val.shifts && val.shifts.length > 0) setAvailableShifts(val.shifts);
-        }
+        const [profRes, shiftRes] = await Promise.all([
+          supabase.from('professions').select('name').eq('company', company).order('name'),
+          supabase.from('shifts').select('name').eq('company', company).order('name')
+        ]);
+        
+        if (profRes.data && profRes.data.length > 0) setAvailableProfessions(profRes.data.map(p => p.name));
+        if (shiftRes.data && shiftRes.data.length > 0) setAvailableShifts(shiftRes.data.map(s => s.name));
       } catch (e) {
-        console.error('Error fetching dynamic attributes:', e);
+        console.error('Error fetching attributes:', e);
       }
     };
     if (user) fetchAttributes();

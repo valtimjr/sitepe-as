@@ -11,8 +11,8 @@ import { Trash2, Plus, Loader2 } from 'lucide-react';
 
 export default function UserAttributesManager() {
   const { company } = useCompany();
-  const [professions, setProfessions] = useState<string[]>(['Eletricista', 'Mecânico']);
-  const [shifts, setShifts] = useState<string[]>(['Turno A', 'Turno B', 'Turno C']);
+  const [professions, setProfessions] = useState<string[]>([]);
+  const [shifts, setShifts] = useState<string[]>([]);
   const [newProfession, setNewProfession] = useState('');
   const [newShift, setNewShift] = useState('');
   const [loading, setLoading] = useState(true);
@@ -25,20 +25,16 @@ export default function UserAttributesManager() {
   const fetchAttributes = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('app_config')
-        .select('value')
-        .eq('key', 'user_attributes')
-        .eq('company', company)
-        .maybeSingle();
+      const [profRes, shiftRes] = await Promise.all([
+        supabase.from('professions').select('name').eq('company', company).order('name'),
+        supabase.from('shifts').select('name').eq('company', company).order('name')
+      ]);
 
-      if (error) throw error;
+      if (profRes.error) throw profRes.error;
+      if (shiftRes.error) throw shiftRes.error;
 
-      if (data && data.value) {
-        const val = data.value as any;
-        if (val.professions) setProfessions(val.professions);
-        if (val.shifts) setShifts(val.shifts);
-      }
+      if (profRes.data) setProfessions(profRes.data.map(p => p.name));
+      if (shiftRes.data) setShifts(shiftRes.data.map(s => s.name));
     } catch (err) {
       console.error('Error fetching attributes:', err);
     } finally {
@@ -46,65 +42,70 @@ export default function UserAttributesManager() {
     }
   };
 
-  const saveAttributes = async (newProfs: string[], newShfts: string[]) => {
+  const handleAddProfession = async () => {
+    const trimmed = newProfession.trim();
+    if (!trimmed) return;
     setSaving(true);
     try {
-      const { data } = await supabase
-        .from('app_config')
-        .select('id')
-        .eq('key', 'user_attributes')
-        .eq('company', company)
-        .maybeSingle();
-
-      const payload = { professions: newProfs, shifts: newShfts };
-
-      if (data) {
-        const { error } = await supabase
-          .from('app_config')
-          .update({ value: payload, updated_at: new Date().toISOString() })
-          .eq('id', data.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('app_config')
-          .insert({ key: 'user_attributes', company, value: payload });
-        if (error) throw error;
-      }
-      showSuccess('Atributos atualizados com sucesso!');
-    } catch (err) {
-      console.error('Error saving attributes:', err);
-      showError('Erro ao salvar atributos.');
+      const { error } = await supabase.from('professions').insert({ name: trimmed, company });
+      if (error) throw error;
+      setProfessions(prev => [...prev, trimmed].sort());
+      setNewProfession('');
+      showSuccess('Profissão adicionada com sucesso!');
+    } catch (err: any) {
+      console.error(err);
+      showError(`Erro ao adicionar profissão: ${err.message}`);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleAddProfession = () => {
-    if (!newProfession.trim()) return;
-    const updated = [...professions, newProfession.trim()];
-    setProfessions(updated);
-    setNewProfession('');
-    saveAttributes(updated, shifts);
+  const handleRemoveProfession = async (prof: string) => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('professions').delete().eq('name', prof).eq('company', company);
+      if (error) throw error;
+      setProfessions(prev => prev.filter(p => p !== prof));
+      showSuccess('Profissão removida!');
+    } catch (err: any) {
+      console.error(err);
+      showError(`Erro ao remover profissão: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleRemoveProfession = (prof: string) => {
-    const updated = professions.filter(p => p !== prof);
-    setProfessions(updated);
-    saveAttributes(updated, shifts);
+  const handleAddShift = async () => {
+    const trimmed = newShift.trim();
+    if (!trimmed) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('shifts').insert({ name: trimmed, company });
+      if (error) throw error;
+      setShifts(prev => [...prev, trimmed].sort());
+      setNewShift('');
+      showSuccess('Turno adicionado com sucesso!');
+    } catch (err: any) {
+      console.error(err);
+      showError(`Erro ao adicionar turno: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleAddShift = () => {
-    if (!newShift.trim()) return;
-    const updated = [...shifts, newShift.trim()];
-    setShifts(updated);
-    setNewShift('');
-    saveAttributes(professions, updated);
-  };
-
-  const handleRemoveShift = (shift: string) => {
-    const updated = shifts.filter(s => s !== shift);
-    setShifts(updated);
-    saveAttributes(professions, updated);
+  const handleRemoveShift = async (shift: string) => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('shifts').delete().eq('name', shift).eq('company', company);
+      if (error) throw error;
+      setShifts(prev => prev.filter(s => s !== shift));
+      showSuccess('Turno removido!');
+    } catch (err: any) {
+      console.error(err);
+      showError(`Erro ao remover turno: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -128,6 +129,7 @@ export default function UserAttributesManager() {
               value={newProfession} 
               onChange={e => setNewProfession(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAddProfession()}
+              disabled={saving}
             />
             <Button onClick={handleAddProfession} disabled={saving || !newProfession.trim()}>
               <Plus className="h-4 w-4" />
@@ -158,6 +160,7 @@ export default function UserAttributesManager() {
               value={newShift} 
               onChange={e => setNewShift(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAddShift()}
+              disabled={saving}
             />
             <Button onClick={handleAddShift} disabled={saving || !newShift.trim()}>
               <Plus className="h-4 w-4" />

@@ -128,8 +128,8 @@ const AdminReportPage = () => {
   const [selectedProfession, setSelectedProfession] = useState<string>('all');
   const [selectedShift, setSelectedShift] = useState<string>('all');
   
-  const [availableProfessions, setAvailableProfessions] = useState<string[]>(['Eletricista', 'Mecânico']);
-  const [availableShifts, setAvailableShifts] = useState<string[]>(['Turno A', 'Turno B', 'Turno C']);
+  const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
+  const [availableShifts, setAvailableShifts] = useState<string[]>([]);
 
   const [openUserSelect, setOpenUserSelect] = useState(false);
   const [singleDateInput, setSingleDateInput] = useState(format(new Date(), 'dd/MM/yyyy'));
@@ -152,18 +152,13 @@ const AdminReportPage = () => {
   useEffect(() => {
     const fetchAttributes = async () => {
       try {
-        const { data } = await supabase
-          .from('app_config')
-          .select('value')
-          .eq('key', 'user_attributes')
-          .eq('company', company)
-          .maybeSingle();
-          
-        if (data && data.value) {
-          const val = data.value as any;
-          if (val.professions && val.professions.length > 0) setAvailableProfessions(val.professions);
-          if (val.shifts && val.shifts.length > 0) setAvailableShifts(val.shifts);
-        }
+        const [profRes, shiftRes] = await Promise.all([
+          supabase.from('professions').select('name').eq('company', company).order('name'),
+          supabase.from('shifts').select('name').eq('company', company).order('name')
+        ]);
+        
+        if (profRes.data && profRes.data.length > 0) setAvailableProfessions(profRes.data.map(p => p.name));
+        if (shiftRes.data && shiftRes.data.length > 0) setAvailableShifts(shiftRes.data.map(s => s.name));
       } catch (e) {
         console.error('Error fetching dynamic attributes:', e);
       }
@@ -177,6 +172,7 @@ const AdminReportPage = () => {
       setLoading(true);
 
       try {
+        // 1. Fetch all users with profile details
         const { data: userData, error: userError } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, role, badge, profession, shift');
@@ -184,6 +180,7 @@ const AdminReportPage = () => {
         if (userError) throw userError;
         setUsers(userData || []);
 
+        // 2. Fetch all service orders for the range
         let start, end;
         if (dateMode === 'single') {
           start = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
@@ -215,18 +212,27 @@ const AdminReportPage = () => {
     fetchData();
   }, [selectedDate, dateRange, dateMode, company, user]);
 
+  // Helper to check if a record matches filters
   const matchesFilters = (record: any) => {
     const userProfile = users.find(u => u.id === record.user_id);
+    
+    // User ID Filter
     if (selectedUserId !== 'all' && record.user_id !== selectedUserId) return false;
+    
+    // Profession Filter
     if (selectedProfession !== 'all') {
       if (!userProfile || userProfile.profession !== selectedProfession) return false;
     }
+    
+    // Shift Filter
     if (selectedShift !== 'all') {
       if (!userProfile || userProfile.shift !== selectedShift) return false;
     }
+    
     return true;
   };
 
+  // Daily/Range Data for Donut Chart
   const dailyChartData = useMemo(() => {
     let periodRecords;
     if (dateMode === 'single') {
@@ -274,6 +280,7 @@ const AdminReportPage = () => {
 
   const totalDailyMinutes = dailyChartData.reduce((acc, curr) => acc + curr.value, 0);
 
+  // Monthly/Range Data for Bar Chart
   const monthlyChartData = useMemo(() => {
     const daysMap = new Map<string, number>();
     
@@ -316,6 +323,7 @@ const AdminReportPage = () => {
 
   const totalMonthlyMinutes = monthlyChartData.reduce((acc, curr) => acc + curr.minutes, 0);
 
+  // Filtered List of OS for Display
   const filteredOSList = useMemo(() => {
     let periodRecords;
     if (dateMode === 'single') {

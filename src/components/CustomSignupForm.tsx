@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +26,33 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
   const [shift, setShift] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+
+  const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
+  const [availableShifts, setAvailableShifts] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchAttributes = async () => {
+      try {
+        // Busca todas as opções únicas cadastradas (pois não sabemos qual é a empresa nesse ponto, ou assume 'usina_vale' como default visual)
+        const [profRes, shiftRes] = await Promise.all([
+          supabase.from('professions').select('name'),
+          supabase.from('shifts').select('name')
+        ]);
+        
+        if (profRes.data) {
+          const uniqueProfs = Array.from(new Set(profRes.data.map(p => p.name))).sort();
+          setAvailableProfessions(uniqueProfs);
+        }
+        if (shiftRes.data) {
+          const uniqueShifts = Array.from(new Set(shiftRes.data.map(s => s.name))).sort();
+          setAvailableShifts(uniqueShifts);
+        }
+      } catch (e) {
+        console.error('Error fetching attributes:', e);
+      }
+    };
+    fetchAttributes();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,8 +157,9 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="eletricista">Eletricista</SelectItem>
-              <SelectItem value="mecanico">Mecânico</SelectItem>
+              {availableProfessions.map(p => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -142,9 +170,9 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Turno A">Turno A</SelectItem>
-              <SelectItem value="Turno B">Turno B</SelectItem>
-              <SelectItem value="Turno C">Turno C</SelectItem>
+              {availableShifts.map(s => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
