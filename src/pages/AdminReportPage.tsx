@@ -106,10 +106,11 @@ const AdminReportPage = () => {
   // Redirect if not admin
   useEffect(() => {
     if (!loading && !isAdmin) {
+      console.log("[AdminReportPage] Unauthorized access attempt:", profile?.role);
       showError('Acesso negado: Esta página é restrita a administradores e moderadores.');
       navigate(`/${company}`);
     }
-  }, [loading, isAdmin, navigate, company]);
+  }, [loading, isAdmin, navigate, company, profile]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -135,6 +136,7 @@ const AdminReportPage = () => {
         const end = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
 
         console.log("[AdminReportPage] Fetching orders for range", start, "to", end);
+        // Important: If you are an admin, the 'Admins can view all daily service orders' policy should allow this
         const { data: records, error: recordError } = await supabase
           .from('daily_service_orders')
           .select('id, user_id, date, os_list, company')
@@ -146,9 +148,14 @@ const AdminReportPage = () => {
           throw recordError;
         }
 
+        console.log("[AdminReportPage] Raw records from Supabase:", records?.length);
+        
         // Filter by company in JS to ensure we handle potential case sensitivity or missing company field
         const filteredRecords = (records || []).filter(r => r.company === company);
-        console.log("[AdminReportPage] Found records for company", company, ":", filteredRecords.length);
+        console.log("[AdminReportPage] Filtered records for company", company, ":", filteredRecords.length);
+        if (filteredRecords.length > 0) {
+          console.log("[AdminReportPage] Sample record date:", filteredRecords[0].date);
+        }
         setAllData(filteredRecords);
 
       } catch (err) {
