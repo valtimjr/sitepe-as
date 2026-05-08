@@ -137,8 +137,7 @@ const AdminReportPage = () => {
         console.log("[AdminReportPage] Fetching orders for range", start, "to", end);
         const { data: records, error: recordError } = await supabase
           .from('daily_service_orders')
-          .select('id, user_id, date, os_list')
-          .eq('company', company)
+          .select('id, user_id, date, os_list, company')
           .gte('date', start)
           .lte('date', end);
 
@@ -146,8 +145,11 @@ const AdminReportPage = () => {
           console.error("[AdminReportPage] Error fetching records:", recordError);
           throw recordError;
         }
-        console.log("[AdminReportPage] Found records:", records?.length);
-        setAllData(records || []);
+
+        // Filter by company in JS to ensure we handle potential case sensitivity or missing company field
+        const filteredRecords = (records || []).filter(r => r.company === company);
+        console.log("[AdminReportPage] Found records for company", company, ":", filteredRecords.length);
+        setAllData(filteredRecords);
 
       } catch (err) {
         console.error('Error fetching admin report data:', err);
