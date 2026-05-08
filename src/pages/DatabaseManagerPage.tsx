@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogOut, Database, Menu, List as ListIcon, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, LogOut, Database, Menu, List as ListIcon, ChevronLeft, Tags } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PartManagementTable from '@/components/PartManagementTable';
 import AfManagementTable from '@/components/AfManagementTable';
 import InviteManager from '@/components/InviteManager';
 import MenuManagerPage from '@/pages/MenuManagerPage';
+import UserAttributesManager from '@/components/UserAttributesManager';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
@@ -33,7 +34,7 @@ const DatabaseManagerPage: React.FC = () => {
     const isAdmin = profile?.role === 'admin';
     const canAccessMenuManager = checkPageAccess('/menu-manager');
     const tabs = [
-      ...(isAdmin ? ['parts', 'afs', 'invites'] : []),
+      ...(isAdmin ? ['parts', 'afs', 'invites', 'attributes'] : []),
       ...(canAccessMenuManager ? ['menu'] : []),
     ];
     return { visibleTabs: tabs, defaultTab: tabs[0] || '' };
@@ -63,14 +64,8 @@ const DatabaseManagerPage: React.FC = () => {
   }
   
   if (visibleTabs.length === 0) {
-    return null; // Redirection is handled by SessionContextProvider
+    return null;
   }
-
-  const totalVisibleTabs = visibleTabs.length;
-  const gridColsClass = totalVisibleTabs === 4 ? 'grid-cols-2 md:grid-cols-4' : 
-                        totalVisibleTabs === 3 ? 'grid-cols-3' : 
-                        totalVisibleTabs === 2 ? 'grid-cols-2' : 
-                        'grid-cols-1';
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
@@ -90,13 +85,20 @@ const DatabaseManagerPage: React.FC = () => {
         }} 
         className="w-full max-w-6xl"
       >
-        <TabsList className={cn("grid w-full h-auto mb-4", gridColsClass)}>
-          {visibleTabs.includes('parts') && <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>}
-          {visibleTabs.includes('afs') && <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>}
-          {visibleTabs.includes('invites') && <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>}
+        <TabsList className="flex flex-wrap justify-center h-auto gap-2 mb-4">
+          {visibleTabs.includes('parts') && <TabsTrigger value="parts">Peças</TabsTrigger>}
+          {visibleTabs.includes('afs') && <TabsTrigger value="afs">AFs</TabsTrigger>}
+          {visibleTabs.includes('invites') && <TabsTrigger value="invites">Convites</TabsTrigger>}
+          {visibleTabs.includes('attributes') && (
+            <TabsTrigger value="attributes">
+              <div className="flex items-center gap-2">
+                <Tags className="h-4 w-4" /> Atributos de Usuário
+              </div>
+            </TabsTrigger>
+          )}
           {visibleTabs.includes('menu') && (
             <TabsTrigger value="menu">
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center gap-2">
                 <Menu className="h-4 w-4" /> Menus & Listas
               </div>
             </TabsTrigger>
@@ -116,6 +118,11 @@ const DatabaseManagerPage: React.FC = () => {
         {visibleTabs.includes('invites') && (
           <TabsContent value="invites">
             <InviteManager />
+          </TabsContent>
+        )}
+        {visibleTabs.includes('attributes') && (
+          <TabsContent value="attributes">
+            <UserAttributesManager />
           </TabsContent>
         )}
         {visibleTabs.includes('menu') && (

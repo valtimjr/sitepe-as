@@ -26,6 +26,9 @@ const UserSettingsPage: React.FC = () => {
   const [profession, setProfession] = useState('');
   const [shift, setShift] = useState('');
   
+  const [availableProfessions, setAvailableProfessions] = useState<string[]>(['Eletricista', 'Mecânico']);
+  const [availableShifts, setAvailableShifts] = useState<string[]>(['Turno A', 'Turno B', 'Turno C']);
+
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
@@ -42,6 +45,28 @@ const UserSettingsPage: React.FC = () => {
       setShift(sessionProfile.shift || '');
     }
   }, [sessionProfile, isSessionLoading]);
+
+  useEffect(() => {
+    const fetchAttributes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('app_config')
+          .select('value')
+          .eq('key', 'user_attributes')
+          .eq('company', company)
+          .maybeSingle();
+          
+        if (data && data.value) {
+          const val = data.value as any;
+          if (val.professions && val.professions.length > 0) setAvailableProfessions(val.professions);
+          if (val.shifts && val.shifts.length > 0) setAvailableShifts(val.shifts);
+        }
+      } catch (e) {
+        console.error('Error fetching dynamic attributes:', e);
+      }
+    };
+    if (user) fetchAttributes();
+  }, [company, user]);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,9 +94,7 @@ const UserSettingsPage: React.FC = () => {
         throw error;
       }
 
-      // IMPORTANTE: Atualiza o contexto global para que outras páginas vejam a mudança
       await refreshProfile();
-      
       showSuccess('Perfil atualizado com sucesso!');
     } catch (error: any) {
       showError(`Erro ao atualizar perfil: ${error.message}`);
@@ -172,8 +195,9 @@ const UserSettingsPage: React.FC = () => {
                         <SelectValue placeholder="Selecione sua profissão" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="eletricista">Eletricista</SelectItem>
-                        <SelectItem value="mecanico">Mecânico</SelectItem>
+                        {availableProfessions.map(p => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -189,9 +213,9 @@ const UserSettingsPage: React.FC = () => {
                         <SelectValue placeholder="Selecione seu turno" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Turno A">Turno A</SelectItem>
-                        <SelectItem value="Turno B">Turno B</SelectItem>
-                        <SelectItem value="Turno C">Turno C</SelectItem>
+                        {availableShifts.map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

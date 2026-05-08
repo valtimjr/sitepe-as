@@ -128,6 +128,9 @@ const AdminReportPage = () => {
   const [selectedProfession, setSelectedProfession] = useState<string>('all');
   const [selectedShift, setSelectedShift] = useState<string>('all');
   
+  const [availableProfessions, setAvailableProfessions] = useState<string[]>(['Eletricista', 'Mecânico']);
+  const [availableShifts, setAvailableShifts] = useState<string[]>(['Turno A', 'Turno B', 'Turno C']);
+
   const [openUserSelect, setOpenUserSelect] = useState(false);
   const [singleDateInput, setSingleDateInput] = useState(format(new Date(), 'dd/MM/yyyy'));
   const [rangeStartInput, setRangeStartInput] = useState(format(startOfMonth(new Date()), 'dd/MM/yyyy'));
@@ -147,12 +150,33 @@ const AdminReportPage = () => {
   }, [loading, isAdmin, navigate, company, profile]);
 
   useEffect(() => {
+    const fetchAttributes = async () => {
+      try {
+        const { data } = await supabase
+          .from('app_config')
+          .select('value')
+          .eq('key', 'user_attributes')
+          .eq('company', company)
+          .maybeSingle();
+          
+        if (data && data.value) {
+          const val = data.value as any;
+          if (val.professions && val.professions.length > 0) setAvailableProfessions(val.professions);
+          if (val.shifts && val.shifts.length > 0) setAvailableShifts(val.shifts);
+        }
+      } catch (e) {
+        console.error('Error fetching dynamic attributes:', e);
+      }
+    };
+    if (user) fetchAttributes();
+  }, [company, user]);
+
+  useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
       setLoading(true);
 
       try {
-        // 1. Fetch all users with profile details
         const { data: userData, error: userError } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, role, badge, profession, shift');
@@ -160,7 +184,6 @@ const AdminReportPage = () => {
         if (userError) throw userError;
         setUsers(userData || []);
 
-        // 2. Fetch all service orders for the range
         let start, end;
         if (dateMode === 'single') {
           start = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
@@ -192,27 +215,18 @@ const AdminReportPage = () => {
     fetchData();
   }, [selectedDate, dateRange, dateMode, company, user]);
 
-  // Helper to check if a record matches filters
   const matchesFilters = (record: any) => {
     const userProfile = users.find(u => u.id === record.user_id);
-    
-    // User ID Filter
     if (selectedUserId !== 'all' && record.user_id !== selectedUserId) return false;
-    
-    // Profession Filter
     if (selectedProfession !== 'all') {
       if (!userProfile || userProfile.profession !== selectedProfession) return false;
     }
-    
-    // Shift Filter
     if (selectedShift !== 'all') {
       if (!userProfile || userProfile.shift !== selectedShift) return false;
     }
-    
     return true;
   };
 
-  // Daily/Range Data for Donut Chart
   const dailyChartData = useMemo(() => {
     let periodRecords;
     if (dateMode === 'single') {
@@ -260,7 +274,6 @@ const AdminReportPage = () => {
 
   const totalDailyMinutes = dailyChartData.reduce((acc, curr) => acc + curr.value, 0);
 
-  // Monthly/Range Data for Bar Chart
   const monthlyChartData = useMemo(() => {
     const daysMap = new Map<string, number>();
     
@@ -303,7 +316,6 @@ const AdminReportPage = () => {
 
   const totalMonthlyMinutes = monthlyChartData.reduce((acc, curr) => acc + curr.minutes, 0);
 
-  // Filtered List of OS for Display
   const filteredOSList = useMemo(() => {
     let periodRecords;
     if (dateMode === 'single') {
@@ -385,7 +397,7 @@ const AdminReportPage = () => {
     if (dateRange?.to) setRangeEndInput(format(dateRange.to, 'dd/MM/yyyy'));
   }, [dateRange]);
 
-  if (loading) {
+  if (loading && allData.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -535,8 +547,9 @@ const AdminReportPage = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="eletricista">Eletricista</SelectItem>
-                    <SelectItem value="mecanico">Mecânico</SelectItem>
+                    {availableProfessions.map(p => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -552,9 +565,9 @@ const AdminReportPage = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="Turno A">Turno A</SelectItem>
-                    <SelectItem value="Turno B">Turno B</SelectItem>
-                    <SelectItem value="Turno C">Turno C</SelectItem>
+                    {availableShifts.map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
