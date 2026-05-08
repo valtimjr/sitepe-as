@@ -7,7 +7,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, Plus, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Loader2, Edit2, Check, X } from 'lucide-react';
 
 export default function UserAttributesManager() {
   const { company } = useCompany();
@@ -15,6 +15,13 @@ export default function UserAttributesManager() {
   const [shifts, setShifts] = useState<string[]>([]);
   const [newProfession, setNewProfession] = useState('');
   const [newShift, setNewShift] = useState('');
+  
+  // Estados para edição
+  const [editingProfession, setEditingProfession] = useState<string | null>(null);
+  const [editProfessionValue, setEditProfessionValue] = useState('');
+  const [editingShift, setEditingShift] = useState<string | null>(null);
+  const [editShiftValue, setEditShiftValue] = useState('');
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -60,6 +67,43 @@ export default function UserAttributesManager() {
     }
   };
 
+  const handleEditProfession = async (oldName: string) => {
+    const trimmed = editProfessionValue.trim();
+    if (!trimmed || trimmed === oldName) {
+      setEditingProfession(null);
+      return;
+    }
+    setSaving(true);
+    try {
+      // 1. Atualiza na tabela de profissões
+      const { error: updateError } = await supabase
+        .from('professions')
+        .update({ name: trimmed })
+        .eq('name', oldName)
+        .eq('company', company);
+      if (updateError) throw updateError;
+
+      // 2. Atualiza em todos os perfis de usuários que usavam a antiga
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ profession: trimmed })
+        .eq('profession', oldName);
+      
+      if (profileError) {
+        console.error('Erro ao atualizar perfis em cascata:', profileError);
+      }
+
+      setProfessions(prev => prev.map(p => p === oldName ? trimmed : p).sort());
+      setEditingProfession(null);
+      showSuccess('Profissão atualizada com sucesso!');
+    } catch (err: any) {
+      console.error(err);
+      showError(`Erro ao editar profissão: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleRemoveProfession = async (prof: string) => {
     setSaving(true);
     try {
@@ -88,6 +132,43 @@ export default function UserAttributesManager() {
     } catch (err: any) {
       console.error(err);
       showError(`Erro ao adicionar turno: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditShift = async (oldName: string) => {
+    const trimmed = editShiftValue.trim();
+    if (!trimmed || trimmed === oldName) {
+      setEditingShift(null);
+      return;
+    }
+    setSaving(true);
+    try {
+      // 1. Atualiza na tabela de turnos
+      const { error: updateError } = await supabase
+        .from('shifts')
+        .update({ name: trimmed })
+        .eq('name', oldName)
+        .eq('company', company);
+      if (updateError) throw updateError;
+
+      // 2. Atualiza em todos os perfis de usuários que usavam o antigo
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ shift: trimmed })
+        .eq('shift', oldName);
+      
+      if (profileError) {
+        console.error('Erro ao atualizar perfis em cascata:', profileError);
+      }
+
+      setShifts(prev => prev.map(s => s === oldName ? trimmed : s).sort());
+      setEditingShift(null);
+      showSuccess('Turno atualizado com sucesso!');
+    } catch (err: any) {
+      console.error(err);
+      showError(`Erro ao editar turno: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -137,14 +218,48 @@ export default function UserAttributesManager() {
           </div>
           <ul className="space-y-2">
             {professions.map(prof => (
-              <li key={prof} className="flex justify-between items-center bg-muted/50 p-2 rounded">
-                <span>{prof}</span>
-                <Button variant="ghost" size="sm" onClick={() => handleRemoveProfession(prof)} disabled={saving}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+              <li key={prof} className="flex justify-between items-center bg-muted/50 p-2 rounded h-12">
+                {editingProfession === prof ? (
+                  <div className="flex items-center gap-2 w-full">
+                    <Input 
+                      value={editProfessionValue}
+                      onChange={e => setEditProfessionValue(e.target.value)}
+                      className="h-8 flex-1"
+                      autoFocus
+                      disabled={saving}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleEditProfession(prof);
+                        if (e.key === 'Escape') setEditingProfession(null);
+                      }}
+                    />
+                    <Button size="sm" variant="ghost" onClick={() => handleEditProfession(prof)} disabled={saving}>
+                      <Check className="h-4 w-4 text-green-600" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingProfession(null)} disabled={saving}>
+                      <X className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <span className="truncate pr-2">{prof}</span>
+                    <div className="flex gap-1 shrink-0">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => { setEditingProfession(prof); setEditProfessionValue(prof); }} 
+                        disabled={saving}
+                      >
+                        <Edit2 className="h-4 w-4 text-blue-600" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleRemoveProfession(prof)} disabled={saving}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </>
+                )}
               </li>
             ))}
-            {professions.length === 0 && <li className="text-muted-foreground text-sm">Nenhuma profissão cadastrada.</li>}
+            {professions.length === 0 && <li className="text-muted-foreground text-sm py-2">Nenhuma profissão cadastrada.</li>}
           </ul>
         </CardContent>
       </Card>
@@ -168,14 +283,48 @@ export default function UserAttributesManager() {
           </div>
           <ul className="space-y-2">
             {shifts.map(shift => (
-              <li key={shift} className="flex justify-between items-center bg-muted/50 p-2 rounded">
-                <span>{shift}</span>
-                <Button variant="ghost" size="sm" onClick={() => handleRemoveShift(shift)} disabled={saving}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+              <li key={shift} className="flex justify-between items-center bg-muted/50 p-2 rounded h-12">
+                {editingShift === shift ? (
+                  <div className="flex items-center gap-2 w-full">
+                    <Input 
+                      value={editShiftValue}
+                      onChange={e => setEditShiftValue(e.target.value)}
+                      className="h-8 flex-1"
+                      autoFocus
+                      disabled={saving}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleEditShift(shift);
+                        if (e.key === 'Escape') setEditingShift(null);
+                      }}
+                    />
+                    <Button size="sm" variant="ghost" onClick={() => handleEditShift(shift)} disabled={saving}>
+                      <Check className="h-4 w-4 text-green-600" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingShift(null)} disabled={saving}>
+                      <X className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <span className="truncate pr-2">{shift}</span>
+                    <div className="flex gap-1 shrink-0">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => { setEditingShift(shift); setEditShiftValue(shift); }} 
+                        disabled={saving}
+                      >
+                        <Edit2 className="h-4 w-4 text-blue-600" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleRemoveShift(shift)} disabled={saving}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </>
+                )}
               </li>
             ))}
-            {shifts.length === 0 && <li className="text-muted-foreground text-sm">Nenhum turno cadastrado.</li>}
+            {shifts.length === 0 && <li className="text-muted-foreground text-sm py-2">Nenhum turno cadastrado.</li>}
           </ul>
         </CardContent>
       </Card>
