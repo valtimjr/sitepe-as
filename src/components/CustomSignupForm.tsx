@@ -24,8 +24,10 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [badge, setBadge] = useState('');
-  const [profession, setProfession] = useState('');
-  const [shift, setShift] = useState('');
+  
+  const [professionCode, setProfessionCode] = useState('');
+  const [shiftCode, setShiftCode] = useState('');
+  
   const [isLoading, setIsLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
 
@@ -36,19 +38,19 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
     const fetchAttributes = async () => {
       try {
         const [profRes, shiftRes] = await Promise.all([
-          supabase.from('professions').select('name, ref_code'),
-          supabase.from('shifts').select('name, ref_code')
+          supabase.from('professions').select('name, ref_code').not('ref_code', 'is', null),
+          supabase.from('shifts').select('name, ref_code').not('ref_code', 'is', null)
         ]);
         
         if (profRes.data) {
-          const uniqueProfs = Array.from(new Map(profRes.data.map(item => [item.name, item])).values())
+          const uniqueProfs = Array.from(new Map(profRes.data.map(item => [item.ref_code, item])).values())
             .sort((a, b) => a.name.localeCompare(b.name));
-          setAvailableProfessions(uniqueProfs);
+          setAvailableProfessions(uniqueProfs as AttributeItem[]);
         }
         if (shiftRes.data) {
-          const uniqueShifts = Array.from(new Map(shiftRes.data.map(item => [item.name, item])).values())
+          const uniqueShifts = Array.from(new Map(shiftRes.data.map(item => [item.ref_code, item])).values())
             .sort((a, b) => a.name.localeCompare(b.name));
-          setAvailableShifts(uniqueShifts);
+          setAvailableShifts(uniqueShifts as AttributeItem[]);
         }
       } catch (e) {
         console.error('Error fetching attributes:', e);
@@ -66,16 +68,13 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
       return;
     }
 
-    if (!profession || !shift) {
+    if (!professionCode || !shiftCode) {
       showError('Por favor, selecione sua profissão e seu turno.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const profCode = availableProfessions.find(p => p.name === profession)?.ref_code;
-      const shiftCode = availableShifts.find(s => s.name === shift)?.ref_code;
-
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -84,10 +83,8 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
             first_name: firstName,
             last_name: lastName,
             badge: badge,
-            profession: profession,
-            shift: shift,
-            profession_code: profCode?.toString() || null,
-            shift_code: shiftCode?.toString() || null,
+            profession_code: professionCode,
+            shift_code: shiftCode,
           },
           emailRedirectTo: window.location.origin + '/admin',
         },
@@ -160,26 +157,26 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="profession">Profissão</Label>
-          <Select value={profession} onValueChange={setProfession} disabled={isLoading} required>
+          <Select value={professionCode} onValueChange={setProfessionCode} disabled={isLoading} required>
             <SelectTrigger id="profession">
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
               {availableProfessions.map(p => (
-                <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
+                <SelectItem key={p.ref_code} value={p.ref_code!.toString()}>{p.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div>
           <Label htmlFor="shift">Turno</Label>
-          <Select value={shift} onValueChange={setShift} disabled={isLoading} required>
+          <Select value={shiftCode} onValueChange={setShiftCode} disabled={isLoading} required>
             <SelectTrigger id="shift">
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
               {availableShifts.map(s => (
-                <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>
+                <SelectItem key={s.ref_code} value={s.ref_code!.toString()}>{s.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>

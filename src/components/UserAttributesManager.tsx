@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trash2, Plus, Loader2, Edit2, Check, X } from 'lucide-react';
 
-type AttributeItem = { name: string; ref_code: number | null };
+type AttributeItem = { id: string; name: string; ref_code: number };
 
 export default function UserAttributesManager() {
   const { company } = useCompany();
@@ -22,7 +22,6 @@ export default function UserAttributesManager() {
   const [newShift, setNewShift] = useState('');
   const [newShiftCode, setNewShiftCode] = useState('');
   
-  // Estados para edição
   const [editingProfession, setEditingProfession] = useState<string | null>(null);
   const [editProfessionValue, setEditProfessionValue] = useState('');
   const [editProfessionCodeValue, setEditProfessionCodeValue] = useState('');
@@ -42,15 +41,15 @@ export default function UserAttributesManager() {
     setLoading(true);
     try {
       const [profRes, shiftRes] = await Promise.all([
-        supabase.from('professions').select('name, ref_code').eq('company', company).order('name'),
-        supabase.from('shifts').select('name, ref_code').eq('company', company).order('name')
+        supabase.from('professions').select('id, name, ref_code').eq('company', company).order('name'),
+        supabase.from('shifts').select('id, name, ref_code').eq('company', company).order('name')
       ]);
 
       if (profRes.error) throw profRes.error;
       if (shiftRes.error) throw shiftRes.error;
 
-      if (profRes.data) setProfessions(profRes.data);
-      if (shiftRes.data) setShifts(shiftRes.data);
+      if (profRes.data) setProfessions(profRes.data as AttributeItem[]);
+      if (shiftRes.data) setShifts(shiftRes.data as AttributeItem[]);
     } catch (err) {
       console.error('Error fetching attributes:', err);
     } finally {
@@ -60,13 +59,16 @@ export default function UserAttributesManager() {
 
   const handleAddProfession = async () => {
     const trimmed = newProfession.trim();
-    if (!trimmed) return;
+    if (!trimmed || !newProfessionCode) {
+      showError("Nome e Código são obrigatórios.");
+      return;
+    }
     setSaving(true);
     try {
-      const code = newProfessionCode ? parseInt(newProfessionCode) : null;
-      const { error } = await supabase.from('professions').insert({ name: trimmed, ref_code: code, company });
+      const code = parseInt(newProfessionCode);
+      const { data, error } = await supabase.from('professions').insert({ name: trimmed, ref_code: code, company }).select('id, name, ref_code').single();
       if (error) throw error;
-      setProfessions(prev => [...prev, { name: trimmed, ref_code: code }].sort((a, b) => a.name.localeCompare(b.name)));
+      setProfessions(prev => [...prev, data as AttributeItem].sort((a, b) => a.name.localeCompare(b.name)));
       setNewProfession('');
       setNewProfessionCode('');
       showSuccess('Profissão adicionada com sucesso!');
@@ -78,34 +80,25 @@ export default function UserAttributesManager() {
     }
   };
 
-  const handleEditProfession = async (oldName: string) => {
+  const handleEditProfession = async (id: string) => {
     const trimmed = editProfessionValue.trim();
     const code = editProfessionCodeValue ? parseInt(editProfessionCodeValue) : null;
-    const oldItem = professions.find(p => p.name === oldName);
-
-    if (!trimmed || (trimmed === oldName && code === oldItem?.ref_code)) {
-      setEditingProfession(null);
+    if (!trimmed || code === null) {
+      showError("Nome e Código são obrigatórios.");
       return;
     }
     
     setSaving(true);
     try {
+      // Como o profile depende apenas do ref_code, só precisamos atualizar aqui!
       const { error: updateError } = await supabase
         .from('professions')
         .update({ name: trimmed, ref_code: code })
-        .eq('name', oldName)
-        .eq('company', company);
+        .eq('id', id);
+        
       if (updateError) throw updateError;
 
-      // Cascata nos perfis
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ profession: trimmed, profession_code: code })
-        .eq('profession', oldName);
-      
-      if (profileError) console.error('Erro ao atualizar perfis em cascata:', profileError);
-
-      setProfessions(prev => prev.map(p => p.name === oldName ? { name: trimmed, ref_code: code } : p).sort((a, b) => a.name.localeCompare(b.name)));
+      setProfessions(prev => prev.map(p => p.id === id ? { ...p, name: trimmed, ref_code: code } : p).sort((a, b) => a.name.localeCompare(b.name)));
       setEditingProfession(null);
       showSuccess('Profissão atualizada com sucesso!');
     } catch (err: any) {
@@ -116,12 +109,12 @@ export default function UserAttributesManager() {
     }
   };
 
-  const handleRemoveProfession = async (prof: string) => {
+  const handleRemoveProfession = async (id: string) => {
     setSaving(true);
     try {
-      const { error } = await supabase.from('professions').delete().eq('name', prof).eq('company', company);
+      const { error } = await supabase.from('professions').delete().eq('id', id);
       if (error) throw error;
-      setProfessions(prev => prev.filter(p => p.name !== prof));
+      setProfessions(prev => prev.filter(p => p.id !== id));
       showSuccess('Profissão removida!');
     } catch (err: any) {
       console.error(err);
@@ -133,13 +126,16 @@ export default function UserAttributesManager() {
 
   const handleAddShift = async () => {
     const trimmed = newShift.trim();
-    if (!trimmed) return;
+    if (!trimmed || !newShiftCode) {
+      showError("Nome e Código são obrigatórios.");
+      return;
+    }
     setSaving(true);
     try {
-      const code = newShiftCode ? parseInt(newShiftCode) : null;
-      const { error } = await supabase.from('shifts').insert({ name: trimmed, ref_code: code, company });
+      const code = parseInt(newShiftCode);
+      const { data, error } = await supabase.from('shifts').insert({ name: trimmed, ref_code: code, company }).select('id, name, ref_code').single();
       if (error) throw error;
-      setShifts(prev => [...prev, { name: trimmed, ref_code: code }].sort((a, b) => a.name.localeCompare(b.name)));
+      setShifts(prev => [...prev, data as AttributeItem].sort((a, b) => a.name.localeCompare(b.name)));
       setNewShift('');
       setNewShiftCode('');
       showSuccess('Turno adicionado com sucesso!');
@@ -151,13 +147,12 @@ export default function UserAttributesManager() {
     }
   };
 
-  const handleEditShift = async (oldName: string) => {
+  const handleEditShift = async (id: string) => {
     const trimmed = editShiftValue.trim();
     const code = editShiftCodeValue ? parseInt(editShiftCodeValue) : null;
-    const oldItem = shifts.find(s => s.name === oldName);
-
-    if (!trimmed || (trimmed === oldName && code === oldItem?.ref_code)) {
-      setEditingShift(null);
+    
+    if (!trimmed || code === null) {
+      showError("Nome e Código são obrigatórios.");
       return;
     }
     
@@ -166,18 +161,11 @@ export default function UserAttributesManager() {
       const { error: updateError } = await supabase
         .from('shifts')
         .update({ name: trimmed, ref_code: code })
-        .eq('name', oldName)
-        .eq('company', company);
+        .eq('id', id);
+        
       if (updateError) throw updateError;
 
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ shift: trimmed, shift_code: code })
-        .eq('shift', oldName);
-      
-      if (profileError) console.error('Erro ao atualizar perfis em cascata:', profileError);
-
-      setShifts(prev => prev.map(s => s.name === oldName ? { name: trimmed, ref_code: code } : s).sort((a, b) => a.name.localeCompare(b.name)));
+      setShifts(prev => prev.map(s => s.id === id ? { ...s, name: trimmed, ref_code: code } : s).sort((a, b) => a.name.localeCompare(b.name)));
       setEditingShift(null);
       showSuccess('Turno atualizado com sucesso!');
     } catch (err: any) {
@@ -188,12 +176,12 @@ export default function UserAttributesManager() {
     }
   };
 
-  const handleRemoveShift = async (shift: string) => {
+  const handleRemoveShift = async (id: string) => {
     setSaving(true);
     try {
-      const { error } = await supabase.from('shifts').delete().eq('name', shift).eq('company', company);
+      const { error } = await supabase.from('shifts').delete().eq('id', id);
       if (error) throw error;
-      setShifts(prev => prev.filter(s => s.name !== shift));
+      setShifts(prev => prev.filter(s => s.id !== id));
       showSuccess('Turno removido!');
     } catch (err: any) {
       console.error(err);
@@ -220,7 +208,7 @@ export default function UserAttributesManager() {
         <CardContent>
           <div className="flex gap-2 mb-4">
             <Input 
-              placeholder="Cód (Opcional)" 
+              placeholder="Cód *" 
               value={newProfessionCode} 
               onChange={e => setNewProfessionCode(e.target.value)}
               className="w-24"
@@ -234,14 +222,14 @@ export default function UserAttributesManager() {
               onKeyDown={e => e.key === 'Enter' && handleAddProfession()}
               disabled={saving}
             />
-            <Button onClick={handleAddProfession} disabled={saving || !newProfession.trim()}>
+            <Button onClick={handleAddProfession} disabled={saving || !newProfession.trim() || !newProfessionCode}>
               <Plus className="h-4 w-4" />
             </Button>
           </div>
           <ul className="space-y-2">
             {professions.map(prof => (
-              <li key={prof.name} className="flex justify-between items-center bg-muted/50 p-2 rounded h-12">
-                {editingProfession === prof.name ? (
+              <li key={prof.id} className="flex justify-between items-center bg-muted/50 p-2 rounded h-12">
+                {editingProfession === prof.id ? (
                   <div className="flex items-center gap-2 w-full">
                     <Input 
                       placeholder="Cód"
@@ -258,11 +246,11 @@ export default function UserAttributesManager() {
                       autoFocus
                       disabled={saving}
                       onKeyDown={e => {
-                        if (e.key === 'Enter') handleEditProfession(prof.name);
+                        if (e.key === 'Enter') handleEditProfession(prof.id);
                         if (e.key === 'Escape') setEditingProfession(null);
                       }}
                     />
-                    <Button size="sm" variant="ghost" onClick={() => handleEditProfession(prof.name)} disabled={saving}>
+                    <Button size="sm" variant="ghost" onClick={() => handleEditProfession(prof.id)} disabled={saving}>
                       <Check className="h-4 w-4 text-green-600" />
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setEditingProfession(null)} disabled={saving}>
@@ -284,7 +272,7 @@ export default function UserAttributesManager() {
                         variant="ghost" 
                         size="sm" 
                         onClick={() => { 
-                          setEditingProfession(prof.name); 
+                          setEditingProfession(prof.id); 
                           setEditProfessionValue(prof.name); 
                           setEditProfessionCodeValue(prof.ref_code ? prof.ref_code.toString() : '');
                         }} 
@@ -292,7 +280,7 @@ export default function UserAttributesManager() {
                       >
                         <Edit2 className="h-4 w-4 text-blue-600" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleRemoveProfession(prof.name)} disabled={saving}>
+                      <Button variant="ghost" size="sm" onClick={() => handleRemoveProfession(prof.id)} disabled={saving}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
@@ -312,7 +300,7 @@ export default function UserAttributesManager() {
         <CardContent>
           <div className="flex gap-2 mb-4">
             <Input 
-              placeholder="Cód (Opcional)" 
+              placeholder="Cód *" 
               value={newShiftCode} 
               onChange={e => setNewShiftCode(e.target.value)}
               className="w-24"
@@ -326,14 +314,14 @@ export default function UserAttributesManager() {
               onKeyDown={e => e.key === 'Enter' && handleAddShift()}
               disabled={saving}
             />
-            <Button onClick={handleAddShift} disabled={saving || !newShift.trim()}>
+            <Button onClick={handleAddShift} disabled={saving || !newShift.trim() || !newShiftCode}>
               <Plus className="h-4 w-4" />
             </Button>
           </div>
           <ul className="space-y-2">
             {shifts.map(shift => (
-              <li key={shift.name} className="flex justify-between items-center bg-muted/50 p-2 rounded h-12">
-                {editingShift === shift.name ? (
+              <li key={shift.id} className="flex justify-between items-center bg-muted/50 p-2 rounded h-12">
+                {editingShift === shift.id ? (
                   <div className="flex items-center gap-2 w-full">
                     <Input 
                       placeholder="Cód"
@@ -350,11 +338,11 @@ export default function UserAttributesManager() {
                       autoFocus
                       disabled={saving}
                       onKeyDown={e => {
-                        if (e.key === 'Enter') handleEditShift(shift.name);
+                        if (e.key === 'Enter') handleEditShift(shift.id);
                         if (e.key === 'Escape') setEditingShift(null);
                       }}
                     />
-                    <Button size="sm" variant="ghost" onClick={() => handleEditShift(shift.name)} disabled={saving}>
+                    <Button size="sm" variant="ghost" onClick={() => handleEditShift(shift.id)} disabled={saving}>
                       <Check className="h-4 w-4 text-green-600" />
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setEditingShift(null)} disabled={saving}>
@@ -376,7 +364,7 @@ export default function UserAttributesManager() {
                         variant="ghost" 
                         size="sm" 
                         onClick={() => { 
-                          setEditingShift(shift.name); 
+                          setEditingShift(shift.id); 
                           setEditShiftValue(shift.name); 
                           setEditShiftCodeValue(shift.ref_code ? shift.ref_code.toString() : '');
                         }} 
@@ -384,7 +372,7 @@ export default function UserAttributesManager() {
                       >
                         <Edit2 className="h-4 w-4 text-blue-600" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleRemoveShift(shift.name)} disabled={saving}>
+                      <Button variant="ghost" size="sm" onClick={() => handleRemoveShift(shift.id)} disabled={saving}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>

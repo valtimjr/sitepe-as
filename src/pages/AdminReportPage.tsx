@@ -67,9 +67,11 @@ interface UserProfile {
   last_name: string | null;
   role: string;
   badge: string | null;
-  profession: string | null;
-  shift: string | null;
+  profession_code: number | null;
+  shift_code: number | null;
 }
+
+type AttributeItem = { name: string; ref_code: number | null };
 
 // Helper to calculate duration in minutes
 const calculateDuration = (start?: string, end?: string): number => {
@@ -125,11 +127,11 @@ const AdminReportPage = () => {
   
   // Filters
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
-  const [selectedProfession, setSelectedProfession] = useState<string>('all');
-  const [selectedShift, setSelectedShift] = useState<string>('all');
+  const [selectedProfessionCode, setSelectedProfessionCode] = useState<string>('all');
+  const [selectedShiftCode, setSelectedShiftCode] = useState<string>('all');
   
-  const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
-  const [availableShifts, setAvailableShifts] = useState<string[]>([]);
+  const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
+  const [availableShifts, setAvailableShifts] = useState<AttributeItem[]>([]);
 
   const [openUserSelect, setOpenUserSelect] = useState(false);
   const [singleDateInput, setSingleDateInput] = useState(format(new Date(), 'dd/MM/yyyy'));
@@ -153,12 +155,12 @@ const AdminReportPage = () => {
     const fetchAttributes = async () => {
       try {
         const [profRes, shiftRes] = await Promise.all([
-          supabase.from('professions').select('name').eq('company', company).order('name'),
-          supabase.from('shifts').select('name').eq('company', company).order('name')
+          supabase.from('professions').select('name, ref_code').eq('company', company).order('name'),
+          supabase.from('shifts').select('name, ref_code').eq('company', company).order('name')
         ]);
         
-        if (profRes.data && profRes.data.length > 0) setAvailableProfessions(profRes.data.map(p => p.name));
-        if (shiftRes.data && shiftRes.data.length > 0) setAvailableShifts(shiftRes.data.map(s => s.name));
+        if (profRes.data && profRes.data.length > 0) setAvailableProfessions(profRes.data);
+        if (shiftRes.data && shiftRes.data.length > 0) setAvailableShifts(shiftRes.data);
       } catch (e) {
         console.error('Error fetching dynamic attributes:', e);
       }
@@ -175,10 +177,10 @@ const AdminReportPage = () => {
         // 1. Fetch all users with profile details
         const { data: userData, error: userError } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, role, badge, profession, shift');
+          .select('id, first_name, last_name, role, badge, profession_code, shift_code');
         
         if (userError) throw userError;
-        setUsers(userData || []);
+        setUsers(userData as UserProfile[] || []);
 
         // 2. Fetch all service orders for the range
         let start, end;
@@ -220,13 +222,13 @@ const AdminReportPage = () => {
     if (selectedUserId !== 'all' && record.user_id !== selectedUserId) return false;
     
     // Profession Filter
-    if (selectedProfession !== 'all') {
-      if (!userProfile || userProfile.profession !== selectedProfession) return false;
+    if (selectedProfessionCode !== 'all') {
+      if (!userProfile || userProfile.profession_code?.toString() !== selectedProfessionCode) return false;
     }
     
     // Shift Filter
-    if (selectedShift !== 'all') {
-      if (!userProfile || userProfile.shift !== selectedShift) return false;
+    if (selectedShiftCode !== 'all') {
+      if (!userProfile || userProfile.shift_code?.toString() !== selectedShiftCode) return false;
     }
     
     return true;
@@ -276,7 +278,7 @@ const AdminReportPage = () => {
     });
 
     return Array.from(osDataMap.values());
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfession, selectedShift, users]);
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users]);
 
   const totalDailyMinutes = dailyChartData.reduce((acc, curr) => acc + curr.value, 0);
 
@@ -319,7 +321,7 @@ const AdminReportPage = () => {
       minutes,
       hours: Number((minutes / 60).toFixed(1))
     }));
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfession, selectedShift, users]);
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users]);
 
   const totalMonthlyMinutes = monthlyChartData.reduce((acc, curr) => acc + curr.minutes, 0);
 
@@ -355,7 +357,7 @@ const AdminReportPage = () => {
     });
 
     return osList.sort((a, b) => b.recordDate.localeCompare(a.recordDate));
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfession, selectedShift, users]);
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users]);
 
   const handlePrevDay = () => {
     const newDate = new Date(selectedDate);
@@ -527,15 +529,20 @@ const AdminReportPage = () => {
                           <Check className={cn("mr-2 h-4 w-4", selectedUserId === "all" ? "opacity-100" : "opacity-0")} />
                           Todos os usuários
                         </CommandItem>
-                        {users.map((u) => (
-                          <CommandItem key={u.id} onSelect={() => { setSelectedUserId(u.id); setOpenUserSelect(false); }}>
-                            <Check className={cn("mr-2 h-4 w-4", selectedUserId === u.id ? "opacity-100" : "opacity-0")} />
-                            <div className="flex flex-col">
-                              <span>{u.badge ? `${u.badge} - ` : ''}{u.first_name} {u.last_name || ''}</span>
-                              <span className="text-xs text-muted-foreground">{u.profession || 'Sem profissão'} • {u.shift || 'Sem turno'}</span>
-                            </div>
-                          </CommandItem>
-                        ))}
+                        {users.map((u) => {
+                          const profName = availableProfessions.find(p => p.ref_code === u.profession_code)?.name || 'Sem profissão';
+                          const shiftName = availableShifts.find(s => s.ref_code === u.shift_code)?.name || 'Sem turno';
+                          
+                          return (
+                            <CommandItem key={u.id} onSelect={() => { setSelectedUserId(u.id); setOpenUserSelect(false); }}>
+                              <Check className={cn("mr-2 h-4 w-4", selectedUserId === u.id ? "opacity-100" : "opacity-0")} />
+                              <div className="flex flex-col">
+                                <span>{u.badge ? `${u.badge} - ` : ''}{u.first_name} {u.last_name || ''}</span>
+                                <span className="text-xs text-muted-foreground">{profName} • {shiftName}</span>
+                              </div>
+                            </CommandItem>
+                          );
+                        })}
                       </CommandGroup>
                     </CommandList>
                   </Command>
@@ -549,14 +556,14 @@ const AdminReportPage = () => {
                 <label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
                   <Briefcase className="h-3 w-3" /> Profissão
                 </label>
-                <Select value={selectedProfession} onValueChange={setSelectedProfession}>
+                <Select value={selectedProfessionCode} onValueChange={setSelectedProfessionCode}>
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Profissão" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
                     {availableProfessions.map(p => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                      <SelectItem key={p.ref_code} value={p.ref_code!.toString()}>{p.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -567,14 +574,14 @@ const AdminReportPage = () => {
                 <label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" /> Turno
                 </label>
-                <Select value={selectedShift} onValueChange={setSelectedShift}>
+                <Select value={selectedShiftCode} onValueChange={setSelectedShiftCode}>
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Turno" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     {availableShifts.map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                      <SelectItem key={s.ref_code} value={s.ref_code!.toString()}>{s.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

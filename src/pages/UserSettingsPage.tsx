@@ -25,8 +25,9 @@ const UserSettingsPage: React.FC = () => {
   const [lastName, setLastName] = useState('');
   const [badge, setBadge] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [profession, setProfession] = useState('');
-  const [shift, setShift] = useState('');
+  
+  const [professionCode, setProfessionCode] = useState('');
+  const [shiftCode, setShiftCode] = useState('');
   
   const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
   const [availableShifts, setAvailableShifts] = useState<AttributeItem[]>([]);
@@ -43,8 +44,8 @@ const UserSettingsPage: React.FC = () => {
       setLastName(sessionProfile.last_name || '');
       setBadge(sessionProfile.badge || '');
       setAvatarUrl(sessionProfile.avatar_url || '');
-      setProfession(sessionProfile.profession || '');
-      setShift(sessionProfile.shift || '');
+      setProfessionCode(sessionProfile.profession_code ? sessionProfile.profession_code.toString() : '');
+      setShiftCode(sessionProfile.shift_code ? sessionProfile.shift_code.toString() : '');
     }
   }, [sessionProfile, isSessionLoading]);
 
@@ -74,9 +75,6 @@ const UserSettingsPage: React.FC = () => {
 
     setIsSavingProfile(true);
     try {
-      const profCode = availableProfessions.find(p => p.name === profession)?.ref_code || null;
-      const shiftCode = availableShifts.find(s => s.name === shift)?.ref_code || null;
-
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -84,10 +82,8 @@ const UserSettingsPage: React.FC = () => {
           last_name: lastName,
           badge: badge,
           avatar_url: avatarUrl,
-          profession: profession,
-          profession_code: profCode,
-          shift: shift,
-          shift_code: shiftCode,
+          profession_code: professionCode ? parseInt(professionCode) : null,
+          shift_code: shiftCode ? parseInt(shiftCode) : null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -188,9 +184,9 @@ const UserSettingsPage: React.FC = () => {
                   <div className="space-y-2">
                     <Label htmlFor="profession">Profissão</Label>
                     <Select 
-                      key={`prof-${profession}`} 
-                      value={profession || undefined} 
-                      onValueChange={setProfession} 
+                      key={`prof-${professionCode}`} 
+                      value={professionCode || undefined} 
+                      onValueChange={setProfessionCode} 
                       disabled={isSavingProfile}
                     >
                       <SelectTrigger id="profession">
@@ -198,7 +194,7 @@ const UserSettingsPage: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {availableProfessions.map(p => (
-                          <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
+                          <SelectItem key={p.ref_code} value={p.ref_code!.toString()}>{p.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -206,9 +202,9 @@ const UserSettingsPage: React.FC = () => {
                   <div className="space-y-2">
                     <Label htmlFor="shift">Turno</Label>
                     <Select 
-                      key={`shift-${shift}`}
-                      value={shift || undefined} 
-                      onValueChange={setShift} 
+                      key={`shift-${shiftCode}`}
+                      value={shiftCode || undefined} 
+                      onValueChange={setShiftCode} 
                       disabled={isSavingProfile}
                     >
                       <SelectTrigger id="shift">
@@ -216,7 +212,7 @@ const UserSettingsPage: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {availableShifts.map(s => (
-                          <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>
+                          <SelectItem key={s.ref_code} value={s.ref_code!.toString()}>{s.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
