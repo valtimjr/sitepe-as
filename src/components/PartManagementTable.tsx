@@ -45,6 +45,7 @@ import RelatedPartDisplay from './RelatedPartDisplay';
 import { RelatedPart } from '@/types/supabase';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useCompany } from '@/context/CompanyContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const PAGE_SIZE = 50;
 
@@ -73,6 +74,7 @@ const PartManagementTable: React.FC = () => {
   const [importLog, setImportLog] = useState<string[]>([]);
   const [updateExistingParts, setUpdateExistingParts] = useState(true);
   const [importStats, setImportStats] = useState({ newCount: 0, existingCount: 0 });
+  const [cachedExistingCodes, setCachedExistingCodes] = useState<Set<string>>(new Set());
   
   // Novos estados para o mapeamento CSV
   const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false);
@@ -339,75 +341,116 @@ const PartManagementTable: React.FC = () => {
     }
   };
 
-  const handleApplyMapping = () => {
+  const handleApplyMapping = async () => {
     if (!columnMapping.codigo || !columnMapping.descricao) {
       showError("É obrigatório mapear as colunas de 'Código' e 'Descrição'.");
       return;
     }
 
-    let newParts: Part[] = rawCsvData.map((row) => {
-      const codigo = row[columnMapping.codigo]?.trim();
-      const descricao = row[columnMapping.descricao]?.trim();
-      const tags = columnMapping.tags ? row[columnMapping.tags]?.trim() : '';
-      const name = columnMapping.name ? row[columnMapping.name]?.trim() : '';
-      const itensRelacionadosString = columnMapping.itens_relacionados ? row[columnMapping.itens_relacionados]?.trim() : '';
+    const loadingToastId = showLoading('Verificando códigos existentes no banco (Isso pode levar alguns segundos)...');
+
+    try {
+      // 1. Busca todos os códigos paginando de 1000 em 1000 para não estourar o limite
+      const existingCodes = new Set<string>();
+      let from = 0;
+      const step = 1000;
+      let fetchMore = true;
+      const tableName = company === 'citrosuco' ? 'parts_citrosuco' : 'parts';
+
+      while (fetchMore) {
+        const { data, error } = await supabase
+          .from(tableName)
+          .select('codigo')
+          .range(from, from + step - 1);
+
+        if (error) {
+          console.error("Erro ao buscar códigos:", error);
+          throw error;
+        }
+
+        if (data && data.length > 0) {
+          data.forEach(item => {
+            if (item.codigo) existingCodes.add(item.codigo.toLowerCase().trim());
+          });
+          from += step;
+          if (data.length < step) {
+            fetchMore = false; // Se vieram menos de 1000, chegamos ao fim
+          }
+        } else {
+          fetchMore = false;
+        }
+      }
+
+      setCachedExistingCodes(existingCodes);
+
+      // 2. Extrai e mapeia as peças do CSV
+      let newParts: Part[] = rawCsvData.map((row) => {
+        const codigo = row[columnMapping.codigo]?.trim();
+        const descricao = row[columnMapping.descricao]?.trim();
+        const tags = columnMapping.tags ? row[columnMapping.tags]?.trim() : '';
+        const name = columnMapping.name ? row[columnMapping.name]?.trim() : '';
+        const itensRelacionadosString = columnMapping.itens_relacionados ? row[columnMapping.itens_relacionados]?.trim() : '';
+        
+        if (!codigo || !descricao) {
+          return null;
+        }
+
+        return {
+          id: row.id || uuidv4(),
+          codigo: codigo,
+          descricao: descricao,
+          tags: tags || '',
+          name: name || '',
+          itens_relacionados: itensRelacionadosString 
+            ? itensRelacionadosString.split(';').map((s:string) => s.trim()).filter((s:string) => s.length > 0).map((code:string) => ({ codigo: code, name: code, desc: '' })) 
+            : [],
+        };
+      }).filter((part): part is Part => part !== null);
+
+      // 3. Deduplicação no arquivo antes de importar (evita que o mesmo csv duplique entre si)
+      const partMap = new Map<string, Part>();
+      newParts.forEach(part => {
+        partMap.set(part.codigo.toLowerCase().trim(), part);
+      });
+      const deduplicatedParts = Array.from(partMap.values());
+
+      // 4. Conta novas vs existentes baseadas no banco de dados completo que acabamos de baixar
+      let newCount = 0;
+      let existingCount = 0;
+
+      deduplicatedParts.forEach(part => {
+        if (existingCodes.has(part.codigo.toLowerCase().trim())) {
+          existingCount++;
+        } else {
+          newCount++;
+        }
+      });
+
+      setImportStats({ newCount, existingCount });
+      setParsedPartsToImport(deduplicatedParts);
+      setUpdateExistingParts(true); // reset para padrão
+
+      setImportLog([
+        `Arquivo lido: ${currentImportFile}`, 
+        `Total de linhas com código/descrição válidos: ${newParts.length}`,
+        `Total de peças únicas encontradas no CSV: ${deduplicatedParts.length}`,
+        `Códigos totais no banco para cruzamento: ${existingCodes.size}`,
+      ]);
       
-      if (!codigo || !descricao) {
-        return null;
-      }
-
-      return {
-        id: row.id || uuidv4(),
-        codigo: codigo,
-        descricao: descricao,
-        tags: tags || '',
-        name: name || '',
-        itens_relacionados: itensRelacionadosString 
-          ? itensRelacionadosString.split(';').map((s:string) => s.trim()).filter((s:string) => s.length > 0).map((code:string) => ({ codigo: code, name: code, desc: '' })) 
-          : [],
-      };
-    }).filter((part): part is Part => part !== null);
-
-    // Deduplicação no arquivo antes de importar
-    const partMap = new Map<string, Part>();
-    newParts.forEach(part => {
-      partMap.set(part.codigo, part);
-    });
-    const deduplicatedParts = Array.from(partMap.values());
-
-    // Conta novas vs existentes
-    const existingCodes = new Set(allAvailableParts.map(p => p.codigo.toLowerCase().trim()));
-    let newCount = 0;
-    let existingCount = 0;
-
-    deduplicatedParts.forEach(part => {
-      if (existingCodes.has(part.codigo.toLowerCase().trim())) {
-        existingCount++;
-      } else {
-        newCount++;
-      }
-    });
-
-    setImportStats({ newCount, existingCount });
-    setParsedPartsToImport(deduplicatedParts);
-    setUpdateExistingParts(true); // reset para padrão
-
-    setImportLog([
-      `Arquivo lido: ${currentImportFile}`, 
-      `Total de linhas com código/descrição: ${newParts.length}`,
-      `Peças prontas após deduplicação local: ${deduplicatedParts.length}`,
-    ]);
-    
-    setIsMappingDialogOpen(false);
-    setTimeout(() => setIsImportConfirmOpen(true), 300);
+      setIsMappingDialogOpen(false);
+      setTimeout(() => setIsImportConfirmOpen(true), 300);
+    } catch (error) {
+      showError("Erro ao processar mapeamento das colunas.");
+    } finally {
+      dismissToast(loadingToastId);
+    }
   };
 
   const confirmImport = async () => {
-    const existingCodes = new Set(allAvailableParts.map(p => p.codigo.toLowerCase().trim()));
-    
+    // Filtra as peças baseado na escolha do usuário e no cache de códigos que fizemos na etapa anterior
     const finalPartsToImport = updateExistingParts 
       ? parsedPartsToImport 
-      : parsedPartsToImport.filter(p => !existingCodes.has(p.codigo.toLowerCase().trim()));
+      : parsedPartsToImport.filter(p => !cachedExistingCodes.has(p.codigo.toLowerCase().trim()));
 
     if (finalPartsToImport.length === 0) {
       showError('Nenhuma peça para importar com as opções selecionadas.');
@@ -415,7 +458,7 @@ const PartManagementTable: React.FC = () => {
       return;
     }
 
-    const loadingToastId = showLoading('Importando peças...');
+    const loadingToastId = showLoading(`Processando ${finalPartsToImport.length} peças...`);
     setImportLog(prev => [...prev, 'Enviando para o banco de dados...']);
 
     try {
