@@ -161,20 +161,20 @@ const Index = () => {
           </Card>
         )}
 
-        {/* 7. Gerenciador de Banco de Dados */}
+        {/* 7. Painel Administração */}
         {canAccessAdmin && (
           <Card className="text-center">
             <CardHeader>
               <CardTitle className="text-2xl flex items-center justify-center gap-2">
-                <Database className="h-6 w-6" /> Gerenciador de Banco de Dados
+                <Database className="h-6 w-6" /> Painel Administração
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="mb-6 text-muted-foreground">
-                Adicione, edite e gerencie peças e AFs diretamente no banco de dados.
+                Acesse as configurações do sistema, gerencie acessos, peças e dados gerais.
               </p>
               <Link to={`/${company}/admin`}>
-                <Button className="w-full">Acessar Gerenciador</Button>
+                <Button className="w-full">Acessar Painel</Button>
               </Link>
             </CardContent>
           </Card>
