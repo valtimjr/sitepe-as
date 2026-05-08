@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ChevronLeft,
@@ -13,7 +13,8 @@ import {
   BarChart3,
   PieChart as PieChartIcon,
   Users,
-  ClipboardList
+  ClipboardList,
+  CalendarRange
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DateRange } from "react-day-picker";
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
 import { useCompany } from '@/context/CompanyContext';
@@ -95,7 +98,12 @@ const AdminReportPage = () => {
   const { company, branding } = useCompany();
   const navigate = useNavigate();
 
+  const [dateMode, setDateMode] = useState<'single' | 'range'>('single');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: startOfMonth(new Date()),
+    to: new Date(),
+  });
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,9 +139,16 @@ const AdminReportPage = () => {
         console.log("[AdminReportPage] Found users:", userData?.length, userData);
         setUsers(userData || []);
 
-        // 2. Fetch all service orders for the current month across ALL users
-        const start = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
-        const end = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
+        // 2. Fetch all service orders for the range across ALL users
+        let start, end;
+        
+        if (dateMode === 'single') {
+          start = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
+          end = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
+        } else {
+          start = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : format(startOfMonth(new Date()), 'yyyy-MM-dd');
+          end = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+        }
 
         console.log("[AdminReportPage] Fetching orders for range", start, "to", end);
         
@@ -169,16 +184,27 @@ const AdminReportPage = () => {
     };
 
     fetchData();
-  }, [selectedDate, company, user]);
+  }, [selectedDate, dateRange, dateMode, company, user]);
 
-  // Daily Data for Donut Chart (Selected Date + Filtered by User)
+  // Daily/Range Data for Donut Chart (Selected Date/Range + Filtered by User)
   const dailyChartData = useMemo(() => {
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    const dayRecords = allData.filter(r => r.date === dateStr && (selectedUserId === 'all' || r.user_id === selectedUserId));
+    let periodRecords;
+    if (dateMode === 'single') {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      periodRecords = allData.filter(r => r.date === dateStr && (selectedUserId === 'all' || r.user_id === selectedUserId));
+    } else {
+      periodRecords = allData.filter(r => {
+        const recordDate = parseISO(r.date);
+        const isInRange = dateRange?.from && dateRange?.to
+          ? isWithinInterval(recordDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })
+          : true;
+        return isInRange && (selectedUserId === 'all' || r.user_id === selectedUserId);
+      });
+    }
     
     const osDataMap = new Map<string, any>();
     
-    dayRecords.forEach(record => {
+    periodRecords.forEach(record => {
       const osList = record.os_list as any[];
       if (Array.isArray(osList)) {
         osList.forEach(os => {
@@ -205,19 +231,30 @@ const AdminReportPage = () => {
     });
 
     return Array.from(osDataMap.values());
-  }, [allData, selectedDate, selectedUserId]);
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId]);
 
   const totalDailyMinutes = dailyChartData.reduce((acc, curr) => acc + curr.value, 0);
 
-  // Monthly Data for Bar Chart (Filtered by User)
+  // Monthly/Range Data for Bar Chart (Filtered by User)
   const monthlyChartData = useMemo(() => {
     const daysMap = new Map<string, number>();
-    const daysInMonth = eachDayOfInterval({
-      start: startOfMonth(selectedDate),
-      end: endOfMonth(selectedDate)
-    });
+    
+    let interval;
+    if (dateMode === 'single') {
+      interval = {
+        start: startOfMonth(selectedDate),
+        end: endOfMonth(selectedDate)
+      };
+    } else {
+      interval = {
+        start: dateRange?.from || startOfMonth(new Date()),
+        end: dateRange?.to || new Date()
+      };
+    }
 
-    daysInMonth.forEach(day => {
+    const daysInInterval = eachDayOfInterval(interval);
+
+    daysInInterval.forEach(day => {
       daysMap.set(format(day, 'yyyy-MM-dd'), 0);
     });
 
@@ -225,29 +262,43 @@ const AdminReportPage = () => {
       const osList = record.os_list as any[];
       if (Array.isArray(osList)) {
         const dayMinutes = osList.reduce((acc, os) => acc + calculateDuration(os.hora_inicio, os.hora_final), 0);
-        daysMap.set(record.date, (daysMap.get(record.date) || 0) + dayMinutes);
+        const recordDate = record.date;
+        if (daysMap.has(recordDate)) {
+          daysMap.set(recordDate, (daysMap.get(recordDate) || 0) + dayMinutes);
+        }
       }
     });
 
     return Array.from(daysMap.entries()).map(([date, minutes]) => ({
       date,
-      day: format(parseISO(date), 'dd'),
+      day: format(parseISO(date), 'dd/MM'),
       minutes,
       hours: Number((minutes / 60).toFixed(1))
     }));
-  }, [allData, selectedDate, selectedUserId]);
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId]);
 
   const totalMonthlyMinutes = monthlyChartData.reduce((acc, curr) => acc + curr.minutes, 0);
 
-  // Filtered List of OS for Display (Selected Date + Filtered by User)
+  // Filtered List of OS for Display (Selected Date/Range + Filtered by User)
   const filteredOSList = useMemo(() => {
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    const dayRecords = allData.filter(r => r.date === dateStr && (selectedUserId === 'all' || r.user_id === selectedUserId));
+    let periodRecords;
+    if (dateMode === 'single') {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      periodRecords = allData.filter(r => r.date === dateStr && (selectedUserId === 'all' || r.user_id === selectedUserId));
+    } else {
+      periodRecords = allData.filter(r => {
+        const recordDate = parseISO(r.date);
+        const isInRange = dateRange?.from && dateRange?.to
+          ? isWithinInterval(recordDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })
+          : true;
+        return isInRange && (selectedUserId === 'all' || r.user_id === selectedUserId);
+      });
+    }
     
-    console.log("[AdminReportPage] Filtering list for", dateStr, "SelectedUser:", selectedUserId, "Records found:", dayRecords.length);
+    console.log("[AdminReportPage] Filtering list. Mode:", dateMode, "SelectedUser:", selectedUserId, "Records found:", periodRecords.length);
     
-    const osList: (ServiceOrderData & { userDisplayName: string })[] = [];
-    dayRecords.forEach(record => {
+    const osList: (ServiceOrderData & { userDisplayName: string; recordDate: string })[] = [];
+    periodRecords.forEach(record => {
       const userProfile = users.find(u => u.id === record.user_id);
       const userDisplayName = userProfile
         ? `${userProfile.badge ? userProfile.badge + ' - ' : ''}${userProfile.first_name} ${userProfile.last_name || ''}`
@@ -256,13 +307,13 @@ const AdminReportPage = () => {
       const recordOsList = record.os_list as any[];
       if (Array.isArray(recordOsList)) {
         recordOsList.forEach((os: any) => {
-          osList.push({ ...os, userDisplayName });
+          osList.push({ ...os, userDisplayName, recordDate: record.date });
         });
       }
     });
 
-    return osList;
-  }, [allData, selectedDate, selectedUserId, users]);
+    return osList.sort((a, b) => b.recordDate.localeCompare(a.recordDate));
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, users]);
 
   const handlePrevDay = () => setSelectedDate(prev => new Date(prev.setDate(prev.getDate() - 1)));
   const handleNextDay = () => setSelectedDate(prev => new Date(prev.setDate(prev.getDate() + 1)));
@@ -295,37 +346,85 @@ const AdminReportPage = () => {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4" /> Seleção de Data
+              <CalendarRange className="h-4 w-4" /> Seleção de Data
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={handlePrevDay}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex-1 text-center font-bold text-lg hover:bg-accent hover:text-accent-foreground"
-                >
-                  {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="center">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => date && setSelectedDate(date)}
-                  initialFocus
-                  locale={ptBR}
-                />
-              </PopoverContent>
-            </Popover>
+          <CardContent>
+            <Tabs defaultValue="single" value={dateMode} onValueChange={(v: any) => setDateMode(v)}>
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="single">Dia Único</TabsTrigger>
+                <TabsTrigger value="range">Por Período</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="single" className="m-0">
+                <div className="flex items-center gap-4">
+                  <Button variant="outline" size="icon" onClick={handlePrevDay}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="flex-1 text-center font-bold text-lg hover:bg-accent hover:text-accent-foreground"
+                      >
+                        {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="center">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => date && setSelectedDate(date)}
+                        initialFocus
+                        locale={ptBR}
+                      />
+                    </PopoverContent>
+                  </Popover>
 
-            <Button variant="outline" size="icon" onClick={handleNextDay}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+                  <Button variant="outline" size="icon" onClick={handleNextDay}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="range" className="m-0">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="date"
+                      variant={"outline"}
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "dd/MM/yyyy")} -{" "}
+                            {format(dateRange.to, "dd/MM/yyyy")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "dd/MM/yyyy")
+                        )
+                      ) : (
+                        <span>Selecione o período</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                      locale={ptBR}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
@@ -359,7 +458,7 @@ const AdminReportPage = () => {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <PieChartIcon className="h-4 w-4" /> Desempenho Diário
+              <PieChartIcon className="h-4 w-4" /> {dateMode === 'single' ? 'Desempenho Diário' : 'Desempenho do Período'}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
@@ -388,7 +487,7 @@ const AdminReportPage = () => {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground text-sm italic">
-                  Sem dados para este dia
+                  Sem dados para este {dateMode === 'single' ? 'dia' : 'período'}
                 </div>
               )}
               {dailyChartData.length > 0 && (
@@ -405,7 +504,7 @@ const AdminReportPage = () => {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" /> Desempenho Mensal ({format(selectedDate, 'MMMM', { locale: ptBR })})
+              <BarChart3 className="h-4 w-4" /> {dateMode === 'single' ? `Desempenho Mensal (${format(selectedDate, 'MMMM', { locale: ptBR })})` : 'Desempenho por Dia no Período'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -415,7 +514,7 @@ const AdminReportPage = () => {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="day" />
                   <YAxis tickFormatter={(val) => `${Math.floor(val / 60)}h`} />
-                  <RechartsTooltip 
+                  <RechartsTooltip
                     formatter={(value: number) => [formatDuration(value), 'Tempo']}
                     labelFormatter={(label) => `Dia ${label}`}
                   />
@@ -424,7 +523,7 @@ const AdminReportPage = () => {
               </ResponsiveContainer>
             </div>
             <div className="mt-4 text-center">
-              <span className="text-sm text-muted-foreground mr-2">Total no mês:</span>
+              <span className="text-sm text-muted-foreground mr-2">Total {dateMode === 'single' ? 'no mês' : 'no período'}:</span>
               <span className="font-bold text-blue-600">{formatDuration(totalMonthlyMinutes)}</span>
             </div>
           </CardContent>
@@ -435,7 +534,7 @@ const AdminReportPage = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-xl flex items-center gap-2">
-            <ClipboardList className="h-6 w-6" /> Ordens de Serviço do Dia
+            <ClipboardList className="h-6 w-6" /> {dateMode === 'single' ? 'Ordens de Serviço do Dia' : 'Ordens de Serviço do Período'}
           </CardTitle>
           <div className="text-sm font-medium text-muted-foreground">
             {filteredOSList.length} OS encontrada(s)
@@ -448,7 +547,7 @@ const AdminReportPage = () => {
                 <div key={idx} className="border rounded-lg overflow-hidden">
                   <div className="bg-muted/50 p-2 px-4 border-b flex flex-wrap justify-between items-center gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Usuário: {os.userDisplayName}
+                      Usuário: {os.userDisplayName} {dateMode === 'range' && `| Data: ${format(parseISO(os.recordDate), 'dd/MM/yyyy')}`}
                     </span>
                   </div>
 
@@ -458,12 +557,11 @@ const AdminReportPage = () => {
                   />
                 </div>
               ))}
-
             </div>
           ) : (
             <div className="py-12 text-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
               <ClipboardList className="h-12 w-12 mx-auto mb-4 opacity-20" />
-              <p>Nenhuma ordem de serviço registrada para este dia.</p>
+              <p>Nenhuma ordem de serviço registrada para este {dateMode === 'single' ? 'dia' : 'período'}.</p>
             </div>
           )}
         </CardContent>
