@@ -15,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCompany } from '@/context/CompanyContext';
 
+type AttributeItem = { name: string; ref_code: number | null };
+
 const UserSettingsPage: React.FC = () => {
   const { user, isLoading: isSessionLoading, profile: sessionProfile, refreshProfile } = useSession();
   const { company, branding } = useCompany();
@@ -26,8 +28,8 @@ const UserSettingsPage: React.FC = () => {
   const [profession, setProfession] = useState('');
   const [shift, setShift] = useState('');
   
-  const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
-  const [availableShifts, setAvailableShifts] = useState<string[]>([]);
+  const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
+  const [availableShifts, setAvailableShifts] = useState<AttributeItem[]>([]);
 
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
@@ -50,12 +52,12 @@ const UserSettingsPage: React.FC = () => {
     const fetchAttributes = async () => {
       try {
         const [profRes, shiftRes] = await Promise.all([
-          supabase.from('professions').select('name').eq('company', company).order('name'),
-          supabase.from('shifts').select('name').eq('company', company).order('name')
+          supabase.from('professions').select('name, ref_code').eq('company', company).order('name'),
+          supabase.from('shifts').select('name, ref_code').eq('company', company).order('name')
         ]);
         
-        if (profRes.data && profRes.data.length > 0) setAvailableProfessions(profRes.data.map(p => p.name));
-        if (shiftRes.data && shiftRes.data.length > 0) setAvailableShifts(shiftRes.data.map(s => s.name));
+        if (profRes.data && profRes.data.length > 0) setAvailableProfessions(profRes.data);
+        if (shiftRes.data && shiftRes.data.length > 0) setAvailableShifts(shiftRes.data);
       } catch (e) {
         console.error('Error fetching attributes:', e);
       }
@@ -72,6 +74,9 @@ const UserSettingsPage: React.FC = () => {
 
     setIsSavingProfile(true);
     try {
+      const profCode = availableProfessions.find(p => p.name === profession)?.ref_code || null;
+      const shiftCode = availableShifts.find(s => s.name === shift)?.ref_code || null;
+
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -80,7 +85,9 @@ const UserSettingsPage: React.FC = () => {
           badge: badge,
           avatar_url: avatarUrl,
           profession: profession,
+          profession_code: profCode,
           shift: shift,
+          shift_code: shiftCode,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -191,7 +198,7 @@ const UserSettingsPage: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {availableProfessions.map(p => (
-                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                          <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -209,7 +216,7 @@ const UserSettingsPage: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {availableShifts.map(s => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                          <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

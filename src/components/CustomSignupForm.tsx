@@ -15,6 +15,8 @@ interface CustomSignupFormProps {
   uuid: string; // O UUID do convite
 }
 
+type AttributeItem = { name: string; ref_code: number | null };
+
 const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -27,24 +29,25 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
 
-  const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
-  const [availableShifts, setAvailableShifts] = useState<string[]>([]);
+  const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
+  const [availableShifts, setAvailableShifts] = useState<AttributeItem[]>([]);
 
   useEffect(() => {
     const fetchAttributes = async () => {
       try {
-        // Busca todas as opções únicas cadastradas (pois não sabemos qual é a empresa nesse ponto, ou assume 'usina_vale' como default visual)
         const [profRes, shiftRes] = await Promise.all([
-          supabase.from('professions').select('name'),
-          supabase.from('shifts').select('name')
+          supabase.from('professions').select('name, ref_code'),
+          supabase.from('shifts').select('name, ref_code')
         ]);
         
         if (profRes.data) {
-          const uniqueProfs = Array.from(new Set(profRes.data.map(p => p.name))).sort();
+          const uniqueProfs = Array.from(new Map(profRes.data.map(item => [item.name, item])).values())
+            .sort((a, b) => a.name.localeCompare(b.name));
           setAvailableProfessions(uniqueProfs);
         }
         if (shiftRes.data) {
-          const uniqueShifts = Array.from(new Set(shiftRes.data.map(s => s.name))).sort();
+          const uniqueShifts = Array.from(new Map(shiftRes.data.map(item => [item.name, item])).values())
+            .sort((a, b) => a.name.localeCompare(b.name));
           setAvailableShifts(uniqueShifts);
         }
       } catch (e) {
@@ -70,6 +73,9 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
 
     setIsLoading(true);
     try {
+      const profCode = availableProfessions.find(p => p.name === profession)?.ref_code;
+      const shiftCode = availableShifts.find(s => s.name === shift)?.ref_code;
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -80,6 +86,8 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
             badge: badge,
             profession: profession,
             shift: shift,
+            profession_code: profCode?.toString() || null,
+            shift_code: shiftCode?.toString() || null,
           },
           emailRedirectTo: window.location.origin + '/admin',
         },
@@ -158,7 +166,7 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
             </SelectTrigger>
             <SelectContent>
               {availableProfessions.map(p => (
-                <SelectItem key={p} value={p}>{p}</SelectItem>
+                <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -171,7 +179,7 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
             </SelectTrigger>
             <SelectContent>
               {availableShifts.map(s => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+                <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>

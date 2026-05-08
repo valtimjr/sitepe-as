@@ -16,6 +16,8 @@ export interface UserProfile {
   badge: string | null;
   profession: string | null;
   shift: string | null;
+  profession_code: number | null;
+  shift_code: number | null;
 }
 
 export interface RelatedPart {
