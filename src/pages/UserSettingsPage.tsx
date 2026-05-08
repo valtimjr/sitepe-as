@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCompany } from '@/context/CompanyContext';
 
 const UserSettingsPage: React.FC = () => {
-  const { user, isLoading: isSessionLoading, profile: sessionProfile } = useSession();
+  const { user, isLoading: isSessionLoading, profile: sessionProfile, refreshProfile } = useSession();
   const { company, branding } = useCompany();
   
   const [firstName, setFirstName] = useState('');
@@ -69,10 +69,10 @@ const UserSettingsPage: React.FC = () => {
         throw error;
       }
 
-      showSuccess('Perfil atualizado com sucesso!');
+      // IMPORTANTE: Atualiza o contexto global para que outras páginas vejam a mudança
+      await refreshProfile();
       
-      // Forçar atualização local do perfil se o contexto não atualizar imediatamente
-      // (Isso ajuda a manter o estado sincronizado se o usuário navegar ou recarregar)
+      showSuccess('Perfil atualizado com sucesso!');
     } catch (error: any) {
       showError(`Erro ao atualizar perfil: ${error.message}`);
     } finally {
@@ -163,7 +163,7 @@ const UserSettingsPage: React.FC = () => {
                   <div className="space-y-2">
                     <Label htmlFor="profession">Profissão</Label>
                     <Select 
-                      key={profession} // Força re-renderização quando o valor muda externamente
+                      key={`prof-${profession}`} 
                       value={profession || undefined} 
                       onValueChange={setProfession} 
                       disabled={isSavingProfile}
@@ -180,7 +180,7 @@ const UserSettingsPage: React.FC = () => {
                   <div className="space-y-2">
                     <Label htmlFor="shift">Turno</Label>
                     <Select 
-                      key={shift} // Força re-renderização quando o valor muda externamente
+                      key={`shift-${shift}`}
                       value={shift || undefined} 
                       onValueChange={setShift} 
                       disabled={isSavingProfile}
