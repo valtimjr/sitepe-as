@@ -415,46 +415,34 @@ const AdminReportPage = () => {
               </TabsList>
               
               <TabsContent value="single" className="m-0">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={handlePrevDay}>
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          className="flex-1 text-center font-bold text-lg hover:bg-accent hover:text-accent-foreground"
-                        >
-                          {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="center">
-                        <Calendar
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={(date) => date && setSelectedDate(date)}
-                          initialFocus
-                          locale={ptBR}
-                        />
-                      </PopoverContent>
-                    </Popover>
+                <div className="flex items-center gap-4">
+                  <Button variant="outline" size="icon" onClick={handlePrevDay}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="flex-1 text-center font-bold text-lg hover:bg-accent hover:text-accent-foreground"
+                      >
+                        {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="center">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => date && setSelectedDate(date)}
+                        initialFocus
+                        locale={ptBR}
+                      />
+                    </PopoverContent>
+                  </Popover>
 
-                    <Button variant="outline" size="icon" onClick={handleNextDay}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-2 px-1">
-                    <Keyboard className="h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      placeholder="dd/mm/aaaa"
-                      value={singleDateInput}
-                      onChange={handleSingleDateInputChange}
-                      className="h-8 text-xs w-28 text-center"
-                    />
-                    <span className="text-xs text-muted-foreground italic">Ou digite a data</span>
-                  </div>
+                  <Button variant="outline" size="icon" onClick={handleNextDay}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
               </TabsContent>
               
