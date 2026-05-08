@@ -49,6 +49,7 @@ import { useSession } from '@/components/SessionContextProvider';
 import { useCompany } from '@/context/CompanyContext';
 import { ServiceOrderData } from '@/types/supabase';
 import { showSuccess, showError } from '@/utils/toast';
+import { getAfsFromService, Af } from '@/services/partListService';
 import { 
   PieChart, 
   Pie, 
@@ -136,6 +137,7 @@ const AdminReportPage = () => {
   
   const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
   const [availableShifts, setAvailableShifts] = useState<AttributeItem[]>([]);
+  const [availableAfs, setAvailableAfs] = useState<Af[]>([]);
 
   const [openUserSelect, setOpenUserSelect] = useState(false);
   const [singleDateInput, setSingleDateInput] = useState(format(new Date(), 'dd/MM/yyyy'));
@@ -162,13 +164,15 @@ const AdminReportPage = () => {
   useEffect(() => {
     const fetchAttributes = async () => {
       try {
-        const [profRes, shiftRes] = await Promise.all([
+        const [profRes, shiftRes, afsData] = await Promise.all([
           supabase.from('professions').select('name, ref_code').eq('company', company).order('name'),
-          supabase.from('shifts').select('name, ref_code').eq('company', company).order('name')
+          supabase.from('shifts').select('name, ref_code').eq('company', company).order('name'),
+          getAfsFromService(company)
         ]);
         
         if (profRes.data && profRes.data.length > 0) setAvailableProfessions(profRes.data);
         if (shiftRes.data && shiftRes.data.length > 0) setAvailableShifts(shiftRes.data);
+        if (afsData) setAvailableAfs(afsData);
       } catch (e) {
         console.error('Error fetching dynamic attributes:', e);
       }
@@ -450,6 +454,11 @@ const AdminReportPage = () => {
     showSuccess("Relatório JSON baixado com sucesso.");
   };
 
+  const getAfDescription = (afNumber: string) => {
+    const af = availableAfs.find(a => a.af_number === afNumber);
+    return af?.descricao || '-';
+  };
+
   const handleGeneratePDF = () => {
     const grouped = groupReportData();
     const printWindow = window.open('', '_blank');
@@ -506,7 +515,8 @@ const AdminReportPage = () => {
               <tr>
                 <th width="80">Data</th>
                 <th>Usuário</th>
-                <th width="120">AF / OS</th>
+                <th width="60">AF</th>
+                <th width="60">OS</th>
                 <th>Equipamento</th>
                 <th width="60">Início</th>
                 <th width="60">Fim</th>
@@ -519,13 +529,15 @@ const AdminReportPage = () => {
         groupData.forEach((os: any) => {
           const dur = calculateDuration(os.hora_inicio, os.hora_final);
           groupTotalMinutes += dur;
+          const afDesc = os.af ? getAfDescription(os.af) : '-';
           
           html += `
             <tr>
               <td>${format(parseISO(os.recordDate), 'dd/MM/yyyy')}</td>
               <td>${os.userDisplayName}</td>
-              <td>${os.af ? `AF: ${os.af}` : ''} ${os.os ? `OS: ${os.os}` : ''}</td>
-              <td>${os.equipamento || '-'}</td>
+              <td>${os.af || '-'}</td>
+              <td>${os.os || '-'}</td>
+              <td>${afDesc}</td>
               <td>${os.hora_inicio || '-'}</td>
               <td>${os.hora_final || '-'}</td>
               <td class="text-right">${formatDuration(dur)}</td>
@@ -535,7 +547,7 @@ const AdminReportPage = () => {
 
         html += `
             <tr class="summary">
-              <td colspan="6" class="text-right">Tempo Total no Grupo:</td>
+              <td colspan="7" class="text-right">Tempo Total no Grupo:</td>
               <td class="text-right">${formatDuration(groupTotalMinutes)}</td>
             </tr>
             </tbody></table>
