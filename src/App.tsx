@@ -30,8 +30,8 @@ import ToasterProvider from './components/ToastProvider';
 function App() {
   return (
     <SessionContextProvider>
-      <CompanyProvider>
-        <Router>
+      <Router>
+        <CompanyProvider>
           <Routes>
             {/* Landing & Auth */}
             <Route path="/" element={<LandingPage />} />
@@ -64,8 +64,8 @@ function App() {
             <Route path="*" element={<Navigate to="/404" replace />} />
           </Routes>
           <ToasterProvider />
-        </Router>
-      </CompanyProvider>
+        </CompanyProvider>
+      </Router>
     </SessionContextProvider>
   );
 }
