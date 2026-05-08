@@ -4,11 +4,12 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { PasswordInput } from './PasswordInput'; // Importar PasswordInput
+import { PasswordInput } from './PasswordInput';
 
 interface CustomSignupFormProps {
   uuid: string; // O UUID do convite
@@ -21,6 +22,8 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [badge, setBadge] = useState('');
+  const [profession, setProfession] = useState('');
+  const [shift, setShift] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
 
@@ -30,6 +33,11 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
 
     if (password.length < 6) {
       setPasswordError('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    if (!profession || !shift) {
+      showError('Por favor, selecione sua profissão e seu turno.');
       return;
     }
 
@@ -43,8 +51,10 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
             first_name: firstName,
             last_name: lastName,
             badge: badge,
+            profession: profession,
+            shift: shift,
           },
-          emailRedirectTo: window.location.origin + '/admin', // Redireciona para o admin após a confirmação do e-mail
+          emailRedirectTo: window.location.origin + '/admin',
         },
       });
 
@@ -54,12 +64,9 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
 
       if (data.user) {
         showSuccess('Cadastro realizado com sucesso! Verifique seu e-mail para confirmar a conta.');
-        // Marcar o convite como usado imediatamente após o signup, antes da confirmação do e-mail
-        // Isso é importante para evitar que o mesmo convite seja usado várias vezes
         await markInviteAsUsed(data.user.id);
-        navigate('/login'); // Redireciona para o login para o usuário confirmar o e-mail
+        navigate('/login');
       } else if (data.session) {
-        // Isso pode acontecer se o email já estiver confirmado ou se for um login direto
         showSuccess('Login realizado com sucesso!');
         await markInviteAsUsed(data.session.user.id);
         navigate('/admin');
@@ -81,9 +88,6 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
 
       if (error) {
         console.error('CustomSignupForm: Erro ao marcar convite como usado:', error);
-        showError('Erro ao finalizar o convite. Por favor, contate o suporte.');
-      } else {
-        // console.log('CustomSignupForm: Convite marcado como usado com sucesso.');
       }
     } catch (error) {
       console.error('CustomSignupForm: Erro inesperado ao marcar convite como usado:', error);
@@ -92,29 +96,58 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label htmlFor="first-name">Nome</Label>
-        <Input
-          id="first-name"
-          type="text"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          placeholder="Seu nome"
-          required
-          disabled={isLoading}
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="first-name">Nome</Label>
+          <Input
+            id="first-name"
+            type="text"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="Nome"
+            required
+            disabled={isLoading}
+          />
+        </div>
+        <div>
+          <Label htmlFor="last-name">Sobrenome</Label>
+          <Input
+            id="last-name"
+            type="text"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Sobrenome"
+            required
+            disabled={isLoading}
+          />
+        </div>
       </div>
-      <div>
-        <Label htmlFor="last-name">Sobrenome</Label>
-        <Input
-          id="last-name"
-          type="text"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          placeholder="Seu sobrenome"
-          required
-          disabled={isLoading}
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="profession">Profissão</Label>
+          <Select value={profession} onValueChange={setProfession} disabled={isLoading} required>
+            <SelectTrigger id="profession">
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="eletricista">Eletricista</SelectItem>
+              <SelectItem value="mecanico">Mecânico</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="shift">Turno</Label>
+          <Select value={shift} onValueChange={setShift} disabled={isLoading} required>
+            <SelectTrigger id="shift">
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Turno A">Turno A</SelectItem>
+              <SelectItem value="Turno B">Turno B</SelectItem>
+              <SelectItem value="Turno C">Turno C</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div>
         <Label htmlFor="badge">Crachá (Opcional)</Label>
@@ -141,7 +174,7 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
       </div>
       <div>
         <Label htmlFor="password">Senha</Label>
-        <PasswordInput // Usando PasswordInput
+        <PasswordInput
           id="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

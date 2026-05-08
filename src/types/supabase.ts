@@ -14,6 +14,8 @@ export interface UserProfile {
   updated_at: string | null;
   role: 'admin' | 'moderator' | 'user';
   badge: string | null;
+  profession: string | null;
+  shift: string | null;
 }
 
 export interface RelatedPart {

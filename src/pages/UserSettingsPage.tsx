@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Save, User as UserIcon, Loader2, Settings, ChevronLeft } from 'lucide-react';
+import { Save, Loader2, Settings, ChevronLeft, User as UserIcon } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
@@ -12,19 +13,18 @@ import { useSession } from '@/components/SessionContextProvider';
 import ChangePasswordForm from '@/components/ChangePasswordForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserProfile } from '@/types/supabase';
 import { useCompany } from '@/context/CompanyContext';
 
 const UserSettingsPage: React.FC = () => {
   const { user, isLoading: isSessionLoading, profile: sessionProfile } = useSession();
   const { company, branding } = useCompany();
-  const navigate = useNavigate();
   
-  // States for form fields, initialized from sessionProfile or empty
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [badge, setBadge] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [profession, setProfession] = useState('');
+  const [shift, setShift] = useState('');
   
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
@@ -32,21 +32,16 @@ const UserSettingsPage: React.FC = () => {
     document.title = `Configurações do Usuário - AutoBoard (${branding.name})`;
   }, [branding.name]);
 
-  // Populate form fields when sessionProfile changes or becomes available
   useEffect(() => {
     if (!isSessionLoading && sessionProfile) {
       setFirstName(sessionProfile.first_name || '');
       setLastName(sessionProfile.last_name || '');
       setBadge(sessionProfile.badge || '');
       setAvatarUrl(sessionProfile.avatar_url || '');
-    } else if (!isSessionLoading && !sessionProfile && user) {
-      // If user is logged in but no profile found, initialize with empty values
-      setFirstName('');
-      setLastName('');
-      setBadge('');
-      setAvatarUrl('');
+      setProfession(sessionProfile.profession || '');
+      setShift(sessionProfile.shift || '');
     }
-  }, [sessionProfile, isSessionLoading, user]);
+  }, [sessionProfile, isSessionLoading]);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +59,8 @@ const UserSettingsPage: React.FC = () => {
           last_name: lastName,
           badge: badge,
           avatar_url: avatarUrl,
+          profession: profession,
+          shift: shift,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -80,11 +77,6 @@ const UserSettingsPage: React.FC = () => {
     }
   };
 
-  const handlePasswordChanged = () => {
-    // console.log('UserSettingsPage: Password changed callback triggered.');
-  };
-
-  // The main loading state for the page
   if (isSessionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
@@ -93,10 +85,7 @@ const UserSettingsPage: React.FC = () => {
     );
   }
 
-  // If not loading and no user, redirect to login (handled by SessionContextProvider, but good to have a fallback)
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   const getInitials = (fName: string | null, lName: string | null) => {
     const first = fName ? fName.charAt(0) : '';
@@ -127,7 +116,7 @@ const UserSettingsPage: React.FC = () => {
             <CardContent>
               <form onSubmit={handleProfileSubmit} className="space-y-4">
                 <div className="flex flex-col items-center gap-4 mb-4">
-                  <Avatar className="h-24 w-24 rounded-full"> {/* Adicionado rounded-full */}
+                  <Avatar className="h-24 w-24 rounded-full">
                     <AvatarImage src={avatarUrl || undefined} alt="Avatar do Usuário" />
                     <AvatarFallback>{getInitials(firstName, lastName)}</AvatarFallback>
                   </Avatar>
@@ -143,29 +132,56 @@ const UserSettingsPage: React.FC = () => {
                     />
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="first-name">Nome</Label>
-                  <Input
-                    id="first-name"
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Seu nome"
-                    required
-                    disabled={isSavingProfile}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="first-name">Nome</Label>
+                    <Input
+                      id="first-name"
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                      disabled={isSavingProfile}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="last-name">Sobrenome</Label>
+                    <Input
+                      id="last-name"
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                      disabled={isSavingProfile}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="last-name">Sobrenome</Label>
-                  <Input
-                    id="last-name"
-                    type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Seu sobrenome"
-                    required
-                    disabled={isSavingProfile}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="profession">Profissão</Label>
+                    <Select value={profession} onValueChange={setProfession} disabled={isSavingProfile}>
+                      <SelectTrigger id="profession">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="eletricista">Eletricista</SelectItem>
+                        <SelectItem value="mecanico">Mecânico</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="shift">Turno</Label>
+                    <Select value={shift} onValueChange={setShift} disabled={isSavingProfile}>
+                      <SelectTrigger id="shift">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Turno A">Turno A</SelectItem>
+                        <SelectItem value="Turno B">Turno B</SelectItem>
+                        <SelectItem value="Turno C">Turno C</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="badge">Crachá (Opcional)</Label>
@@ -174,20 +190,14 @@ const UserSettingsPage: React.FC = () => {
                     type="text"
                     value={badge}
                     onChange={(e) => setBadge(e.target.value)}
-                    placeholder="Número do crachá"
                     disabled={isSavingProfile}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isSavingProfile}>
                   {isSavingProfile ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Salvando...
-                    </>
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</>
                   ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" /> Salvar Alterações
-                    </>
+                    <><Save className="mr-2 h-4 w-4" /> Salvar Alterações</>
                   )}
                 </Button>
               </form>
@@ -200,7 +210,7 @@ const UserSettingsPage: React.FC = () => {
               <CardTitle className="text-xl">Alterar Senha</CardTitle>
             </CardHeader>
             <CardContent>
-              <ChangePasswordForm onPasswordChanged={handlePasswordChanged} />
+              <ChangePasswordForm onPasswordChanged={() => {}} />
             </CardContent>
           </Card>
         </TabsContent>
