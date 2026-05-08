@@ -31,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Command,
   CommandEmpty,
@@ -151,6 +152,8 @@ const AdminReportPage = () => {
   // Report Generation State
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [reportGroupBy, setReportGroupBy] = useState<string>('none');
+  const [includeDonutChart, setIncludeDonutChart] = useState(false);
+  const [includeBarChart, setIncludeBarChart] = useState(false);
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
 
@@ -461,6 +464,16 @@ const AdminReportPage = () => {
 
   const handleGeneratePDF = () => {
     const grouped = groupReportData();
+    
+    // Captura o HTML dos gráficos renderizados
+    const donutHtml = includeDonutChart && document.getElementById('print-donut-chart') 
+      ? document.getElementById('print-donut-chart')?.innerHTML 
+      : '';
+      
+    const barHtml = includeBarChart && document.getElementById('print-bar-chart') 
+      ? document.getElementById('print-bar-chart')?.innerHTML 
+      : '';
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
        showError("Não foi possível abrir a janela de impressão. Verifique se os pop-ups estão bloqueados.");
@@ -484,10 +497,35 @@ const AdminReportPage = () => {
           tr:nth-child(even) { background-color: #f9fafb; }
           .text-right { text-align: right; }
           .summary { font-weight: bold; background-color: #e5e7eb !important; }
+          
+          /* Estilos injetados para suportar os gráficos do Recharts e Tailwind local */
+          .charts-section { display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; page-break-inside: avoid; flex-wrap: wrap; }
+          .chart-box { flex: 1; min-width: 300px; max-width: 500px; border: 1px solid #e5e7eb; padding: 15px; border-radius: 8px; text-align: center; }
+          .chart-box h3 { font-size: 14px; margin-top: 0; margin-bottom: 15px; color: #4b5563; }
+          .recharts-print-container { position: relative; width: 100%; display: flex; justify-content: center; align-items: center; }
+          .recharts-print-container svg { max-width: 100%; height: auto !important; }
+          .recharts-text { fill: #374151; font-family: sans-serif; }
+          
+          /* Polyfill Tailwind para o "Total" no meio da rosca */
+          .absolute { position: absolute; }
+          .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+          .flex { display: flex; }
+          .flex-col { flex-direction: column; }
+          .items-center { align-items: center; }
+          .justify-center { justify-content: center; }
+          .pointer-events-none { pointer-events: none; }
+          .text-xs { font-size: 12px; }
+          .text-lg { font-size: 18px; }
+          .font-bold { font-weight: bold; }
+          .text-muted-foreground { color: #6b7280; }
+          .text-primary { color: #2563eb; }
+
           @media print {
             @page { margin: 1cm; }
             body { padding: 0; }
             button { display: none; }
+            .charts-section { display: block; }
+            .chart-box { max-width: 100%; margin-bottom: 20px; page-break-inside: avoid; }
           }
         </style>
       </head>
@@ -501,6 +539,30 @@ const AdminReportPage = () => {
           </div>
         </div>
     `;
+
+    // Injeta a seção de Gráficos se o usuário marcou alguma caixa
+    if (donutHtml || barHtml) {
+      html += `
+        <div class="charts-section">
+          ${donutHtml ? `
+            <div class="chart-box">
+              <h3>Desempenho Diário</h3>
+              <div class="recharts-print-container" style="height: 300px;">
+                ${donutHtml}
+              </div>
+            </div>
+          ` : ''}
+          ${barHtml ? `
+            <div class="chart-box">
+              <h3>Desempenho no Período</h3>
+              <div class="recharts-print-container" style="height: 300px;">
+                ${barHtml}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
 
     Object.keys(grouped).forEach(groupName => {
       const groupData = grouped[groupName];
@@ -771,7 +833,7 @@ const AdminReportPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
-            <div className="h-64 w-full relative">
+            <div id="print-donut-chart" className="h-64 w-full relative">
               {dailyChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -802,7 +864,7 @@ const AdminReportPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64 w-full">
+            <div id="print-bar-chart" className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyChartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -867,12 +929,12 @@ const AdminReportPage = () => {
           <DialogHeader>
             <DialogTitle>Gerar Relatório</DialogTitle>
             <DialogDescription>
-              O relatório usará as <strong>{filteredOSList.length} Ordens de Serviço</strong> filtradas atualmente na tela. Escolha como deseja agrupar os dados e o formato de saída.
+              O relatório usará as <strong>{filteredOSList.length} Ordens de Serviço</strong> filtradas atualmente na tela.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-5 py-2">
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Agrupar relatório por:</label>
+              <label className="text-sm font-bold">Agrupar relatório por:</label>
               <Select value={reportGroupBy} onValueChange={setReportGroupBy}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o agrupamento" />
@@ -886,8 +948,34 @@ const AdminReportPage = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="grid gap-3 p-3 bg-muted/30 border rounded-md">
+              <label className="text-sm font-bold">Incluir Gráficos (PDF):</label>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="include-donut" 
+                    checked={includeDonutChart} 
+                    onCheckedChange={(c) => setIncludeDonutChart(c === true)} 
+                  />
+                  <label htmlFor="include-donut" className="text-sm cursor-pointer hover:text-primary transition-colors">
+                    Gráfico de Rosca (Desempenho Diário)
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="include-bar" 
+                    checked={includeBarChart} 
+                    onCheckedChange={(c) => setIncludeBarChart(c === true)} 
+                  />
+                  <label htmlFor="include-bar" className="text-sm cursor-pointer hover:text-primary transition-colors">
+                    Gráfico de Barras (Desempenho Mensal)
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
+          <DialogFooter className="flex-col sm:flex-row gap-2 mt-2">
             <Button variant="outline" className="w-full sm:w-auto flex-1" onClick={handleGenerateJSON}>
               <Download className="mr-2 h-4 w-4" /> Gerar JSON
             </Button>
