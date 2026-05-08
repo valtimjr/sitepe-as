@@ -184,14 +184,15 @@ const AdminReportPage = () => {
         osList.forEach(os => {
           if (os.hora_inicio && os.hora_final) {
             const duration = calculateDuration(os.hora_inicio, os.hora_final);
-            const key = os.os || os.af || 'Sem ID';
+            // Prioritize AF over OS for the chart identification
+            const key = os.af || os.os || 'Sem ID';
             
             if (osDataMap.has(key)) {
               const existing = osDataMap.get(key);
               existing.value += duration;
             } else {
               osDataMap.set(key, {
-                name: key,
+                name: os.af ? `AF: ${os.af}` : (os.os ? `OS: ${os.os}` : 'Sem ID'),
                 value: duration,
                 os: os.os,
                 af: os.af,
