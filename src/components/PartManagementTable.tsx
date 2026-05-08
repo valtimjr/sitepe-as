@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,27 +41,10 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import PartSearchInput from './PartSearchInput';
-import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
+import RelatedPartDisplay from './RelatedPartDisplay';
 import { RelatedPart } from '@/types/supabase';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { CheckedState } from '@radix-ui/react-checkbox'; // Importar CheckedState
 import { useCompany } from '@/context/CompanyContext';
-
-// Função auxiliar para obter valor de uma linha, ignorando case e variações
-const getRowValue = (row: any, keys: string[]): string | undefined => {
-  const lowerCaseRow = Object.keys(row).reduce((acc, key) => {
-    acc[key.toLowerCase()] = row[key];
-    return acc;
-  }, {} as { [key: string]: any });
-
-  for (const key of keys) {
-    const value = lowerCaseRow[key.toLowerCase()];
-    if (value !== undefined && value !== null) {
-      return String(value).trim();
-    }
-  }
-  return undefined;
-};
 
 const PAGE_SIZE = 50;
 
@@ -69,7 +53,7 @@ const PartManagementTable: React.FC = () => {
   const { company, branding } = useCompany();
   const [parts, setParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [currentPart, setCurrentPart] = useState<Part | null>(null);
   const [formCodigo, setFormCodigo] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
@@ -83,18 +67,31 @@ const PartManagementTable: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Novos estados para importação
+  // Estados para importação
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [parsedPartsToImport, setParsedPartsToImport] = useState<Part[]>([]);
   const [importLog, setImportLog] = useState<string[]>([]);
+  
+  // Novos estados para o mapeamento CSV
+  const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [rawCsvData, setRawCsvData] = useState<any[]>([]);
+  const [currentImportFile, setCurrentImportFile] = useState<string>('');
+  const [columnMapping, setColumnMapping] = useState({
+    codigo: '',
+    descricao: '',
+    tags: '',
+    name: '',
+    itens_relacionados: ''
+  });
 
   // Estados para gerenciamento de itens relacionados
   const [relatedSearchQuery, setRelatedSearchQuery] = useState('');
   const [relatedSearchResults, setRelatedSearchResults] = useState<Part[]>([]);
   const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
   const [draggedRelatedItem, setDraggedRelatedItem] = useState<RelatedPart | null>(null);
-  const [isLoadingRelatedParts, setIsLoadingRelatedParts] = useState(false); // Corrigido: Adicionado estado de carregamento para busca de relacionados
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]); // Adicionado para busca de relacionados
+  const [isLoadingRelatedParts, setIsLoadingRelatedParts] = useState(false);
+  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
 
   // Estados para a nova funcionalidade de relação em lote
   const [isBatchRelateOpen, setIsBatchRelateOpen] = useState(false);
@@ -103,7 +100,6 @@ const PartManagementTable: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isMobile = useIsMobile();
 
-  // Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
   const formatRelatedPartObject = (part: Part): RelatedPart => {
     const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
     const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
@@ -111,26 +107,22 @@ const PartManagementTable: React.FC = () => {
   };
 
   const loadParts = useCallback(async (query: string, page: number, currentCompany: string) => {
-    console.time('PartManagementTable: loadParts');
     setIsLoading(true);
     try {
-      // Carrega todas as peças para o cache local (necessário para itens relacionados)
       const allParts = await getParts(company);
       setAllAvailableParts(allParts);
 
-      // Usando a função paginada
       const { parts: fetchedParts, totalCount: fetchedTotalCount } = await searchPartsPaginated(query, company, page, PAGE_SIZE);
       setParts(fetchedParts);
       setTotalCount(fetchedTotalCount);
-      setSelectedPartIds(new Set()); // Limpa seleção ao carregar nova página/busca
+      setSelectedPartIds(new Set());
     } catch (error) {
-      console.error('PartManagementTable: Erro ao carregar peças:', error);
+      console.error('Erro ao carregar peças:', error);
       showError('Erro ao carregar peças.');
       setParts([]);
       setTotalCount(0);
     } finally {
       setIsLoading(false);
-      console.timeEnd('PartManagementTable: loadParts');
     }
   }, [company]);
 
@@ -138,7 +130,6 @@ const PartManagementTable: React.FC = () => {
     loadParts(searchQuery, currentPage, company);
   }, [searchQuery, currentPage, loadParts, company]);
 
-  // Efeito para a busca de peças relacionadas
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (relatedSearchQuery.length > 1) {
@@ -154,7 +145,7 @@ const PartManagementTable: React.FC = () => {
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [relatedSearchQuery, company]); // Depende apenas da query de busca
+  }, [relatedSearchQuery, company]);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -166,46 +157,38 @@ const PartManagementTable: React.FC = () => {
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
-    setCurrentPage(1); // Volta para a primeira página ao pesquisar
+    setCurrentPage(1);
   };
 
   const handleAddPart = () => {
-    console.log('PartManagementTable: Abrindo formulário para adicionar nova peça.');
     setCurrentPart(null);
     setFormCodigo('');
     setFormDescricao('');
     setFormTags('');
     setFormName('');
-    setFormItensRelacionados([]); // Limpa itens relacionados
-    setIsSheetOpen(true); // Abre o Sheet
+    setFormItensRelacionados([]);
+    setIsSheetOpen(true);
   };
 
   const handleEditPart = (part: Part) => {
-    console.log(`PartManagementTable: Abrindo formulário para editar peça com ID: ${part.id}`);
     setCurrentPart(part);
     setFormCodigo(part.codigo);
     setFormDescricao(part.descricao);
     setFormTags(part.tags || '');
     setFormName(part.name || '');
-    setFormItensRelacionados(part.itens_relacionados || []); // Carrega itens relacionados
-    setIsSheetOpen(true); // Abre o Sheet
+    setFormItensRelacionados(part.itens_relacionados || []);
+    setIsSheetOpen(true);
   };
 
   const handleDeletePart = async (id: string) => {
     if (!window.confirm('Tem certeza que deseja excluir esta peça?')) return;
-    console.time('PartManagementTable: handleDeletePart');
-    console.log(`PartManagementTable: Iniciando exclusão da peça com ID: ${id}`);
     try {
-      console.log('PartManagementTable: Chamando deletePart() para excluir peça.');
       await deletePart(id, company);
       showSuccess('Peça excluída com sucesso!');
-      console.log(`PartManagementTable: Peça com ID: ${id} excluída com sucesso.`);
-      loadParts(searchQuery, currentPage, company); // Recarrega a página atual
+      loadParts(searchQuery, currentPage, company);
     } catch (error) {
-      console.error(`PartManagementTable: Erro ao excluir peça com ID: ${id}:`, error);
+      console.error('Erro ao excluir peça:', error);
       showError('Erro ao excluir peça.');
-    } finally {
-      console.timeEnd('PartManagementTable: handleDeletePart');
     }
   };
 
@@ -221,44 +204,34 @@ const PartManagementTable: React.FC = () => {
       setFormTags(currentPart.tags || '');
     }
 
-    console.time('PartManagementTable: handleSubmit');
-    console.log(`PartManagementTable: Iniciando submissão do formulário (modo: ${currentPart ? 'edição' : 'adição'}).`);
-
     try {
       const payload: Omit<Part, 'id'> = {
         codigo: formCodigo,
         descricao: formDescricao,
-        tags: formTags.trim(), // Garante que tags é sempre uma string
-        name: formName.trim(), // Garante que name é sempre uma string
-        itens_relacionados: formItensRelacionados, // Inclui itens relacionados
+        tags: formTags.trim(),
+        name: formName.trim(),
+        itens_relacionados: formItensRelacionados,
       };
 
       if (currentPart) {
-        console.log(`PartManagementTable: Chamando updatePart() para atualizar peça com ID: ${currentPart.id}.`);
         await updatePart({
           ...currentPart,
           ...payload,
         }, company);
         showSuccess('Peça atualizada com sucesso!');
-        console.log(`PartManagementTable: Peça com ID: ${currentPart.id} atualizada com sucesso.`);
       } else {
-        console.log('PartManagementTable: Chamando addPart() para adicionar nova peça.');
         await addPart(payload, company);
         showSuccess('Peça adicionada com sucesso!');
-        console.log('PartManagementTable: Nova peça adicionada com sucesso.');
       }
-      setIsSheetOpen(false); // Fecha o Sheet
+      setIsSheetOpen(false);
       loadParts(searchQuery, currentPage, company);
     } catch (error) {
-      console.error('PartManagementTable: Erro ao salvar peça:', error);
+      console.error('Erro ao salvar peça:', error);
       showError('Erro ao salvar peça.');
-    } finally {
-      console.timeEnd('PartManagementTable: handleSubmit');
     }
   };
 
   const handleSelectAll = (checked: boolean) => {
-    console.log(`PartManagementTable: Selecionar todos: ${checked}`);
     if (checked) {
       const allVisiblePartIds = new Set(parts.map(part => part.id));
       setSelectedPartIds(allVisiblePartIds);
@@ -268,7 +241,6 @@ const PartManagementTable: React.FC = () => {
   };
 
   const handleSelectPart = (id: string, checked: boolean) => {
-    console.log(`PartManagementTable: Selecionar peça ID: ${id}, checked: ${checked}`);
     setSelectedPartIds(prev => {
       const newSelection = new Set(prev);
       if (checked) {
@@ -281,156 +253,81 @@ const PartManagementTable: React.FC = () => {
   };
 
   const handleBulkDelete = async () => {
-    if (selectedPartIds.size === 0) {
-      showError('Nenhuma peça selecionada para exclusão.');
-      return;
-    }
-    console.time('PartManagementTable: handleBulkDelete');
-    console.log(`PartManagementTable: Iniciando exclusão em massa de ${selectedPartIds.size} peças.`);
+    if (selectedPartIds.size === 0) return;
     try {
-      console.log('PartManagementTable: Chamando deletePart() para cada peça selecionada.');
       await Promise.all(Array.from(selectedPartIds).map(id => deletePart(id, company)));
-      showSuccess(`${selectedPartIds?.size ?? 0} peças excluídas com sucesso!`);
-      console.log(`PartManagementTable: ${selectedPartIds.size} peças excluídas em massa com sucesso.`);
+      showSuccess(`${selectedPartIds.size} peças excluídas com sucesso!`);
       loadParts(searchQuery, currentPage, company);
     } catch (error) {
-      console.error('PartManagementTable: Erro ao excluir peças selecionadas em massa:', error);
       showError('Erro ao excluir peças selecionadas.');
-    } finally {
-      console.timeEnd('PartManagementTable: handleBulkDelete');
     }
   };
 
   const handleBulkClearTags = async () => {
-    if (selectedPartIds.size === 0) {
-      showError('Nenhuma peça selecionada para limpar tags.');
-      return;
-    }
-    console.time('PartManagementTable: handleBulkClearTags');
-    console.log(`PartManagementTable: Iniciando limpeza de tags para ${selectedPartIds.size} peças.`);
+    if (selectedPartIds.size === 0) return;
     try {
       const partsToUpdate = parts.filter(part => selectedPartIds.has(part.id));
-      console.log('PartManagementTable: Chamando updatePart() para limpar tags de cada peça selecionada.');
       await Promise.all(partsToUpdate.map(part => updatePart({ ...part, tags: '' }, company)));
-      showSuccess(`Tags de ${selectedPartIds.size ?? 0} peças limpas com sucesso!`);
-      console.log(`PartManagementTable: Tags de ${selectedPartIds.size} peças limpas com sucesso.`);
+      showSuccess(`Tags de ${selectedPartIds.size} peças limpas com sucesso!`);
       loadParts(searchQuery, currentPage, company);
     } catch (error) {
-      console.error('PartManagementTable: Erro ao limpar tags das peças selecionadas:', error);
       showError('Erro ao limpar tags das peças selecionadas.');
-    } finally {
-      console.timeEnd('PartManagementTable: handleBulkClearTags');
     }
   };
 
   const handleImportCsv = () => {
-    console.log('PartManagementTable: Acionando input de arquivo para importação CSV.');
     fileInputRef.current?.click();
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     
-    if (!file) {
-      console.log('PartManagementTable: Nenhum arquivo selecionado para importação.');
-      setImportLog(['Nenhum arquivo selecionado.']);
-      setParsedPartsToImport([]);
-      setIsImportConfirmOpen(true);
-      return;
-    }
+    if (!file) return;
 
-    console.log(`PartManagementTable: Arquivo "${file.name}" selecionado. Iniciando leitura...`);
+    setCurrentImportFile(file.name);
     const reader = new FileReader();
     
     reader.onload = (e) => {
       const csvText = e.target?.result as string;
       
       if (!csvText.trim()) {
-        console.warn('PartManagementTable: Arquivo CSV vazio ou com apenas espaços em branco.');
-        setImportLog([
-          `Arquivo lido: ${file.name}`,
-          'O arquivo CSV está vazio ou contém apenas espaços em branco.',
-          'Nenhuma peça válida encontrada para importação.'
-        ]);
-        setParsedPartsToImport([]);
-        setIsImportConfirmOpen(true);
+        showError("O arquivo CSV está vazio.");
         return;
       }
 
-      console.log('PartManagementTable: Iniciando análise do CSV com PapaParse.');
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
-          const parsedData = results.data as any[];
-          console.log(`PartManagementTable: PapaParse concluiu. ${parsedData.length} linhas processadas.`);
+          const headers = results.meta.fields || [];
+          if (headers.length === 0) {
+            showError("Não foi possível identificar os cabeçalhos do CSV.");
+            return;
+          }
           
-          let newParts: Part[] = parsedData.map((row, index) => {
-            const codigo = getRowValue(row, ['codigo', 'código', 'code']);
-            const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']);
-            const tags = getRowValue(row, ['tags', 'tag']) || ''; // Garante que tags é sempre uma string
-            const name = getRowValue(row, ['name', 'nome']) || ''; // Garante que name é sempre uma string
-            const itensRelacionadosString = getRowValue(row, ['itens_relacionados', 'related_items']) || ''; // NOVO CAMPO
-            
-            if (!codigo || !descricao) {
-              console.warn(`PartManagementTable: Linha ${index + 1} ignorada por falta de Código ou Descrição.`);
-              return null;
-            }
-
-            return {
-              id: getRowValue(row, ['id']) || uuidv4(),
-              codigo: codigo,
-              descricao: descricao,
-              tags: tags, // Atribui a string (pode ser vazia)
-              name: name, // Atribui a string (pode ser vazia)
-              itens_relacionados: itensRelacionadosString.split(';').map(s => s.trim()).filter(s => s.length > 0).map(code => ({ codigo: code, name: code, desc: '' })), // Processa o array
-            };
-          }).filter((part): part is Part => part !== null);
-
-          console.log(`PartManagementTable: ${newParts.length} peças válidas extraídas antes da deduplicação.`);
-
-          // --- Lógica de Deduplicação ---
-          const partMap = new Map<string, Part>();
-          newParts.forEach(part => {
-            // A última ocorrência de um CÓDIGO no CSV prevalece
-            partMap.set(part.codigo, part);
-          });
-          const deduplicatedParts = Array.from(partMap.values());
-          console.log(`PartManagementTable: ${deduplicatedParts.length} peças únicas após deduplicação.`);
-          // --- Fim da Lógica de Deduplicação ---
-
-          setParsedPartsToImport(deduplicatedParts);
-          setImportLog([
-            `Arquivo lido: ${file.name}`, 
-            `Total de linhas processadas: ${parsedData.length}`,
-            `Linhas válidas encontradas: ${newParts.length}`,
-            `Peças únicas prontas para importação: ${deduplicatedParts.length}`
-          ]);
-          setTimeout(() => setIsImportConfirmOpen(true), 100); 
-
+          setCsvHeaders(headers);
+          setRawCsvData(results.data);
+          
+          // Tenta mapear automaticamente baseado em nomes comuns
+          const autoMap = {
+            codigo: headers.find(h => ['codigo', 'código', 'code', 'id'].includes(h.toLowerCase().trim())) || '',
+            descricao: headers.find(h => ['descricao', 'descrição', 'description', 'desc'].includes(h.toLowerCase().trim())) || '',
+            tags: headers.find(h => ['tags', 'tag'].includes(h.toLowerCase().trim())) || '',
+            name: headers.find(h => ['name', 'nome'].includes(h.toLowerCase().trim())) || '',
+            itens_relacionados: headers.find(h => ['itens_relacionados', 'related_items', 'relacionados'].includes(h.toLowerCase().trim())) || ''
+          };
+          
+          setColumnMapping(autoMap);
+          setIsMappingDialogOpen(true);
         },
         error: (error: any) => {
-          console.error('PartManagementTable: Erro ao analisar o arquivo CSV:', error);
-          setImportLog([
-            `Arquivo lido: ${file.name}`,
-            `ERRO ao analisar o arquivo CSV: ${error.message}`,
-            'Nenhuma peça válida encontrada para importação.'
-          ]);
-          setParsedPartsToImport([]);
-          setTimeout(() => setIsImportConfirmOpen(true), 100);
+          showError(`Erro ao ler CSV: ${error.message}`);
         }
       });
     };
 
     reader.onerror = () => {
-      console.error('PartManagementTable: Erro ao ler o arquivo:', reader.error);
-      setImportLog([
-        `Arquivo lido: ${file.name}`,
-        `ERRO ao ler o arquivo: ${reader.error?.message || 'Erro desconhecido.'}`,
-        'Nenhuma peça válida encontrada para importação.'
-      ]);
-      setParsedPartsToImport([]);
-      setTimeout(() => setIsImportConfirmOpen(true), 100);
+      showError("Erro ao ler o arquivo.");
     };
 
     reader.readAsText(file);
@@ -440,132 +337,137 @@ const PartManagementTable: React.FC = () => {
     }
   };
 
+  const handleApplyMapping = () => {
+    if (!columnMapping.codigo || !columnMapping.descricao) {
+      showError("É obrigatório mapear as colunas de 'Código' e 'Descrição'.");
+      return;
+    }
+
+    let newParts: Part[] = rawCsvData.map((row) => {
+      const codigo = row[columnMapping.codigo]?.trim();
+      const descricao = row[columnMapping.descricao]?.trim();
+      const tags = columnMapping.tags ? row[columnMapping.tags]?.trim() : '';
+      const name = columnMapping.name ? row[columnMapping.name]?.trim() : '';
+      const itensRelacionadosString = columnMapping.itens_relacionados ? row[columnMapping.itens_relacionados]?.trim() : '';
+      
+      if (!codigo || !descricao) {
+        return null;
+      }
+
+      return {
+        id: row.id || uuidv4(),
+        codigo: codigo,
+        descricao: descricao,
+        tags: tags || '',
+        name: name || '',
+        itens_relacionados: itensRelacionadosString 
+          ? itensRelacionadosString.split(';').map((s:string) => s.trim()).filter((s:string) => s.length > 0).map((code:string) => ({ codigo: code, name: code, desc: '' })) 
+          : [],
+      };
+    }).filter((part): part is Part => part !== null);
+
+    // Deduplicação no arquivo antes de importar
+    const partMap = new Map<string, Part>();
+    newParts.forEach(part => {
+      partMap.set(part.codigo, part);
+    });
+    const deduplicatedParts = Array.from(partMap.values());
+
+    setParsedPartsToImport(deduplicatedParts);
+    setImportLog([
+      `Arquivo lido: ${currentImportFile}`, 
+      `Total de linhas extraídas: ${newParts.length}`,
+      `Peças prontas para importação: ${deduplicatedParts.length}`,
+      `*Aviso: O sistema evita duplicações verificando o Código. Peças já existentes com o mesmo código serão APENAS ATUALIZADAS com as novas informações.`
+    ]);
+    
+    setIsMappingDialogOpen(false);
+    setTimeout(() => setIsImportConfirmOpen(true), 300);
+  };
+
   const confirmImport = async () => {
     const newParts = parsedPartsToImport;
     if (newParts.length === 0) {
       showError('Nenhuma peça válida para importar.');
       setIsImportConfirmOpen(false);
-      setImportLog([]);
-      setParsedPartsToImport([]);
       return;
     }
 
-    const loadingToastId = showLoading('Importando e sincronizando peças...');
-    setImportLog(prev => [...prev, 'Iniciando importação para o banco de dados...']);
-    console.time('PartManagementTable: confirmImport');
+    const loadingToastId = showLoading('Importando peças e atualizando existentes...');
+    setImportLog(prev => [...prev, 'Enviando para o banco de dados...']);
 
     try {
-      console.log(`PartManagementTable: Chamando importParts() para ${newParts.length} peças.`);
       await importParts(newParts, company);
       setImportLog(prev => [...prev, `Sucesso: ${newParts.length} peças importadas/atualizadas.`]);
-      showSuccess(`${newParts.length} peças importadas/atualizadas com sucesso!`);
-      console.log(`PartManagementTable: ${newParts.length} peças importadas/atualizadas com sucesso.`);
+      showSuccess(`${newParts.length} peças processadas com sucesso!`);
       loadParts(searchQuery, currentPage, company);
     } catch (error) {
-      console.error('PartManagementTable: Erro na importação para o Supabase:', error);
-      setImportLog(prev => [...prev, 'ERRO: Falha na importação para o Supabase.']);
-      showError('Erro ao importar peças do CSV. Verifique o log.');
+      setImportLog(prev => [...prev, 'ERRO: Falha na importação.']);
+      showError('Erro ao importar peças do CSV.');
     } finally {
       dismissToast(loadingToastId);
       setIsImportConfirmOpen(false);
       setParsedPartsToImport([]);
-      console.timeEnd('PartManagementTable: confirmImport');
     }
   };
 
   const handleExportCsv = async () => {
     let dataToExport: Part[] = [];
-    let loadingToastId: string | number | undefined;
+    let loadingToastId;
     try {
-      loadingToastId = showLoading('Preparando exportação de peças...');
-      console.time('PartManagementTable: exportDataAsCsv');
-      console.log('PartManagementTable: Iniciando exportação para CSV.');
+      loadingToastId = showLoading('Preparando exportação...');
       if (selectedPartIds.size > 0) {
-        console.log(`PartManagementTable: Exportando ${selectedPartIds.size} peças selecionadas.`);
         dataToExport = parts.filter(part => selectedPartIds.has(part.id));
-        if (dataToExport.length === 0) {
-          showError('Nenhuma peça selecionada para exportar.');
-          return;
-        }
         exportDataAsCsv(dataToExport, 'pecas_selecionadas.csv');
-        showSuccess(`${dataToExport.length} peças selecionadas exportadas para CSV com sucesso!`);
+        showSuccess(`${dataToExport.length} peças exportadas para CSV.`);
       } else {
-        console.log('PartManagementTable: Exportando todas as peças. Chamando getAllPartsForExport().');
         dataToExport = await getAllPartsForExport(company);
-        if (dataToExport.length === 0) {
-          showError('Nenhuma peça para exportar.');
-          return;
-        }
         exportDataAsCsv(dataToExport, `todas_pecas_${company}.csv`);
-        showSuccess('Todas as peças exportadas para CSV com sucesso!');
+        showSuccess('Todas as peças exportadas para CSV.');
       }
-      console.log(`PartManagementTable: Exportação para CSV concluída. Total de ${dataToExport.length} itens.`);
     } catch (error) {
-      console.error('PartManagementTable: Erro ao exportar peças para CSV:', error);
       showError('Erro ao exportar peças.');
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
-      console.timeEnd('PartManagementTable: exportDataAsCsv');
     }
   };
 
   const handleExportJson = async () => {
     let dataToExport: Part[] = [];
-    let loadingToastId: string | number | undefined;
+    let loadingToastId;
     try {
-      loadingToastId = showLoading('Preparando exportação de peças...');
-      console.time('PartManagementTable: exportDataAsJson');
-      console.log('PartManagementTable: Iniciando exportação para JSON.');
+      loadingToastId = showLoading('Preparando exportação...');
       if (selectedPartIds.size > 0) {
-        console.log(`PartManagementTable: Exportando ${selectedPartIds.size} peças selecionadas.`);
         dataToExport = parts.filter(part => selectedPartIds.has(part.id));
-        if (dataToExport.length === 0) {
-          showError('Nenhuma peça selecionada para exportar.');
-          return;
-        }
         exportDataAsJson(dataToExport, 'pecas_selecionadas.json');
-        showSuccess(`${dataToExport.length} peças selecionadas exportadas para JSON com sucesso!`);
+        showSuccess(`${dataToExport.length} peças exportadas para JSON.`);
       } else {
-        console.log('PartManagementTable: Exportando todas as peças. Chamando getAllPartsForExport().');
         dataToExport = await getAllPartsForExport(company);
-        if (dataToExport.length === 0) {
-          showError('Nenhuma peça para exportar.');
-          return;
-        }
         exportDataAsJson(dataToExport, `todas_pecas_${company}.json`);
-        showSuccess('Todas as peças exportadas para JSON com sucesso!');
+        showSuccess('Todas as peças exportadas para JSON.');
       }
-      console.log(`PartManagementTable: Exportação para JSON concluída. Total de ${dataToExport.length} itens.`);
     } catch (error) {
-      console.error('PartManagementTable: Erro ao exportar peças para JSON:', error);
       showError('Erro ao exportar peças.');
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
-      console.timeEnd('PartManagementTable: exportDataAsJson');
     }
   };
 
   const handleCleanupEmptyParts = async () => {
-    let loadingToastId: string | number | undefined;
+    let loadingToastId;
     try {
       loadingToastId = showLoading('Limpando peças vazias...');
-      console.time('PartManagementTable: cleanupEmptyParts');
-      console.log('PartManagementTable: Iniciando limpeza de peças vazias. Chamando cleanupEmptyParts().');
       const deletedCount = await cleanupEmptyParts(company);
       if (deletedCount > 0) {
-        showSuccess(`${deletedCount} peças vazias foram removidas com sucesso!`);
-        console.log(`PartManagementTable: ${deletedCount} peças vazias removidas com sucesso.`);
+        showSuccess(`${deletedCount} peças vazias removidas.`);
         loadParts(searchQuery, currentPage, company);
       } else {
-        showSuccess('Nenhuma peça vazia encontrada para remover.');
-        console.log('PartManagementTable: Nenhuma peça vazia encontrada para remover.');
+        showSuccess('Nenhuma peça vazia encontrada.');
       }
-    } catch (error: any) {
-      console.error('PartManagementTable: Erro ao limpar peças vazias:', error);
-      showError(`Erro ao limpar peças vazias: ${error.message || 'Detalhes desconhecidos.'}`);
+    } catch (error) {
+      showError(`Erro ao limpar peças vazias.`);
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
-      console.timeEnd('PartManagementTable: cleanupEmptyParts');
     }
   };
 
@@ -574,68 +476,49 @@ const PartManagementTable: React.FC = () => {
   const isAllSelected = parts.length > 0 && selectedPartIds.size === parts.length;
   const isIndeterminate = selectedPartIds.size > 0 && selectedPartIds.size < parts.length;
 
-  // --- Handlers para Itens Relacionados ---
   const handleAddRelatedPart = (part: Part) => {
     const relatedPartObject = formatRelatedPartObject(part);
     if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
       setFormItensRelacionados(prev => [...prev, relatedPartObject]);
       setRelatedSearchQuery('');
       setRelatedSearchResults([]);
-      showSuccess(`Peça '${part.codigo}' adicionada aos itens relacionados.`);
+      showSuccess(`Peça '${part.codigo}' adicionada.`);
     } else {
-      showError(`Peça '${part.codigo}' já está na lista de itens relacionados.`);
+      showError(`Peça já está na lista.`);
     }
   };
 
   const handleRemoveRelatedPart = (codigo: string) => {
     setFormItensRelacionados(prev => prev.filter(p => p.codigo !== codigo));
-    showSuccess(`Item ${codigo} removido dos itens relacionados.`);
   };
 
   const handleBulkAddRelatedParts = async () => {
-    const codesToSearch = bulkRelatedPartsInput
-      .split(';')
-      .map(code => code.trim())
-      .filter(code => code.length > 0);
+    const codesToSearch = bulkRelatedPartsInput.split(';').map(c => c.trim()).filter(Boolean);
+    if (codesToSearch.length === 0) return;
 
-    if (codesToSearch.length === 0) {
-      showError('Nenhum código válido encontrado para adicionar em massa.');
-      return;
-    }
-
-    const loadingToastId = showLoading('Buscando e adicionando peças relacionadas...');
     const newRelatedItems: RelatedPart[] = [];
-    let foundCount = 0;
-
     for (const code of codesToSearch) {
       const foundPart = allAvailableParts.find(p => p.codigo.toLowerCase() === code.toLowerCase());
-
       if (foundPart) {
         const relatedPartObject = formatRelatedPartObject(foundPart);
-        if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo) && !newRelatedItems.some(p => p.codigo === relatedPartObject.codigo)) {
+        if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
           newRelatedItems.push(relatedPartObject);
-          foundCount++;
         }
       } else {
         const pureCodeObject = { codigo: code, name: code, desc: '' };
-        if (!formItensRelacionados.some(p => p.codigo === pureCodeObject.codigo) && !newRelatedItems.some(p => p.codigo === pureCodeObject.codigo)) {
+        if (!formItensRelacionados.some(p => p.codigo === pureCodeObject.codigo)) {
           newRelatedItems.push(pureCodeObject);
-          foundCount++;
         }
       }
     }
 
     if (newRelatedItems.length > 0) {
       setFormItensRelacionados(prev => Array.from(new Set([...prev, ...newRelatedItems])));
-      showSuccess(`${foundCount} item(s) adicionado(s) em massa aos itens relacionados.`);
-    } else {
-      showError('Nenhum novo item válido encontrado ou adicionado em massa.');
+      showSuccess(`${newRelatedItems.length} itens adicionados.`);
     }
     setBulkRelatedPartsInput('');
-    dismissToast(loadingToastId);
   };
 
-  // Drag and Drop Handlers (Itens Relacionados)
   const handleRelatedDragStart = (e: React.DragEvent<HTMLDivElement>, item: RelatedPart) => {
     setDraggedRelatedItem(item);
     e.dataTransfer.effectAllowed = 'move';
@@ -646,22 +529,14 @@ const PartManagementTable: React.FC = () => {
   const handleRelatedDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    e.currentTarget.classList.add('border-primary');
-  };
-
-  const handleRelatedDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.currentTarget.classList.remove('border-primary');
   };
 
   const handleRelatedDrop = (e: React.DragEvent<HTMLDivElement>, targetItem: RelatedPart) => {
     e.preventDefault();
-    e.currentTarget.classList.remove('opacity-50');
-
     if (draggedRelatedItem && draggedRelatedItem.codigo !== targetItem.codigo) {
       const newRelatedItems = [...formItensRelacionados];
       const draggedIndex = newRelatedItems.findIndex(item => item.codigo === draggedRelatedItem.codigo);
       const targetIndex = newRelatedItems.findIndex(item => item.codigo === targetItem.codigo);
-
       if (draggedIndex !== -1 && targetIndex !== -1) {
         const [removed] = newRelatedItems.splice(draggedIndex, 1);
         newRelatedItems.splice(targetIndex, 0, removed);
@@ -675,29 +550,25 @@ const PartManagementTable: React.FC = () => {
     e.currentTarget.classList.remove('opacity-50');
     setDraggedRelatedItem(null);
   };
-  // --- Fim Handlers para Itens Relacionados ---
 
-  // --- Handlers para Relação em Lote ---
   const handleBatchRelateSave = async () => {
     const codesToRelate = Array.from(new Set(batchRelateInput.split(';').map(c => c.trim()).filter(Boolean)));
     if (codesToRelate.length < 2) {
-      showError('Por favor, insira pelo menos dois códigos de peça separados por ";".');
+      showError('Insira pelo menos dois códigos.');
       return;
     }
 
-    const loadingToastId = showLoading('Criando relações em lote...');
+    const loadingToastId = showLoading('Criando relações...');
     try {
       const { updatedCount, notFoundCodes } = await batchUpdateRelations(codesToRelate, company);
-      let successMessage = `${updatedCount} peças foram relacionadas entre si com sucesso!`;
-      if (notFoundCodes.length > 0) {
-        successMessage += ` Códigos não encontrados: ${notFoundCodes.join(', ')}.`;
-      }
-      showSuccess(successMessage);
+      let msg = `${updatedCount} peças relacionadas!`;
+      if (notFoundCodes.length > 0) msg += ` Não encontrados: ${notFoundCodes.join(', ')}`;
+      showSuccess(msg);
       setIsBatchRelateOpen(false);
       setBatchRelateInput('');
       loadParts(searchQuery, currentPage, company);
     } catch (error: any) {
-      showError(`Erro ao criar relações: ${error.message}`);
+      showError(`Erro: ${error.message}`);
     } finally {
       dismissToast(loadingToastId);
     }
@@ -723,12 +594,8 @@ const PartManagementTable: React.FC = () => {
                   <Download className="h-4 w-4 mr-2" /> Exportar
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={handleExportCsv}>
-                    Exportar CSV
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExportJson}>
-                    Exportar JSON
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportCsv}>Exportar CSV</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportJson}>Exportar JSON</DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuSeparator />
@@ -742,7 +609,7 @@ const PartManagementTable: React.FC = () => {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Esta ação irá remover todas as peças que não possuem Código e Descrição preenchidos nesta empresa. Esta ação não pode ser desfeita.
+                      Esta ação irá remover todas as peças que não possuem Código e Descrição preenchidos nesta empresa.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -764,22 +631,11 @@ const PartManagementTable: React.FC = () => {
       <CardContent>
         {isBatchRelateOpen && (
           <Card className="mb-4 bg-muted/50">
-            <CardHeader>
-              <CardTitle className="text-lg">Criar Relação de Peças em Lote</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-lg">Criar Relação em Lote</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Label htmlFor="batch-relate-input">Códigos das Peças</Label>
-                <Textarea
-                  id="batch-relate-input"
-                  value={batchRelateInput}
-                  onChange={(e) => setBatchRelateInput(e.target.value)}
-                  placeholder="Digite os códigos das peças separados por ponto e vírgula (;)"
-                  rows={3}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Todas as peças listadas aqui serão relacionadas entre si.
-                </p>
+                <Label>Códigos das Peças (;)</Label>
+                <Textarea value={batchRelateInput} onChange={e => setBatchRelateInput(e.target.value)} rows={3} />
               </div>
               <div className="flex justify-end gap-2 mt-4">
                 <Button variant="outline" onClick={() => setIsBatchRelateOpen(false)}>Cancelar</Button>
@@ -789,61 +645,33 @@ const PartManagementTable: React.FC = () => {
           </Card>
         )}
 
-        {/* Input de arquivo oculto */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept=".csv"
-          style={{ position: 'absolute', left: '-9999px' }} 
-        />
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" style={{ position: 'absolute', left: '-9999px' }} />
         
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Buscar peça por código, descrição, nome ou tags..."
-            value={searchQuery}
-            onChange={handleSearchChange}
-            className="pl-9"
-          />
+          <Input type="text" placeholder="Buscar peça..." value={searchQuery} onChange={handleSearchChange} className="pl-9" />
         </div>
 
         {selectedPartIds.size > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="flex items-center gap-2">
-                  <Trash2 className="h-4 w-4" /> Excluir Selecionados ({selectedPartIds.size})
-                </Button>
+                <Button variant="destructive" className="flex items-center gap-2"><Trash2 className="h-4 w-4" /> Excluir ({selectedPartIds.size})</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta ação irá remover {selectedPartIds.size} peças selecionadas. Esta ação não pode ser desfeita.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
+                <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle></AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                   <AlertDialogAction onClick={handleBulkDelete}>Excluir</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2" disabled={!canEditTags}>
-                  <Tag className="h-4 w-4" /> Limpar Tags Selecionadas ({selectedPartIds.size})
-                </Button>
+                <Button variant="outline" className="flex items-center gap-2" disabled={!canEditTags}><Tag className="h-4 w-4" /> Limpar Tags ({selectedPartIds.size})</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta ação irá remover as tags de {selectedPartIds.size} peças selecionadas. Esta ação não pode ser desfeita.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
+                <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle></AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                   <AlertDialogAction onClick={handleBulkClearTags}>Limpar Tags</AlertDialogAction>
@@ -854,25 +682,15 @@ const PartManagementTable: React.FC = () => {
         )}
 
         {isLoading ? (
-          <p className="text-center text-muted-foreground py-8 flex items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando peças...
-          </p>
-        ) : parts.length === 0 && searchQuery.length > 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhuma peça encontrada para "{searchQuery}".</p>
+          <p className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></p>
         ) : parts.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhuma peça cadastrada.</p>
+          <p className="text-center py-8">Nenhuma peça encontrada.</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[40px]">
-                    <Checkbox
-                      checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-                      onCheckedChange={(checked) => handleSelectAll(checked === true)}
-                      aria-label="Selecionar todas as peças"
-                    />
-                  </TableHead>
+                  <TableHead className="w-[40px]"><Checkbox checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false} onCheckedChange={c => handleSelectAll(c===true)}/></TableHead>
                   <TableHead>Código</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Descrição</TableHead>
@@ -883,24 +701,14 @@ const PartManagementTable: React.FC = () => {
               <TableBody>
                 {parts.map((part) => (
                   <TableRow key={part.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedPartIds.has(part.id)}
-                        onCheckedChange={(checked) => handleSelectPart(part.id, checked === true)}
-                        aria-label={`Selecionar peça ${part.codigo}`}
-                      />
-                    </TableCell>
+                    <TableCell><Checkbox checked={selectedPartIds.has(part.id)} onCheckedChange={c => handleSelectPart(part.id, c===true)}/></TableCell>
                     <TableCell className="font-medium">{part.codigo}</TableCell>
                     <TableCell>{part.name || 'N/A'}</TableCell>
                     <TableCell>{part.descricao}</TableCell>
                     <TableCell>{part.tags || ''}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleEditPart(part)} className="mr-2">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeletePart(part.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleEditPart(part)} className="mr-2"><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeletePart(part.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -909,225 +717,174 @@ const PartManagementTable: React.FC = () => {
           </div>
         )}
 
-        {/* Controles de Paginação */}
         {totalPages > 1 && (
           <div className="flex justify-between items-center mt-4">
-            <p className="text-sm text-muted-foreground">
-              Página {currentPage} de {totalPages} (Total: {totalCount} peças)
-            </p>
+            <p className="text-sm text-muted-foreground">Página {currentPage} de {totalPages}</p>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1 || isLoading}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages || isLoading}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              <Button variant="outline" size="icon" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
+              <Button variant="outline" size="icon" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}><ChevronRight className="h-4 w-4" /></Button>
             </div>
           </div>
         )}
       </CardContent>
 
-      {/* Sheet de Edição/Adição */}
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow */}
-          <SheetHeader>
-            <SheetTitle>{currentPart ? 'Editar Peça' : 'Adicionar Nova Peça'}</SheetTitle>
-          </SheetHeader>
-          <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+      {/* Dialog para Mapeamento CSV */}
+      <Dialog open={isMappingDialogOpen} onOpenChange={setIsMappingDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Mapear Colunas do CSV</DialogTitle>
+            <DialogDescription>
+              Selecione as colunas do seu arquivo correspondentes aos campos do sistema.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="codigo" className="text-right">
-                Código
-              </Label>
-              <Input
-                id="codigo"
-                value={formCodigo}
-                onChange={(e) => setFormCodigo(e.target.value)}
-                className="col-span-3"
-                required
-              />
+              <Label htmlFor="map-codigo" className="text-right font-bold">Código *</Label>
+              <select
+                id="map-codigo"
+                value={columnMapping.codigo}
+                onChange={(e) => setColumnMapping({...columnMapping, codigo: e.target.value})}
+                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Selecione a coluna...</option>
+                {csvHeaders.map(h => <option key={`cod-${h}`} value={h}>{h}</option>)}
+              </select>
             </div>
+            
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Nome
-              </Label>
-              <Input
-                id="name"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                placeholder="Nome da peça (ex: Filtro de Ar)"
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="descricao" className="text-right">
-                Descrição
-              </Label>
-              <Textarea
-                id="descricao"
-                value={formDescricao}
-                onChange={(e) => setFormDescricao(e.target.value)}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="tags" className="text-right">
-                Tags
-              </Label>
-              <Input
-                id="tags"
-                value={formTags}
-                onChange={(e) => setFormTags(e.target.value)}
-                placeholder="tag1;tag2;tag3"
-                className="col-span-3"
-                disabled={!canEditTags}
-              />
+              <Label htmlFor="map-descricao" className="text-right font-bold">Descrição *</Label>
+              <select
+                id="map-descricao"
+                value={columnMapping.descricao}
+                onChange={(e) => setColumnMapping({...columnMapping, descricao: e.target.value})}
+                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Selecione a coluna...</option>
+                {csvHeaders.map(h => <option key={`desc-${h}`} value={h}>{h}</option>)}
+              </select>
             </div>
 
-            {/* NOVO: Seção de Itens Relacionados */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="map-name" className="text-right">Nome</Label>
+              <select
+                id="map-name"
+                value={columnMapping.name}
+                onChange={(e) => setColumnMapping({...columnMapping, name: e.target.value})}
+                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Nenhuma (Opcional)</option>
+                {csvHeaders.map(h => <option key={`name-${h}`} value={h}>{h}</option>)}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="map-tags" className="text-right">Tags</Label>
+              <select
+                id="map-tags"
+                value={columnMapping.tags}
+                onChange={(e) => setColumnMapping({...columnMapping, tags: e.target.value})}
+                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Nenhuma (Opcional)</option>
+                {csvHeaders.map(h => <option key={`tag-${h}`} value={h}>{h}</option>)}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="map-related" className="text-right text-xs leading-tight">Itens Relacionados</Label>
+              <select
+                id="map-related"
+                value={columnMapping.itens_relacionados}
+                onChange={(e) => setColumnMapping({...columnMapping, itens_relacionados: e.target.value})}
+                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Nenhuma (Opcional)</option>
+                {csvHeaders.map(h => <option key={`rel-${h}`} value={h}>{h}</option>)}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMappingDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleApplyMapping}>Confirmar Mapeamento</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <SheetHeader><SheetTitle>{currentPart ? 'Editar Peça' : 'Nova Peça'}</SheetTitle></SheetHeader>
+          <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Código</Label>
+              <Input value={formCodigo} onChange={e => setFormCodigo(e.target.value)} className="col-span-3" required />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Nome</Label>
+              <Input value={formName} onChange={e => setFormName(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Descrição</Label>
+              <Textarea value={formDescricao} onChange={e => setFormDescricao(e.target.value)} className="col-span-3" required />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Tags</Label>
+              <Input value={formTags} onChange={e => setFormTags(e.target.value)} className="col-span-3" disabled={!canEditTags} />
+            </div>
+
             <div className="space-y-2 border-t pt-4">
-              <Label className="flex items-center gap-2">
-                <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
-              </Label>
-              <PartSearchInput
-                onSearch={setRelatedSearchQuery}
-                searchResults={relatedSearchResults}
-                onSelectPart={handleAddRelatedPart}
-                searchQuery={relatedSearchQuery}
-                isLoading={isLoadingRelatedParts} // Corrigido: Usar isLoadingRelatedParts
-              />
+              <Label className="flex items-center gap-2"><Tag className="h-4 w-4" /> Itens Relacionados</Label>
+              <PartSearchInput onSearch={setRelatedSearchQuery} searchResults={relatedSearchResults} onSelectPart={handleAddRelatedPart} searchQuery={relatedSearchQuery} isLoading={isLoadingRelatedParts} />
               <div className="space-y-2">
-                <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
-                  Adicionar múltiplos códigos (separados por ';')
-                </Label>
+                <Label className="text-sm">Adicionar múltiplos códigos (;)</Label>
                 <div className="flex gap-2">
-                  <Textarea
-                    id="bulk-related-parts"
-                    value={bulkRelatedPartsInput}
-                    onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
-                    placeholder="Ex: COD1; COD2; COD3"
-                    rows={2}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleBulkAddRelatedParts}
-                    disabled={bulkRelatedPartsInput.trim().length === 0}
-                    variant="outline"
-                    size="icon"
-                    aria-label="Adicionar em massa"
-                  >
-                    <PlusCircle className="h-4 w-4" />
-                  </Button>
+                  <Textarea value={bulkRelatedPartsInput} onChange={e => setBulkRelatedPartsInput(e.target.value)} rows={2} className="flex-1" />
+                  <Button type="button" onClick={handleBulkAddRelatedParts} disabled={!bulkRelatedPartsInput.trim()} variant="outline" size="icon"><PlusCircle className="h-4 w-4" /></Button>
                 </div>
               </div>
               <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
-                {formItensRelacionados.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {formItensRelacionados.map((item, index) => (
-                      <div 
-                        key={item.codigo} 
-                        className={cn(
-                          "flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full border border-transparent cursor-grab",
-                          draggedRelatedItem?.codigo === item.codigo && 'opacity-50',
-                          draggedRelatedItem && 'hover:border-primary'
-                        )}
-                        draggable
-                        onDragStart={(e) => handleRelatedDragStart(e, item)}
-                        onDragOver={handleRelatedDragOver}
-                        onDrop={(e) => handleRelatedDrop(e, item)}
-                        onDragLeave={handleRelatedDragLeave}
-                        onDragEnd={handleRelatedDragEnd}
-                      >
-                        <div className="flex items-center gap-1 truncate">
-                          <GripVertical className="h-3 w-3 shrink-0" />
-                          <span className="truncate">
-                            <RelatedPartDisplay item={item} />
-                          </span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-4 w-4 p-0 text-destructive shrink-0"
-                          onClick={() => handleRemoveRelatedPart(item.codigo)}
-                        >
-                          <XCircle className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
+                {formItensRelacionados.map((item) => (
+                  <div key={item.codigo} className="flex items-center gap-1 bg-muted px-2 py-1 rounded-full text-xs mb-2 cursor-grab" draggable onDragStart={e => handleRelatedDragStart(e, item)} onDragOver={handleRelatedDragOver} onDrop={e => handleRelatedDrop(e, item)} onDragEnd={handleRelatedDragEnd}>
+                    <GripVertical className="h-3 w-3" />
+                    <span className="truncate"><RelatedPartDisplay item={item} /></span>
+                    <Button type="button" variant="ghost" size="icon" className="h-4 w-4 p-0 ml-auto" onClick={() => handleRemoveRelatedPart(item.codigo)}><XCircle className="h-3 w-3 text-destructive" /></Button>
                   </div>
-                )}
+                ))}
               </ScrollArea>
-              <p className="text-sm text-muted-foreground">
-                Arraste e solte os códigos acima para reordenar.
-              </p>
             </div>
-            {/* FIM NOVO: Seção de Itens Relacionados */}
-
-            <SheetFooter> {/* SheetFooter para botões */}
-              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
-                <XCircle className="h-4 w-4 mr-2" /> Cancelar
-              </Button>
-              <Button type="submit">
-                <Save className="h-4 w-4 mr-2" /> Salvar
-              </Button>
+            <SheetFooter>
+              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>Cancelar</Button>
+              <Button type="submit">Salvar</Button>
             </SheetFooter>
           </form>
         </SheetContent>
       </Sheet>
 
-      {/* AlertDialog de Confirmação de Importação */}
       <AlertDialog open={isImportConfirmOpen} onOpenChange={setIsImportConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" /> Confirmar Importação de Peças
-            </AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Importar Peças</AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div> {/* Usando div para corrigir o aninhamento de DOM */}
+              <div>
                 {parsedPartsToImport.length > 0 ? (
-                  <p className="mb-4">
-                    Você está prestes a importar {parsedPartsToImport.length} peças para {branding.name}. Isso irá atualizar as peças existentes com o mesmo Código ou criar novas.
-                  </p>
+                  <div className="mb-4 space-y-2">
+                    <p>Serão importadas/atualizadas <strong>{parsedPartsToImport.length} peças</strong>.</p>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-3 rounded-md border border-blue-200 dark:border-blue-800 text-sm">
+                      <strong>Informação importante sobre duplicação:</strong> O sistema verifica automaticamente o <strong>Código</strong> da peça. Se a peça já existir no banco de dados, ela <strong>não será duplicada</strong>; em vez disso, seus dados (descrição, tags, nome) serão atualizados com as informações do arquivo CSV.
+                    </div>
+                  </div>
                 ) : (
-                  <p className="mb-4 text-destructive">
-                    Nenhuma peça válida encontrada para importação. Verifique o formato do seu arquivo CSV.
-                  </p>
+                  <p className="mb-4 text-destructive">Nenhuma peça válida encontrada.</p>
                 )}
-                <h4 className="font-semibold text-foreground mb-2">Log de Processamento:</h4>
+                <h4 className="font-semibold text-foreground mb-2">Log:</h4>
                 <ScrollArea className="h-40 w-full rounded-md border p-4 text-sm font-mono bg-muted/50">
-                  {importLog.map((line, index) => (
-                    <p key={index} className="text-[0.8rem] text-muted-foreground whitespace-pre-wrap">
-                      {line}
-                    </p>
-                  ))}
+                  {importLog.map((line, i) => <p key={i} className="text-[0.8rem] text-muted-foreground">{line}</p>)}
                 </ScrollArea>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setParsedPartsToImport([]);
-              setImportLog([]);
-            }}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={confirmImport} disabled={parsedPartsToImport.length === 0}>
-              Confirmar Importação
-            </AlertDialogAction>
+            <AlertDialogCancel onClick={() => { setParsedPartsToImport([]); setImportLog([]); }}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmImport} disabled={parsedPartsToImport.length === 0}>Iniciar Importação</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
