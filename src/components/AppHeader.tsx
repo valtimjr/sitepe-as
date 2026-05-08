@@ -188,30 +188,11 @@ const AppHeader: React.FC = () => {
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
           
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <img 
-                    src={branding.logo} 
-                    alt={branding.name} 
-                    className="h-10 w-10 ml-2 object-contain cursor-pointer hover:bg-muted transition-colors rounded-lg border border-border/50 p-1" 
-                  />
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>Mudar Empresa ({branding.name})</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent className="w-48">
-              <DropdownMenuItem onClick={() => setCompany('usina_vale')} className="flex items-center gap-3">
-                <img src="/Usina Vale.png" alt="Usina Vale" className="h-6 w-auto object-contain" />
-                <span>Usina Vale</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCompany('citrosuco')} className="flex items-center gap-3">
-                <img src="/CitroSuco.png" alt="Citrosuco" className="h-6 w-auto object-contain" />
-                <span>Citrosuco</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <img
+            src={branding.logo}
+            alt={branding.name}
+            className="h-10 w-10 ml-2 object-contain rounded-lg border border-border/50 p-1"
+          />
 
           {!isLoginPage && (
             <DropdownMenu>
@@ -262,25 +243,6 @@ const AppHeader: React.FC = () => {
                     ))}
                   </>
                 )}
-                
-                <div className="md:hidden">
-                  <DropdownMenuSeparator />
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Building2 className="h-4 w-4 mr-2" /> Empresa: {branding.name}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem onClick={() => setCompany('usina_vale')} className="flex items-center gap-3">
-                        <img src="/Usina Vale.png" alt="Usina Vale" className="h-5 w-auto" />
-                        <span>Usina Vale</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCompany('citrosuco')} className="flex items-center gap-3">
-                        <img src="/CitroSuco.png" alt="Citrosuco" className="h-5 w-auto" />
-                        <span>Citrosuco</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
