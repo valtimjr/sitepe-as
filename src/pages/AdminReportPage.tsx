@@ -136,10 +136,11 @@ const AdminReportPage = () => {
         const end = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
 
         console.log("[AdminReportPage] Fetching orders for range", start, "to", end);
-        // Important: If you are an admin, the 'Admins can view all daily service orders' policy should allow this
+        
+        // Use a more direct query to ensure we aren't being limited by any client-side defaults
         const { data: records, error: recordError } = await supabase
           .from('daily_service_orders')
-          .select('id, user_id, date, os_list, company')
+          .select('*')
           .gte('date', start)
           .lte('date', end);
 
@@ -148,14 +149,15 @@ const AdminReportPage = () => {
           throw recordError;
         }
 
-        console.log("[AdminReportPage] Raw records from Supabase:", records?.length);
+        console.log("[AdminReportPage] Total records fetched from DB:", records?.length);
         
-        // Filter by company in JS to ensure we handle potential case sensitivity or missing company field
+        // Log all unique companies found in the records to debug filtering
+        const companiesFound = [...new Set((records || []).map(r => r.company))];
+        console.log("[AdminReportPage] Companies found in results:", companiesFound);
+        
         const filteredRecords = (records || []).filter(r => r.company === company);
-        console.log("[AdminReportPage] Filtered records for company", company, ":", filteredRecords.length);
-        if (filteredRecords.length > 0) {
-          console.log("[AdminReportPage] Sample record date:", filteredRecords[0].date);
-        }
+        console.log("[AdminReportPage] Records matching current company (" + company + "):", filteredRecords.length);
+        
         setAllData(filteredRecords);
 
       } catch (err) {
