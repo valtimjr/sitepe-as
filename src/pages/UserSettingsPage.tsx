@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -70,6 +70,9 @@ const UserSettingsPage: React.FC = () => {
       }
 
       showSuccess('Perfil atualizado com sucesso!');
+      
+      // Forçar atualização local do perfil se o contexto não atualizar imediatamente
+      // (Isso ajuda a manter o estado sincronizado se o usuário navegar ou recarregar)
     } catch (error: any) {
       showError(`Erro ao atualizar perfil: ${error.message}`);
     } finally {
@@ -157,11 +160,16 @@ const UserSettingsPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                  <div className="space-y-2">
                     <Label htmlFor="profession">Profissão</Label>
-                    <Select value={profession} onValueChange={setProfession} disabled={isSavingProfile}>
+                    <Select 
+                      key={profession} // Força re-renderização quando o valor muda externamente
+                      value={profession || undefined} 
+                      onValueChange={setProfession} 
+                      disabled={isSavingProfile}
+                    >
                       <SelectTrigger id="profession">
-                        <SelectValue placeholder="Selecione" />
+                        <SelectValue placeholder="Selecione sua profissão" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="eletricista">Eletricista</SelectItem>
@@ -169,11 +177,16 @@ const UserSettingsPage: React.FC = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+                  <div className="space-y-2">
                     <Label htmlFor="shift">Turno</Label>
-                    <Select value={shift} onValueChange={setShift} disabled={isSavingProfile}>
+                    <Select 
+                      key={shift} // Força re-renderização quando o valor muda externamente
+                      value={shift || undefined} 
+                      onValueChange={setShift} 
+                      disabled={isSavingProfile}
+                    >
                       <SelectTrigger id="shift">
-                        <SelectValue placeholder="Selecione" />
+                        <SelectValue placeholder="Selecione seu turno" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Turno A">Turno A</SelectItem>
