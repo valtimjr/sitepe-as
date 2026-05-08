@@ -110,6 +110,7 @@ const AdminReportPage = () => {
   const [singleDateInput, setSingleDateInput] = useState(format(new Date(), 'dd/MM/yyyy'));
   const [rangeStartInput, setRangeStartInput] = useState(format(startOfMonth(new Date()), 'dd/MM/yyyy'));
   const [rangeEndInput, setRangeEndInput] = useState(format(new Date(), 'dd/MM/yyyy'));
+  const [showRangeInputs, setShowRangeInputs] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [allData, setAllData] = useState<any[]>([]); // To store records from the month for charts
@@ -459,60 +460,73 @@ const AdminReportPage = () => {
               
               <TabsContent value="range" className="m-0">
                 <div className="space-y-3">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id="date"
-                        variant={"outline"}
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateRange?.from ? (
-                          dateRange.to ? (
-                            <>
-                              {format(dateRange.from, "dd/MM/yyyy")} -{" "}
-                              {format(dateRange.to, "dd/MM/yyyy")}
-                            </>
+                  <div className="flex gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="date"
+                          variant={"outline"}
+                          className="flex-1 justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateRange?.from ? (
+                            dateRange.to ? (
+                              <>
+                                {format(dateRange.from, "dd/MM/yyyy")} -{" "}
+                                {format(dateRange.to, "dd/MM/yyyy")}
+                              </>
+                            ) : (
+                              format(dateRange.from, "dd/MM/yyyy")
+                            )
                           ) : (
-                            format(dateRange.from, "dd/MM/yyyy")
-                          )
-                        ) : (
-                          <span>Selecione o período</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={dateRange?.from}
-                        selected={dateRange}
-                        onSelect={setDateRange}
-                        numberOfMonths={2}
-                        locale={ptBR}
-                      />
-                    </PopoverContent>
-                  </Popover>
-
-                  <div className="flex items-center gap-2 px-1">
-                    <Keyboard className="h-3.5 w-3.5 text-muted-foreground" />
-                    <div className="flex items-center gap-1">
-                      <Input
-                        placeholder="Início"
-                        value={rangeStartInput}
-                        onChange={handleRangeStartInputChange}
-                        className="h-8 text-xs w-28 text-center"
-                      />
-                      <span className="text-muted-foreground">/</span>
-                      <Input
-                        placeholder="Fim"
-                        value={rangeEndInput}
-                        onChange={handleRangeEndInputChange}
-                        className="h-8 text-xs w-28 text-center"
-                      />
-                    </div>
-                    <span className="text-xs text-muted-foreground italic hidden sm:inline">Digite o período (dd/mm/aaaa)</span>
+                            <span>Selecione o período</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          initialFocus
+                          mode="range"
+                          defaultMonth={dateRange?.from}
+                          selected={dateRange}
+                          onSelect={setDateRange}
+                          numberOfMonths={2}
+                          locale={ptBR}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowRangeInputs(!showRangeInputs)}
+                      className={showRangeInputs ? "bg-accent text-accent-foreground" : ""}
+                      title="Digitar período"
+                    >
+                      <Keyboard className="h-4 w-4" />
+                    </Button>
                   </div>
+
+                  {showRangeInputs && (
+                    <div className="flex items-center gap-2 px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="flex items-center gap-1">
+                        <Input
+                          placeholder="Início"
+                          value={rangeStartInput}
+                          onChange={handleRangeStartInputChange}
+                          className="h-8 text-xs w-28 text-center"
+                        />
+                        <span className="text-muted-foreground">/</span>
+                        <Input
+                          placeholder="Fim"
+                          value={rangeEndInput}
+                          onChange={handleRangeEndInputChange}
+                          className="h-8 text-xs w-28 text-center"
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground italic hidden sm:inline">Digite o período (dd/mm/aaaa)</span>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </Tabs>
