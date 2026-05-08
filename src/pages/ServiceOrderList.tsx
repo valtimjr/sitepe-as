@@ -262,7 +262,7 @@ const ServiceOrderList: React.FC = () => {
               className="w-full text-primary border-primary/20 hover:bg-primary/5"
             >
               <FileChartLine className="mr-2 h-4 w-4" />
-              Ver Relatório Geral (Admin/Moderador)
+              Relatório Geral
             </Button>
           </Link>
         </div>
