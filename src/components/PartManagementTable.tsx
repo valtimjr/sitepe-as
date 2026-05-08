@@ -71,6 +71,8 @@ const PartManagementTable: React.FC = () => {
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [parsedPartsToImport, setParsedPartsToImport] = useState<Part[]>([]);
   const [importLog, setImportLog] = useState<string[]>([]);
+  const [updateExistingParts, setUpdateExistingParts] = useState(true);
+  const [importStats, setImportStats] = useState({ newCount: 0, existingCount: 0 });
   
   // Novos estados para o mapeamento CSV
   const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false);
@@ -373,12 +375,27 @@ const PartManagementTable: React.FC = () => {
     });
     const deduplicatedParts = Array.from(partMap.values());
 
+    // Conta novas vs existentes
+    const existingCodes = new Set(allAvailableParts.map(p => p.codigo.toLowerCase().trim()));
+    let newCount = 0;
+    let existingCount = 0;
+
+    deduplicatedParts.forEach(part => {
+      if (existingCodes.has(part.codigo.toLowerCase().trim())) {
+        existingCount++;
+      } else {
+        newCount++;
+      }
+    });
+
+    setImportStats({ newCount, existingCount });
     setParsedPartsToImport(deduplicatedParts);
+    setUpdateExistingParts(true); // reset para padrão
+
     setImportLog([
       `Arquivo lido: ${currentImportFile}`, 
-      `Total de linhas extraídas: ${newParts.length}`,
-      `Peças prontas para importação: ${deduplicatedParts.length}`,
-      `*Aviso: O sistema evita duplicações verificando o Código. Peças já existentes com o mesmo código serão APENAS ATUALIZADAS com as novas informações.`
+      `Total de linhas com código/descrição: ${newParts.length}`,
+      `Peças prontas após deduplicação local: ${deduplicatedParts.length}`,
     ]);
     
     setIsMappingDialogOpen(false);
@@ -386,20 +403,25 @@ const PartManagementTable: React.FC = () => {
   };
 
   const confirmImport = async () => {
-    const newParts = parsedPartsToImport;
-    if (newParts.length === 0) {
-      showError('Nenhuma peça válida para importar.');
+    const existingCodes = new Set(allAvailableParts.map(p => p.codigo.toLowerCase().trim()));
+    
+    const finalPartsToImport = updateExistingParts 
+      ? parsedPartsToImport 
+      : parsedPartsToImport.filter(p => !existingCodes.has(p.codigo.toLowerCase().trim()));
+
+    if (finalPartsToImport.length === 0) {
+      showError('Nenhuma peça para importar com as opções selecionadas.');
       setIsImportConfirmOpen(false);
       return;
     }
 
-    const loadingToastId = showLoading('Importando peças e atualizando existentes...');
+    const loadingToastId = showLoading('Importando peças...');
     setImportLog(prev => [...prev, 'Enviando para o banco de dados...']);
 
     try {
-      await importParts(newParts, company);
-      setImportLog(prev => [...prev, `Sucesso: ${newParts.length} peças importadas/atualizadas.`]);
-      showSuccess(`${newParts.length} peças processadas com sucesso!`);
+      await importParts(finalPartsToImport, company);
+      setImportLog(prev => [...prev, `Sucesso: ${finalPartsToImport.length} peças processadas.`]);
+      showSuccess(`${finalPartsToImport.length} peças processadas com sucesso!`);
       loadParts(searchQuery, currentPage, company);
     } catch (error) {
       setImportLog(prev => [...prev, 'ERRO: Falha na importação.']);
@@ -866,25 +888,55 @@ const PartManagementTable: React.FC = () => {
             <AlertDialogDescription asChild>
               <div>
                 {parsedPartsToImport.length > 0 ? (
-                  <div className="mb-4 space-y-2">
-                    <p>Serão importadas/atualizadas <strong>{parsedPartsToImport.length} peças</strong>.</p>
-                    <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-3 rounded-md border border-blue-200 dark:border-blue-800 text-sm">
-                      <strong>Informação importante sobre duplicação:</strong> O sistema verifica automaticamente o <strong>Código</strong> da peça. Se a peça já existir no banco de dados, ela <strong>não será duplicada</strong>; em vez disso, seus dados (descrição, tags, nome) serão atualizados com as informações do arquivo CSV.
+                  <div className="mb-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-2 text-sm bg-muted/50 p-3 rounded-md border border-border">
+                      <div>
+                        <span className="font-bold text-lg text-green-600 block">{importStats.newCount}</span>
+                        <span className="text-muted-foreground font-medium">Peças não cadastradas (Novas)</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-lg text-blue-600 block">{importStats.existingCount}</span>
+                        <span className="text-muted-foreground font-medium">Peças já existentes</span>
+                      </div>
                     </div>
+
+                    {importStats.existingCount > 0 && (
+                      <div className="flex items-start space-x-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-3 rounded-md border border-blue-200 dark:border-blue-800/50">
+                        <Checkbox 
+                          id="update-existing" 
+                          checked={updateExistingParts} 
+                          onCheckedChange={(c) => setUpdateExistingParts(c === true)} 
+                          className="mt-1"
+                        />
+                        <div className="grid gap-1.5 leading-none">
+                          <label
+                            htmlFor="update-existing"
+                            className="text-sm font-medium leading-none cursor-pointer"
+                          >
+                            Atualizar informações de peças já existentes
+                          </label>
+                          <p className="text-xs opacity-80">
+                            Se marcado, os dados (descrição, tags, etc) das peças existentes serão substituídos pelos do CSV. <strong>Peças não serão duplicadas.</strong>
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="mb-4 text-destructive">Nenhuma peça válida encontrada.</p>
                 )}
-                <h4 className="font-semibold text-foreground mb-2">Log:</h4>
-                <ScrollArea className="h-40 w-full rounded-md border p-4 text-sm font-mono bg-muted/50">
-                  {importLog.map((line, i) => <p key={i} className="text-[0.8rem] text-muted-foreground">{line}</p>)}
+                <h4 className="font-semibold text-foreground mb-2">Log de processamento:</h4>
+                <ScrollArea className="h-28 w-full rounded-md border p-3 text-xs font-mono bg-muted/30">
+                  {importLog.map((line, i) => <p key={i} className="text-muted-foreground mb-1">{line}</p>)}
                 </ScrollArea>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => { setParsedPartsToImport([]); setImportLog([]); }}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmImport} disabled={parsedPartsToImport.length === 0}>Iniciar Importação</AlertDialogAction>
+            <AlertDialogAction onClick={confirmImport} disabled={parsedPartsToImport.length === 0 || (importStats.newCount === 0 && !updateExistingParts)}>
+              Iniciar Importação
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
