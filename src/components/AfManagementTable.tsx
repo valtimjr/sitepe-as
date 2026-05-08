@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download, MoreHorizontal, FileText } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download, MoreHorizontal, FileText, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson, getAllAfsForExport } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,45 +37,42 @@ import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { useCompany } from '@/context/CompanyContext';
-
-// Função auxiliar para obter valor de uma linha, ignorando case e variações
-const getRowValue = (row: any, keys: string[]): string | undefined => {
-  const lowerCaseRow = Object.keys(row).reduce((acc, key) => {
-    acc[key.toLowerCase()] = row[key];
-    return acc;
-  }, {} as { [key: string]: any });
-
-  for (const key of keys) {
-    const value = lowerCaseRow[key.toLowerCase()];
-    if (value !== undefined && value !== null) {
-      return String(value).trim();
-    }
-  }
-  return undefined;
-};
+import { supabase } from '@/integrations/supabase/client';
 
 const AfManagementTable: React.FC = () => {
   const { company, branding } = useCompany();
   const [afs, setAfs] = useState<Af[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(() => new Set());
   
-  // Novos estados para importação
+  // Estados para importação
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [parsedAfsToImport, setParsedAfsToImport] = useState<Af[]>([]);
   const [importLog, setImportLog] = useState<string[]>([]);
+  const [updateExistingAfs, setUpdateExistingAfs] = useState(true);
+  const [importStats, setImportStats] = useState({ newCount: 0, existingCount: 0 });
+  const [cachedExistingAfs, setCachedExistingAfs] = useState<Set<string>>(new Set());
+
+  // Novos estados para o mapeamento CSV
+  const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [rawCsvData, setRawCsvData] = useState<any[]>([]);
+  const [currentImportFile, setCurrentImportFile] = useState<string>('');
+  const [columnMapping, setColumnMapping] = useState({
+    af_number: '',
+    descricao: ''
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadAfs = useCallback(async () => {
-    console.time('AfManagementTable: loadAfs');
     setIsLoading(true);
     try {
       const fetchedAfs = await getAfsFromService(company);
@@ -83,7 +81,6 @@ const AfManagementTable: React.FC = () => {
       showError('Erro ao carregar AFs.');
     } finally {
       setIsLoading(false);
-      console.timeEnd('AfManagementTable: loadAfs');
     }
   }, [company]);
 
@@ -98,19 +95,17 @@ const AfManagementTable: React.FC = () => {
   });
 
   const handleAddAf = () => {
-    console.log('AfManagementTable: Abrindo formulário para adicionar novo AF.');
     setCurrentAf(null);
     setFormAfNumber('');
     setFormDescricao('');
-    setIsSheetOpen(true); // Abre o Sheet
+    setIsSheetOpen(true);
   };
 
   const handleEditAf = (af: Af) => {
-    console.log(`AfManagementTable: Abrindo formulário para editar AF com ID: ${af.id}`);
     setCurrentAf(af);
     setFormAfNumber(af.af_number);
     setFormDescricao(af.descricao || '');
-    setIsSheetOpen(true); // Abre o Sheet
+    setIsSheetOpen(true);
   };
 
   const handleDeleteAf = async (id: string) => {
@@ -134,7 +129,7 @@ const AfManagementTable: React.FC = () => {
     try {
       const payload: Omit<Af, 'id'> = {
         af_number: formAfNumber.trim(),
-        descricao: formDescricao.trim(), // Garante que descricao é sempre uma string
+        descricao: formDescricao.trim(),
       };
 
       if (currentAf) {
@@ -147,7 +142,7 @@ const AfManagementTable: React.FC = () => {
         await addAf(payload, company);
         showSuccess('AF adicionado com sucesso!');
       }
-      setIsSheetOpen(false); // Fecha o Sheet
+      setIsSheetOpen(false);
       loadAfs();
     } catch (error) {
       showError('Erro ao salvar AF.');
@@ -182,7 +177,7 @@ const AfManagementTable: React.FC = () => {
     }
     try {
       await Promise.all(Array.from(selectedAfIds).map(id => deleteAf(id, company)));
-      showSuccess(`${selectedAfIds?.size ?? 0} AFs excluídos com sucesso!`);
+      showSuccess(`${selectedAfIds.size} AFs excluídos com sucesso!`);
       setSelectedAfIds(new Set());
       loadAfs();
     } catch (error) {
@@ -191,102 +186,185 @@ const AfManagementTable: React.FC = () => {
   };
 
   const handleImportCsv = () => {
-    // Aciona o clique no input de arquivo oculto
     fileInputRef.current?.click();
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
+    setCurrentImportFile(file.name);
     const reader = new FileReader();
     
     reader.onload = (e) => {
       const csvText = e.target?.result as string;
       
+      if (!csvText.trim()) {
+        showError("O arquivo CSV está vazio.");
+        return;
+      }
+
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
-          const parsedData = results.data as any[];
-          
-          let newAfs: Af[] = parsedData.map(row => {
-            const afNumber = getRowValue(row, ['af_number', 'codigo', 'AF']);
-            // CHAVES DE BUSCA ATUALIZADAS
-            const descricao = getRowValue(row, ['descricao', 'descrição', 'description', 'desc']) || ''; // Garante que descricao é sempre uma string
-            
-            if (!afNumber) return null;
-
-            return {
-              id: getRowValue(row, ['id']) || uuidv4(),
-              af_number: afNumber,
-              descricao: descricao, // Atribui a string (pode ser vazia)
-            };
-          }).filter((af): af is Af => af !== null);
-
-          if (newAfs.length === 0) {
-            showError('Nenhum dado válido encontrado no arquivo CSV.');
+          const headers = results.meta.fields || [];
+          if (headers.length === 0) {
+            showError("Não foi possível identificar os cabeçalhos do CSV.");
             return;
           }
           
-          // --- Lógica de Deduplicação ---
-          const afMap = new Map<string, Af>();
-          newAfs.forEach(af => {
-            // A última ocorrência de um AF_NUMBER no CSV prevalece
-            afMap.set(af.af_number, af);
-          });
-          const deduplicatedAfs = Array.from(afMap.values());
-          // --- Fim da Lógica de Deduplicação ---
-
-          setParsedAfsToImport(deduplicatedAfs);
-          setImportLog([
-            `Arquivo lido: ${file.name}`, 
-            `Total de linhas válidas encontradas: ${newAfs.length}`,
-            `AFs únicos prontos para importação: ${deduplicatedAfs.length}`
-          ]);
-          setIsImportConfirmOpen(true);
-
+          setCsvHeaders(headers);
+          setRawCsvData(results.data);
+          
+          // Tenta mapear automaticamente baseado em nomes comuns
+          const autoMap = {
+            af_number: headers.find(h => ['af_number', 'af', 'codigo', 'código', 'id', 'numero'].includes(h.toLowerCase().trim())) || '',
+            descricao: headers.find(h => ['descricao', 'descrição', 'description', 'desc'].includes(h.toLowerCase().trim())) || '',
+          };
+          
+          setColumnMapping(autoMap);
+          setIsMappingDialogOpen(true);
         },
         error: (error: any) => {
-          showError('Erro ao analisar o arquivo CSV.');
+          showError(`Erro ao ler CSV: ${error.message}`);
         }
       });
     };
 
     reader.onerror = () => {
-      showError('Erro ao ler o arquivo.');
+      showError("Erro ao ler o arquivo.");
     };
 
     reader.readAsText(file);
 
-    // Limpa o input para permitir a importação do mesmo arquivo novamente
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const confirmImport = async () => {
-    const newAfs = parsedAfsToImport;
-    const loadingToastId = showLoading('Importando e sincronizando AFs...');
-    setImportLog(prev => [...prev, 'Iniciando importação para o banco de dados...']);
-    console.time('AfManagementTable: confirmImport');
+  const handleApplyMapping = async () => {
+    if (!columnMapping.af_number) {
+      showError("É obrigatório mapear a coluna de 'Número do AF'.");
+      return;
+    }
+
+    const loadingToastId = showLoading('Verificando AFs existentes no banco...');
 
     try {
-      await importAfs(newAfs, company);
-      setImportLog(prev => [...prev, `Sucesso: ${newAfs.length} AFs importados/atualizados.`]);
-      showSuccess(`${newAfs.length} AFs importados/atualizados com sucesso!`);
+      // Busca todos os AFs paginando de 1000 em 1000
+      const existingAfs = new Set<string>();
+      let from = 0;
+      const step = 1000;
+      let fetchMore = true;
+      const tableName = company === 'citrosuco' ? 'afs_citrosuco' : 'afs';
+
+      while (fetchMore) {
+        const { data, error } = await supabase
+          .from(tableName)
+          .select('af_number')
+          .range(from, from + step - 1);
+
+        if (error) {
+          console.error("Erro ao buscar AFs:", error);
+          throw error;
+        }
+
+        if (data && data.length > 0) {
+          data.forEach(item => {
+            if (item.af_number) existingAfs.add(item.af_number.toLowerCase().trim());
+          });
+          from += step;
+          if (data.length < step) {
+            fetchMore = false;
+          }
+        } else {
+          fetchMore = false;
+        }
+      }
+
+      setCachedExistingAfs(existingAfs);
+
+      // Extrai os AFs baseados no mapeamento
+      let newAfs: Af[] = rawCsvData.map((row) => {
+        const afNumber = row[columnMapping.af_number]?.trim();
+        const descricao = columnMapping.descricao ? row[columnMapping.descricao]?.trim() : '';
+        
+        if (!afNumber) return null;
+
+        return {
+          id: row.id || uuidv4(),
+          af_number: afNumber,
+          descricao: descricao || '',
+        };
+      }).filter((af): af is Af => af !== null);
+
+      // Deduplicação no arquivo antes de importar
+      const afMap = new Map<string, Af>();
+      newAfs.forEach(af => {
+        afMap.set(af.af_number.toLowerCase().trim(), af);
+      });
+      const deduplicatedAfs = Array.from(afMap.values());
+
+      let newCount = 0;
+      let existingCount = 0;
+
+      deduplicatedAfs.forEach(af => {
+        if (existingAfs.has(af.af_number.toLowerCase().trim())) {
+          existingCount++;
+        } else {
+          newCount++;
+        }
+      });
+
+      setImportStats({ newCount, existingCount });
+      setParsedAfsToImport(deduplicatedAfs);
+      setUpdateExistingAfs(true); // reset para padrão
+
+      setImportLog([
+        `Arquivo lido: ${currentImportFile}`, 
+        `Total de linhas com número de AF válido: ${newAfs.length}`,
+        `Total de AFs únicos encontrados no CSV: ${deduplicatedAfs.length}`,
+        `AFs totais no banco para cruzamento: ${existingAfs.size}`,
+      ]);
+      
+      setIsMappingDialogOpen(false);
+      setTimeout(() => setIsImportConfirmOpen(true), 300);
+    } catch (error) {
+      showError("Erro ao processar mapeamento das colunas.");
+    } finally {
+      dismissToast(loadingToastId);
+    }
+  };
+
+  const confirmImport = async () => {
+    // Filtra os AFs baseado na escolha do usuário
+    const finalAfsToImport = updateExistingAfs 
+      ? parsedAfsToImport 
+      : parsedAfsToImport.filter(af => !cachedExistingAfs.has(af.af_number.toLowerCase().trim()));
+
+    if (finalAfsToImport.length === 0) {
+      showError('Nenhum AF para importar com as opções selecionadas.');
+      setIsImportConfirmOpen(false);
+      return;
+    }
+
+    const loadingToastId = showLoading(`Processando ${finalAfsToImport.length} AFs...`);
+    setImportLog(prev => [...prev, 'Enviando para o banco de dados...']);
+
+    try {
+      await importAfs(finalAfsToImport, company);
+      setImportLog(prev => [...prev, `Sucesso: ${finalAfsToImport.length} AFs importados/atualizados.`]);
+      showSuccess(`${finalAfsToImport.length} AFs processados com sucesso!`);
       loadAfs();
     } catch (error) {
-      setImportLog(prev => [...prev, 'ERRO: Falha na importação para o Supabase.']);
-      showError('Erro ao importar AFs do CSV. Verifique o log.');
+      setImportLog(prev => [...prev, 'ERRO: Falha na importação.']);
+      showError('Erro ao importar AFs do CSV.');
     } finally {
       dismissToast(loadingToastId);
       setIsImportConfirmOpen(false);
       setParsedAfsToImport([]);
-      console.timeEnd('AfManagementTable: confirmImport');
     }
   };
 
@@ -295,21 +373,12 @@ const AfManagementTable: React.FC = () => {
     let loadingToastId: string | number | undefined;
     try {
       loadingToastId = showLoading('Preparando exportação de AFs...');
-      console.time('AfManagementTable: exportDataAsCsv');
       if (selectedAfIds.size > 0) {
         dataToExport = afs.filter(af => selectedAfIds.has(af.id));
-        if (dataToExport.length === 0) {
-          showError('Nenhum AF selecionado para exportar.');
-          return;
-        }
         exportDataAsCsv(dataToExport, 'afs_selecionados.csv');
         showSuccess(`${dataToExport.length} AFs selecionados exportados para CSV com sucesso!`);
       } else {
         dataToExport = await getAllAfsForExport(company);
-        if (dataToExport.length === 0) {
-          showError('Nenhum AF para exportar.');
-          return;
-        }
         exportDataAsCsv(dataToExport, `todos_afs_${company}.csv`);
         showSuccess('Todos os AFs exportados para CSV com sucesso!');
       }
@@ -317,7 +386,6 @@ const AfManagementTable: React.FC = () => {
       showError('Erro ao exportar AFs.');
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
-      console.timeEnd('AfManagementTable: exportDataAsCsv');
     }
   };
 
@@ -326,21 +394,12 @@ const AfManagementTable: React.FC = () => {
     let loadingToastId: string | number | undefined;
     try {
       loadingToastId = showLoading('Preparando exportação de AFs...');
-      console.time('AfManagementTable: exportDataAsJson');
       if (selectedAfIds.size > 0) {
         dataToExport = afs.filter(af => selectedAfIds.has(af.id));
-        if (dataToExport.length === 0) {
-          showError('Nenhum AF selecionado para exportar.');
-          return;
-        }
         exportDataAsJson(dataToExport, 'afs_selecionados.json');
         showSuccess(`${dataToExport.length} AFs selecionados exportados para JSON com sucesso!`);
       } else {
         dataToExport = await getAllAfsForExport(company);
-        if (dataToExport.length === 0) {
-          showError('Nenhum AF para exportar.');
-          return;
-        }
         exportDataAsJson(dataToExport, `todos_afs_${company}.json`);
         showSuccess('Todos os AFs exportados para JSON com sucesso!');
       }
@@ -348,7 +407,6 @@ const AfManagementTable: React.FC = () => {
       showError('Erro ao exportar AFs.');
     } finally {
       if (loadingToastId) dismissToast(loadingToastId);
-      console.timeEnd('AfManagementTable: exportDataAsJson');
     }
   };
 
@@ -364,7 +422,7 @@ const AfManagementTable: React.FC = () => {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" className="flex items-center gap-2">
-                  <Trash2 className="h-4 w-4" /> Excluir Selecionados ({selectedAfIds.size})
+                  <Trash2 className="h-4 w-4" /> Excluir ({selectedAfIds.size})
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -388,7 +446,7 @@ const AfManagementTable: React.FC = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={handleImportCsv}>
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleImportCsv(); }}>
                 <Upload className="h-4 w-4 mr-2" /> Importar CSV
               </DropdownMenuItem>
               <DropdownMenuSub>
@@ -412,13 +470,12 @@ const AfManagementTable: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
-        {/* Input de arquivo oculto movido para fora do DropdownMenu para melhor acessibilidade */}
         <input
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
           accept=".csv"
-          className="hidden"
+          style={{ position: 'absolute', left: '-9999px' }}
         />
         
         <div className="relative mb-4">
@@ -433,11 +490,11 @@ const AfManagementTable: React.FC = () => {
         </div>
 
         {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Carregando AFs...</p>
+          <p className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></p>
         ) : filteredAfs.length === 0 && searchQuery.length > 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhuma AF encontrada para "{searchQuery}".</p>
+          <p className="text-center text-muted-foreground py-8">Nenhum AF encontrado para "{searchQuery}".</p>
         ) : filteredAfs.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhuma AF cadastrada para esta empresa.</p>
+          <p className="text-center text-muted-foreground py-8">Nenhum AF cadastrado para esta empresa.</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -483,9 +540,52 @@ const AfManagementTable: React.FC = () => {
         )}
       </CardContent>
 
+      {/* Dialog para Mapeamento CSV */}
+      <Dialog open={isMappingDialogOpen} onOpenChange={setIsMappingDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Mapear Colunas do CSV</DialogTitle>
+            <DialogDescription>
+              Selecione as colunas do seu arquivo correspondentes aos campos do sistema.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="map-af-number" className="text-right font-bold text-xs">Nº do AF *</Label>
+              <select
+                id="map-af-number"
+                value={columnMapping.af_number}
+                onChange={(e) => setColumnMapping({...columnMapping, af_number: e.target.value})}
+                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Selecione a coluna...</option>
+                {csvHeaders.map(h => <option key={`af-${h}`} value={h}>{h}</option>)}
+              </select>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="map-descricao" className="text-right text-xs">Descrição</Label>
+              <select
+                id="map-descricao"
+                value={columnMapping.descricao}
+                onChange={(e) => setColumnMapping({...columnMapping, descricao: e.target.value})}
+                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Nenhuma (Opcional)</option>
+                {csvHeaders.map(h => <option key={`desc-${h}`} value={h}>{h}</option>)}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMappingDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleApplyMapping}>Confirmar Mapeamento</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Sheet de Edição/Adição */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md"> {/* SheetContent com side="right" */}
+        <SheetContent side="right" className="sm:max-w-md">
           <SheetHeader>
             <SheetTitle>{currentAf ? 'Editar AF' : 'Adicionar Novo AF'}</SheetTitle>
           </SheetHeader>
@@ -514,7 +614,7 @@ const AfManagementTable: React.FC = () => {
                 className="col-span-3"
               />
             </div>
-            <SheetFooter> {/* SheetFooter para botões */}
+            <SheetFooter>
               <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
@@ -531,17 +631,52 @@ const AfManagementTable: React.FC = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" /> Confirmar Importação de AFs
+              <FileText className="h-5 w-5" /> Importar AFs
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div> {/* Usando div para corrigir o aninhamento de DOM */}
-                <p className="mb-4">
-                  Você está prestes a importar {parsedAfsToImport.length} AFs para {branding.name}. Isso irá atualizar os AFs existentes com o mesmo AF ou criar novos.
-                </p>
+              <div>
+                {parsedAfsToImport.length > 0 ? (
+                  <div className="mb-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-2 text-sm bg-muted/50 p-3 rounded-md border border-border">
+                      <div>
+                        <span className="font-bold text-lg text-green-600 block">{importStats.newCount}</span>
+                        <span className="text-muted-foreground font-medium">AFs não cadastrados (Novos)</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-lg text-blue-600 block">{importStats.existingCount}</span>
+                        <span className="text-muted-foreground font-medium">AFs já existentes</span>
+                      </div>
+                    </div>
+
+                    {importStats.existingCount > 0 && (
+                      <div className="flex items-start space-x-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-3 rounded-md border border-blue-200 dark:border-blue-800/50">
+                        <Checkbox 
+                          id="update-existing" 
+                          checked={updateExistingAfs} 
+                          onCheckedChange={(c) => setUpdateExistingAfs(c === true)} 
+                          className="mt-1"
+                        />
+                        <div className="grid gap-1.5 leading-none">
+                          <label
+                            htmlFor="update-existing"
+                            className="text-sm font-medium leading-none cursor-pointer"
+                          >
+                            Atualizar informações de AFs já existentes
+                          </label>
+                          <p className="text-xs opacity-80 mt-1">
+                            Se marcado, a descrição dos AFs existentes será substituída pela do CSV. <strong>AFs não serão duplicados.</strong>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="mb-4 text-destructive">Nenhum AF válido encontrado.</p>
+                )}
                 <h4 className="font-semibold text-foreground mb-2">Log de Processamento:</h4>
-                <ScrollArea className="h-40 w-full rounded-md border p-4 text-sm font-mono bg-muted/50">
+                <ScrollArea className="h-28 w-full rounded-md border p-3 text-xs font-mono bg-muted/30">
                   {importLog.map((line, index) => (
-                    <p key={index} className="text-[0.8rem] text-muted-foreground whitespace-pre-wrap">
+                    <p key={index} className="text-muted-foreground mb-1">
                       {line}
                     </p>
                   ))}
@@ -556,7 +691,7 @@ const AfManagementTable: React.FC = () => {
             }}>
               Cancelar
             </AlertDialogCancel>
-            <AlertDialogAction onClick={confirmImport}>
+            <AlertDialogAction onClick={confirmImport} disabled={parsedAfsToImport.length === 0 || (importStats.newCount === 0 && !updateExistingAfs)}>
               Confirmar Importação
             </AlertDialogAction>
           </AlertDialogFooter>
