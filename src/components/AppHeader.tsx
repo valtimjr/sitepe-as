@@ -188,12 +188,6 @@ const AppHeader: React.FC = () => {
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
           
-          <img
-            src={branding.logo}
-            alt={branding.name}
-            className="h-10 w-10 ml-2 object-contain rounded-lg border border-border/50 p-1"
-          />
-
           {!isLoginPage && (
             <DropdownMenu>
               <Tooltip>
