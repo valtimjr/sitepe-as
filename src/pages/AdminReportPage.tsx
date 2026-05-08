@@ -18,7 +18,9 @@ import {
   Keyboard,
   Check,
   ChevronsUpDown,
-  Search
+  Search,
+  Briefcase,
+  Clock
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -65,6 +67,8 @@ interface UserProfile {
   last_name: string | null;
   role: string;
   badge: string | null;
+  profession: string | null;
+  shift: string | null;
 }
 
 // Helper to calculate duration in minutes
@@ -118,7 +122,12 @@ const AdminReportPage = () => {
     from: startOfMonth(new Date()),
     to: new Date(),
   });
+  
+  // Filters
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
+  const [selectedProfession, setSelectedProfession] = useState<string>('all');
+  const [selectedShift, setSelectedShift] = useState<string>('all');
+  
   const [openUserSelect, setOpenUserSelect] = useState(false);
   const [singleDateInput, setSingleDateInput] = useState(format(new Date(), 'dd/MM/yyyy'));
   const [rangeStartInput, setRangeStartInput] = useState(format(startOfMonth(new Date()), 'dd/MM/yyyy'));
@@ -126,14 +135,12 @@ const AdminReportPage = () => {
   const [showRangeInputs, setShowRangeInputs] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [allData, setAllData] = useState<any[]>([]); // To store records from the month for charts
+  const [allData, setAllData] = useState<any[]>([]); 
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
 
-  // Redirect if not admin
   useEffect(() => {
     if (!loading && !isAdmin) {
-      console.log("[AdminReportPage] Unauthorized access attempt:", profile?.role);
       showError('Acesso negado: Esta página é restrita a administradores e moderadores.');
       navigate(`/${company}`);
     }
@@ -145,22 +152,16 @@ const AdminReportPage = () => {
       setLoading(true);
 
       try {
-        // 1. Fetch all users including badge
-        console.log("[AdminReportPage] Fetching users as", user.id);
+        // 1. Fetch all users with profile details
         const { data: userData, error: userError } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, role, badge');
+          .select('id, first_name, last_name, role, badge, profession, shift');
         
-        if (userError) {
-          console.error("[AdminReportPage] Error fetching users:", userError);
-          throw userError;
-        }
-        console.log("[AdminReportPage] Found users:", userData?.length, userData);
+        if (userError) throw userError;
         setUsers(userData || []);
 
-        // 2. Fetch all service orders for the range across ALL users
+        // 2. Fetch all service orders for the range
         let start, end;
-        
         if (dateMode === 'single') {
           start = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
           end = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
@@ -169,29 +170,15 @@ const AdminReportPage = () => {
           end = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
         }
 
-        console.log("[AdminReportPage] Fetching orders for range", start, "to", end);
-        
-        // Use a more direct query to ensure we aren't being limited by any client-side defaults
         const { data: records, error: recordError } = await supabase
           .from('daily_service_orders')
           .select('*')
           .gte('date', start)
           .lte('date', end);
 
-        if (recordError) {
-          console.error("[AdminReportPage] Error fetching records:", recordError);
-          throw recordError;
-        }
-
-        console.log("[AdminReportPage] Total records fetched from DB:", records?.length);
-        
-        // Log all unique companies found in the records to debug filtering
-        const companiesFound = [...new Set((records || []).map(r => r.company))];
-        console.log("[AdminReportPage] Companies found in results:", companiesFound);
+        if (recordError) throw recordError;
         
         const filteredRecords = (records || []).filter(r => r.company === company);
-        console.log("[AdminReportPage] Records matching current company (" + company + "):", filteredRecords.length);
-        
         setAllData(filteredRecords);
 
       } catch (err) {
@@ -205,19 +192,39 @@ const AdminReportPage = () => {
     fetchData();
   }, [selectedDate, dateRange, dateMode, company, user]);
 
-  // Daily/Range Data for Donut Chart (Selected Date/Range + Filtered by User)
+  // Helper to check if a record matches filters
+  const matchesFilters = (record: any) => {
+    const userProfile = users.find(u => u.id === record.user_id);
+    
+    // User ID Filter
+    if (selectedUserId !== 'all' && record.user_id !== selectedUserId) return false;
+    
+    // Profession Filter
+    if (selectedProfession !== 'all') {
+      if (!userProfile || userProfile.profession !== selectedProfession) return false;
+    }
+    
+    // Shift Filter
+    if (selectedShift !== 'all') {
+      if (!userProfile || userProfile.shift !== selectedShift) return false;
+    }
+    
+    return true;
+  };
+
+  // Daily/Range Data for Donut Chart
   const dailyChartData = useMemo(() => {
     let periodRecords;
     if (dateMode === 'single') {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      periodRecords = allData.filter(r => r.date === dateStr && (selectedUserId === 'all' || r.user_id === selectedUserId));
+      periodRecords = allData.filter(r => r.date === dateStr && matchesFilters(r));
     } else {
       periodRecords = allData.filter(r => {
         const recordDate = parseISO(r.date);
         const isInRange = dateRange?.from && dateRange?.to
           ? isWithinInterval(recordDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })
           : true;
-        return isInRange && (selectedUserId === 'all' || r.user_id === selectedUserId);
+        return isInRange && matchesFilters(r);
       });
     }
     
@@ -229,7 +236,6 @@ const AdminReportPage = () => {
         osList.forEach(os => {
           if (os.hora_inicio && os.hora_final) {
             const duration = calculateDuration(os.hora_inicio, os.hora_final);
-            // Prioritize AF over OS for the chart identification
             const key = os.af || os.os || 'Sem ID';
             
             if (osDataMap.has(key)) {
@@ -250,11 +256,11 @@ const AdminReportPage = () => {
     });
 
     return Array.from(osDataMap.values());
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId]);
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfession, selectedShift, users]);
 
   const totalDailyMinutes = dailyChartData.reduce((acc, curr) => acc + curr.value, 0);
 
-  // Monthly/Range Data for Bar Chart (Filtered by User)
+  // Monthly/Range Data for Bar Chart
   const monthlyChartData = useMemo(() => {
     const daysMap = new Map<string, number>();
     
@@ -272,12 +278,11 @@ const AdminReportPage = () => {
     }
 
     const daysInInterval = eachDayOfInterval(interval);
-
     daysInInterval.forEach(day => {
       daysMap.set(format(day, 'yyyy-MM-dd'), 0);
     });
 
-    allData.filter(r => selectedUserId === 'all' || r.user_id === selectedUserId).forEach(record => {
+    allData.filter(r => matchesFilters(r)).forEach(record => {
       const osList = record.os_list as any[];
       if (Array.isArray(osList)) {
         const dayMinutes = osList.reduce((acc, os) => acc + calculateDuration(os.hora_inicio, os.hora_final), 0);
@@ -294,27 +299,25 @@ const AdminReportPage = () => {
       minutes,
       hours: Number((minutes / 60).toFixed(1))
     }));
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId]);
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfession, selectedShift, users]);
 
   const totalMonthlyMinutes = monthlyChartData.reduce((acc, curr) => acc + curr.minutes, 0);
 
-  // Filtered List of OS for Display (Selected Date/Range + Filtered by User)
+  // Filtered List of OS for Display
   const filteredOSList = useMemo(() => {
     let periodRecords;
     if (dateMode === 'single') {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      periodRecords = allData.filter(r => r.date === dateStr && (selectedUserId === 'all' || r.user_id === selectedUserId));
+      periodRecords = allData.filter(r => r.date === dateStr && matchesFilters(r));
     } else {
       periodRecords = allData.filter(r => {
         const recordDate = parseISO(r.date);
         const isInRange = dateRange?.from && dateRange?.to
           ? isWithinInterval(recordDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })
           : true;
-        return isInRange && (selectedUserId === 'all' || r.user_id === selectedUserId);
+        return isInRange && matchesFilters(r);
       });
     }
-    
-    console.log("[AdminReportPage] Filtering list. Mode:", dateMode, "SelectedUser:", selectedUserId, "Records found:", periodRecords.length);
     
     const osList: (ServiceOrderData & { userDisplayName: string; recordDate: string })[] = [];
     periodRecords.forEach(record => {
@@ -332,17 +335,18 @@ const AdminReportPage = () => {
     });
 
     return osList.sort((a, b) => b.recordDate.localeCompare(a.recordDate));
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, users]);
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfession, selectedShift, users]);
 
   const handlePrevDay = () => {
-    const newDate = new Date(selectedDate.setDate(selectedDate.getDate() - 1));
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() - 1);
     setSelectedDate(newDate);
-    setSingleDateInput(format(newDate, 'dd/MM/yyyy'));
   };
+  
   const handleNextDay = () => {
-    const newDate = new Date(selectedDate.setDate(selectedDate.getDate() + 1));
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + 1);
     setSelectedDate(newDate);
-    setSingleDateInput(format(newDate, 'dd/MM/yyyy'));
   };
 
   const handleSingleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -350,9 +354,7 @@ const AdminReportPage = () => {
     setSingleDateInput(value);
     if (value.length === 10) {
       const parsedDate = parse(value, 'dd/MM/yyyy', new Date());
-      if (isValid(parsedDate)) {
-        setSelectedDate(parsedDate);
-      }
+      if (isValid(parsedDate)) setSelectedDate(parsedDate);
     }
   };
 
@@ -361,9 +363,7 @@ const AdminReportPage = () => {
     setRangeStartInput(value);
     if (value.length === 10) {
       const parsedDate = parse(value, 'dd/MM/yyyy', new Date());
-      if (isValid(parsedDate)) {
-        setDateRange(prev => ({ from: parsedDate, to: prev?.to }));
-      }
+      if (isValid(parsedDate)) setDateRange(prev => ({ from: parsedDate, to: prev?.to }));
     }
   };
 
@@ -372,16 +372,12 @@ const AdminReportPage = () => {
     setRangeEndInput(value);
     if (value.length === 10) {
       const parsedDate = parse(value, 'dd/MM/yyyy', new Date());
-      if (isValid(parsedDate)) {
-        setDateRange(prev => ({ from: prev?.from, to: parsedDate }));
-      }
+      if (isValid(parsedDate)) setDateRange(prev => ({ from: prev?.from, to: parsedDate }));
     }
   };
 
   useEffect(() => {
-    if (dateMode === 'single') {
-      setSingleDateInput(format(selectedDate, 'dd/MM/yyyy'));
-    }
+    if (dateMode === 'single') setSingleDateInput(format(selectedDate, 'dd/MM/yyyy'));
   }, [selectedDate, dateMode]);
 
   useEffect(() => {
@@ -435,21 +431,12 @@ const AdminReportPage = () => {
                   
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        className="flex-1 text-center font-bold text-lg hover:bg-accent hover:text-accent-foreground"
-                      >
+                      <Button variant="ghost" className="flex-1 text-center font-bold text-lg hover:bg-accent">
                         {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="center">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={(date) => date && setSelectedDate(date)}
-                        initialFocus
-                        locale={ptBR}
-                      />
+                      <Calendar mode="single" selected={selectedDate} onSelect={(d) => d && setSelectedDate(d)} locale={ptBR} />
                     </PopoverContent>
                   </Popover>
 
@@ -464,68 +451,22 @@ const AdminReportPage = () => {
                   <div className="flex gap-2">
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button
-                          id="date"
-                          variant={"outline"}
-                          className="flex-1 justify-start text-left font-normal"
-                        >
+                        <Button variant={"outline"} className="flex-1 justify-start text-left font-normal">
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {dateRange?.from ? (
-                            dateRange.to ? (
-                              <>
-                                {format(dateRange.from, "dd/MM/yyyy")} -{" "}
-                                {format(dateRange.to, "dd/MM/yyyy")}
-                              </>
-                            ) : (
-                              format(dateRange.from, "dd/MM/yyyy")
-                            )
-                          ) : (
-                            <span>Selecione o período</span>
-                          )}
+                          {dateRange?.from ? (dateRange.to ? `${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}` : format(dateRange.from, "dd/MM/yyyy")) : <span>Selecione o período</span>}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          initialFocus
-                          mode="range"
-                          defaultMonth={dateRange?.from}
-                          selected={dateRange}
-                          onSelect={setDateRange}
-                          numberOfMonths={2}
-                          locale={ptBR}
-                        />
+                        <Calendar mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={ptBR} />
                       </PopoverContent>
                     </Popover>
-                    
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setShowRangeInputs(!showRangeInputs)}
-                      className={showRangeInputs ? "bg-accent text-accent-foreground" : ""}
-                      title="Digitar período"
-                    >
-                      <Keyboard className="h-4 w-4" />
-                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => setShowRangeInputs(!showRangeInputs)} className={showRangeInputs ? "bg-accent" : ""}><Keyboard className="h-4 w-4" /></Button>
                   </div>
-
                   {showRangeInputs && (
-                    <div className="flex items-center gap-2 px-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                      <div className="flex items-center gap-1">
-                        <Input
-                          placeholder="Início"
-                          value={rangeStartInput}
-                          onChange={handleRangeStartInputChange}
-                          className="h-8 text-xs w-28 text-center"
-                        />
-                        <span className="text-muted-foreground">/</span>
-                        <Input
-                          placeholder="Fim"
-                          value={rangeEndInput}
-                          onChange={handleRangeEndInputChange}
-                          className="h-8 text-xs w-28 text-center"
-                        />
-                      </div>
-                      <span className="text-xs text-muted-foreground italic hidden sm:inline">Digite o período (dd/mm/aaaa)</span>
+                    <div className="flex items-center gap-2 px-1 animate-in fade-in slide-in-from-top-1">
+                      <Input placeholder="Início" value={rangeStartInput} onChange={handleRangeStartInputChange} className="h-8 text-xs w-28 text-center" />
+                      <span className="text-muted-foreground">/</span>
+                      <Input placeholder="Fim" value={rangeEndInput} onChange={handleRangeEndInputChange} className="h-8 text-xs w-28 text-center" />
                     </div>
                   )}
                 </div>
@@ -534,80 +475,90 @@ const AdminReportPage = () => {
           </CardContent>
         </Card>
 
-        {/* User Selector */}
+        {/* Global Filters */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <UserIcon className="h-4 w-4" /> Filtrar por Usuário
+              <Search className="h-4 w-4" /> Filtros Adicionais
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={openUserSelect}
-                  className="w-full justify-between font-normal"
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <Search className="h-4 w-4 opacity-50" />
-                    {selectedUserId === "all"
-                      ? "Todos os usuários"
-                      : users.find((u) => u.id === selectedUserId)
-                        ? `${users.find((u) => u.id === selectedUserId)?.badge ? users.find((u) => u.id === selectedUserId)?.badge + ' - ' : ''}${users.find((u) => u.id === selectedUserId)?.first_name} ${users.find((u) => u.id === selectedUserId)?.last_name || ''}`
-                        : "Selecionar usuário..."}
-                  </div>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Buscar por nome ou crachá..." />
-                  <CommandList>
-                    <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
-                    <CommandGroup>
-                      <CommandItem
-                        value="all-users-todos"
-                        onSelect={() => {
-                          setSelectedUserId("all");
-                          setOpenUserSelect(false);
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            selectedUserId === "all" ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        Todos os usuários
-                      </CommandItem>
-                      {users.map((u) => (
-                        <CommandItem
-                          key={u.id}
-                          value={`${u.badge || ''} ${u.first_name} ${u.last_name || ''}`}
-                          onSelect={() => {
-                            setSelectedUserId(u.id);
-                            setOpenUserSelect(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedUserId === u.id ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          <div className="flex flex-col">
-                            <span>{u.badge ? `${u.badge} - ` : ''}{u.first_name} {u.last_name || ''}</span>
-                            <span className="text-xs text-muted-foreground">{u.role}</span>
-                          </div>
+          <CardContent className="space-y-4">
+            {/* User Select */}
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                <UserIcon className="h-3 w-3" /> Usuário
+              </label>
+              <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9">
+                    <div className="flex items-center gap-2 truncate">
+                      {selectedUserId === "all" ? "Todos os usuários" : users.find((u) => u.id === selectedUserId)?.first_name + ' ' + (users.find((u) => u.id === selectedUserId)?.last_name || '')}
+                    </div>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar por nome ou crachá..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem onSelect={() => { setSelectedUserId("all"); setOpenUserSelect(false); }}>
+                          <Check className={cn("mr-2 h-4 w-4", selectedUserId === "all" ? "opacity-100" : "opacity-0")} />
+                          Todos os usuários
                         </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                        {users.map((u) => (
+                          <CommandItem key={u.id} onSelect={() => { setSelectedUserId(u.id); setOpenUserSelect(false); }}>
+                            <Check className={cn("mr-2 h-4 w-4", selectedUserId === u.id ? "opacity-100" : "opacity-0")} />
+                            <div className="flex flex-col">
+                              <span>{u.badge ? `${u.badge} - ` : ''}{u.first_name} {u.last_name || ''}</span>
+                              <span className="text-xs text-muted-foreground">{u.profession || 'Sem profissão'} • {u.shift || 'Sem turno'}</span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Profession Select */}
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                  <Briefcase className="h-3 w-3" /> Profissão
+                </label>
+                <Select value={selectedProfession} onValueChange={setSelectedProfession}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Profissão" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="eletricista">Eletricista</SelectItem>
+                    <SelectItem value="mecanico">Mecânico</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Shift Select */}
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> Turno
+                </label>
+                <Select value={selectedShift} onValueChange={setSelectedShift}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Turno" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="Turno A">Turno A</SelectItem>
+                    <SelectItem value="Turno B">Turno B</SelectItem>
+                    <SelectItem value="Turno C">Turno C</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -625,29 +576,14 @@ const AdminReportPage = () => {
               {dailyChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
-                      data={dailyChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={renderCustomPieLabel}
-                      labelLine={false}
-                    >
-                      {dailyChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
+                    <Pie data={dailyChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value" label={renderCustomPieLabel} labelLine={false}>
+                      {dailyChartData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                     </Pie>
-
                     <RechartsTooltip formatter={(value: number) => formatDuration(value)} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground text-sm italic">
-                  Sem dados para este {dateMode === 'single' ? 'dia' : 'período'}
-                </div>
+                <div className="h-full flex items-center justify-center text-muted-foreground text-sm italic">Sem dados para este filtro</div>
               )}
               {dailyChartData.length > 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -673,10 +609,7 @@ const AdminReportPage = () => {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="day" />
                   <YAxis tickFormatter={(val) => `${Math.floor(val / 60)}h`} />
-                  <RechartsTooltip
-                    formatter={(value: number) => [formatDuration(value), 'Tempo']}
-                    labelFormatter={(label) => `Dia ${label}`}
-                  />
+                  <RechartsTooltip formatter={(value: number) => [formatDuration(value), 'Tempo']} labelFormatter={(label) => `Dia ${label}`} />
                   <Bar dataKey="minutes" fill="#2563eb" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -709,18 +642,14 @@ const AdminReportPage = () => {
                       Usuário: {os.userDisplayName} {dateMode === 'range' && `| Data: ${format(parseISO(os.recordDate), 'dd/MM/yyyy')}`}
                     </span>
                   </div>
-
-                  <ServiceOrderListDisplay
-                    group={os}
-                    readOnly={true}
-                  />
+                  <ServiceOrderListDisplay group={os} readOnly={true} />
                 </div>
               ))}
             </div>
           ) : (
             <div className="py-12 text-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
               <ClipboardList className="h-12 w-12 mx-auto mb-4 opacity-20" />
-              <p>Nenhuma ordem de serviço registrada para este {dateMode === 'single' ? 'dia' : 'período'}.</p>
+              <p>Nenhuma ordem de serviço registrada para este filtro.</p>
             </div>
           )}
         </CardContent>
