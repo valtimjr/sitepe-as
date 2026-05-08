@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, isWithinInterval, startOfDay, endOfDay, isValid, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ChevronLeft,
@@ -14,7 +14,8 @@ import {
   PieChart as PieChartIcon,
   Users,
   ClipboardList,
-  CalendarRange
+  CalendarRange,
+  Keyboard
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from '@/components/ui/input';
 import { DateRange } from "react-day-picker";
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
@@ -105,6 +107,9 @@ const AdminReportPage = () => {
     to: new Date(),
   });
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
+  const [singleDateInput, setSingleDateInput] = useState(format(new Date(), 'dd/MM/yyyy'));
+  const [rangeStartInput, setRangeStartInput] = useState(format(startOfMonth(new Date()), 'dd/MM/yyyy'));
+  const [rangeEndInput, setRangeEndInput] = useState(format(new Date(), 'dd/MM/yyyy'));
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [allData, setAllData] = useState<any[]>([]); // To store records from the month for charts
@@ -315,8 +320,60 @@ const AdminReportPage = () => {
     return osList.sort((a, b) => b.recordDate.localeCompare(a.recordDate));
   }, [allData, selectedDate, dateRange, dateMode, selectedUserId, users]);
 
-  const handlePrevDay = () => setSelectedDate(prev => new Date(prev.setDate(prev.getDate() - 1)));
-  const handleNextDay = () => setSelectedDate(prev => new Date(prev.setDate(prev.getDate() + 1)));
+  const handlePrevDay = () => {
+    const newDate = new Date(selectedDate.setDate(selectedDate.getDate() - 1));
+    setSelectedDate(newDate);
+    setSingleDateInput(format(newDate, 'dd/MM/yyyy'));
+  };
+  const handleNextDay = () => {
+    const newDate = new Date(selectedDate.setDate(selectedDate.getDate() + 1));
+    setSelectedDate(newDate);
+    setSingleDateInput(format(newDate, 'dd/MM/yyyy'));
+  };
+
+  const handleSingleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSingleDateInput(value);
+    if (value.length === 10) {
+      const parsedDate = parse(value, 'dd/MM/yyyy', new Date());
+      if (isValid(parsedDate)) {
+        setSelectedDate(parsedDate);
+      }
+    }
+  };
+
+  const handleRangeStartInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setRangeStartInput(value);
+    if (value.length === 10) {
+      const parsedDate = parse(value, 'dd/MM/yyyy', new Date());
+      if (isValid(parsedDate)) {
+        setDateRange(prev => ({ from: parsedDate, to: prev?.to }));
+      }
+    }
+  };
+
+  const handleRangeEndInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setRangeEndInput(value);
+    if (value.length === 10) {
+      const parsedDate = parse(value, 'dd/MM/yyyy', new Date());
+      if (isValid(parsedDate)) {
+        setDateRange(prev => ({ from: prev?.from, to: parsedDate }));
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (dateMode === 'single') {
+      setSingleDateInput(format(selectedDate, 'dd/MM/yyyy'));
+    }
+  }, [selectedDate, dateMode]);
+
+  useEffect(() => {
+    if (dateRange?.from) setRangeStartInput(format(dateRange.from, 'dd/MM/yyyy'));
+    if (dateRange?.to) setRangeEndInput(format(dateRange.to, 'dd/MM/yyyy'));
+  }, [dateRange]);
 
   if (loading) {
     return (
@@ -357,72 +414,106 @@ const AdminReportPage = () => {
               </TabsList>
               
               <TabsContent value="single" className="m-0">
-                <div className="flex items-center gap-4">
-                  <Button variant="outline" size="icon" onClick={handlePrevDay}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-4">
+                    <Button variant="outline" size="icon" onClick={handlePrevDay}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          className="flex-1 text-center font-bold text-lg hover:bg-accent hover:text-accent-foreground"
+                        >
+                          {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="center">
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={(date) => date && setSelectedDate(date)}
+                          initialFocus
+                          locale={ptBR}
+                        />
+                      </PopoverContent>
+                    </Popover>
+
+                    <Button variant="outline" size="icon" onClick={handleNextDay}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2 px-1">
+                    <Keyboard className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="dd/mm/aaaa"
+                      value={singleDateInput}
+                      onChange={handleSingleDateInputChange}
+                      className="h-8 text-xs w-28 text-center"
+                    />
+                    <span className="text-xs text-muted-foreground italic">Ou digite a data</span>
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="range" className="m-0">
+                <div className="space-y-3">
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
-                        variant="ghost"
-                        className="flex-1 text-center font-bold text-lg hover:bg-accent hover:text-accent-foreground"
+                        id="date"
+                        variant={"outline"}
+                        className="w-full justify-start text-left font-normal"
                       >
-                        {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange?.from ? (
+                          dateRange.to ? (
+                            <>
+                              {format(dateRange.from, "dd/MM/yyyy")} -{" "}
+                              {format(dateRange.to, "dd/MM/yyyy")}
+                            </>
+                          ) : (
+                            format(dateRange.from, "dd/MM/yyyy")
+                          )
+                        ) : (
+                          <span>Selecione o período</span>
+                        )}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="center">
+                    <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={(date) => date && setSelectedDate(date)}
                         initialFocus
+                        mode="range"
+                        defaultMonth={dateRange?.from}
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        numberOfMonths={2}
                         locale={ptBR}
                       />
                     </PopoverContent>
                   </Popover>
 
-                  <Button variant="outline" size="icon" onClick={handleNextDay}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2 px-1">
+                    <Keyboard className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div className="flex items-center gap-1">
+                      <Input
+                        placeholder="Início"
+                        value={rangeStartInput}
+                        onChange={handleRangeStartInputChange}
+                        className="h-8 text-xs w-28 text-center"
+                      />
+                      <span className="text-muted-foreground">/</span>
+                      <Input
+                        placeholder="Fim"
+                        value={rangeEndInput}
+                        onChange={handleRangeEndInputChange}
+                        className="h-8 text-xs w-28 text-center"
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground italic hidden sm:inline">Digite o período (dd/mm/aaaa)</span>
+                  </div>
                 </div>
-              </TabsContent>
-              
-              <TabsContent value="range" className="m-0">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      id="date"
-                      variant={"outline"}
-                      className="w-full justify-start text-left font-normal"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange?.from ? (
-                        dateRange.to ? (
-                          <>
-                            {format(dateRange.from, "dd/MM/yyyy")} -{" "}
-                            {format(dateRange.to, "dd/MM/yyyy")}
-                          </>
-                        ) : (
-                          format(dateRange.from, "dd/MM/yyyy")
-                        )
-                      ) : (
-                        <span>Selecione o período</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={dateRange?.from}
-                      selected={dateRange}
-                      onSelect={setDateRange}
-                      numberOfMonths={2}
-                      locale={ptBR}
-                    />
-                  </PopoverContent>
-                </Popover>
               </TabsContent>
             </Tabs>
           </CardContent>
