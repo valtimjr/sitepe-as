@@ -15,7 +15,10 @@ import {
   Users,
   ClipboardList,
   CalendarRange,
-  Keyboard
+  Keyboard,
+  Check,
+  ChevronsUpDown,
+  Search
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -23,6 +26,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
 import { DateRange } from "react-day-picker";
@@ -107,6 +119,7 @@ const AdminReportPage = () => {
     to: new Date(),
   });
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
+  const [openUserSelect, setOpenUserSelect] = useState(false);
   const [singleDateInput, setSingleDateInput] = useState(format(new Date(), 'dd/MM/yyyy'));
   const [rangeStartInput, setRangeStartInput] = useState(format(startOfMonth(new Date()), 'dd/MM/yyyy'));
   const [rangeEndInput, setRangeEndInput] = useState(format(new Date(), 'dd/MM/yyyy'));
@@ -529,19 +542,72 @@ const AdminReportPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todos os usuários" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os usuários</SelectItem>
-                {users.map(u => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.badge ? `${u.badge} - ` : ''}{u.first_name} {u.last_name || ''} ({u.role})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={openUserSelect}
+                  className="w-full justify-between font-normal"
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <Search className="h-4 w-4 opacity-50" />
+                    {selectedUserId === "all"
+                      ? "Todos os usuários"
+                      : users.find((u) => u.id === selectedUserId)
+                        ? `${users.find((u) => u.id === selectedUserId)?.badge ? users.find((u) => u.id === selectedUserId)?.badge + ' - ' : ''}${users.find((u) => u.id === selectedUserId)?.first_name} ${users.find((u) => u.id === selectedUserId)?.last_name || ''}`
+                        : "Selecionar usuário..."}
+                  </div>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar por nome ou crachá..." />
+                  <CommandList>
+                    <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="all-users-todos"
+                        onSelect={() => {
+                          setSelectedUserId("all");
+                          setOpenUserSelect(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedUserId === "all" ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        Todos os usuários
+                      </CommandItem>
+                      {users.map((u) => (
+                        <CommandItem
+                          key={u.id}
+                          value={`${u.badge || ''} ${u.first_name} ${u.last_name || ''}`}
+                          onSelect={() => {
+                            setSelectedUserId(u.id);
+                            setOpenUserSelect(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedUserId === u.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <div className="flex flex-col">
+                            <span>{u.badge ? `${u.badge} - ` : ''}{u.first_name} {u.last_name || ''}</span>
+                            <span className="text-xs text-muted-foreground">{u.role}</span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </CardContent>
         </Card>
       </div>
