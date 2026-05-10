@@ -250,47 +250,55 @@ const AdminReportPage = () => {
   };
 
   // Filtered List of OS for Display and Export
-  const filteredOSList = useMemo(() => {
-    let periodRecords;
-    if (dateMode === 'single') {
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      periodRecords = allData.filter(r => r.date === dateStr && matchesFilters(r));
-    } else {
-      periodRecords = allData.filter(r => {
-        const recordDate = parseISO(r.date);
-        const isInRange = dateRange?.from && dateRange?.to
-          ? isWithinInterval(recordDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })
-          : true;
-        return isInRange && matchesFilters(r);
-      });
-    }
-    
-    const osList: (ServiceOrderData & { userDisplayName: string; recordDate: string; badge: string; profession_code: number | null; shift_code: number | null })[] = [];
-    
-    periodRecords.forEach(record => {
-      const userProfile = users.find(u => u.id === record.user_id);
-      const badge = userProfile?.badge || '';
-      const userDisplayName = userProfile
-        ? `${badge ? badge + ' - ' : ''}${userProfile.first_name} ${userProfile.last_name || ''}`
-        : 'Desconhecido';
-      
-      const recordOsList = record.os_list as any[];
-      if (Array.isArray(recordOsList)) {
-        recordOsList.forEach((os: any) => {
-          osList.push({ 
-            ...os, 
-            userDisplayName, 
-            recordDate: record.date,
-            badge: badge,
-            profession_code: userProfile?.profession_code || null,
-            shift_code: userProfile?.shift_code || null
-          });
+    const filteredOSList = useMemo(() => {
+      let periodRecords;
+      if (dateMode === 'single') {
+        const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        periodRecords = allData.filter(r => r.date === dateStr && matchesFilters(r));
+      } else {
+        periodRecords = allData.filter(r => {
+          const recordDate = parseISO(r.date);
+          const isInRange = dateRange?.from && dateRange?.to
+            ? isWithinInterval(recordDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })
+            : true;
+          return isInRange && matchesFilters(r);
         });
       }
-    });
-
-    return osList.sort((a, b) => b.recordDate.localeCompare(a.recordDate));
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users]);
+  
+      const osList: (ServiceOrderData & {
+        userDisplayName: string;
+        recordDate: string;
+        badge: string;
+        profession_code: number | null;
+        shift_code: number | null;
+        confirmed: boolean;
+      })[] = [];
+  
+      periodRecords.forEach(record => {
+        const userProfile = users.find(u => u.id === record.user_id);
+        const badge = userProfile?.badge || '';
+        const userDisplayName = userProfile
+          ? `${badge ? badge + ' - ' : ''}${userProfile.first_name} ${userProfile.last_name || ''}`
+          : 'Desconhecido';
+  
+        const recordOsList = record.os_list as any[];
+        if (Array.isArray(recordOsList)) {
+          recordOsList.forEach((os: any) => {
+            osList.push({
+              ...os,
+              userDisplayName,
+              recordDate: record.date,
+              badge,
+              profession_code: userProfile?.profession_code || null,
+              shift_code: userProfile?.shift_code || null,
+              confirmed: os.confirmed === true,
+            });
+          });
+        }
+      });
+  
+      return osList.sort((a, b) => b.recordDate.localeCompare(a.recordDate));
+    }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users]);
 
   // Daily/Range Data for Donut Chart
   const dailyChartData = useMemo(() => {
@@ -931,19 +939,30 @@ const AdminReportPage = () => {
         </CardHeader>
         <CardContent>
           {filteredOSList.length > 0 ? (
-            <div className="space-y-6">
-              {filteredOSList.map((os, idx) => (
-                <div key={idx} className="border rounded-lg overflow-hidden">
-                  <div className="bg-muted/50 p-2 px-4 border-b flex flex-wrap justify-between items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Usuário: {os.userDisplayName} {dateMode === 'range' && `| Data: ${format(parseISO(os.recordDate), 'dd/MM/yyyy')}`}
+        <div className="space-y-6">
+          {filteredOSList.map((os, idx) => (
+            <div key={idx} className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/50 p-2 px-4 border-b flex flex-wrap justify-between items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Usuário: {os.userDisplayName} {dateMode === 'range' && `| Data: ${format(parseISO(os.recordDate), 'dd/MM/yyyy')}`}
+                </span>
+                <div className="flex items-center gap-2">
+                  {os.confirmed ? (
+                    <span className="text-green-600 flex items-center gap-1 text-sm">
+                      <Check className="h-4 w-4" /> Digitado
                     </span>
-                  </div>
-                  <ServiceOrderListDisplay group={os} readOnly={true} />
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => confirmOrder(os.id)}>
+                      Marcar como Digitado
+                    </Button>
+                  )}
                 </div>
-              ))}
+              </div>
+              <ServiceOrderListDisplay group={os} readOnly={true} />
             </div>
-          ) : (
+          ))}
+        </div>
+      ) : (
             <div className="py-12 text-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
               <ClipboardList className="h-12 w-12 mx-auto mb-4 opacity-20" />
               <p>Nenhuma ordem de serviço registrada para este filtro.</p>
