@@ -444,18 +444,54 @@ const AdminReportPage = () => {
     return grouped;
   };
 
-  const handleGenerateJSON = () => {
-    const grouped = groupReportData();
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(grouped, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `relatorio_${company}_${format(new Date(), 'yyyyMMdd_HHmmss')}.json`);
-    document.body.appendChild(downloadAnchorNode); 
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-    setIsReportDialogOpen(false);
-    showSuccess("Relatório JSON baixado com sucesso.");
-  };
+  const handleGenerateCSV = () => {
+      const grouped = groupReportData();
+      
+      // Create CSV headers
+      const headers = ['Data', 'Usuário', 'AF', 'OS', 'Equipamento', 'Início', 'Fim', 'Duração'];
+      let csvContent = headers.join(',') + '\n';
+      
+      // Process each group
+      Object.keys(grouped).forEach(groupName => {
+        const groupData = grouped[groupName];
+        
+        groupData.forEach((os: any) => {
+          const dur = calculateDuration(os.hora_inicio, os.hora_final);
+          const afDesc = os.af ? getAfDescription(os.af) : '-';
+          
+          // Escape fields that might contain commas or quotes
+          const escapeCsvField = (field: string) => {
+            if (field.includes(',') || field.includes('"') || field.includes('\n')) {
+              return `"${field.replace(/"/g, '""')}"`;
+            }
+            return field;
+          };
+          
+          const row = [
+            format(parseISO(os.recordDate), 'dd/MM/yyyy'),
+            escapeCsvField(os.userDisplayName),
+            escapeCsvField(os.af || '-'),
+            escapeCsvField(os.os || '-'),
+            escapeCsvField(afDesc),
+            escapeCsvField(os.hora_inicio || '-'),
+            escapeCsvField(os.hora_final || '-'),
+            escapeCsvField(formatDuration(dur))
+          ];
+          
+          csvContent += row.join(',') + '\n';
+        });
+      });
+      
+      const dataStr = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", `relatorio_${company}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+      setIsReportDialogOpen(false);
+      showSuccess("Relatório CSV baixado com sucesso.");
+    };
 
   const getAfDescription = (afNumber: string) => {
     const af = availableAfs.find(a => a.af_number === afNumber);
@@ -976,8 +1012,8 @@ const AdminReportPage = () => {
             </div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2 mt-2">
-            <Button variant="outline" className="w-full sm:w-auto flex-1" onClick={handleGenerateJSON}>
-              <Download className="mr-2 h-4 w-4" /> Gerar JSON
+            <Button variant="outline" className="w-full sm:w-auto flex-1" onClick={handleGenerateCSV}>
+              <Download className="mr-2 h-4 w-4" /> Gerar CSV
             </Button>
             <Button className="w-full sm:w-auto flex-1" onClick={handleGeneratePDF}>
               <Printer className="mr-2 h-4 w-4" /> Gerar PDF / Imprimir
