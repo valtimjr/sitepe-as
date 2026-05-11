@@ -154,6 +154,7 @@ const AdminReportPage = () => {
   const [reportGroupBy, setReportGroupBy] = useState<string>('none');
   const [includeDonutChart, setIncludeDonutChart] = useState(false);
   const [includeBarChart, setIncludeBarChart] = useState(false);
+  const [includeTypedStatus, setIncludeTypedStatus] = useState(true);
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
 
@@ -490,7 +491,9 @@ const AdminReportPage = () => {
       const grouped = groupReportData();
       
       // Create CSV headers
-      const headers = ['Data', 'Usuário', 'AF', 'OS', 'Equipamento', 'Início', 'Fim', 'Duração', 'Status'];
+      const headers = ['Data', 'Usuário', 'AF', 'OS', 'Equipamento', 'Início', 'Fim', 'Duração'];
+      if (includeTypedStatus) headers.push('Status');
+      
       let csvContent = headers.join(',') + '\n';
       
       // Process each group
@@ -518,8 +521,11 @@ const AdminReportPage = () => {
             escapeCsvField(os.hora_inicio || '-'),
             escapeCsvField(os.hora_final || '-'),
             escapeCsvField(formatDuration(dur)),
-            os.confirmed ? 'Digitado' : 'Pendente'
           ];
+
+          if (includeTypedStatus) {
+            row.push(os.confirmed ? 'Digitado' : 'Pendente');
+          }
           
           csvContent += row.join(',') + '\n';
         });
@@ -662,7 +668,7 @@ const AdminReportPage = () => {
                 <th width="60">Início</th>
                 <th width="60">Fim</th>
                 <th width="80" class="text-right">Duração</th>
-                <th width="40">Status</th>
+                ${includeTypedStatus ? '<th width="40">Status</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -683,14 +689,14 @@ const AdminReportPage = () => {
               <td>${os.hora_inicio || '-'}</td>
               <td>${os.hora_final || '-'}</td>
               <td class="text-right">${formatDuration(dur)}</td>
-              <td style="text-align: center;">${os.confirmed ? '✅' : '❌'}</td>
+              ${includeTypedStatus ? `<td style="text-align: center;">${os.confirmed ? '✅' : '❌'}</td>` : ''}
             </tr>
           `;
         });
 
         html += `
             <tr class="summary">
-              <td colspan="8" class="text-right">Tempo Total no Grupo:</td>
+              <td colspan="${includeTypedStatus ? 8 : 7}" class="text-right">Tempo Total no Grupo:</td>
               <td class="text-right">${formatDuration(groupTotalMinutes)}</td>
             </tr>
             </tbody></table>
@@ -1044,6 +1050,20 @@ const AdminReportPage = () => {
                   <SelectItem value="badge">Crachá</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid gap-3 p-3 bg-muted/30 border rounded-md">
+              <label className="text-sm font-bold">Opções de Colunas:</label>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="include-typed"
+                  checked={includeTypedStatus}
+                  onCheckedChange={(c) => setIncludeTypedStatus(c === true)}
+                />
+                <label htmlFor="include-typed" className="text-sm cursor-pointer hover:text-primary transition-colors">
+                  Adicionar coluna ordem digitada
+                </label>
+              </div>
             </div>
 
             <div className="grid gap-3 p-3 bg-muted/30 border rounded-md">
