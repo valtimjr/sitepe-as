@@ -23,7 +23,8 @@ import {
   Clock,
   FileText,
   Printer,
-  Download
+  Download,
+  X
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,16 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
@@ -155,6 +166,10 @@ const AdminReportPage = () => {
   const [includeDonutChart, setIncludeDonutChart] = useState(false);
   const [includeBarChart, setIncludeBarChart] = useState(false);
   const [includeTypedStatus, setIncludeTypedStatus] = useState(true);
+
+  // Unconfirm state
+  const [unconfirmOrderId, setUnconfirmOrderId] = useState<string | null>(null);
+  const [isUnconfirmDialogOpen, setIsUnconfirmDialogOpen] = useState(false);
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
 
@@ -404,6 +419,38 @@ const AdminReportPage = () => {
     } catch (err) {
       console.error('Error confirming order:', err);
       showError('Erro ao confirmar ordem.');
+    }
+  };
+
+  const unconfirmOrder = async (orderId: string) => {
+    try {
+      const record = allData.find(r =>
+        Array.isArray(r.os_list) && r.os_list.some((os: any) => os.id === orderId)
+      );
+
+      if (!record) return;
+
+      const updatedOsList = record.os_list.map((os: any) =>
+        os.id === orderId ? { ...os, confirmed: false } : os
+      );
+
+      const { error } = await supabase
+        .from('daily_service_orders')
+        .update({ os_list: updatedOsList })
+        .eq('id', record.id);
+      
+      if (error) throw error;
+      
+      showSuccess('Status "Digitado" removido!');
+      
+      setAllData(prev => prev.map(r =>
+        r.id === record.id ? { ...r, os_list: updatedOsList } : r
+      ));
+      setIsUnconfirmDialogOpen(false);
+      setUnconfirmOrderId(null);
+    } catch (err) {
+      console.error('Error unconfirming order:', err);
+      showError('Erro ao desmarcar ordem.');
     }
   };
 
@@ -991,9 +1038,22 @@ const AdminReportPage = () => {
                 </span>
                 <div className="flex items-center gap-2">
                   {os.confirmed ? (
-                    <span className="text-green-600 flex items-center gap-1 text-sm">
-                      <Check className="h-4 w-4" /> Digitado
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-green-600 flex items-center gap-1 text-sm bg-green-50 px-2 py-0.5 rounded border border-green-200">
+                        <Check className="h-4 w-4" /> Digitado
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          setUnconfirmOrderId(os.id);
+                          setIsUnconfirmDialogOpen(true);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   ) : (
                     <Button variant="outline" size="sm" onClick={() => confirmOrder(os.id)}>
                       Marcar como Digitado
@@ -1102,6 +1162,26 @@ const AdminReportPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isUnconfirmDialogOpen} onOpenChange={setIsUnconfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desmarcar como digitado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação alterará o status desta Ordem de Serviço de volta para "Pendente" no sistema e no banco de dados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUnconfirmOrderId(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => unconfirmOrderId && unconfirmOrder(unconfirmOrderId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
