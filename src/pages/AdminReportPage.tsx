@@ -342,12 +342,22 @@ const AdminReportPage = () => {
 
   const handleGenerateCSV = () => {
     const grouped = groupReportData();
-    const headers = ['Data', 'Usuário', 'AF', 'OS', 'Equipamento', 'Início', 'Fim', 'Duração'];
+    const headers = ['Data', 'Usuário', 'AF', 'OS', 'Equipamento', 'Serviço', 'Início', 'Fim', 'Duração'];
     if (includeTypedStatus) headers.push('Status');
     let csvContent = headers.join(',') + '\n';
     Object.values(grouped).forEach(data => {
       data.forEach((os: any) => {
-        const row = [format(parseISO(os.recordDate), 'dd/MM/yyyy'), `"${os.userDisplayName}"`, `"${os.af || '-'}"`, `"${os.os || '-'}"`, `"${getAfDescription(os.af)}"`, os.hora_inicio || '-', os.hora_final || '-', formatDuration(calculateDuration(os.hora_inicio, os.hora_final))];
+        const row = [
+          format(parseISO(os.recordDate), 'dd/MM/yyyy'), 
+          `"${os.userDisplayName}"`, 
+          `"${os.af || '-'}"`, 
+          `"${os.os || '-'}"`, 
+          `"${getAfDescription(os.af)}"`, 
+          `"${os.servico || '-'}"`,
+          os.hora_inicio || '-', 
+          os.hora_final || '-', 
+          formatDuration(calculateDuration(os.hora_inicio, os.hora_final))
+        ];
         if (includeTypedStatus) row.push(os.confirmed ? 'Digitado' : 'Pendente');
         csvContent += row.join(',') + '\n';
       });
@@ -387,8 +397,8 @@ const AdminReportPage = () => {
         <style>
           body { font-family: sans-serif; padding: 20px; }
           .meta { margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px; }
+          th, td { border: 1px solid #ddd; padding: 6px; text-align: left; word-break: break-word; }
           th { background: #f4f4f4; }
           .summary { font-weight: bold; background: #eee; }
         </style>
@@ -409,13 +419,46 @@ const AdminReportPage = () => {
     Object.keys(grouped).forEach(key => {
       const data = grouped[key];
       let total = 0;
-      html += `<h2>${key}</h2><table><thead><tr><th>Data</th><th>Usuário</th><th>AF</th><th>OS</th><th>Duração</th>${includeTypedStatus ? '<th>Status</th>' : ''}</tr></thead><tbody>`;
+      html += `
+        <h2>${key}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Usuário</th>
+              <th>AF</th>
+              <th>OS</th>
+              <th>Serviço</th>
+              <th>Duração</th>
+              ${includeTypedStatus ? '<th>Status</th>' : ''}
+            </tr>
+          </thead>
+          <tbody>
+      `;
       data.forEach(os => {
         const d = calculateDuration(os.hora_inicio, os.hora_final);
         total += d;
-        html += `<tr><td>${format(parseISO(os.recordDate), 'dd/MM/yyyy')}</td><td>${os.userDisplayName}</td><td>${os.af || '-'}</td><td>${os.os || '-'}</td><td>${formatDuration(d)}</td>${includeTypedStatus ? `<td>${os.confirmed ? '✅' : '❌'}</td>` : ''}</tr>`;
+        html += `
+          <tr>
+            <td>${format(parseISO(os.recordDate), 'dd/MM/yyyy')}</td>
+            <td>${os.userDisplayName}</td>
+            <td>${os.af || '-'}</td>
+            <td>${os.os || '-'}</td>
+            <td>${os.servico || '-'}</td>
+            <td>${formatDuration(d)}</td>
+            ${includeTypedStatus ? `<td>${os.confirmed ? '✅' : '❌'}</td>` : ''}
+          </tr>
+        `;
       });
-      html += `<tr class="summary"><td colspan="${includeTypedStatus ? 4 : 4}">Total</td><td>${formatDuration(total)}</td>${includeTypedStatus ? '<td></td>' : ''}</tr></tbody></table>`;
+      html += `
+          <tr class="summary">
+            <td colspan="5">Total</td>
+            <td>${formatDuration(total)}</td>
+            ${includeTypedStatus ? '<td></td>' : ''}
+          </tr>
+        </tbody>
+      </table>
+      `;
     });
 
     html += '<script>window.onload=()=>setTimeout(()=>window.print(),500)</script></body></html>';
