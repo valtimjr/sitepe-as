@@ -507,13 +507,66 @@ const AdminReportPage = () => {
           <CardContent className="space-y-4">
              <div className="space-y-1">
                <Label className="text-[10px] uppercase font-bold">Usuário</Label>
-               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                 <SelectTrigger><SelectValue placeholder="Selecione o usuário" /></SelectTrigger>
-                 <SelectContent>
-                   <SelectItem value="all">Todos</SelectItem>
-                   {users.map(u => <SelectItem key={u.id} value={u.id}>{u.first_name} {u.last_name}</SelectItem>)}
-                 </SelectContent>
-               </Select>
+               <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
+                 <PopoverTrigger asChild>
+                   <Button
+                     variant="outline"
+                     role="combobox"
+                     aria-expanded={openUserSelect}
+                     className="w-full justify-between"
+                   >
+                     {selectedUserId === "all"
+                       ? "Todos os usuários"
+                       : users.find((u) => u.id === selectedUserId)
+                         ? `${users.find((u) => u.id === selectedUserId)?.first_name} ${users.find((u) => u.id === selectedUserId)?.last_name}`
+                         : "Selecionar usuário..."}
+                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                   </Button>
+                 </PopoverTrigger>
+                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                   <Command>
+                     <CommandInput placeholder="Pesquisar usuário..." />
+                     <CommandList>
+                       <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                       <CommandGroup>
+                         <CommandItem
+                           value="all"
+                           onSelect={() => {
+                             setSelectedUserId("all");
+                             setOpenUserSelect(false);
+                           }}
+                         >
+                           <Check
+                             className={cn(
+                               "mr-2 h-4 w-4",
+                               selectedUserId === "all" ? "opacity-100" : "opacity-0"
+                             )}
+                           />
+                           Todos os usuários
+                         </CommandItem>
+                         {users.map((u) => (
+                           <CommandItem
+                             key={u.id}
+                             value={`${u.first_name} ${u.last_name} ${u.badge || ""}`}
+                             onSelect={() => {
+                               setSelectedUserId(u.id);
+                               setOpenUserSelect(false);
+                             }}
+                           >
+                             <Check
+                               className={cn(
+                                 "mr-2 h-4 w-4",
+                                 selectedUserId === u.id ? "opacity-100" : "opacity-0"
+                               )}
+                             />
+                             {u.first_name} {u.last_name} {u.badge ? `(${u.badge})` : ''}
+                           </CommandItem>
+                         ))}
+                       </CommandGroup>
+                     </CommandList>
+                   </Command>
+                 </PopoverContent>
+               </Popover>
              </div>
              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
