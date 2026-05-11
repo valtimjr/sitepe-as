@@ -299,9 +299,13 @@ const AdminReportPage = () => {
   
         const recordOsList = record.os_list as any[];
         if (Array.isArray(recordOsList)) {
-          recordOsList.forEach((os: any) => {
+          recordOsList.forEach((os: any, index: number) => {
+            // Ensure every OS has an ID (fallback for older records)
+            const osId = os.id || `old-${record.id}-${index}`;
+            
             osList.push({
               ...os,
+              id: osId,
               userDisplayName,
               recordDate: record.date,
               badge,
@@ -394,14 +398,18 @@ const AdminReportPage = () => {
     try {
       // Find the record that contains this OS
       const record = allData.find(r =>
-        Array.isArray(r.os_list) && r.os_list.some((os: any) => os.id === orderId)
+        Array.isArray(r.os_list) && r.os_list.some((os: any, index: number) => {
+          const osId = os.id || `old-${r.id}-${index}`;
+          return osId === orderId;
+        })
       );
 
       if (!record) return;
 
-      const updatedOsList = record.os_list.map((os: any) =>
-        os.id === orderId ? { ...os, confirmed: true } : os
-      );
+      const updatedOsList = record.os_list.map((os: any, index: number) => {
+        const osId = os.id || `old-${record.id}-${index}`;
+        return osId === orderId ? { ...os, confirmed: true } : os
+      });
 
       const { error } = await supabase
         .from('daily_service_orders')
@@ -425,14 +433,18 @@ const AdminReportPage = () => {
   const unconfirmOrder = async (orderId: string) => {
     try {
       const record = allData.find(r =>
-        Array.isArray(r.os_list) && r.os_list.some((os: any) => os.id === orderId)
+        Array.isArray(r.os_list) && r.os_list.some((os: any, index: number) => {
+          const osId = os.id || `old-${r.id}-${index}`;
+          return osId === orderId;
+        })
       );
 
       if (!record) return;
 
-      const updatedOsList = record.os_list.map((os: any) =>
-        os.id === orderId ? { ...os, confirmed: false } : os
-      );
+      const updatedOsList = record.os_list.map((os: any, index: number) => {
+        const osId = os.id || `old-${record.id}-${index}`;
+        return osId === orderId ? { ...os, confirmed: false } : os
+      });
 
       const { error } = await supabase
         .from('daily_service_orders')
