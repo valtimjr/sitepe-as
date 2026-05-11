@@ -21,6 +21,7 @@ import {
   Search,
   Briefcase,
   Clock,
+  GripVertical,
   FileText,
   Printer,
   Download,
@@ -654,11 +655,24 @@ const AdminReportPage = () => {
           <div className="text-sm font-medium">{filteredOSList.length} OS encontrada(s)</div>
         </CardHeader>
         <CardContent>
+          {/* List Header Row (Desktop visible) - Matched from ServiceOrderList.tsx */}
+          <div className="mb-2 px-4 hidden md:grid grid-cols-[auto_1fr_auto_auto] gap-4 text-sm text-muted-foreground font-medium">
+             <div className="flex items-center gap-4">
+                <GripVertical className="h-4 w-4 opacity-50" />
+                <div className="flex items-center gap-2">
+                   <Clock className="h-4 w-4" />
+                </div>
+             </div>
+             <div></div> {/* Spacer for description/service */}
+             <div className="text-center w-16">Qtd</div>
+             <div className="text-right w-20">Status</div>
+          </div>
+
           <div className="space-y-6">
             {filteredOSList.map(os => (
               <div key={os.id} className="border rounded-lg overflow-hidden">
                 <div className="bg-muted/50 p-2 px-4 border-b flex justify-between items-center">
-                  <span className="text-xs font-bold">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
+                  <span className="text-lg font-bold">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
                   {os.confirmed ? (
                     <div className="flex items-center gap-1">
                       <span className="text-green-600 text-xs font-bold">Digitado</span>
