@@ -395,6 +395,7 @@ const AdminReportPage = () => {
   const pendingCount = filteredOSList.filter(os => !os.confirmed).length;
 
   const confirmOrder = async (orderId: string) => {
+    console.log('Confirming order:', orderId);
     try {
       // Find the record that contains this OS
       const record = allData.find(r =>
@@ -404,20 +405,30 @@ const AdminReportPage = () => {
         })
       );
 
-      if (!record) return;
+      if (!record) {
+        console.error('Record not found for orderId:', orderId);
+        return;
+      }
+
+      console.log('Found record to update:', record.id);
 
       const updatedOsList = record.os_list.map((os: any, index: number) => {
         const osId = os.id || `old-${record.id}-${index}`;
         return osId === orderId ? { ...os, confirmed: true } : os
       });
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('daily_service_orders')
         .update({ os_list: updatedOsList })
-        .eq('id', record.id);
+        .eq('id', record.id)
+        .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase update error:', error);
+        throw error;
+      }
       
+      console.log('Update successful, returned data:', data);
       showSuccess('Ordem marcada como digitada!');
       
       // Update local state to reflect change immediately
@@ -431,6 +442,7 @@ const AdminReportPage = () => {
   };
 
   const unconfirmOrder = async (orderId: string) => {
+    console.log('Unconfirming order:', orderId);
     try {
       const record = allData.find(r =>
         Array.isArray(r.os_list) && r.os_list.some((os: any, index: number) => {
@@ -439,20 +451,28 @@ const AdminReportPage = () => {
         })
       );
 
-      if (!record) return;
+      if (!record) {
+        console.error('Record not found for orderId:', orderId);
+        return;
+      }
 
       const updatedOsList = record.os_list.map((os: any, index: number) => {
         const osId = os.id || `old-${record.id}-${index}`;
         return osId === orderId ? { ...os, confirmed: false } : os
       });
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('daily_service_orders')
         .update({ os_list: updatedOsList })
-        .eq('id', record.id);
+        .eq('id', record.id)
+        .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase unconfirm update error:', error);
+        throw error;
+      }
       
+      console.log('Unconfirm update successful, returned data:', data);
       showSuccess('Status "Digitado" removido!');
       
       setAllData(prev => prev.map(r =>
