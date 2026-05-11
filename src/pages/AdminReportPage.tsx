@@ -700,6 +700,7 @@ const AdminReportPage = () => {
             Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")} <br/>
             Período: ${dateMode === 'single' ? format(selectedDate, 'dd/MM/yyyy') : `${format(dateRange?.from || new Date(), 'dd/MM/yyyy')} a ${format(dateRange?.to || new Date(), 'dd/MM/yyyy')}`}<br/>
             Total Geral de OS: ${filteredOSList.length}
+            ${includeTypedStatus && pendingCount > 0 ? `<br/><span style="color: #dc2626; font-style: italic;">(${pendingCount} OS ainda não foram digitadas no ERP)</span>` : ''}
           </div>
         </div>
     `;
