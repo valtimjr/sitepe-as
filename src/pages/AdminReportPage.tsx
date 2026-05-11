@@ -372,6 +372,40 @@ const AdminReportPage = () => {
 
   const totalMonthlyMinutes = monthlyChartData.reduce((acc, curr) => acc + curr.minutes, 0);
 
+  const pendingCount = filteredOSList.filter(os => !os.confirmed).length;
+
+  const confirmOrder = async (orderId: string) => {
+    try {
+      // Find the record that contains this OS
+      const record = allData.find(r =>
+        Array.isArray(r.os_list) && r.os_list.some((os: any) => os.id === orderId)
+      );
+
+      if (!record) return;
+
+      const updatedOsList = record.os_list.map((os: any) =>
+        os.id === orderId ? { ...os, confirmed: true } : os
+      );
+
+      const { error } = await supabase
+        .from('daily_service_orders')
+        .update({ os_list: updatedOsList })
+        .eq('id', record.id);
+      
+      if (error) throw error;
+      
+      showSuccess('Ordem marcada como digitada!');
+      
+      // Update local state to reflect change immediately
+      setAllData(prev => prev.map(r =>
+        r.id === record.id ? { ...r, os_list: updatedOsList } : r
+      ));
+    } catch (err) {
+      console.error('Error confirming order:', err);
+      showError('Erro ao confirmar ordem.');
+    }
+  };
+
 
   const handlePrevDay = () => {
     const newDate = new Date(selectedDate);
@@ -456,7 +490,7 @@ const AdminReportPage = () => {
       const grouped = groupReportData();
       
       // Create CSV headers
-      const headers = ['Data', 'Usuário', 'AF', 'OS', 'Equipamento', 'Início', 'Fim', 'Duração'];
+      const headers = ['Data', 'Usuário', 'AF', 'OS', 'Equipamento', 'Início', 'Fim', 'Duração', 'Status'];
       let csvContent = headers.join(',') + '\n';
       
       // Process each group
@@ -483,7 +517,8 @@ const AdminReportPage = () => {
             escapeCsvField(afDesc),
             escapeCsvField(os.hora_inicio || '-'),
             escapeCsvField(os.hora_final || '-'),
-            escapeCsvField(formatDuration(dur))
+            escapeCsvField(formatDuration(dur)),
+            os.confirmed ? 'Digitado' : 'Pendente'
           ];
           
           csvContent += row.join(',') + '\n';
@@ -627,6 +662,7 @@ const AdminReportPage = () => {
                 <th width="60">Início</th>
                 <th width="60">Fim</th>
                 <th width="80" class="text-right">Duração</th>
+                <th width="40">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -647,13 +683,14 @@ const AdminReportPage = () => {
               <td>${os.hora_inicio || '-'}</td>
               <td>${os.hora_final || '-'}</td>
               <td class="text-right">${formatDuration(dur)}</td>
+              <td style="text-align: center;">${os.confirmed ? '✅' : '❌'}</td>
             </tr>
           `;
         });
 
         html += `
             <tr class="summary">
-              <td colspan="7" class="text-right">Tempo Total no Grupo:</td>
+              <td colspan="8" class="text-right">Tempo Total no Grupo:</td>
               <td class="text-right">${formatDuration(groupTotalMinutes)}</td>
             </tr>
             </tbody></table>
@@ -985,6 +1022,11 @@ const AdminReportPage = () => {
             <DialogTitle>Gerar Relatório</DialogTitle>
             <DialogDescription>
               O relatório usará as <strong>{filteredOSList.length} Ordens de Serviço</strong> filtradas atualmente na tela.
+              {pendingCount > 0 && (
+                <span className="block mt-1 text-red-600 font-medium italic">
+                  ({pendingCount} OS ainda não foram digitadas no ERP)
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-5 py-2">
