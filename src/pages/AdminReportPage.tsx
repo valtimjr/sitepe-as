@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, isWithinInterval, startOfDay, endOfDay, isValid, parse } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, isWithinInterval, startOfDay, endOfDay, isValid, parse, subDays, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ChevronLeft,
@@ -149,10 +149,6 @@ const AdminReportPage = () => {
   const [availableAfs, setAvailableAfs] = useState<Af[]>([]);
 
   const [openUserSelect, setOpenUserSelect] = useState(false);
-  const [singleDateInput, setSingleDateInput] = useState(format(new Date(), 'dd/MM/yyyy'));
-  const [rangeStartInput, setRangeStartInput] = useState(format(startOfMonth(new Date()), 'dd/MM/yyyy'));
-  const [rangeEndInput, setRangeEndInput] = useState(format(new Date(), 'dd/MM/yyyy'));
-  const [showRangeInputs, setShowRangeInputs] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [allData, setAllData] = useState<any[]>([]); 
@@ -353,7 +349,7 @@ const AdminReportPage = () => {
           `"${os.af || '-'}"`, 
           `"${os.os || '-'}"`, 
           `"${getAfDescription(os.af)}"`, 
-          `"${os.servico || '-'}"`,
+          `"${os.servico_executado || '-'}"`,
           os.hora_inicio || '-', 
           os.hora_final || '-', 
           formatDuration(calculateDuration(os.hora_inicio, os.hora_final))
@@ -444,7 +440,7 @@ const AdminReportPage = () => {
             <td>${os.userDisplayName}</td>
             <td>${os.af || '-'}</td>
             <td>${os.os || '-'}</td>
-            <td>${os.servico || '-'}</td>
+            <td>${os.servico_executado || '-'}</td>
             <td>${formatDuration(d)}</td>
             ${includeTypedStatus ? `<td>${os.confirmed ? '✅' : '❌'}</td>` : ''}
           </tr>
@@ -664,8 +660,5 @@ const AdminReportPage = () => {
     </div>
   );
 };
-
-const subDays = (d: Date, n: number) => { const res = new Date(d); res.setDate(res.getDate() - n); return res; };
-const addDays = (d: Date, n: number) => { const res = new Date(d); res.setDate(res.getDate() + n); return res; };
 
 export default AdminReportPage;
