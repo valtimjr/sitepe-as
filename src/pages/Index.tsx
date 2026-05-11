@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Database, Home, Clock, Search, List, ClipboardList, CalendarDays, Menu } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
 import { getParts, getAfsFromService } from '@/services/partListService';
@@ -38,114 +40,24 @@ const Index = () => {
   // Acesso ao catálogo de menus agora verifica a permissão da rota
   const canAccessCustomMenu = checkPageAccess('/custom-menu-view');
 
-  const HomeCard = ({ title, description, icon: Icon, to, external }: { title: string, description: string, icon: any, to: string, external?: boolean }) => {
-    const content = (
-      <div className="custom-card group">
-        <div className="custom-card-content">
-          <div className="custom-card-top">
-            <p className="custom-card-title">{title}</p>
-          </div>
-          <div className="custom-card-bottom">
-            <p className="text-sm opacity-80">{description}</p>
-          </div>
-        </div>
-        <div className="custom-card-image">
-          <Icon className="icon-svg" />
-        </div>
-      </div>
-    );
-
-    if (external) {
-      return (
-        <a href={to} target="_blank" rel="noopener noreferrer" className="no-underline">
-          {content}
-        </a>
-      );
-    }
-
-    return (
-      <Link to={to} className="no-underline">
-        {content}
-      </Link>
-    );
-  };
-
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <style>{`
-        /* From Uiverse.io by Samalander0 */
-        .custom-card {
-          width: 100%;
-          min-height: 280px;
-          background: #fff480;
-          color: black;
-          position: relative;
-          border-radius: 2.5em;
-          padding: 2em;
-          transition: transform 0.4s ease;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-        }
-
-        .custom-card .custom-card-content {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          gap: 2em;
-          height: 100%;
-          transition: transform 0.4s ease;
-          z-index: 1;
-        }
-
-        .custom-card .custom-card-top, .custom-card .custom-card-bottom {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .custom-card .custom-card-title {
-          font-weight: bold;
-          font-size: 1.5rem;
-          margin: 0;
-        }
-
-        .custom-card .custom-card-bottom {
-          align-items: flex-start;
-        }
-
-        .custom-card .custom-card-image {
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          top: 0;
-          left: 0;
-          display: grid;
-          place-items: center;
-          pointer-events: none;
-          opacity: 0.15;
-        }
-
-        .custom-card .custom-card-image .icon-svg {
-          width: 8em;
-          height: 8em;
+        .animated-card {
           transition: transform 0.4s ease;
         }
-
-        .custom-card:hover {
+        .animated-card:hover {
           cursor: pointer;
           transform: scale(0.97);
         }
-
-        .custom-card:hover .custom-card-content {
-          transform: scale(0.96);
-        }
-
-        .custom-card:hover .custom-card-image .icon-svg {
-          transform: scale(1.1);
-        }
-
-        .custom-card:active {
+        .animated-card:active {
           transform: scale(0.9);
+        }
+        .animated-card .card-content-wrapper {
+          transition: transform 0.4s ease;
+        }
+        .animated-card:hover .card-content-wrapper {
+          transform: scale(0.96);
         }
       `}</style>
       <h1 className="text-5xl font-extrabold mb-12 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-4">
@@ -161,60 +73,143 @@ const Index = () => {
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl">
-        <HomeCard
-          title="Ordens de Serviço"
-          description="Visualize e gerencie as ordens de serviço com suas peças associadas."
-          icon={ClipboardList}
-          to={`/${company}/service-orders`}
-        />
+        {/* 1. Ordens de Serviço */}
+        <Card className="text-center animated-card">
+          <div className="card-content-wrapper h-full flex flex-col">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <ClipboardList className="h-6 w-6" /> Ordens de Serviço
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col">
+              <p className="mb-6 text-muted-foreground flex-1">
+                Visualize e gerencie as ordens de serviço com suas peças associadas.
+              </p>
+              <Link to={`/${company}/service-orders`}>
+                <Button className="w-full">Ir para Ordens</Button>
+              </Link>
+            </CardContent>
+          </div>
+        </Card>
 
-        <HomeCard
-          title="Pesquisar Peças"
-          description="Encontre rapidamente qualquer peça automotiva por código ou descrição."
-          icon={Search}
-          to={`/${company}/search-parts`}
-        />
+        {/* 2. Pesquisar Peças */}
+        <Card className="text-center animated-card">
+          <div className="card-content-wrapper h-full flex flex-col">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <Search className="h-6 w-6" /> Pesquisar Peças
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col">
+              <p className="mb-6 text-muted-foreground flex-1">
+                Encontre rapidamente qualquer peça automotiva por código ou descrição.
+              </p>
+              <Link to={`/${company}/search-parts`}>
+                <Button className="w-full">Ir para Pesquisa</Button>
+              </Link>
+            </CardContent>
+          </div>
+        </Card>
 
+        {/* 3. Catálogo de Peças */}
         {canAccessCustomMenu && (
-          <HomeCard
-            title="Catálogo de Peças"
-            description="Navegue pelas listas de peças personalizadas em uma estrutura de menu."
-            icon={Menu}
-            to={`/${company}/custom-menu-view`}
-          />
+          <Card className="text-center animated-card">
+            <div className="card-content-wrapper h-full flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                  <Menu className="h-6 w-6" /> Catálogo de Peças
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col">
+                <p className="mb-6 text-muted-foreground flex-1">
+                  Navegue pelas listas de peças personalizadas em uma estrutura de menu.
+                </p>
+                <Link to={`/${company}/custom-menu-view`}>
+                  <Button className="w-full">Ver Catálogo</Button>
+                </Link>
+              </CardContent>
+            </div>
+          </Card>
         )}
 
-        <HomeCard
-          title="Minha Lista de Peças"
-          description="Gerencie sua lista de peças, adicione novos itens e exporte para PDF."
-          icon={List}
-          to={`/${company}/parts-list`}
-        />
+        {/* 4. Minha Lista de Peças */}
+        <Card className="text-center animated-card">
+          <div className="card-content-wrapper h-full flex flex-col">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <List className="h-6 w-6" /> Minha Lista de Peças
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col">
+              <p className="mb-6 text-muted-foreground flex-1">
+                Gerencie sua lista de peças, adicione novos itens e exporte para PDF.
+              </p>
+              <Link to={`/${company}/parts-list`}>
+                <Button className="w-full">Ir para Lista</Button>
+              </Link>
+            </CardContent>
+          </div>
+        </Card>
         
-        <HomeCard
-          title="Escala Anual"
-          description="Visualize a escala de turnos rotativos para o ano inteiro."
-          icon={CalendarDays}
-          to="https://escala.eletricarpm.com.br"
-          external
-        />
+        {/* 5. Escala Anual */}
+        <Card className="text-center animated-card">
+          <div className="card-content-wrapper h-full flex flex-col">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <CalendarDays className="h-6 w-6" /> Escala Anual
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col">
+              <p className="mb-6 text-muted-foreground flex-1">
+                Visualize a escala de turnos rotativos para o ano inteiro.
+              </p>
+              <a href="https://escala.eletricarpm.com.br" target="_blank" rel="noopener noreferrer">
+                <Button className="w-full">Ver Escala</Button>
+              </a>
+            </CardContent>
+          </div>
+        </Card>
 
+        {/* 6. Apontamento de Horas */}
         {canAccessTimeTracking && (
-          <HomeCard
-            title="Apontamento de Horas"
-            description="Registre suas horas de entrada e saída para controle mensal."
-            icon={Clock}
-            to={`/${company}/time-tracking`}
-          />
+          <Card className="text-center animated-card">
+            <div className="card-content-wrapper h-full flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                  <Clock className="h-6 w-6" /> Apontamento de Horas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col">
+                <p className="mb-6 text-muted-foreground flex-1">
+                  Registre suas horas de entrada e saída para controle mensal.
+                </p>
+                <Link to={`/${company}/time-tracking`}>
+                  <Button className="w-full">Fazer Apontamento</Button>
+                </Link>
+              </CardContent>
+            </div>
+          </Card>
         )}
 
+        {/* 7. Painel Administração */}
         {canAccessAdmin && (
-          <HomeCard
-            title="Painel Administração"
-            description="Acesse as configurações do sistema, gerencie acessos, peças e dados gerais."
-            icon={Database}
-            to={`/${company}/admin`}
-          />
+          <Card className="text-center animated-card">
+            <div className="card-content-wrapper h-full flex flex-col">
+              <CardHeader>
+                <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                  <Database className="h-6 w-6" /> Painel Administração
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col">
+                <p className="mb-6 text-muted-foreground flex-1">
+                  Acesse as configurações do sistema, gerencie acessos, peças e dados gerais.
+                </p>
+                <Link to={`/${company}/admin`}>
+                  <Button className="w-full">Acessar Painel</Button>
+                </Link>
+              </CardContent>
+            </div>
+          </Card>
         )}
       </div>
       <MadeWithDyad />
