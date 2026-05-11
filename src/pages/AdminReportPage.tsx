@@ -90,7 +90,6 @@ interface UserProfile {
 
 type AttributeItem = { name: string; ref_code: number | null };
 
-// Helper to calculate duration in minutes
 const calculateDuration = (start?: string, end?: string): number => {
   if (!start || !end) return 0;
   const [startH, startM] = start.split(':').map(Number);
@@ -100,13 +99,12 @@ const calculateDuration = (start?: string, end?: string): number => {
   let endMinutes = endH * 60 + endM;
   
   if (endMinutes < startMinutes) {
-    endMinutes += 24 * 60; // Handle overnight
+    endMinutes += 24 * 60;
   }
   
   return endMinutes - startMinutes;
 };
 
-// Helper to format minutes to HH:mm
 const formatDuration = (minutes: number): string => {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
@@ -130,7 +128,6 @@ const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, perc
 };
 
 const AdminReportPage = () => {
-
   const { user, profile } = useSession();
   const { company, branding } = useCompany();
   const navigate = useNavigate();
@@ -142,7 +139,6 @@ const AdminReportPage = () => {
     to: new Date(),
   });
   
-  // Filters
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [selectedProfessionCode, setSelectedProfessionCode] = useState<string>('all');
   const [selectedShiftCode, setSelectedShiftCode] = useState<string>('all');
@@ -160,14 +156,12 @@ const AdminReportPage = () => {
   const [loading, setLoading] = useState(true);
   const [allData, setAllData] = useState<any[]>([]); 
 
-  // Report Generation State
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [reportGroupBy, setReportGroupBy] = useState<string>('none');
   const [includeDonutChart, setIncludeDonutChart] = useState(false);
   const [includeBarChart, setIncludeBarChart] = useState(false);
   const [includeTypedStatus, setIncludeTypedStatus] = useState(true);
 
-  // Unconfirm state
   const [unconfirmOrderId, setUnconfirmOrderId] = useState<string | null>(null);
   const [isUnconfirmDialogOpen, setIsUnconfirmDialogOpen] = useState(false);
 
@@ -175,7 +169,7 @@ const AdminReportPage = () => {
 
   useEffect(() => {
     if (!loading && !isAdmin) {
-      showError('Acesso negado: Esta página é restrita a administradores e moderadores.');
+      showError('Acesso negado.');
       navigate(`/${company}`);
     }
   }, [loading, isAdmin, navigate, company, profile]);
@@ -189,8 +183,8 @@ const AdminReportPage = () => {
           getAfsFromService(company)
         ]);
         
-        if (profRes.data && profRes.data.length > 0) setAvailableProfessions(profRes.data);
-        if (shiftRes.data && shiftRes.data.length > 0) setAvailableShifts(shiftRes.data);
+        if (profRes.data) setAvailableProfessions(profRes.data);
+        if (shiftRes.data) setAvailableShifts(shiftRes.data);
         if (afsData) setAvailableAfs(afsData);
       } catch (e) {
         console.error('Error fetching dynamic attributes:', e);
@@ -205,15 +199,9 @@ const AdminReportPage = () => {
       setLoading(true);
 
       try {
-        // 1. Fetch all users with profile details
-        const { data: userData, error: userError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, role, badge, profession_code, shift_code');
-        
-        if (userError) throw userError;
+        const { data: userData } = await supabase.from('profiles').select('id, first_name, last_name, role, badge, profession_code, shift_code');
         setUsers(userData as UserProfile[] || []);
 
-        // 2. Fetch all service orders for the range
         let start, end;
         if (dateMode === 'single') {
           start = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
@@ -223,595 +211,216 @@ const AdminReportPage = () => {
           end = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
         }
 
-        const { data: records, error: recordError } = await supabase
+        const { data: records } = await supabase
           .from('daily_service_orders')
           .select('*')
           .gte('date', start)
           .lte('date', end);
-
-        if (recordError) throw recordError;
         
-        const filteredRecords = (records || []).filter(r => r.company === company);
-        setAllData(filteredRecords);
-
+        setAllData((records || []).filter(r => r.company === company));
       } catch (err) {
-        console.error('Error fetching admin report data:', err);
-        showError('Erro ao carregar dados do relatório.');
+        showError('Erro ao carregar dados.');
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [selectedDate, dateRange, dateMode, company, user]);
 
-  // Helper to check if a record matches filters
   const matchesFilters = (record: any) => {
     const userProfile = users.find(u => u.id === record.user_id);
-    
-    // User ID Filter
     if (selectedUserId !== 'all' && record.user_id !== selectedUserId) return false;
-    
-    // Profession Filter
-    if (selectedProfessionCode !== 'all') {
-      if (!userProfile || userProfile.profession_code?.toString() !== selectedProfessionCode) return false;
-    }
-    
-    // Shift Filter
-    if (selectedShiftCode !== 'all') {
-      if (!userProfile || userProfile.shift_code?.toString() !== selectedShiftCode) return false;
-    }
-    
+    if (selectedProfessionCode !== 'all' && userProfile?.profession_code?.toString() !== selectedProfessionCode) return false;
+    if (selectedShiftCode !== 'all' && userProfile?.shift_code?.toString() !== selectedShiftCode) return false;
     return true;
   };
 
-  // Filtered List of OS for Display and Export
-    const filteredOSList = useMemo(() => {
-      let periodRecords;
-      if (dateMode === 'single') {
-        const dateStr = format(selectedDate, 'yyyy-MM-dd');
-        periodRecords = allData.filter(r => r.date === dateStr && matchesFilters(r));
-      } else {
-        periodRecords = allData.filter(r => {
-          const recordDate = parseISO(r.date);
-          const isInRange = dateRange?.from && dateRange?.to
-            ? isWithinInterval(recordDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })
-            : true;
-          return isInRange && matchesFilters(r);
+  const filteredOSList = useMemo(() => {
+    let periodRecords;
+    if (dateMode === 'single') {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      periodRecords = allData.filter(r => r.date === dateStr && matchesFilters(r));
+    } else {
+      periodRecords = allData.filter(r => {
+        const recordDate = parseISO(r.date);
+        return dateRange?.from && dateRange?.to
+          ? isWithinInterval(recordDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })
+          : matchesFilters(r);
+      });
+    }
+
+    const osList: any[] = [];
+    periodRecords.forEach(record => {
+      const userProfile = users.find(u => u.id === record.user_id);
+      const badge = userProfile?.badge || '';
+      const userDisplayName = userProfile ? `${badge ? badge + ' - ' : ''}${userProfile.first_name} ${userProfile.last_name || ''}` : 'Desconhecido';
+
+      const recordOsList = record.os_list as any[];
+      if (Array.isArray(recordOsList)) {
+        recordOsList.forEach((os, index) => {
+          osList.push({
+            ...os,
+            id: os.id || `old-${record.id}-${index}`,
+            userDisplayName,
+            recordDate: record.date,
+            badge,
+            profession_code: userProfile?.profession_code || null,
+            shift_code: userProfile?.shift_code || null,
+            confirmed: os.confirmed === true,
+          });
         });
       }
-  
-      const osList: (ServiceOrderData & {
-        userDisplayName: string;
-        recordDate: string;
-        badge: string;
-        profession_code: number | null;
-        shift_code: number | null;
-        confirmed: boolean;
-      })[] = [];
-  
-      periodRecords.forEach(record => {
-        const userProfile = users.find(u => u.id === record.user_id);
-        const badge = userProfile?.badge || '';
-        const userDisplayName = userProfile
-          ? `${badge ? badge + ' - ' : ''}${userProfile.first_name} ${userProfile.last_name || ''}`
-          : 'Desconhecido';
-  
-        const recordOsList = record.os_list as any[];
-        if (Array.isArray(recordOsList)) {
-          recordOsList.forEach((os: any, index: number) => {
-            // Ensure every OS has an ID (fallback for older records)
-            const osId = os.id || `old-${record.id}-${index}`;
-            
-            osList.push({
-              ...os,
-              id: osId,
-              userDisplayName,
-              recordDate: record.date,
-              badge,
-              profession_code: userProfile?.profession_code || null,
-              shift_code: userProfile?.shift_code || null,
-              confirmed: os.confirmed === true,
-            });
-          });
-        }
-      });
-  
-      return osList.sort((a, b) => b.recordDate.localeCompare(a.recordDate));
-    }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users]);
+    });
+    return osList.sort((a, b) => b.recordDate.localeCompare(a.recordDate));
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users]);
 
-  // Daily/Range Data for Donut Chart
   const dailyChartData = useMemo(() => {
     const osDataMap = new Map<string, any>();
-    
     filteredOSList.forEach(os => {
       if (os.hora_inicio && os.hora_final) {
         const duration = calculateDuration(os.hora_inicio, os.hora_final);
         const key = os.af || os.os || 'Sem ID';
-        
         if (osDataMap.has(key)) {
-          const existing = osDataMap.get(key);
-          existing.value += duration;
+          osDataMap.get(key).value += duration;
         } else {
-          osDataMap.set(key, {
-            name: os.af ? `AF: ${os.af}` : (os.os ? `OS: ${os.os}` : 'Sem ID'),
-            value: duration,
-            os: os.os,
-            af: os.af,
-            time: `${os.hora_inicio} - ${os.hora_final}`
-          });
+          osDataMap.set(key, { name: os.af ? `AF: ${os.af}` : `OS: ${os.os}`, value: duration, time: `${os.hora_inicio} - ${os.hora_final}` });
         }
       }
     });
-
     return Array.from(osDataMap.values());
   }, [filteredOSList]);
 
   const totalDailyMinutes = dailyChartData.reduce((acc, curr) => acc + curr.value, 0);
 
-  // Monthly/Range Data for Bar Chart
   const monthlyChartData = useMemo(() => {
     const daysMap = new Map<string, number>();
-    
-    let interval;
-    if (dateMode === 'single') {
-      interval = {
-        start: startOfMonth(selectedDate),
-        end: endOfMonth(selectedDate)
-      };
-    } else {
-      interval = {
-        start: dateRange?.from || startOfMonth(new Date()),
-        end: dateRange?.to || new Date()
-      };
-    }
-
-    const daysInInterval = eachDayOfInterval(interval);
-    daysInInterval.forEach(day => {
-      daysMap.set(format(day, 'yyyy-MM-dd'), 0);
-    });
+    const interval = dateMode === 'single' ? { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) } : { start: dateRange?.from || new Date(), end: dateRange?.to || new Date() };
+    eachDayOfInterval(interval).forEach(day => daysMap.set(format(day, 'yyyy-MM-dd'), 0));
 
     allData.filter(r => matchesFilters(r)).forEach(record => {
       const osList = record.os_list as any[];
       if (Array.isArray(osList)) {
         const dayMinutes = osList.reduce((acc, os) => acc + calculateDuration(os.hora_inicio, os.hora_final), 0);
-        const recordDate = record.date;
-        if (daysMap.has(recordDate)) {
-          daysMap.set(recordDate, (daysMap.get(recordDate) || 0) + dayMinutes);
-        }
+        if (daysMap.has(record.date)) daysMap.set(record.date, (daysMap.get(record.date) || 0) + dayMinutes);
       }
     });
-
-    return Array.from(daysMap.entries()).map(([date, minutes]) => ({
-      date,
-      day: format(parseISO(date), 'dd/MM'),
-      minutes,
-      hours: Number((minutes / 60).toFixed(1))
-    }));
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users]);
+    return Array.from(daysMap.entries()).map(([date, minutes]) => ({ day: format(parseISO(date), 'dd/MM'), minutes }));
+  }, [allData, selectedDate, dateRange, dateMode, users]);
 
   const totalMonthlyMinutes = monthlyChartData.reduce((acc, curr) => acc + curr.minutes, 0);
-
   const pendingCount = filteredOSList.filter(os => !os.confirmed).length;
 
   const confirmOrder = async (orderId: string) => {
-    console.log('Confirming order:', orderId);
     try {
-      // Find the record that contains this OS
-      const record = allData.find(r =>
-        Array.isArray(r.os_list) && r.os_list.some((os: any, index: number) => {
-          const osId = os.id || `old-${r.id}-${index}`;
-          return osId === orderId;
-        })
-      );
-
-      if (!record) {
-        console.error('Record not found for orderId:', orderId);
-        return;
-      }
-
-      console.log('Found record to update:', record.id);
-
-      const updatedOsList = record.os_list.map((os: any, index: number) => {
-        const osId = os.id || `old-${record.id}-${index}`;
-        return osId === orderId ? { ...os, confirmed: true } : os
-      });
-
-      const { data, error } = await supabase
-        .from('daily_service_orders')
-        .update({ os_list: updatedOsList })
-        .eq('id', record.id)
-        .select();
-      
-      if (error) {
-        console.error('Supabase update error:', error);
-        throw error;
-      }
-      
-      console.log('Update successful, returned data:', data);
+      const record = allData.find(r => Array.isArray(r.os_list) && r.os_list.some((os: any, idx: number) => (os.id || `old-${r.id}-${idx}`) === orderId));
+      if (!record) return;
+      const updatedOsList = record.os_list.map((os: any, idx: number) => (os.id || `old-${record.id}-${idx}`) === orderId ? { ...os, confirmed: true } : os);
+      const { error } = await supabase.from('daily_service_orders').update({ os_list: updatedOsList }).eq('id', record.id);
+      if (error) throw error;
       showSuccess('Ordem marcada como digitada!');
-      
-      // Update local state to reflect change immediately
-      setAllData(prev => prev.map(r =>
-        r.id === record.id ? { ...r, os_list: updatedOsList } : r
-      ));
+      setAllData(prev => prev.map(r => r.id === record.id ? { ...r, os_list: updatedOsList } : r));
     } catch (err) {
-      console.error('Error confirming order:', err);
       showError('Erro ao confirmar ordem.');
     }
   };
 
   const unconfirmOrder = async (orderId: string) => {
-    console.log('Unconfirming order:', orderId);
     try {
-      const record = allData.find(r =>
-        Array.isArray(r.os_list) && r.os_list.some((os: any, index: number) => {
-          const osId = os.id || `old-${r.id}-${index}`;
-          return osId === orderId;
-        })
-      );
-
-      if (!record) {
-        console.error('Record not found for orderId:', orderId);
-        return;
-      }
-
-      const updatedOsList = record.os_list.map((os: any, index: number) => {
-        const osId = os.id || `old-${record.id}-${index}`;
-        return osId === orderId ? { ...os, confirmed: false } : os
-      });
-
-      const { data, error } = await supabase
-        .from('daily_service_orders')
-        .update({ os_list: updatedOsList })
-        .eq('id', record.id)
-        .select();
-      
-      if (error) {
-        console.error('Supabase unconfirm update error:', error);
-        throw error;
-      }
-      
-      console.log('Unconfirm update successful, returned data:', data);
-      showSuccess('Status "Digitado" removido!');
-      
-      setAllData(prev => prev.map(r =>
-        r.id === record.id ? { ...r, os_list: updatedOsList } : r
-      ));
+      const record = allData.find(r => Array.isArray(r.os_list) && r.os_list.some((os: any, idx: number) => (os.id || `old-${r.id}-${idx}`) === orderId));
+      if (!record) return;
+      const updatedOsList = record.os_list.map((os: any, idx: number) => (os.id || `old-${record.id}-${idx}`) === orderId ? { ...os, confirmed: false } : os);
+      const { error } = await supabase.from('daily_service_orders').update({ os_list: updatedOsList }).eq('id', record.id);
+      if (error) throw error;
+      showSuccess('Status removido!');
+      setAllData(prev => prev.map(r => r.id === record.id ? { ...r, os_list: updatedOsList } : r));
       setIsUnconfirmDialogOpen(false);
-      setUnconfirmOrderId(null);
     } catch (err) {
-      console.error('Error unconfirming order:', err);
       showError('Erro ao desmarcar ordem.');
     }
   };
 
-
-  const handlePrevDay = () => {
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() - 1);
-    setSelectedDate(newDate);
-  };
-  
-  const handleNextDay = () => {
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + 1);
-    setSelectedDate(newDate);
-  };
-
-  const handleSingleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSingleDateInput(value);
-    if (value.length === 10) {
-      const parsedDate = parse(value, 'dd/MM/yyyy', new Date());
-      if (isValid(parsedDate)) setSelectedDate(parsedDate);
-    }
+  const handleGenerateCSV = () => {
+    const grouped = groupReportData();
+    const headers = ['Data', 'Usuário', 'AF', 'OS', 'Equipamento', 'Início', 'Fim', 'Duração'];
+    if (includeTypedStatus) headers.push('Status');
+    let csvContent = headers.join(',') + '\n';
+    Object.values(grouped).forEach(data => {
+      data.forEach((os: any) => {
+        const row = [format(parseISO(os.recordDate), 'dd/MM/yyyy'), `"${os.userDisplayName}"`, `"${os.af || '-'}"`, `"${os.os || '-'}"`, `"${getAfDescription(os.af)}"`, os.hora_inicio || '-', os.hora_final || '-', formatDuration(calculateDuration(os.hora_inicio, os.hora_final))];
+        if (includeTypedStatus) row.push(os.confirmed ? 'Digitado' : 'Pendente');
+        csvContent += row.join(',') + '\n';
+      });
+    });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `relatorio_${company}.csv`;
+    link.click();
   };
 
-  const handleRangeStartInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setRangeStartInput(value);
-    if (value.length === 10) {
-      const parsedDate = parse(value, 'dd/MM/yyyy', new Date());
-      if (isValid(parsedDate)) setDateRange(prev => ({ from: parsedDate, to: prev?.to }));
-    }
-  };
+  const getAfDescription = (afNumber: string) => availableAfs.find(a => a.af_number === afNumber)?.descricao || '-';
 
-  const handleRangeEndInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setRangeEndInput(value);
-    if (value.length === 10) {
-      const parsedDate = parse(value, 'dd/MM/yyyy', new Date());
-      if (isValid(parsedDate)) setDateRange(prev => ({ from: prev?.from, to: parsedDate }));
-    }
-  };
-
-  useEffect(() => {
-    if (dateMode === 'single') setSingleDateInput(format(selectedDate, 'dd/MM/yyyy'));
-  }, [selectedDate, dateMode]);
-
-  useEffect(() => {
-    if (dateRange?.from) setRangeStartInput(format(dateRange.from, 'dd/MM/yyyy'));
-    if (dateRange?.to) setRangeEndInput(format(dateRange.to, 'dd/MM/yyyy'));
-  }, [dateRange]);
-
-
-  // --- Report Generation Logic ---
   const groupReportData = () => {
-    if (reportGroupBy === 'none') {
-       return { 'Todas as Ordens de Serviço': filteredOSList };
-    }
-
+    if (reportGroupBy === 'none') return { 'Geral': filteredOSList };
     const grouped: Record<string, any[]> = {};
-
     filteredOSList.forEach(item => {
       let key = 'Outros';
-
-      if (reportGroupBy === 'date') {
-         key = format(parseISO(item.recordDate), 'dd/MM/yyyy');
-      } else if (reportGroupBy === 'badge') {
-         key = item.badge ? `Crachá: ${item.badge}` : 'Sem Crachá';
-      } else if (reportGroupBy === 'profession') {
-         const prof = availableProfessions.find(p => p.ref_code === item.profession_code);
-         key = prof ? `Profissão: ${prof.name}` : 'Sem Profissão';
-      } else if (reportGroupBy === 'shift') {
-         const shift = availableShifts.find(s => s.ref_code === item.shift_code);
-         key = shift ? `Turno: ${shift.name}` : 'Sem Turno';
-      }
-
+      if (reportGroupBy === 'date') key = format(parseISO(item.recordDate), 'dd/MM/yyyy');
+      else if (reportGroupBy === 'badge') key = item.badge || 'Sem Crachá';
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(item);
     });
-
     return grouped;
-  };
-
-  const handleGenerateCSV = () => {
-      const grouped = groupReportData();
-      
-      // Create CSV headers
-      const headers = ['Data', 'Usuário', 'AF', 'OS', 'Equipamento', 'Início', 'Fim', 'Duração'];
-      if (includeTypedStatus) headers.push('Status');
-      
-      let csvContent = headers.join(',') + '\n';
-      
-      // Process each group
-      Object.keys(grouped).forEach(groupName => {
-        const groupData = grouped[groupName];
-        
-        groupData.forEach((os: any) => {
-          const dur = calculateDuration(os.hora_inicio, os.hora_final);
-          const afDesc = os.af ? getAfDescription(os.af) : '-';
-          
-          // Escape fields that might contain commas or quotes
-          const escapeCsvField = (field: string) => {
-            if (field.includes(',') || field.includes('"') || field.includes('\n')) {
-              return `"${field.replace(/"/g, '""')}"`;
-            }
-            return field;
-          };
-          
-          const row = [
-            format(parseISO(os.recordDate), 'dd/MM/yyyy'),
-            escapeCsvField(os.userDisplayName),
-            escapeCsvField(os.af || '-'),
-            escapeCsvField(os.os || '-'),
-            escapeCsvField(afDesc),
-            escapeCsvField(os.hora_inicio || '-'),
-            escapeCsvField(os.hora_final || '-'),
-            escapeCsvField(formatDuration(dur)),
-          ];
-
-          if (includeTypedStatus) {
-            row.push(os.confirmed ? 'Digitado' : 'Pendente');
-          }
-          
-          csvContent += row.join(',') + '\n';
-        });
-      });
-      
-      const dataStr = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
-      const downloadAnchorNode = document.createElement('a');
-      downloadAnchorNode.setAttribute("href", dataStr);
-      downloadAnchorNode.setAttribute("download", `relatorio_${company}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
-      document.body.appendChild(downloadAnchorNode);
-      downloadAnchorNode.click();
-      downloadAnchorNode.remove();
-      setIsReportDialogOpen(false);
-      showSuccess("Relatório CSV baixado com sucesso.");
-    };
-
-  const getAfDescription = (afNumber: string) => {
-    const af = availableAfs.find(a => a.af_number === afNumber);
-    return af?.descricao || '-';
   };
 
   const handleGeneratePDF = () => {
     const grouped = groupReportData();
-    
-    // Captura o HTML dos gráficos renderizados
-    const donutHtml = includeDonutChart && document.getElementById('print-donut-chart') 
-      ? document.getElementById('print-donut-chart')?.innerHTML 
-      : '';
-      
-    const barHtml = includeBarChart && document.getElementById('print-bar-chart') 
-      ? document.getElementById('print-bar-chart')?.innerHTML 
-      : '';
-
+    const donutHtml = includeDonutChart && document.getElementById('print-donut-chart')?.innerHTML || '';
+    const barHtml = includeBarChart && document.getElementById('print-bar-chart')?.innerHTML || '';
     const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-       showError("Não foi possível abrir a janela de impressão. Verifique se os pop-ups estão bloqueados.");
-       return;
-    }
+    if (!printWindow) return;
 
     let html = `
-      <!DOCTYPE html>
       <html>
       <head>
-        <title>Relatório Administrativo - ${branding.name}</title>
         <style>
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #333; }
-          .header { text-align: center; margin-bottom: 30px; }
-          h1 { color: #1e40af; border-bottom: 2px solid #1e40af; padding-bottom: 10px; margin-bottom: 5px;}
-          .meta { color: #666; font-size: 14px; margin-bottom: 20px; text-align: center; }
-          h2 { color: #2563eb; margin-top: 30px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; font-size: 18px; }
-          table { border-collapse: collapse; width: 100%; font-size: 12px; margin-bottom: 20px; }
-          th, td { border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; }
-          th { background-color: #f3f4f6; font-weight: 600; color: #374151; }
-          tr:nth-child(even) { background-color: #f9fafb; }
-          .text-right { text-align: right; }
-          .summary { font-weight: bold; background-color: #e5e7eb !important; }
-          
-          /* Estilos injetados para suportar os gráficos do Recharts e Tailwind local */
-          .charts-section { display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; page-break-inside: avoid; flex-wrap: wrap; }
-          .chart-box { flex: 1; min-width: 300px; max-width: 500px; border: 1px solid #e5e7eb; padding: 15px; border-radius: 8px; text-align: center; }
-          .chart-box h3 { font-size: 14px; margin-top: 0; margin-bottom: 15px; color: #4b5563; }
-          .recharts-print-container { position: relative; width: 100%; display: flex; justify-content: center; align-items: center; }
-          .recharts-print-container svg { max-width: 100%; height: auto !important; }
-          .recharts-text { fill: #374151; font-family: sans-serif; }
-          
-          /* Polyfill Tailwind para o "Total" no meio da rosca */
-          .absolute { position: absolute; }
-          .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
-          .flex { display: flex; }
-          .flex-col { flex-direction: column; }
-          .items-center { align-items: center; }
-          .justify-center { justify-content: center; }
-          .pointer-events-none { pointer-events: none; }
-          .text-xs { font-size: 12px; }
-          .text-lg { font-size: 18px; }
-          .font-bold { font-weight: bold; }
-          .text-muted-foreground { color: #6b7280; }
-          .text-primary { color: #2563eb; }
-
-          @media print {
-            @page { margin: 1cm; }
-            body { padding: 0; }
-            button { display: none; }
-            .charts-section { display: block; }
-            .chart-box { max-width: 100%; margin-bottom: 20px; page-break-inside: avoid; }
-          }
+          body { font-family: sans-serif; padding: 20px; }
+          .meta { margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background: #f4f4f4; }
+          .summary { font-weight: bold; background: #eee; }
         </style>
       </head>
       <body>
         <div class="header">
           <h1>Relatório de Ordens de Serviço - ${branding.name}</h1>
           <div class="meta">
-            Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")} <br/>
+            Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")} <br/>
             Período: ${dateMode === 'single' ? format(selectedDate, 'dd/MM/yyyy') : `${format(dateRange?.from || new Date(), 'dd/MM/yyyy')} a ${format(dateRange?.to || new Date(), 'dd/MM/yyyy')}`}<br/>
             Total Geral de OS: ${filteredOSList.length}
             ${includeTypedStatus && pendingCount > 0 ? `<br/><span style="color: #dc2626; font-style: italic;">(${pendingCount} OS ainda não foram digitadas no ERP)</span>` : ''}
           </div>
         </div>
+        ${donutHtml || barHtml ? `<div style="display:flex; gap:20px; margin-bottom:20px;">${donutHtml ? `<div style="flex:1">${donutHtml}</div>` : ''}${barHtml ? `<div style="flex:1">${barHtml}</div>` : ''}</div>` : ''}
     `;
 
-    // Injeta a seção de Gráficos se o usuário marcou alguma caixa
-    if (donutHtml || barHtml) {
-      html += `
-        <div class="charts-section">
-          ${donutHtml ? `
-            <div class="chart-box">
-              <h3>Desempenho Diário</h3>
-              <div class="recharts-print-container" style="height: 300px;">
-                ${donutHtml}
-              </div>
-            </div>
-          ` : ''}
-          ${barHtml ? `
-            <div class="chart-box">
-              <h3>Desempenho no Período</h3>
-              <div class="recharts-print-container" style="height: 300px;">
-                ${barHtml}
-              </div>
-            </div>
-          ` : ''}
-        </div>
-      `;
-    }
-
-    Object.keys(grouped).forEach(groupName => {
-      const groupData = grouped[groupName];
-      let groupTotalMinutes = 0;
-
-      html += `<h2>${groupName} (${groupData.length} OS)</h2>`;
-
-      if (groupData.length > 0) {
-        html += `
-          <table>
-            <thead>
-              <tr>
-                <th width="80">Data</th>
-                <th>Usuário</th>
-                <th width="60">AF</th>
-                <th width="60">OS</th>
-                <th>Equipamento</th>
-                <th width="60">Início</th>
-                <th width="60">Fim</th>
-                <th width="80" class="text-right">Duração</th>
-                ${includeTypedStatus ? '<th width="40">Status</th>' : ''}
-              </tr>
-            </thead>
-            <tbody>
-        `;
-
-        groupData.forEach((os: any) => {
-          const dur = calculateDuration(os.hora_inicio, os.hora_final);
-          groupTotalMinutes += dur;
-          const afDesc = os.af ? getAfDescription(os.af) : '-';
-          
-          html += `
-            <tr>
-              <td>${format(parseISO(os.recordDate), 'dd/MM/yyyy')}</td>
-              <td>${os.userDisplayName}</td>
-              <td>${os.af || '-'}</td>
-              <td>${os.os || '-'}</td>
-              <td>${afDesc}</td>
-              <td>${os.hora_inicio || '-'}</td>
-              <td>${os.hora_final || '-'}</td>
-              <td class="text-right">${formatDuration(dur)}</td>
-              ${includeTypedStatus ? `<td style="text-align: center;">${os.confirmed ? '✅' : '❌'}</td>` : ''}
-            </tr>
-          `;
-        });
-
-        html += `
-            <tr class="summary">
-              <td colspan="${includeTypedStatus ? 8 : 7}" class="text-right">Tempo Total no Grupo:</td>
-              <td class="text-right">${formatDuration(groupTotalMinutes)}</td>
-            </tr>
-            </tbody></table>
-        `;
-      }
+    Object.keys(grouped).forEach(key => {
+      const data = grouped[key];
+      let total = 0;
+      html += `<h2>${key}</h2><table><thead><tr><th>Data</th><th>Usuário</th><th>AF</th><th>OS</th><th>Duração</th>${includeTypedStatus ? '<th>Status</th>' : ''}</tr></thead><tbody>`;
+      data.forEach(os => {
+        const d = calculateDuration(os.hora_inicio, os.hora_final);
+        total += d;
+        html += `<tr><td>${format(parseISO(os.recordDate), 'dd/MM/yyyy')}</td><td>${os.userDisplayName}</td><td>${os.af || '-'}</td><td>${os.os || '-'}</td><td>${formatDuration(d)}</td>${includeTypedStatus ? `<td>${os.confirmed ? '✅' : '❌'}</td>` : ''}</tr>`;
+      });
+      html += `<tr class="summary"><td colspan="${includeTypedStatus ? 4 : 4}">Total</td><td>${formatDuration(total)}</td>${includeTypedStatus ? '<td></td>' : ''}</tr></tbody></table>`;
     });
 
-    html += `
-        <script>
-          window.onload = function() { 
-            setTimeout(function() {
-              window.print();
-            }, 500);
-          }
-        </script>
-      </body>
-      </html>
-    `;
-
+    html += '<script>window.onload=()=>setTimeout(()=>window.print(),500)</script></body></html>';
     printWindow.document.write(html);
     printWindow.document.close();
-    setIsReportDialogOpen(false);
   };
-
-
-  if (loading && allData.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Carregando relatório administrativo...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col p-4 bg-background max-w-7xl mx-auto w-full">
@@ -831,393 +440,188 @@ const AdminReportPage = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-        {/* Date Selector */}
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <CalendarRange className="h-4 w-4" /> Seleção de Data
-            </CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Seleção de Data</CardTitle></CardHeader>
           <CardContent>
-            <Tabs defaultValue="single" value={dateMode} onValueChange={(v: any) => setDateMode(v)}>
+            <Tabs value={dateMode} onValueChange={(v: any) => setDateMode(v)}>
               <TabsList className="grid w-full grid-cols-2 mb-4">
                 <TabsTrigger value="single">Dia Único</TabsTrigger>
-                <TabsTrigger value="range">Por Período</TabsTrigger>
+                <TabsTrigger value="range">Período</TabsTrigger>
               </TabsList>
-              
-              <TabsContent value="single" className="m-0">
+              <TabsContent value="single">
                 <div className="flex items-center gap-4">
-                  <Button variant="outline" size="icon" onClick={handlePrevDay}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" className="flex-1 text-center font-bold text-lg hover:bg-accent">
-                        {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="center">
-                      <Calendar mode="single" selected={selectedDate} onSelect={(d) => d && setSelectedDate(d)} locale={ptBR} />
-                    </PopoverContent>
-                  </Popover>
-
-                  <Button variant="outline" size="icon" onClick={handleNextDay}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                  <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))}><ChevronLeft className="h-4 w-4" /></Button>
+                  <Popover><PopoverTrigger asChild><Button variant="ghost" className="flex-1 font-bold">{format(selectedDate, "dd/MM/yyyy")}</Button></PopoverTrigger><PopoverContent><Calendar mode="single" selected={selectedDate} onSelect={(d) => d && setSelectedDate(d)} locale={ptBR} /></PopoverContent></Popover>
+                  <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 1))}><ChevronRight className="h-4 w-4" /></Button>
                 </div>
               </TabsContent>
-              
-              <TabsContent value="range" className="m-0">
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant={"outline"} className="flex-1 justify-start text-left font-normal">
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {dateRange?.from ? (dateRange.to ? `${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}` : format(dateRange.from, "dd/MM/yyyy")) : <span>Selecione o período</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={ptBR} />
-                      </PopoverContent>
-                    </Popover>
-                    <Button variant="outline" size="icon" onClick={() => setShowRangeInputs(!showRangeInputs)} className={showRangeInputs ? "bg-accent" : ""}><Keyboard className="h-4 w-4" /></Button>
-                  </div>
-                  {showRangeInputs && (
-                    <div className="flex items-center gap-2 px-1 animate-in fade-in slide-in-from-top-1">
-                      <Input placeholder="Início" value={rangeStartInput} onChange={handleRangeStartInputChange} className="h-8 text-xs w-28 text-center" />
-                      <span className="text-muted-foreground">/</span>
-                      <Input placeholder="Fim" value={rangeEndInput} onChange={handleRangeEndInputChange} className="h-8 text-xs w-28 text-center" />
-                    </div>
-                  )}
-                </div>
+              <TabsContent value="range">
+                <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full text-left">{dateRange?.from ? format(dateRange.from, "dd/MM/yyyy") : 'Início'} - {dateRange?.to ? format(dateRange.to, "dd/MM/yyyy") : 'Fim'}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} locale={ptBR} /></PopoverContent></Popover>
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
 
-        {/* Global Filters */}
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Search className="h-4 w-4" /> Filtros Adicionais
-            </CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Filtros</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            {/* User Select */}
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
-                <UserIcon className="h-3 w-3" /> Usuário
-              </label>
-              <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal h-9">
-                    <div className="flex items-center gap-2 truncate">
-                      {selectedUserId === "all" ? "Todos os usuários" : users.find((u) => u.id === selectedUserId)?.first_name + ' ' + (users.find((u) => u.id === selectedUserId)?.last_name || '')}
-                    </div>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Buscar por nome ou crachá..." />
-                    <CommandList>
-                      <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        <CommandItem onSelect={() => { setSelectedUserId("all"); setOpenUserSelect(false); }}>
-                          <Check className={cn("mr-2 h-4 w-4", selectedUserId === "all" ? "opacity-100" : "opacity-0")} />
-                          Todos os usuários
-                        </CommandItem>
-                        {users.map((u) => {
-                          const profName = availableProfessions.find(p => p.ref_code === u.profession_code)?.name || 'Sem profissão';
-                          const shiftName = availableShifts.find(s => s.ref_code === u.shift_code)?.name || 'Sem turno';
-                          
-                          return (
-                            <CommandItem key={u.id} onSelect={() => { setSelectedUserId(u.id); setOpenUserSelect(false); }}>
-                              <Check className={cn("mr-2 h-4 w-4", selectedUserId === u.id ? "opacity-100" : "opacity-0")} />
-                              <div className="flex flex-col">
-                                <span>{u.badge ? `${u.badge} - ` : ''}{u.first_name} {u.last_name || ''}</span>
-                                <span className="text-xs text-muted-foreground">{profName} • {shiftName}</span>
-                              </div>
-                            </CommandItem>
-                          );
-                        })}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* Profession Select */}
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
-                  <Briefcase className="h-3 w-3" /> Profissão
-                </label>
-                <Select value={selectedProfessionCode} onValueChange={setSelectedProfessionCode}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Profissão" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {availableProfessions.map(p => (
-                      <SelectItem key={p.ref_code} value={p.ref_code!.toString()}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Shift Select */}
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3 w-3" /> Turno
-                </label>
-                <Select value={selectedShiftCode} onValueChange={setSelectedShiftCode}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Turno" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {availableShifts.map(s => (
-                      <SelectItem key={s.ref_code} value={s.ref_code!.toString()}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+             <div className="space-y-1">
+               <Label className="text-[10px] uppercase font-bold">Usuário</Label>
+               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                 <SelectTrigger><SelectValue placeholder="Selecione o usuário" /></SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="all">Todos</SelectItem>
+                   {users.map(u => <SelectItem key={u.id} value={u.id}>{u.first_name} {u.last_name}</SelectItem>)}
+                 </SelectContent>
+               </Select>
+             </div>
+             <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase font-bold">Profissão</Label>
+                  <Select value={selectedProfessionCode} onValueChange={setSelectedProfessionCode}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {availableProfessions.map(p => <SelectItem key={p.ref_code} value={p.ref_code!.toString()}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase font-bold">Turno</Label>
+                  <Select value={selectedShiftCode} onValueChange={setSelectedShiftCode}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {availableShifts.map(s => <SelectItem key={s.ref_code} value={s.ref_code!.toString()}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+             </div>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Daily Chart */}
         <Card className="lg:col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <PieChartIcon className="h-4 w-4" /> {dateMode === 'single' ? 'Desempenho Diário' : 'Desempenho do Período'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center">
-            <div id="print-donut-chart" className="h-64 w-full relative">
-              {dailyChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={dailyChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value" label={renderCustomPieLabel} labelLine={false}>
-                      {dailyChartData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                    </Pie>
-                    <RechartsTooltip formatter={(value: number) => formatDuration(value)} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground text-sm italic">Sem dados para este filtro</div>
-              )}
-              {dailyChartData.length > 0 && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xs text-muted-foreground">Total</span>
-                  <span className="text-lg font-bold text-primary">{formatDuration(totalDailyMinutes)}</span>
-                </div>
-              )}
-            </div>
+          <CardHeader><CardTitle className="text-base">Resumo Diário</CardTitle></CardHeader>
+          <CardContent className="h-64 relative">
+             <div id="print-donut-chart" className="h-full w-full">
+               <ResponsiveContainer width="100%" height="100%">
+                 <PieChart>
+                   <Pie data={dailyChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={renderCustomPieLabel}>
+                     {dailyChartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                   </Pie>
+                   <RechartsTooltip />
+                 </PieChart>
+               </ResponsiveContainer>
+               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                 <span className="text-lg font-bold">{formatDuration(totalDailyMinutes)}</span>
+               </div>
+             </div>
           </CardContent>
         </Card>
-
-        {/* Monthly Chart */}
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" /> {dateMode === 'single' ? `Desempenho Mensal (${format(selectedDate, 'MMMM', { locale: ptBR })})` : 'Desempenho por Dia no Período'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div id="print-bar-chart" className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyChartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="day" />
-                  <YAxis tickFormatter={(val) => `${Math.floor(val / 60)}h`} />
-                  <RechartsTooltip formatter={(value: number) => [formatDuration(value), 'Tempo']} labelFormatter={(label) => `Dia ${label}`} />
-                  <Bar dataKey="minutes" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-4 text-center">
-              <span className="text-sm text-muted-foreground mr-2">Total {dateMode === 'single' ? 'no mês' : 'no período'}:</span>
-              <span className="font-bold text-blue-600">{formatDuration(totalMonthlyMinutes)}</span>
-            </div>
+          <CardHeader><CardTitle className="text-base">Histórico do Período</CardTitle></CardHeader>
+          <CardContent className="h-64">
+             <div id="print-bar-chart" className="h-full w-full">
+               <ResponsiveContainer width="100%" height="100%">
+                 <BarChart data={monthlyChartData}>
+                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                   <XAxis dataKey="day" />
+                   <YAxis tickFormatter={v => `${Math.floor(v/60)}h`} />
+                   <Bar dataKey="minutes" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                 </BarChart>
+               </ResponsiveContainer>
+             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* OS List */}
-      <Card className="mb-8">
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl flex items-center gap-2">
-            <ClipboardList className="h-6 w-6" /> {dateMode === 'single' ? 'Ordens de Serviço do Dia' : 'Ordens de Serviço do Período'}
-          </CardTitle>
-          <div className="text-sm font-medium text-muted-foreground">
-            {filteredOSList.length} OS encontrada(s)
-          </div>
+          <CardTitle className="text-xl">Ordens de Serviço Filtradas</CardTitle>
+          <div className="text-sm font-medium">{filteredOSList.length} OS encontrada(s)</div>
         </CardHeader>
         <CardContent>
-          {filteredOSList.length > 0 ? (
-        <div className="space-y-6">
-          {filteredOSList.map((os, idx) => (
-            <div key={idx} className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/50 p-2 px-4 border-b flex flex-wrap justify-between items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Usuário: {os.userDisplayName} {dateMode === 'range' && `| Data: ${format(parseISO(os.recordDate), 'dd/MM/yyyy')}`}
-                </span>
-                <div className="flex items-center gap-2">
+          <div className="space-y-6">
+            {filteredOSList.map(os => (
+              <div key={os.id} className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/50 p-2 px-4 border-b flex justify-between items-center">
+                  <span className="text-xs font-bold">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
                   {os.confirmed ? (
                     <div className="flex items-center gap-1">
-                      <span className="text-green-600 flex items-center gap-1 text-sm bg-green-50 px-2 py-0.5 rounded border border-green-200">
-                        <Check className="h-4 w-4" /> Digitado
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => {
-                          setUnconfirmOrderId(os.id);
-                          setIsUnconfirmDialogOpen(true);
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <span className="text-green-600 text-xs font-bold">Digitado</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setUnconfirmOrderId(os.id); setIsUnconfirmDialogOpen(true); }}><X className="h-4 w-4" /></Button>
                     </div>
-                  ) : (
-                    <Button variant="outline" size="sm" onClick={() => confirmOrder(os.id)}>
-                      Marcar como Digitado
-                    </Button>
-                  )}
+                  ) : <Button variant="outline" size="sm" onClick={() => confirmOrder(os.id)}>Marcar Digitado</Button>}
                 </div>
+                <ServiceOrderListDisplay group={os} readOnly={true} />
               </div>
-              <ServiceOrderListDisplay group={os} readOnly={true} />
-            </div>
-          ))}
-        </div>
-      ) : (
-            <div className="py-12 text-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
-              <ClipboardList className="h-12 w-12 mx-auto mb-4 opacity-20" />
-              <p>Nenhuma ordem de serviço registrada para este filtro.</p>
-            </div>
-          )}
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Bottom Action Button */}
-      <div className="flex justify-center pb-8">
-        <Button size="lg" onClick={() => setIsReportDialogOpen(true)} className="flex items-center gap-2 px-8">
-          <FileText className="h-5 w-5" /> Gerar Relatório Completo
-        </Button>
-      </div>
-
-      {/* Report Generation Dialog */}
       <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Gerar Relatório</DialogTitle>
             <DialogDescription>
-              O relatório usará as <strong>{filteredOSList.length} Ordens de Serviço</strong> filtradas atualmente na tela.
-              {pendingCount > 0 && (
-                <span className="block mt-1 text-red-600 font-medium italic">
-                  ({pendingCount} OS ainda não foram digitadas no ERP)
-                </span>
-              )}
+              O relatório usará as <strong>{filteredOSList.length} Ordens de Serviço</strong> filtradas.
+              {pendingCount > 0 && <span className="block mt-1 text-red-600 font-medium italic">({pendingCount} OS pendentes de digitação)</span>}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-5 py-2">
-            <div className="grid gap-2">
-              <label className="text-sm font-bold">Agrupar relatório por:</label>
+          <div className="grid gap-4 py-2">
+            <div className="space-y-2">
+              <Label>Agrupar por:</Label>
               <Select value={reportGroupBy} onValueChange={setReportGroupBy}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o agrupamento" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sem Agrupamento (Geral)</SelectItem>
-                  <SelectItem value="date">Data do Registro</SelectItem>
-                  <SelectItem value="profession">Profissão</SelectItem>
-                  <SelectItem value="shift">Turno</SelectItem>
+                  <SelectItem value="none">Sem Agrupamento</SelectItem>
+                  <SelectItem value="date">Data</SelectItem>
                   <SelectItem value="badge">Crachá</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="grid gap-3 p-3 bg-muted/30 border rounded-md">
-              <label className="text-sm font-bold">Opções de Colunas:</label>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="include-typed"
-                  checked={includeTypedStatus}
-                  onCheckedChange={(c) => setIncludeTypedStatus(c === true)}
-                />
-                <label htmlFor="include-typed" className="text-sm cursor-pointer hover:text-primary transition-colors">
-                  Adicionar coluna ordem digitada
-                </label>
-              </div>
+            <div className="flex items-center space-x-2 p-2 bg-muted/30 rounded border">
+              <Checkbox id="inc-typed" checked={includeTypedStatus} onCheckedChange={(c) => setIncludeTypedStatus(c === true)} />
+              <Label htmlFor="inc-typed">Incluir coluna de status "Digitado"</Label>
             </div>
-
-            <div className="grid gap-3 p-3 bg-muted/30 border rounded-md">
-              <label className="text-sm font-bold">Incluir Gráficos (PDF):</label>
-              <div className="flex flex-col gap-2">
+            <div className="space-y-2 p-2 bg-muted/30 rounded border">
+              <Label className="text-xs font-bold">Incluir Gráficos no PDF:</Label>
+              <div className="flex gap-4">
                 <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="include-donut" 
-                    checked={includeDonutChart} 
-                    onCheckedChange={(c) => setIncludeDonutChart(c === true)} 
-                  />
-                  <label htmlFor="include-donut" className="text-sm cursor-pointer hover:text-primary transition-colors">
-                    Gráfico de Rosca (Desempenho Diário)
-                  </label>
+                  <Checkbox id="inc-donut" checked={includeDonutChart} onCheckedChange={(c) => setIncludeDonutChart(c === true)} />
+                  <Label htmlFor="inc-donut" className="text-xs">Rosca</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="include-bar" 
-                    checked={includeBarChart} 
-                    onCheckedChange={(c) => setIncludeBarChart(c === true)} 
-                  />
-                  <label htmlFor="include-bar" className="text-sm cursor-pointer hover:text-primary transition-colors">
-                    Gráfico de Barras (Desempenho Mensal)
-                  </label>
+                  <Checkbox id="inc-bar" checked={includeBarChart} onCheckedChange={(c) => setIncludeBarChart(c === true)} />
+                  <Label htmlFor="inc-bar" className="text-xs">Barra</Label>
                 </div>
               </div>
             </div>
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2 mt-2">
-            <Button variant="outline" className="w-full sm:w-auto flex-1" onClick={handleGenerateCSV}>
-              <Download className="mr-2 h-4 w-4" /> Gerar CSV
-            </Button>
-            <Button className="w-full sm:w-auto flex-1" onClick={handleGeneratePDF}>
-              <Printer className="mr-2 h-4 w-4" /> Gerar PDF / Imprimir
-            </Button>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="flex-1" onClick={handleGenerateCSV}>Exportar CSV</Button>
+            <Button className="flex-1" onClick={handleGeneratePDF}>Imprimir PDF</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={isUnconfirmDialogOpen} onOpenChange={setIsUnconfirmDialogOpen}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Desmarcar como digitado?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação alterará o status desta Ordem de Serviço de volta para "Pendente" no sistema e no banco de dados.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+          <AlertDialogHeader><AlertDialogTitle>Remover status "Digitado"?</AlertDialogTitle></AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setUnconfirmOrderId(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => unconfirmOrderId && unconfirmOrder(unconfirmOrderId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Confirmar
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => unconfirmOrderId && unconfirmOrder(unconfirmOrderId)} className="bg-destructive">Confirmar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
     </div>
   );
 };
+
+const subDays = (d: Date, n: number) => { const res = new Date(d); res.setDate(res.getDate() - n); return res; };
+const addDays = (d: Date, n: number) => { const res = new Date(d); res.setDate(res.getDate() + n); return res; };
 
 export default AdminReportPage;
