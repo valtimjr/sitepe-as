@@ -196,8 +196,17 @@ const AdminReportPage = () => {
       setLoading(true);
 
       try {
-        const { data: userData } = await supabase.from('profiles').select('id, first_name, last_name, role, badge, profession_code, shift_code');
-        setUsers(userData as UserProfile[] || []);
+        // Busca usuários com tratamento de erro explícito e ordenação
+        const { data: userData, error: userError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, role, badge, profession_code, shift_code')
+          .order('first_name', { ascending: true });
+        
+        if (userError) {
+          console.error('[AdminReportPage] Erro ao buscar usuários:', userError);
+        }
+        
+        setUsers((userData as UserProfile[]) || []);
 
         let start, end;
         if (dateMode === 'single') {
@@ -544,24 +553,33 @@ const AdminReportPage = () => {
                            />
                            Todos os usuários
                          </CommandItem>
-                         {users.map((u) => (
-                           <CommandItem
-                             key={u.id}
-                             value={`${u.first_name} ${u.last_name} ${u.badge || ""}`}
-                             onSelect={() => {
-                               setSelectedUserId(u.id);
-                               setOpenUserSelect(false);
-                             }}
-                           >
-                             <Check
-                               className={cn(
-                                 "mr-2 h-4 w-4",
-                                 selectedUserId === u.id ? "opacity-100" : "opacity-0"
-                               )}
-                             />
-                             {u.first_name} {u.last_name} {u.badge ? `(${u.badge})` : ''}
-                           </CommandItem>
-                         ))}
+                         {users.map((u) => {
+                           const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+                           const badgeStr = u.badge ? `(${u.badge})` : '';
+                           // O 'value' é usado pelo cmdk para filtrar. Deve ser lowercase para melhor compatibilidade.
+                           const searchValue = `${fullName} ${u.badge || ''}`.toLowerCase().trim();
+                           
+                           return (
+                             <CommandItem
+                               key={u.id}
+                               value={searchValue}
+                               onSelect={() => {
+                                 setSelectedUserId(u.id);
+                                 setOpenUserSelect(false);
+                               }}
+                             >
+                               <Check
+                                 className={cn(
+                                   "mr-2 h-4 w-4",
+                                   selectedUserId === u.id ? "opacity-100" : "opacity-0"
+                                 )}
+                               />
+                               <span className="flex-1">
+                                 {fullName || 'Usuário sem nome'} {badgeStr}
+                               </span>
+                             </CommandItem>
+                           );
+                         })}
                        </CommandGroup>
                      </CommandList>
                    </Command>
