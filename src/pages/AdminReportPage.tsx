@@ -2,28 +2,18 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, isWithinInterval, startOfDay, endOfDay, isValid, parse, subDays, addDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, isWithinInterval, startOfDay, endOfDay, subDays, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ChevronLeft,
   ChevronRight,
-  Calendar as CalendarIcon,
   Loader2,
-  User as UserIcon,
-  BarChart3,
-  PieChart as PieChartIcon,
-  Users,
-  ClipboardList,
-  CalendarRange,
-  Keyboard,
-  Check,
+  Calendar as CalendarIcon,
   ChevronsUpDown,
-  Search,
-  Briefcase,
+  Check,
   Clock,
   GripVertical,
   FileText,
-  Printer,
   Download,
   X
 } from 'lucide-react';
@@ -49,19 +39,16 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from '@/components/ui/input';
 import { DateRange } from "react-day-picker";
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
 import { useCompany } from '@/context/CompanyContext';
-import { ServiceOrderData } from '@/types/supabase';
 import { showSuccess, showError } from '@/utils/toast';
 import { getAfsFromService, Af } from '@/services/partListService';
 import { 
@@ -78,8 +65,9 @@ import {
 } from 'recharts';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
 
-// @ts-ignore
-import html2pdf from 'html2pdf.js';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 
 const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#1d4ed8', '#1e40af', '#1e3a8a'];
 
@@ -319,7 +307,6 @@ const AdminReportPage = () => {
     return Array.from(daysMap.entries()).map(([date, minutes]) => ({ day: format(parseISO(date), 'dd/MM'), minutes }));
   }, [allData, selectedDate, dateRange, dateMode, users]);
 
-  const totalMonthlyMinutes = monthlyChartData.reduce((acc, curr) => acc + curr.minutes, 0);
   const pendingCount = filteredOSList.filter(os => !os.confirmed).length;
 
   const confirmOrder = async (orderId: string) => {
@@ -399,99 +386,133 @@ const AdminReportPage = () => {
     setIsGeneratingPdf(true);
     
     try {
+      const doc = new jsPDF('p', 'pt', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let yPos = 40;
+
+      // Header Text
+      doc.setFontSize(18);
+      doc.setTextColor(30, 58, 138); // #1e3a8a
+      doc.text(`Relatório de Ordens de Serviço - ${branding.name}`, 40, yPos);
+      yPos += 20;
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 40, yPos);
+      yPos += 15;
+      const periodStr = dateMode === 'single' ? format(selectedDate, 'dd/MM/yyyy') : `${format(dateRange?.from || new Date(), 'dd/MM/yyyy')} a ${format(dateRange?.to || new Date(), 'dd/MM/yyyy')}`;
+      doc.text(`Período: ${periodStr}`, 40, yPos);
+      yPos += 15;
+      doc.text(`Total Geral de OS: ${filteredOSList.length}`, 40, yPos);
+      yPos += 15;
+
+      if (includeTypedStatus && pendingCount > 0) {
+        doc.setTextColor(220, 38, 38);
+        doc.text(`(${pendingCount} OS ainda não foram digitadas no ERP)`, 40, yPos);
+        yPos += 20;
+      } else {
+        yPos += 10;
+      }
+
+      // Charts
+      if (includeDonutChart || includeBarChart) {
+        const chartHeight = 160;
+        const chartWidth = 220;
+        let currentX = 40;
+
+        if (includeDonutChart) {
+          const donutEl = document.getElementById('print-donut-chart');
+          if (donutEl) {
+            const canvas = await html2canvas(donutEl, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            doc.addImage(imgData, 'PNG', currentX, yPos, chartWidth, chartHeight);
+            currentX += chartWidth + 20;
+          }
+        }
+
+        if (includeBarChart) {
+          const barEl = document.getElementById('print-bar-chart');
+          if (barEl) {
+            const canvas = await html2canvas(barEl, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            doc.addImage(imgData, 'PNG', currentX, yPos, chartWidth, chartHeight);
+          }
+        }
+
+        yPos += chartHeight + 20;
+      }
+
+      // Grouped Data Tables
       const grouped = groupReportData();
-      const donutElement = document.getElementById('print-donut-chart');
-      const barElement = document.getElementById('print-bar-chart');
       
-      const donutHtml = includeDonutChart && donutElement ? donutElement.innerHTML : '';
-      const barHtml = includeBarChart && barElement ? barElement.innerHTML : '';
-
-      // Wrapper principal travado em 800px de largura com cores e fontes estritas para evitar deformação
-      let htmlContent = `
-        <div style="font-family: Arial, sans-serif; color: #000; background-color: #fff; width: 800px; margin: 0 auto; box-sizing: border-box;">
-          <div style="margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px;">
-            <h1 style="font-size: 20px; color: #000; margin: 0 0 10px 0;">Relatório de Ordens de Serviço - ${branding.name}</h1>
-            <div style="font-size: 12px; color: #333;">
-              <strong>Gerado em:</strong> ${format(new Date(), "dd/MM/yyyy HH:mm")} <br/>
-              <strong>Período:</strong> ${dateMode === 'single' ? format(selectedDate, 'dd/MM/yyyy') : `${format(dateRange?.from || new Date(), 'dd/MM/yyyy')} a ${format(dateRange?.to || new Date(), 'dd/MM/yyyy')}`}<br/>
-              <strong>Total Geral de OS:</strong> ${filteredOSList.length}
-              ${includeTypedStatus && pendingCount > 0 ? `<br/><span style="color: #dc2626; font-style: italic;">(${pendingCount} OS ainda não foram digitadas no ERP)</span>` : ''}
-            </div>
-          </div>
-          ${(donutHtml || barHtml) ? `
-            <table style="width: 100%; margin-bottom: 20px; border: none;">
-              <tr>
-                ${donutHtml ? `<td style="width: 50%; padding-right: 10px; vertical-align: top;"><div style="width: 380px; height: 250px; border: 1px solid #ccc; overflow: hidden; background: #fafafa;">${donutHtml}</div></td>` : ''}
-                ${barHtml ? `<td style="width: 50%; padding-left: 10px; vertical-align: top;"><div style="width: 380px; height: 250px; border: 1px solid #ccc; overflow: hidden; background: #fafafa;">${barHtml}</div></td>` : ''}
-              </tr>
-            </table>
-          ` : ''}
-      `;
-
-      Object.keys(grouped).forEach(key => {
+      Object.keys(grouped).forEach((key, index) => {
         const data = grouped[key];
         let total = 0;
-        
-        // Travando tamanho da tabela (table-layout: fixed) e aplicando % em cada coluna
-        htmlContent += `
-          <h2 style="font-size: 16px; margin: 20px 0 10px 0; color: #000; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${key}</h2>
-          <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10px; margin-bottom: 20px; page-break-inside: auto;">
-            <thead>
-              <tr style="background-color: #eee; page-break-inside: avoid;">
-                <th style="width: 10%; border: 1px solid #999; padding: 6px; text-align: left;">Data</th>
-                <th style="width: 20%; border: 1px solid #999; padding: 6px; text-align: left;">Usuário</th>
-                <th style="width: 12%; border: 1px solid #999; padding: 6px; text-align: left;">AF</th>
-                <th style="width: 12%; border: 1px solid #999; padding: 6px; text-align: left;">OS</th>
-                <th style="width: 28%; border: 1px solid #999; padding: 6px; text-align: left;">Serviço</th>
-                <th style="width: 10%; border: 1px solid #999; padding: 6px; text-align: left;">Tempo</th>
-                ${includeTypedStatus ? '<th style="width: 8%; border: 1px solid #999; padding: 6px; text-align: center;">Status</th>' : ''}
-              </tr>
-            </thead>
-            <tbody>
-        `;
-        
-        data.forEach((os: any) => {
+
+        // Check if we need a new page for the group title
+        if (yPos > doc.internal.pageSize.getHeight() - 60) {
+          doc.addPage();
+          yPos = 40;
+        }
+
+        doc.setFontSize(14);
+        doc.setTextColor(30, 64, 175);
+        doc.text(key, 40, yPos);
+        yPos += 10;
+
+        const headers = ['Data', 'Usuário', 'AF', 'OS', 'Serviço', 'Tempo'];
+        if (includeTypedStatus) headers.push('Status');
+
+        const bodyData = data.map((os: any) => {
           const d = calculateDuration(os.hora_inicio, os.hora_final);
           total += d;
-          // Aplicando word-wrap para evitar que o texto grande alargue a tabela
-          htmlContent += `
-            <tr style="page-break-inside: avoid;">
-              <td style="border: 1px solid #999; padding: 6px; word-wrap: break-word; overflow-wrap: break-word;">${format(parseISO(os.recordDate), 'dd/MM/yyyy')}</td>
-              <td style="border: 1px solid #999; padding: 6px; word-wrap: break-word; overflow-wrap: break-word;">${os.userDisplayName}</td>
-              <td style="border: 1px solid #999; padding: 6px; word-wrap: break-word; overflow-wrap: break-word;">${os.af || '-'}</td>
-              <td style="border: 1px solid #999; padding: 6px; word-wrap: break-word; overflow-wrap: break-word;">${os.os || '-'}</td>
-              <td style="border: 1px solid #999; padding: 6px; word-wrap: break-word; overflow-wrap: break-word;">${os.servico_executado || '-'}</td>
-              <td style="border: 1px solid #999; padding: 6px; word-wrap: break-word; overflow-wrap: break-word;">${formatDuration(d)}</td>
-              ${includeTypedStatus ? `<td style="border: 1px solid #999; padding: 6px; text-align: center;">${os.confirmed ? '✅' : '❌'}</td>` : ''}
-            </tr>
-          `;
+          const row = [
+            format(parseISO(os.recordDate), 'dd/MM/yyyy'),
+            os.userDisplayName,
+            os.af || '-',
+            os.os || '-',
+            os.servico_executado || '-',
+            formatDuration(d)
+          ];
+          if (includeTypedStatus) row.push(os.confirmed ? '✅ Sim' : '❌ Não');
+          return row;
         });
-        
-        htmlContent += `
-            <tr style="font-weight: bold; background-color: #f5f5f5; page-break-inside: avoid;">
-              <td colspan="5" style="border: 1px solid #999; padding: 6px; text-align: right;">Total</td>
-              <td style="border: 1px solid #999; padding: 6px;">${formatDuration(total)}</td>
-              ${includeTypedStatus ? '<td style="border: 1px solid #999; padding: 6px;"></td>' : ''}
-            </tr>
-          </tbody>
-        </table>
-        `;
+
+        // Total Row
+        const totalRow: any[] = [
+          { content: 'Total', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } },
+          { content: formatDuration(total), styles: { fontStyle: 'bold' } }
+        ];
+        if (includeTypedStatus) totalRow.push('');
+        bodyData.push(totalRow);
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [headers],
+          body: bodyData,
+          theme: 'grid',
+          headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+          styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
+          columnStyles: {
+            0: { cellWidth: 50 }, // Data
+            1: { cellWidth: 80 }, // Usuário
+            2: { cellWidth: 50 }, // AF
+            3: { cellWidth: 50 }, // OS
+            4: { cellWidth: 'auto' }, // Serviço (takes remaining space)
+            5: { cellWidth: 50 }, // Tempo
+            6: { cellWidth: 45 }, // Status
+          },
+          didDrawPage: (hookData) => {
+            yPos = hookData.cursor?.y || yPos;
+          }
+        });
+
+        // @ts-ignore
+        yPos = doc.lastAutoTable.finalY + 20; 
       });
 
-      htmlContent += `</div>`;
-
-      const opt = {
-        margin:       [10, 10, 10, 10],
-        filename:     `relatorio_${company}_${format(new Date(), "dd-MM-yyyy_HH-mm")}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true, logging: false, windowWidth: 800 }, // windowWidth ajuda a não deformar em telas mobile
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:    { mode: ['css', 'legacy'] }
-      };
-
-      await html2pdf().set(opt).from(htmlContent).save();
-      
-      showSuccess('PDF gerado e baixado com sucesso!');
+      doc.save(`relatorio_${company}_${format(new Date(), "dd-MM-yyyy_HH-mm")}.pdf`);
+      showSuccess('PDF gerado com sucesso!');
       setIsReportDialogOpen(false);
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
@@ -683,7 +704,6 @@ const AdminReportPage = () => {
           <div className="text-sm font-medium">{filteredOSList.length} OS encontrada(s)</div>
         </CardHeader>
         <CardContent>
-          {/* List Header Row (Desktop visible) - Matched from ServiceOrderList.tsx */}
           <div className="mb-2 px-4 hidden md:grid grid-cols-[auto_1fr_auto_auto] gap-4 text-sm text-muted-foreground font-medium">
              <div className="flex items-center gap-4">
                 <GripVertical className="h-4 w-4 opacity-50" />
@@ -691,7 +711,7 @@ const AdminReportPage = () => {
                    <Clock className="h-4 w-4" />
                 </div>
              </div>
-             <div></div> {/* Spacer for description/service */}
+             <div></div>
              <div className="text-center w-16">Qtd</div>
              <div className="text-right w-20"></div>
           </div>
