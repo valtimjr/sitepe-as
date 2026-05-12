@@ -16,34 +16,28 @@ const Index = () => {
     document.title = `Início - AutoBoard (${branding.name})`;
   }, [branding.name]);
 
-  // Efeito para pré-carregar dados em segundo plano
   useEffect(() => {
     const prefetchAllData = async () => {
       try {
-        // Inicia o carregamento de peças e AFs em paralelo
         await Promise.all([
           getParts(company),
           getAfsFromService(company)
         ]);
-        // console.log("Pré-carregamento de dados em segundo plano concluído.");
       } catch (error) {
-        console.warn("Falha no pré-carregamento de dados em segundo plano. Os dados serão carregados sob demanda.", error);
+        console.warn("Falha no pré-carregamento de dados em segundo plano.", error);
       }
     };
-
-    // Executa a função de pré-carregamento uma vez quando o componente é montado
     prefetchAllData();
-  }, [company]); // Roda quando a empresa muda
+  }, [company]);
 
   const canAccessAdmin = checkPageAccess('/admin');
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
-  // Acesso ao catálogo de menus agora verifica a permissão da rota
   const canAccessCustomMenu = checkPageAccess('/custom-menu-view');
 
   const CardImage = ({ src, alt }: { src: string, alt: string }) => (
     <div className="flex justify-center mb-4 mt-2">
       <img 
-        src={`/icons/tela inicial/${src}`} 
+        src={`/icons/tela_inicial/${src}`} 
         alt={alt} 
         className="h-28 w-auto object-contain"
         onError={(e) => {
@@ -95,7 +89,7 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col pt-0">
-              <CardImage src="ordens de Serviço - 12.png" alt="Ordens de Serviço" />
+              <CardImage src="1.png" alt="Ordens de Serviço" />
               <p className="mb-6 text-muted-foreground flex-1">
                 Visualize e gerencie as ordens de serviço com suas peças associadas.
               </p>
@@ -115,7 +109,7 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col pt-0">
-              <CardImage src="Pesquisar Peças - 6.png" alt="Pesquisar Peças" />
+              <CardImage src="6.png" alt="Pesquisar Peças" />
               <p className="mb-6 text-muted-foreground flex-1">
                 Encontre rapidamente qualquer peça automotiva por código ou descrição.
               </p>
@@ -136,7 +130,7 @@ const Index = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col pt-0">
-                <CardImage src="Catalogo de Peças - 11.png" alt="Catálogo de Peças" />
+                <CardImage src="2.png" alt="Catálogo de Peças" />
                 <p className="mb-6 text-muted-foreground flex-1">
                   Navegue pelas listas de peças personalizadas em uma estrutura de menu.
                 </p>
@@ -157,7 +151,7 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col pt-0">
-              <CardImage src="Minha Lista de Peças - 8.png" alt="Minha Lista de Peças" />
+              <CardImage src="8.png" alt="Minha Lista de Peças" />
               <p className="mb-6 text-muted-foreground flex-1">
                 Gerencie sua lista de peças, adicione novos itens e exporte para PDF.
               </p>
@@ -177,7 +171,7 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col pt-0">
-              <CardImage src="Escala Anual  - 9.png" alt="Escala Anual" />
+              <CardImage src="9.png" alt="Escala Anual" />
               <p className="mb-6 text-muted-foreground flex-1">
                 Visualize a escala de turnos rotativos para o ano inteiro.
               </p>
@@ -198,7 +192,7 @@ const Index = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col pt-0">
-                <CardImage src="Apontamento de horas - 10.png" alt="Apontamento de Horas" />
+                <CardImage src="10.png" alt="Apontamento de Horas" />
                 <p className="mb-6 text-muted-foreground flex-1">
                   Registre suas horas de entrada e saída para controle mensal.
                 </p>
@@ -220,7 +214,7 @@ const Index = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col pt-0">
-                <CardImage src="Painel Administração - 7.png" alt="Painel Administração" />
+                <CardImage src="7.png" alt="Painel Administração" />
                 <p className="mb-6 text-muted-foreground flex-1">
                   Acesse as configurações do sistema, gerencie acessos, peças e dados gerais.
                 </p>
