@@ -92,7 +92,17 @@ const AppHeader: React.FC = () => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       showSuccess('Você foi desconectado com sucesso!');
-      navigate('/login');
+      
+      // Se a página atual for protegida, redireciona para a home da empresa
+      // Caso contrário, permanece na página atual.
+      const protectedPrefixes = ['/admin', '/time-tracking', '/menu-manager', '/settings', '/manage-tags'];
+      const isCurrentlyOnProtectedPage = protectedPrefixes.some(prefix => 
+        location.pathname.includes(prefix)
+      );
+
+      if (isCurrentlyOnProtectedPage) {
+        navigate(`/${company}`);
+      }
     } catch (error: any) {
       showError(`Erro ao desconectar: ${error.message || 'Detalhes desconhecidos.'}`);
     }
