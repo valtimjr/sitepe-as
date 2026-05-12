@@ -673,7 +673,7 @@ const AdminReportPage = () => {
               <div key={os.id} className="bg-card shadow-sm rounded-sm overflow-hidden border border-blue-100/50">
                 <div className="h-1 bg-blue-600 w-full"></div>
                 <div className="bg-blue-50/30 p-4 border-b border-blue-100/50 flex justify-between items-center">
-                  <span className="text-lg font-bold text-blue-600">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
+                  <span className="text-lg font-bold text-gray-900">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
                   {os.confirmed ? (
                     <div className="flex items-center gap-1">
                       <span className="text-green-600 text-xs font-bold">Digitado</span>
