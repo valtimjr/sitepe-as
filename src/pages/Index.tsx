@@ -89,7 +89,7 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col pt-0">
-              <CardImage src="1.png" alt="Ordens de Serviço" />
+              <CardImage src="12.png" alt="Ordens de Serviço" />
               <p className="mb-6 text-muted-foreground flex-1">
                 Visualize e gerencie as ordens de serviço com suas peças associadas.
               </p>
@@ -130,7 +130,7 @@ const Index = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col pt-0">
-                <CardImage src="2.png" alt="Catálogo de Peças" />
+                <CardImage src="11.png" alt="Catálogo de Peças" />
                 <p className="mb-6 text-muted-foreground flex-1">
                   Navegue pelas listas de peças personalizadas em uma estrutura de menu.
                 </p>
