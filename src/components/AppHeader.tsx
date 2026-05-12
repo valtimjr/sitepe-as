@@ -90,10 +90,9 @@ const AppHeader: React.FC = () => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       showSuccess('Você foi desconectado com sucesso!');
+      navigate('/login');
     } catch (error: any) {
       showError(`Erro ao desconectar: ${error.message || 'Detalhes desconhecidos.'}`);
-    } finally {
-      navigate('/login');
     }
   };
 
@@ -336,7 +335,9 @@ const AppHeader: React.FC = () => {
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem asChild><Link to={`/${company}/settings`}><Settings className="h-4 w-4 mr-2" /> Configurações</Link></DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive"><LogOut className="h-4 w-4 mr-2" /> Sair</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={handleLogout} className="text-destructive">
+                    <LogOut className="h-4 w-4 mr-2" /> Sair
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
