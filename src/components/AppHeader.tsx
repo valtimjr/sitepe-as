@@ -30,8 +30,24 @@ const AppHeader: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [rootMenuItems, setRootMenuItems] = useState<MenuItem[]>([]);
+  const [headerSearchQuery, setHeaderSearchQuery] = useState('');
 
   const isLoginPage = location.pathname === '/login';
+
+  const handleHeaderSearch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (headerSearchQuery.trim()) {
+      // Navega para a página de pesquisa passando a query
+      navigate(`/${company}/search-parts?q=${encodeURIComponent(headerSearchQuery.trim())}`);
+      setHeaderSearchQuery('');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleHeaderSearch();
+    }
+  };
 
   const loadDynamicMenu = useCallback(async () => {
     try {
@@ -187,6 +203,22 @@ const AppHeader: React.FC = () => {
             </TooltipTrigger>
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
+
+          {!isLoginPage && (
+            <div className="uiverse-search-container ml-2">
+              <input
+                type="text"
+                placeholder=" "
+                className="uiverse-search-input"
+                value={headerSearchQuery}
+                onChange={(e) => setHeaderSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+              <div className="uiverse-search-icon" onClick={() => handleHeaderSearch()}>
+                <Search />
+              </div>
+            </div>
+          )}
           
           {!isLoginPage && (
             <DropdownMenu>

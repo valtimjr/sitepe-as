@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Part, searchParts as searchPartsService } from '@/services/partListService';
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Search, Tag } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -15,11 +15,22 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useCompany } from '@/context/CompanyContext';
 
 const SearchParts = () => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const initialQuery = searchParams.get('q') || '';
+  
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [displayedParts, setDisplayedParts] = useState<Part[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const isMobile = useIsMobile();
   const { company, branding } = useCompany();
+
+  useEffect(() => {
+    // Sincroniza a query do URL com o estado se ela mudar
+    const q = searchParams.get('q');
+    if (q !== null) {
+      setSearchQuery(q);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     document.title = `Pesquisar Peças - AutoBoard (${branding.name})`;
