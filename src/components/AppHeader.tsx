@@ -24,6 +24,7 @@ import { getMenuStructure } from '@/services/customListService';
 import { MenuItem, Part } from '@/types/supabase';
 import { useCompany } from '@/context/CompanyContext';
 import { searchParts } from '@/services/partListService';
+import LoginModal from './LoginModal';
 
 const AppHeader: React.FC = () => {
   const { session, isLoading, profile, checkPageAccess } = useSession();
@@ -34,6 +35,7 @@ const AppHeader: React.FC = () => {
   const [headerSearchQuery, setHeaderSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   const isLoginPage = location.pathname === '/login';
 
@@ -343,11 +345,18 @@ const AppHeader: React.FC = () => {
             </div>
           ) : (
             !isLoginPage && (
-              <Link to="/login">
-                <Button variant="default" size="sm" className="flex items-center gap-1">
-                  <LogIn className="h-4 w-4" /> <span className="hidden sm:inline">Entrar</span>
+              <>
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="flex items-center gap-1 w-10 h-10 p-0 sm:w-auto sm:px-3 sm:h-9"
+                  onClick={() => setIsLoginModalOpen(true)}
+                >
+                  <LogIn className="h-4 w-4" /> 
+                  <span className="hidden sm:inline">Entrar</span>
                 </Button>
-              </Link>
+                <LoginModal isOpen={isLoginModalOpen} onOpenChange={setIsLoginModalOpen} />
+              </>
             )
           )}
         </div>
