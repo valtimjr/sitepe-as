@@ -295,11 +295,12 @@ const ServiceOrderList: React.FC = () => {
 
            <Button
              variant="outline"
-             className="text-primary border-primary/20 hover:bg-primary/5"
+             className="text-primary border-primary/20 hover:bg-primary/5 w-10 h-10 p-0 md:w-auto md:h-10 md:px-4"
              onClick={handleCopyList}
              disabled={osList.length === 0}
            >
-             <Copy className="mr-2 h-4 w-4" /> Copiar Lista
+             <Copy className="h-4 w-4 md:mr-2" />
+             <span className="hidden md:inline">Copiar Lista</span>
            </Button>
 
            <Button
@@ -311,18 +312,24 @@ const ServiceOrderList: React.FC = () => {
            </Button>
 
            <Button
-             className="bg-primary hover:bg-primary/90 text-primary-foreground"
+             className="bg-primary hover:bg-primary/90 text-primary-foreground w-10 h-10 p-0 md:w-auto md:h-10 md:px-4"
              aria-label="Exportar PDF"
              onClick={handleExportPdf}
              disabled={osList.length === 0}
            >
-             <FileDown className="mr-2 h-4 w-4" /> Exportar PDF
+             <FileDown className="h-4 w-4 md:mr-2" />
+             <span className="hidden md:inline">Exportar PDF</span>
            </Button>
 
            <AlertDialog>
              <AlertDialogTrigger asChild>
-               <Button variant="destructive" className="bg-red-500 hover:bg-red-600" disabled={osList.length === 0}>
-                 <Trash2 className="mr-2 h-4 w-4" /> Limpar Lista
+               <Button 
+                variant="destructive" 
+                className="bg-red-500 hover:bg-red-600 w-10 h-10 p-0 md:w-auto md:h-10 md:px-4" 
+                disabled={osList.length === 0}
+               >
+                 <Trash2 className="h-4 w-4 md:mr-2" />
+                 <span className="hidden md:inline">Limpar Lista</span>
                </Button>
              </AlertDialogTrigger>
              <AlertDialogContent>
