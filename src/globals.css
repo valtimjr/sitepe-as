@@ -1,85 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Open+Sans:wght@400;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 0 0% 100%; /* Branco */
+    --foreground: 220 13% 15%; /* Cinza Escuro (quase preto) */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%; /* Branco */
+    --card-foreground: 220 13% 15%; /* Cinza Escuro */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%; /* Branco */
+    --popover-foreground: 220 13% 15%; /* Cinza Escuro */
 
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 210 100% 45%; /* Azul Forte */
+    --primary-foreground: 0 0% 100%; /* Branco */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 210 20% 90%; /* Cinza Claro */
+    --secondary-foreground: 220 13% 15%; /* Cinza Escuro */
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 20% 90%; /* Cinza Claro */
+    --muted-foreground: 215.4 16.3% 46.9%; /* Cinza Médio */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 210 100% 60%; /* Azul Mais Claro para Destaque */
+    --accent-foreground: 0 0% 100%; /* Branco */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%; /* Vermelho padrão para erros */
+    --destructive-foreground: 0 0% 100%; /* Branco */
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-
-    --radius: 0.5rem;
+    --border: 210 15% 85%; /* Cinza para bordas */
+    --input: 210 15% 85%; /* Cinza para inputs */
+    --ring: 210 100% 45%; /* Azul Forte para anéis de foco */
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 220 13% 10%; /* Preto/Cinza muito escuro */
+    --foreground: 210 40% 98%; /* Off-White */
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 220 13% 15%; /* Cinza Escuro */
+    --card-foreground: 210 40% 98%; /* Off-White */
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 220 13% 15%; /* Cinza Escuro */
+    --popover-foreground: 210 40% 98%; /* Off-White */
 
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 210 100% 55%; /* Azul para Dark Mode */
+    --primary-foreground: 0 0% 100%; /* Branco */
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 220 13% 20%; /* Cinza mais escuro */
+    --secondary-foreground: 210 40% 98%; /* Off-White */
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 220 13% 20%; /* Cinza mais escuro */
+    --muted-foreground: 215 20.2% 65.1%; /* Cinza Médio */
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 210 100% 70%; /* Azul Mais Claro para Destaque em Dark Mode */
+    --accent-foreground: 0 0% 100%; /* Branco */
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%; /* Vermelho escuro para erros */
+    --destructive-foreground: 210 40% 98%; /* Off-White */
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --border: 220 13% 25%; /* Cinza para bordas */
+    --input: 220 13% 25%; /* Cinza para inputs */
+    --ring: 210 100% 55%; /* Azul para Dark Mode para anéis de foco */
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+    /* Adicionado para tentar resolver o alto consumo de memória do will-change */
+    will-change: auto !important; 
   }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+
+  /* A regra CSS para ocultar o link de cadastro não é mais necessária, pois o componente Auth UI foi substituído. */
 }
 
-/* Custom Search Input Animation (Uiverse.io by krlozCJ) */
 @layer components {
+  /* Classe utilitária para centralização vertical perfeita em elementos de 24px (h-6) */
+  /* Removida a classe day-center que não funcionou */
+  
+  .animated-card {
+    transition: transform 0.4s ease;
+  }
+  .animated-card:hover {
+    cursor: pointer;
+    transform: scale(0.97);
+  }
+  .animated-card:active {
+    transform: scale(0.9);
+  }
+  .animated-card .card-content-wrapper {
+    transition: transform 0.4s ease;
+  }
+  .animated-card:hover .card-content-wrapper {
+    transform: scale(0.96);
+  }
+
+  /* From Uiverse.io by krlozCJ */
   .uiverse-search-container {
     position: relative;
     --size-button: 36px;
+    color: white;
   }
 
   .uiverse-search-input {
@@ -117,22 +147,23 @@
     opacity: 1;
   }
 
+  .uiverse-search-input:focus + .uiverse-search-icon,
+  .uiverse-search-input.expanded + .uiverse-search-icon {
+    pointer-events: all;
+    cursor: pointer;
+  }
+
   .uiverse-search-container .uiverse-search-icon {
     position: absolute;
     width: var(--size-button);
     height: var(--size-button);
     top: 0;
-    right: 0;
-    padding: 8px;
+    left: 0;
+    padding: 10px;
     pointer-events: none;
-    z-index: 2;
-    transition: all 0.3s ease;
-  }
-
-  .uiverse-search-input:focus + .uiverse-search-icon,
-  .uiverse-search-input.expanded + .uiverse-search-icon {
-    pointer-events: all;
-    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .uiverse-search-container .uiverse-search-icon svg {
@@ -157,9 +188,9 @@
     outline: none;
     width: var(--size-button);
     transition: all 0.4s ease;
-    background-color: #157EE8; /* Specific requested color */
+    background-color: #2563eb; /* Tailwind blue-600 */
     box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
-    border-radius: 0px; /* Specific requested border-radius */
+    border-radius: 8px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -170,10 +201,10 @@
 
   .login-btn-input:focus,
   .login-btn-input:hover {
-    width: 100px; 
+    width: 100px;
     padding-left: var(--size-button);
-    padding-right: 12px; 
-    background-color: #0e6ac7; /* Slightly darker shade for hover effect */
+    padding-right: 12px;
+    background-color: #1d4ed8; /* Tailwind blue-700 */
   }
 
   .login-btn-text {
