@@ -671,7 +671,9 @@ const AdminReportPage = () => {
           <div className="space-y-6">
             {filteredOSList.map(os => (
               <div key={os.id} className="bg-card shadow-sm rounded-sm overflow-hidden border border-blue-100/50">
+                {/*Decorative line from component moved here for consistent structure*/}
                 <div className="h-1 bg-blue-600 w-full"></div>
+                
                 <div className="bg-blue-50/30 p-4 border-b border-blue-100/50 flex justify-between items-center">
                   <span className="text-lg font-bold text-gray-900">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
                   {os.confirmed ? (

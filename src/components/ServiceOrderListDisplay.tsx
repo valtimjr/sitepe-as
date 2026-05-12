@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from '@/context/CompanyContext';
 
@@ -359,7 +359,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
 
   return (
     <div className="bg-card shadow-sm rounded-sm overflow-hidden overflow-visible">
-      <div className="h-1 bg-blue-600 w-full"></div>
+      {/*Decorative blue line removed from here to avoid duplication in reports*/}
       
       <div className="p-4 bg-blue-50/30 border-b border-blue-100/50">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
