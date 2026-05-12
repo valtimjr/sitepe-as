@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal, Building2 } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,25 +21,48 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { getMenuStructure } from '@/services/customListService';
-import { MenuItem } from '@/types/supabase';
+import { MenuItem, Part } from '@/types/supabase';
 import { useCompany } from '@/context/CompanyContext';
+import { searchParts } from '@/services/partListService';
 
 const AppHeader: React.FC = () => {
-  const { session, user, profile, isLoading, checkPageAccess } = useSession();
-  const { company, branding, setCompany } = useCompany();
+  const { session, isLoading, profile, checkPageAccess } = useSession();
+  const { company } = useCompany();
   const navigate = useNavigate();
   const location = useLocation();
   const [rootMenuItems, setRootMenuItems] = useState<MenuItem[]>([]);
   const [headerSearchQuery, setHeaderSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Part[]>([]);
+  const [showResults, setShowResults] = useState(false);
 
   const isLoginPage = location.pathname === '/login';
+
+  useEffect(() => {
+    if (!headerSearchQuery.trim()) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchParts(headerSearchQuery, company);
+        setSearchResults(results.slice(0, 5));
+        setShowResults(true);
+      } catch (error) {
+        // console.error("Header search error", error);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [headerSearchQuery, company]);
 
   const handleHeaderSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (headerSearchQuery.trim()) {
-      // Navega para a página de pesquisa passando a query
       navigate(`/${company}/search-parts?q=${encodeURIComponent(headerSearchQuery.trim())}`);
       setHeaderSearchQuery('');
+      setShowResults(false);
     }
   };
 
@@ -65,12 +88,9 @@ const AppHeader: React.FC = () => {
   const handleLogout = async () => {
     try {
       const { error } = await supabase.auth.signOut();
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
       showSuccess('Você foi desconectado com sucesso!');
     } catch (error: any) {
-      // console.error('AppHeader: Erro ao desconectar:', error);
       showError(`Erro ao desconectar: ${error.message || 'Detalhes desconhecidos.'}`);
     } finally {
       navigate('/login');
@@ -88,9 +108,7 @@ const AppHeader: React.FC = () => {
       if (item.children && item.children.length > 0) {
         return (
           <DropdownMenuSub key={item.id}>
-            <DropdownMenuSubTrigger>
-              {item.title}
-            </DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger>{item.title}</DropdownMenuSubTrigger>
             <DropdownMenuSubContent sideOffset={2} alignOffset={-5}>
               {renderDynamicMenu(item.children)}
             </DropdownMenuSubContent>
@@ -114,11 +132,7 @@ const AppHeader: React.FC = () => {
         );
       }
 
-      return (
-        <DropdownMenuItem key={item.id} disabled>
-          {item.title} (Sem Link)
-        </DropdownMenuItem>
-      );
+      return <DropdownMenuItem key={item.id} disabled>{item.title} (Sem Link)</DropdownMenuItem>;
     });
   };
 
@@ -126,9 +140,7 @@ const AppHeader: React.FC = () => {
     if (item.list_id && (!item.children || item.children.length === 0)) {
       return (
         <Link to={`/${company}/custom-list/${item.list_id}`} key={item.id}>
-          <Button variant="ghost" className="flex items-center gap-1">
-            {item.title}
-          </Button>
+          <Button variant="ghost" className="flex items-center gap-1">{item.title}</Button>
         </Link>
       );
     }
@@ -156,9 +168,7 @@ const AppHeader: React.FC = () => {
     return null;
   };
 
-  if (isLoading) {
-    return null;
-  }
+  if (isLoading) return null;
 
   const canAccessAdmin = checkPageAccess('/admin');
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
@@ -182,7 +192,6 @@ const AppHeader: React.FC = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
-        
         <div className="flex items-center gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -193,9 +202,7 @@ const AppHeader: React.FC = () => {
                   className="h-full w-auto transition-transform duration-400 ease-in-out hover:scale-95 active:scale-90"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    if (target.src.includes("Banner_Citrosuco.png")) {
-                      target.src = "/Banner.png";
-                    }
+                    if (target.src.includes("Banner_Citrosuco.png")) target.src = "/Banner.png";
                   }}
                 />
                 <span className="sr-only">Página Inicial</span>
@@ -203,22 +210,6 @@ const AppHeader: React.FC = () => {
             </TooltipTrigger>
             <TooltipContent>Página Inicial</TooltipContent>
           </Tooltip>
-
-          {!isLoginPage && (
-            <div className="uiverse-search-container ml-2">
-              <input
-                type="text"
-                placeholder=" "
-                className="uiverse-search-input"
-                value={headerSearchQuery}
-                onChange={(e) => setHeaderSearchQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
-              <div className="uiverse-search-icon" onClick={() => handleHeaderSearch()}>
-                <Search />
-              </div>
-            </div>
-          )}
           
           {!isLoginPage && (
             <DropdownMenu>
@@ -237,34 +228,26 @@ const AppHeader: React.FC = () => {
                 {standardDropdownItems.map(item => (
                   item.external ? (
                     <a href={item.path} target="_blank" rel="noopener noreferrer" key={item.path}>
-                      <DropdownMenuItem>
-                        <item.icon className="h-4 w-4 mr-2" /> {item.title}
-                      </DropdownMenuItem>
+                      <DropdownMenuItem><item.icon className="h-4 w-4 mr-2" /> {item.title}</DropdownMenuItem>
                     </a>
                   ) : (
                     <Link to={item.path} key={item.path}>
-                      <DropdownMenuItem>
-                        <item.icon className="h-4 w-4 mr-2" /> {item.title}
-                      </DropdownMenuItem>
+                      <DropdownMenuItem><item.icon className="h-4 w-4 mr-2" /> {item.title}</DropdownMenuItem>
                     </Link>
                   )
                 ))}
-                
                 {dynamicMenuLinks.length > 0 && (
                   <>
                     <DropdownMenuSeparator />
                     {renderDynamicMenu(dynamicMenuLinks)}
                   </>
                 )}
-
                 {authDropdownItems.length > 0 && (
                   <>
                     <DropdownMenuSeparator />
                     {authDropdownItems.map(item => (
                       <Link to={item.path} key={item.path}>
-                        <DropdownMenuItem>
-                          <item.icon className="h-4 w-4 mr-2" /> {item.title}
-                        </DropdownMenuItem>
+                        <DropdownMenuItem><item.icon className="h-4 w-4 mr-2" /> {item.title}</DropdownMenuItem>
                       </Link>
                     ))}
                   </>
@@ -281,12 +264,55 @@ const AppHeader: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {!isLoginPage && (
+            <div className="uiverse-search-container relative mr-2">
+              <input
+                type="text"
+                placeholder="Pesquisar peça"
+                className="uiverse-search-input"
+                value={headerSearchQuery}
+                onChange={(e) => setHeaderSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => headerSearchQuery && setShowResults(true)}
+                onBlur={() => setTimeout(() => setShowResults(false), 200)}
+              />
+              <div className="uiverse-search-icon" onClick={() => handleHeaderSearch()}>
+                <Search className="h-5 w-5 text-black" />
+              </div>
+
+              {showResults && searchResults.length > 0 && (
+                <div className="absolute top-full right-0 mt-2 w-[280px] bg-white border rounded-md shadow-lg overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200">
+                  <div className="p-2 bg-blue-50/50 border-b text-[10px] font-bold text-blue-600 uppercase">
+                    Resultados Rápidos
+                  </div>
+                  {searchResults.map(part => (
+                    <div
+                      key={part.id}
+                      className="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-0 transition-colors"
+                      onClick={() => {
+                        navigate(`/${company}/search-parts?q=${encodeURIComponent(part.codigo)}`);
+                        setHeaderSearchQuery('');
+                        setShowResults(false);
+                      }}
+                    >
+                      <div className="font-bold text-xs text-blue-700">{part.codigo}</div>
+                      <div className="text-[10px] text-gray-600 line-clamp-2 leading-tight">{part.descricao}</div>
+                    </div>
+                  ))}
+                  <div
+                    className="p-2 text-center text-[10px] font-bold text-gray-400 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+                    onClick={() => handleHeaderSearch()}
+                  >
+                    Pressione Enter para ver tudo
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {session ? (
             <div className="flex items-center gap-2">
-              <span className="font-medium text-sm hidden sm:inline">
-                Olá, {profile?.first_name || 'Usuário'}
-              </span>
-              
+              <span className="font-medium text-sm hidden sm:inline">Olá, {profile?.first_name || 'Usuário'}</span>
               <Link to={`/${company}/settings`}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -298,28 +324,19 @@ const AppHeader: React.FC = () => {
                   <TooltipContent>Configurações</TooltipContent>
                 </Tooltip>
               </Link>
-
               <DropdownMenu>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
                   </TooltipTrigger>
                   <TooltipContent>Opções do Perfil</TooltipContent>
                 </Tooltip>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem asChild>
-                    <Link to={`/${company}/settings`}>
-                      <Settings className="h-4 w-4 mr-2" /> Configurações
-                    </Link>
-                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link to={`/${company}/settings`}><Settings className="h-4 w-4 mr-2" /> Configurações</Link></DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
-                    <LogOut className="h-4 w-4 mr-2" /> Sair
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive"><LogOut className="h-4 w-4 mr-2" /> Sair</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -327,8 +344,7 @@ const AppHeader: React.FC = () => {
             !isLoginPage && (
               <Link to="/login">
                 <Button variant="default" size="sm" className="flex items-center gap-1">
-                  <LogIn className="h-4 w-4" />
-                  <span className="hidden sm:inline">Entrar</span>
+                  <LogIn className="h-4 w-4" /> <span className="hidden sm:inline">Entrar</span>
                 </Button>
               </Link>
             )
