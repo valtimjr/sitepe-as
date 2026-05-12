@@ -106,6 +106,10 @@ const formatDuration = (minutes: number): string => {
   return `${h}h ${m}m`;
 };
 
+const getAfDescription = (afNumber: string, availableAfs: Af[]): string => {
+  return availableAfs.find(a => a.af_number === afNumber)?.descricao || '-';
+};
+
 const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, time }: any) => {
   const RADIAN = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
@@ -280,13 +284,13 @@ const AdminReportPage = () => {
       const term = afSearchTerm.toLowerCase();
       return osList.filter(os => {
         const afNumber = (os.af || '').toLowerCase();
-        const afDesc = getAfDescription(os.af).toLowerCase();
+        const afDesc = getAfDescription(os.af, availableAfs).toLowerCase();
         return afNumber.includes(term) || afDesc.includes(term);
       }).sort((a, b) => b.recordDate.localeCompare(a.recordDate));
     }
 
     return osList.sort((a, b) => b.recordDate.localeCompare(a.recordDate));
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users, afSearchTerm]);
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users, afSearchTerm, availableAfs]);
 
   const dailyChartData = useMemo(() => {
     const osDataMap = new Map<string, any>();
@@ -364,7 +368,7 @@ const AdminReportPage = () => {
           `"${os.userDisplayName}"`, 
           `"${os.af || '-'}"`, 
           `"${os.os || '-'}"`, 
-          `"${getAfDescription(os.af)}"`, 
+          `"${getAfDescription(os.af, availableAfs)}"`, 
           `"${os.servico_executado || '-'}"`,
           os.hora_inicio || '-', 
           os.hora_final || '-', 
@@ -380,8 +384,6 @@ const AdminReportPage = () => {
     link.download = `relatorio_${company}.csv`;
     link.click();
   };
-
-  const getAfDescription = (afNumber: string) => availableAfs.find(a => a.af_number === afNumber)?.descricao || '-';
 
   const groupReportData = () => {
     if (reportGroupBy === 'none') return { 'Geral': filteredOSList };
