@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,11 +40,18 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
 
+  // Estados para permitir edição manual
+  const [customCodigo, setCustomCodigo] = useState('');
+  const [customName, setCustomName] = useState('');
+  const [customDescricao, setCustomDescricao] = useState('');
+
   useEffect(() => {
     const initializeForm = async () => {
       if (editingItem) {
         setQuantidade(editingItem.quantidade ?? 1);
         setAf(editingItem.af || '');
+        setCustomCodigo(editingItem.codigo_peca || '');
+        setCustomDescricao(editingItem.descricao || '');
         
         if (editingItem.codigo_peca) {
           setIsLoadingParts(true);
@@ -50,11 +59,13 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
           const partFromEdit = results.find(p => p.codigo === editingItem.codigo_peca);
           setSelectedPart(partFromEdit || null);
           setEditedTags(partFromEdit?.tags || '');
+          setCustomName(partFromEdit?.name || '');
           setSearchQuery(editingItem.codigo_peca || ''); 
           setIsLoadingParts(false);
         } else {
           setSelectedPart(null);
           setEditedTags('');
+          setCustomName('');
           setSearchQuery('');
         }
       } else {
@@ -64,6 +75,9 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
         setEditedTags('');
         setSearchQuery('');
         setSearchResults([]);
+        setCustomCodigo('');
+        setCustomName('');
+        setCustomDescricao('');
       }
     };
 
@@ -106,12 +120,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
 
-  const formatRelatedPartString = (part: Part): RelatedPart => {
-    const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
-    const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
-    return { codigo: part.codigo, name: mainText, desc: subText };
-  };
-
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
@@ -119,6 +127,9 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
     setSearchQuery(part.codigo);
+    setCustomCodigo(part.codigo);
+    setCustomName(part.name || '');
+    setCustomDescricao(part.descricao);
     setSearchResults([]);
   };
 
@@ -147,15 +158,15 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPart || quantidade <= 0) {
-      showError('Por favor, selecione uma peça e insira a quantidade.');
+    if ((!customCodigo && !customDescricao) || quantidade <= 0) {
+      showError('Por favor, insira o código ou descrição da peça e a quantidade.');
       return;
     }
 
     try {
       const itemData = {
-        codigo_peca: selectedPart.codigo,
-        descricao: selectedPart.descricao,
+        codigo_peca: customCodigo,
+        descricao: customDescricao,
         quantidade,
         af: af.trim() !== '' ? af : undefined,
       };
@@ -178,6 +189,9 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
       setEditedTags('');
       setSearchQuery('');
       setSearchResults([]);
+      setCustomCodigo('');
+      setCustomName('');
+      setCustomDescricao('');
       onItemAdded();
     } catch (error) {
       showError('Erro ao salvar item na lista.');
@@ -186,7 +200,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
 
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
-  const isSubmitDisabled = isLoadingParts || !selectedPart;
+  const isSubmitDisabled = isLoadingParts || (!customCodigo && !customDescricao);
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -207,25 +221,23 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2 md:col-span-1">
-              <Label htmlFor="codigo_peca">Cód. Peça</Label> {/* Rótulo encurtado */}
+              <Label htmlFor="codigo_peca">Cód. Peça</Label>
               <Input
                 id="codigo_peca"
                 type="text"
-                value={selectedPart?.codigo || ''}
-                placeholder="Código da peça selecionada"
-                readOnly
-                className="bg-muted"
+                value={customCodigo}
+                onChange={(e) => setCustomCodigo(e.target.value)}
+                placeholder="Cód. Peça"
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="name">Nome da Peça</Label> {/* Rótulo encurtado */}
+              <Label htmlFor="name">Nome da Peça</Label>
               <Input
                 id="name"
                 type="text"
-                value={selectedPart?.name || ''}
-                placeholder="Nome da peça selecionada"
-                readOnly
-                className="bg-muted"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="Nome da peça"
               />
             </div>
           </div>
@@ -235,10 +247,9 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               <Input
                 id="descricao"
                 type="text"
-                value={selectedPart?.descricao || ''}
-                placeholder="Descrição da peça selecionada"
-                readOnly
-                className="bg-muted"
+                value={customDescricao}
+                onChange={(e) => setCustomDescricao(e.target.value)}
+                placeholder="Descrição da peça"
               />
             </div>
             <div className="space-y-2 md:col-span-1">
