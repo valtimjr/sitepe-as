@@ -466,7 +466,8 @@ const AdminReportPage = () => {
         const bodyData = data.map((os: any) => {
           const d = calculateDuration(os.hora_inicio, os.hora_final);
           total += d;
-          const row = [
+          
+          const row: any[] = [
             format(parseISO(os.recordDate), 'dd/MM/yyyy'),
             os.userDisplayName,
             os.af || '-',
@@ -474,7 +475,19 @@ const AdminReportPage = () => {
             os.servico_executado || '-',
             formatDuration(d)
           ];
-          if (includeTypedStatus) row.push(os.confirmed ? '✅ Sim' : '❌ Não');
+          
+          if (includeTypedStatus) {
+            // Usando estilos nativos do jsPDF-autotable em vez de emojis problemáticos
+            row.push({
+              content: os.confirmed ? 'Digitado' : 'Pendente',
+              styles: {
+                textColor: os.confirmed ? [22, 163, 74] : [220, 38, 38], // Verde para sim, Vermelho para não
+                fontStyle: 'bold',
+                halign: 'center'
+              }
+            });
+          }
+          
           return row;
         });
 
@@ -500,7 +513,7 @@ const AdminReportPage = () => {
             3: { cellWidth: 50 }, // OS
             4: { cellWidth: 'auto' }, // Serviço (takes remaining space)
             5: { cellWidth: 50 }, // Tempo
-            6: { cellWidth: 45 }, // Status
+            6: { cellWidth: 50 }, // Status
           },
           didDrawPage: (hookData) => {
             yPos = hookData.cursor?.y || yPos;
