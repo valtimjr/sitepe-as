@@ -65,7 +65,7 @@ const PartsList = () => {
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
         <div className="flex items-center gap-3">
-          <List className="h-8 w-8 text-primary" />
+          <img src="/icons/tela_inicial/8.png" alt="" className="h-16 w-auto object-contain" />
           Minha Lista de Peças
         </div>
         <span className="text-2xl font-bold opacity-80">{branding.name}</span>

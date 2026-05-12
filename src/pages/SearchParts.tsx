@@ -53,7 +53,7 @@ const SearchParts = () => {
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <Search className="h-8 w-8 text-primary" />
+        <img src="/icons/tela_inicial/6.png" alt="" className="h-16 w-auto object-contain" />
         Pesquisar Peças
       </h1>
 

@@ -215,7 +215,7 @@ const ServiceOrderList: React.FC = () => {
       {/* Title */}
       <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center justify-center gap-2">
         <div className="flex items-center gap-3">
-          <ClipboardList className="h-8 w-8 text-primary" />
+          <img src="/icons/tela_inicial/1.png" alt="" className="h-16 w-auto object-contain" />
           Lista de Ordens de Serviço
         </div>
         <span className="text-2xl font-bold opacity-80">{branding.name}</span>

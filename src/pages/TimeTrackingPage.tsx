@@ -482,10 +482,10 @@ const TimeTrackingPage: React.FC = () => {
           <div className="flex flex-col items-start">
             <h1 className="text-4xl font-extrabold text-primary dark:text-primary flex flex-col items-start gap-1">
               <div className="flex items-center gap-3">
-                <Clock className="h-8 w-8 text-primary" />
+                <img src="/icons/tela_inicial/10.png" alt="" className="h-16 w-auto object-contain" />
                 Apontamento de Horas
               </div>
-              <span className="text-xl font-bold opacity-80 ml-11">{branding.name}</span>
+              <span className="text-xl font-bold opacity-80 ml-16">{branding.name}</span>
             </h1>
             <p className="text-lg font-semibold text-foreground/70 mt-1">
               {employeeHeader}

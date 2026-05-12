@@ -476,7 +476,7 @@ const AdminReportPage = () => {
     <div className="min-h-screen flex flex-col p-4 bg-background max-w-7xl mx-auto w-full">
       <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
         <h1 className="text-3xl font-extrabold flex items-center gap-3 text-primary">
-          <Users className="h-8 w-8" />
+          <img src="/icons/tela_inicial/7.png" alt="" className="h-12 w-auto object-contain" />
           Relatório Administrativo ({branding.name})
         </h1>
         <div className="flex gap-2">
