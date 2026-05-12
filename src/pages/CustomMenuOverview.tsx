@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -171,7 +173,7 @@ const CustomMenuOverview: React.FC = () => {
       
       <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
         <div className="flex items-center gap-3">
-          <img src="/icons/tela_inicial/2.png" alt="" className="h-16 w-auto object-contain" />
+          <img src="/icons/tela_inicial/11.png" alt="" className="h-16 w-auto object-contain" />
           Catálogo de Peças
         </div>
         <span className="text-2xl font-bold opacity-80">{branding.name}</span>
