@@ -354,11 +354,11 @@ const AppHeader: React.FC = () => {
           ) : (
             !isLoginPage && (
               <>
-                <div className="login-btn-container">
-                    <button type="button" className="login-btn-input" onClick={() => setIsLoginModalOpen(true)}>
-                        <span className="login-btn-text">Entrar</span>
+                <div className="login-container-animated">
+                    <button type="button" className="login-input-animated" onClick={() => setIsLoginModalOpen(true)}>
+                        <span className="login-text-btn-animated">Entrar</span>
                     </button>
-                    <div className="login-btn-icon">
+                    <div className="login-icon-animated">
                         <svg xmlns="http://www.w3.org/2000/svg" className="ionicon" viewBox="0 0 512 512">
                             <title>Entrar</title>
                             <path d="M222,327.8a11.34,11.34,0,0,0,16,16L318.86,263h0a11.35,11.35,0,0,0,0-16h0l-80.81-80.82a11.34,11.34,0,0,0-16,16l61.47,61.46H63.9a11.34,11.34,0,0,0,0,22.68H283.47Z" fill="none" stroke="currentColor" strokeMiterlimit="10" strokeWidth="32"></path>
