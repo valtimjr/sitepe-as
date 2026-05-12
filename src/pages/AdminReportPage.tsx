@@ -670,18 +670,22 @@ const AdminReportPage = () => {
 
           <div className="space-y-6">
             {filteredOSList.map(os => (
-              <div key={os.id} className="bg-card shadow-sm rounded-sm overflow-hidden border border-blue-100/50">
-                <div className="bg-blue-50/30 p-4 border-b border-blue-100/50 flex justify-between items-center">
-                  <span className="text-lg font-bold text-gray-900">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
-                  {os.confirmed ? (
-                    <div className="flex items-center gap-1">
-                      <span className="text-green-600 text-xs font-bold">Digitado</span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setUnconfirmOrderId(os.id); setIsUnconfirmDialogOpen(true); }}><X className="h-4 w-4" /></Button>
-                    </div>
-                  ) : <Button variant="outline" size="sm" onClick={() => confirmOrder(os.id)}>Marcar Digitado</Button>}
-                </div>
-                <ServiceOrderListDisplay group={os} readOnly={true} />
-              </div>
+              <ServiceOrderListDisplay 
+                key={os.id} 
+                group={os} 
+                readOnly={true} 
+                additionalHeader={
+                  <div className="bg-blue-50/30 p-4 border-b border-blue-100/50 flex justify-between items-center">
+                    <span className="text-lg font-bold text-gray-900">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
+                    {os.confirmed ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-green-600 text-xs font-bold">Digitado</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setUnconfirmOrderId(os.id); setIsUnconfirmDialogOpen(true); }}><X className="h-4 w-4" /></Button>
+                      </div>
+                    ) : <Button variant="outline" size="sm" onClick={() => confirmOrder(os.id)}>Marcar Digitado</Button>}
+                  </div>
+                }
+              />
             ))}
           </div>
         </CardContent>
