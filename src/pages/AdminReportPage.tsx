@@ -15,7 +15,8 @@ import {
   GripVertical,
   FileText,
   Download,
-  X
+  X,
+  Search
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import {
   Command,
   CommandEmpty,
@@ -135,6 +137,7 @@ const AdminReportPage = () => {
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [selectedProfessionCode, setSelectedProfessionCode] = useState<string>('all');
   const [selectedShiftCode, setSelectedShiftCode] = useState<string>('all');
+  const [afSearchTerm, setAfSearchTerm] = useState<string>('');
   
   const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
   const [availableShifts, setAvailableShifts] = useState<AttributeItem[]>([]);
@@ -271,8 +274,19 @@ const AdminReportPage = () => {
         });
       }
     });
+
+    // Filtro de AF (Número ou Descrição)
+    if (afSearchTerm) {
+      const term = afSearchTerm.toLowerCase();
+      return osList.filter(os => {
+        const afNumber = (os.af || '').toLowerCase();
+        const afDesc = getAfDescription(os.af).toLowerCase();
+        return afNumber.includes(term) || afDesc.includes(term);
+      }).sort((a, b) => b.recordDate.localeCompare(a.recordDate));
+    }
+
     return osList.sort((a, b) => b.recordDate.localeCompare(a.recordDate));
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users]);
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users, afSearchTerm]);
 
   const dailyChartData = useMemo(() => {
     const osDataMap = new Map<string, any>();
@@ -477,11 +491,10 @@ const AdminReportPage = () => {
           ];
           
           if (includeTypedStatus) {
-            // Usando estilos nativos do jsPDF-autotable em vez de emojis problemáticos
             row.push({
               content: os.confirmed ? 'Digitado' : 'Pendente',
               styles: {
-                textColor: os.confirmed ? [22, 163, 74] : [220, 38, 38], // Verde para sim, Vermelho para não
+                textColor: os.confirmed ? [22, 163, 74] : [220, 38, 38],
                 fontStyle: 'bold',
                 halign: 'center'
               }
@@ -511,7 +524,7 @@ const AdminReportPage = () => {
             1: { cellWidth: 80 }, // Usuário
             2: { cellWidth: 50 }, // AF
             3: { cellWidth: 50 }, // OS
-            4: { cellWidth: 'auto' }, // Serviço (takes remaining space)
+            4: { cellWidth: 'auto' }, // Serviço
             5: { cellWidth: 50 }, // Tempo
             6: { cellWidth: 50 }, // Status
           },
@@ -578,76 +591,90 @@ const AdminReportPage = () => {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2"><CardTitle className="text-sm">Filtros</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-             <div className="space-y-1">
-               <Label className="text-[10px] uppercase font-bold">Usuário</Label>
-               <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
-                 <PopoverTrigger asChild>
-                   <Button
-                     variant="outline"
-                     role="combobox"
-                     aria-expanded={openUserSelect}
-                     className="w-full justify-between"
-                   >
-                     {selectedUserId === "all"
-                       ? "Todos os usuários"
-                       : users.find((u) => u.id === selectedUserId)
-                         ? `${users.find((u) => u.id === selectedUserId)?.first_name} ${users.find((u) => u.id === selectedUserId)?.last_name}`
-                         : "Selecionar usuário..."}
-                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                   </Button>
-                 </PopoverTrigger>
-                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                   <Command>
-                     <CommandInput placeholder="Pesquisar usuário..." />
-                     <CommandList>
-                       <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
-                       <CommandGroup>
-                         <CommandItem
-                           value="all"
-                           onSelect={() => {
-                             setSelectedUserId("all");
-                             setOpenUserSelect(false);
-                           }}
-                         >
-                           <Check
-                             className={cn(
-                               "mr-2 h-4 w-4",
-                               selectedUserId === "all" ? "opacity-100" : "opacity-0"
-                             )}
-                           />
-                           Todos os usuários
-                         </CommandItem>
-                         {users.map((u) => {
-                           const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
-                           const badgeStr = u.badge ? `(${u.badge})` : '';
-                           const searchValue = `${fullName} ${u.badge || ''}`.toLowerCase().trim();
-                           
-                           return (
-                             <CommandItem
-                               key={u.id}
-                               value={searchValue}
-                               onSelect={() => {
-                                 setSelectedUserId(u.id);
-                                 setOpenUserSelect(false);
-                               }}
-                             >
-                               <Check
-                                 className={cn(
-                                   "mr-2 h-4 w-4",
-                                   selectedUserId === u.id ? "opacity-100" : "opacity-0"
-                                 )}
-                               />
-                               <span className="flex-1">
-                                 {fullName || 'Usuário sem nome'} {badgeStr}
-                               </span>
-                             </CommandItem>
-                           );
-                         })}
-                       </CommandGroup>
-                     </CommandList>
-                   </Command>
-                 </PopoverContent>
-               </Popover>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="space-y-1">
+                 <Label className="text-[10px] uppercase font-bold">Usuário</Label>
+                 <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
+                   <PopoverTrigger asChild>
+                     <Button
+                       variant="outline"
+                       role="combobox"
+                       aria-expanded={openUserSelect}
+                       className="w-full justify-between"
+                     >
+                       {selectedUserId === "all"
+                         ? "Todos os usuários"
+                         : users.find((u) => u.id === selectedUserId)
+                           ? `${users.find((u) => u.id === selectedUserId)?.first_name} ${users.find((u) => u.id === selectedUserId)?.last_name}`
+                           : "Selecionar usuário..."}
+                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                     </Button>
+                   </PopoverTrigger>
+                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                     <Command>
+                       <CommandInput placeholder="Pesquisar usuário..." />
+                       <CommandList>
+                         <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                         <CommandGroup>
+                           <CommandItem
+                             value="all"
+                             onSelect={() => {
+                               setSelectedUserId("all");
+                               setOpenUserSelect(false);
+                             }}
+                           >
+                             <Check
+                               className={cn(
+                                 "mr-2 h-4 w-4",
+                                 selectedUserId === "all" ? "opacity-100" : "opacity-0"
+                               )}
+                             />
+                             Todos os usuários
+                           </CommandItem>
+                           {users.map((u) => {
+                             const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+                             const badgeStr = u.badge ? `(${u.badge})` : '';
+                             const searchValue = `${fullName} ${u.badge || ''}`.toLowerCase().trim();
+                             
+                             return (
+                               <CommandItem
+                                 key={u.id}
+                                 value={searchValue}
+                                 onSelect={() => {
+                                   setSelectedUserId(u.id);
+                                   setOpenUserSelect(false);
+                                 }}
+                               >
+                                 <Check
+                                   className={cn(
+                                     "mr-2 h-4 w-4",
+                                     selectedUserId === u.id ? "opacity-100" : "opacity-0"
+                                   )}
+                                 />
+                                 <span className="flex-1">
+                                   {fullName || 'Usuário sem nome'} {badgeStr}
+                                 </span>
+                               </CommandItem>
+                             );
+                           })}
+                         </CommandGroup>
+                       </CommandList>
+                     </Command>
+                   </PopoverContent>
+                 </Popover>
+               </div>
+               <div className="space-y-1">
+                 <Label className="text-[10px] uppercase font-bold">Pesquisar AF</Label>
+                 <div className="relative">
+                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                   <Input 
+                     placeholder="Número ou descrição..." 
+                     className="pl-8" 
+                     value={afSearchTerm} 
+                     onChange={(e) => setAfSearchTerm(e.target.value)}
+                   />
+                 </div>
+               </div>
              </div>
              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
