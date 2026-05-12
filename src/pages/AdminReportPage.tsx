@@ -69,7 +69,7 @@ import {
   Pie, 
   Cell, 
   ResponsiveContainer, 
-  Tooltip as RechartsTooltip, 
+  RechartsTooltip, 
   BarChart, 
   Bar, 
   XAxis, 
@@ -197,7 +197,6 @@ const AdminReportPage = () => {
       setLoading(true);
 
       try {
-        // Busca usuários com tratamento de erro explícito e ordenação
         const { data: userData, error: userError } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, role, badge, profession_code, shift_code')
@@ -557,7 +556,6 @@ const AdminReportPage = () => {
                          {users.map((u) => {
                            const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
                            const badgeStr = u.badge ? `(${u.badge})` : '';
-                           // O 'value' é usado pelo cmdk para filtrar. Deve ser lowercase para melhor compatibilidade.
                            const searchValue = `${fullName} ${u.badge || ''}`.toLowerCase().trim();
                            
                            return (
@@ -673,7 +671,7 @@ const AdminReportPage = () => {
               <div key={os.id} className="bg-card shadow-sm rounded-sm overflow-hidden border border-blue-100/50">
                 <div className="h-1 bg-blue-600 w-full"></div>
                 <div className="bg-blue-50/30 p-4 border-b border-blue-100/50 flex justify-between items-center">
-                  <span className="text-lg font-bold text-blue-600">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
+                  <span className="text-lg font-bold text-black">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
                   {os.confirmed ? (
                     <div className="flex items-center gap-1">
                       <span className="text-green-600 text-xs font-bold">Digitado</span>
