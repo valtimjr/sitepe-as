@@ -355,12 +355,13 @@ const AppHeader: React.FC = () => {
             !isLoginPage && (
               <>
                 <div className="uiverse-search-container relative">
-                  <div 
-                    className="uiverse-search-input flex items-center cursor-pointer select-none"
+                  <input
+                    type="text"
+                    readOnly
+                    value="ENTRAR"
+                    className="uiverse-search-input cursor-pointer font-bold text-sm text-black select-none placeholder:text-black"
                     onClick={() => setIsLoginModalOpen(true)}
-                  >
-                    <span className="pl-4 font-bold text-sm text-black uppercase">Entrar</span>
-                  </div>
+                  />
                   <div className="uiverse-search-icon" onClick={() => setIsLoginModalOpen(true)}>
                     <LogIn className="h-5 w-5 text-black" />
                   </div>
