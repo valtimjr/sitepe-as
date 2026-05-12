@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -417,14 +419,14 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
             className="w-full"
           />
         </div>
-        <div className="flex flex-row flex-wrap items-center justify-end gap-2"> {/* Alterado para flex-row e items-center */}
+        <div className="flex flex-row flex-wrap items-center justify-end gap-2">
             <Button 
               onClick={handleCopyList} 
               disabled={orderedItems.length === 0} 
-              className="flex-1 sm:w-auto sm:px-4 bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground" // Adicionado flex-1 e estilos
+              className="bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground w-10 h-10 p-0 md:w-auto md:px-4"
             >
-              <Copy className="h-4 w-4" /> 
-              <span className="hidden sm:inline ml-2">Copiar Lista</span>
+              <Copy className="h-4 w-4 md:mr-2" /> 
+              <span className="hidden md:inline">Copiar Lista</span>
             </Button>
             <Button 
               onClick={handleShareOnWhatsApp} 
@@ -440,11 +442,11 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                 <Button 
                   onClick={handleExportPdf} 
                   disabled={orderedItems.length === 0} 
-                  variant={isMobile ? "ghost" : "default"} // Ghost para mobile, default para desktop
-                  size={isMobile ? "icon" : undefined} // Icon size para mobile, undefined para desktop
+                  variant={isMobile ? "ghost" : "default"}
+                  size={isMobile ? "icon" : undefined}
                   className={cn(
                     "flex items-center gap-2",
-                    isMobile ? "h-10 w-10 p-0" : "" // Tamanho para mobile
+                    isMobile ? "h-10 w-10 p-0" : "md:px-4"
                   )}
                 >
                   {isMobile ? (
@@ -464,11 +466,10 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                 <Button 
                   variant="destructive" 
                   disabled={orderedItems.length === 0} 
-                  size="icon"
-                  className="flex-1 sm:w-auto sm:px-4" // Adicionado flex-1
+                  className="w-10 h-10 p-0 md:w-auto md:px-4"
                 >
-                  <Trash2 className="h-4 w-4" /> 
-                  <span className="hidden sm:inline ml-2">Limpar Lista</span>
+                  <Trash2 className="h-4 w-4 md:mr-2" /> 
+                  <span className="hidden md:inline">Limpar Lista</span>
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
