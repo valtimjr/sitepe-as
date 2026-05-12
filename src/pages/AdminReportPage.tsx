@@ -406,36 +406,45 @@ const AdminReportPage = () => {
       const donutHtml = includeDonutChart && donutElement ? donutElement.innerHTML : '';
       const barHtml = includeBarChart && barElement ? barElement.innerHTML : '';
 
-      // Montamos o HTML como string direta, que resolve o problema de tela em branco
+      // Wrapper principal travado em 800px de largura com cores e fontes estritas para evitar deformação
       let htmlContent = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; background-color: #fff; width: 100%;">
-          <div style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
-            <h1 style="font-size: 24px; color: #1e3a8a; margin-bottom: 10px;">Relatório de Ordens de Serviço - ${branding.name}</h1>
-            <div style="font-size: 14px; color: #666;">
+        <div style="font-family: Arial, sans-serif; color: #000; background-color: #fff; width: 800px; margin: 0 auto; box-sizing: border-box;">
+          <div style="margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px;">
+            <h1 style="font-size: 20px; color: #000; margin: 0 0 10px 0;">Relatório de Ordens de Serviço - ${branding.name}</h1>
+            <div style="font-size: 12px; color: #333;">
               <strong>Gerado em:</strong> ${format(new Date(), "dd/MM/yyyy HH:mm")} <br/>
               <strong>Período:</strong> ${dateMode === 'single' ? format(selectedDate, 'dd/MM/yyyy') : `${format(dateRange?.from || new Date(), 'dd/MM/yyyy')} a ${format(dateRange?.to || new Date(), 'dd/MM/yyyy')}`}<br/>
               <strong>Total Geral de OS:</strong> ${filteredOSList.length}
               ${includeTypedStatus && pendingCount > 0 ? `<br/><span style="color: #dc2626; font-style: italic;">(${pendingCount} OS ainda não foram digitadas no ERP)</span>` : ''}
             </div>
           </div>
-          ${donutHtml || barHtml ? `<div style="display:flex; gap:20px; margin-bottom:20px;">${donutHtml ? `<div style="flex:1; border: 1px solid #eee; border-radius: 8px; padding: 10px; background: #fff;">${donutHtml}</div>` : ''}${barHtml ? `<div style="flex:1; border: 1px solid #eee; border-radius: 8px; padding: 10px; background: #fff;">${barHtml}</div>` : ''}</div>` : ''}
+          ${(donutHtml || barHtml) ? `
+            <table style="width: 100%; margin-bottom: 20px; border: none;">
+              <tr>
+                ${donutHtml ? `<td style="width: 50%; padding-right: 10px; vertical-align: top;"><div style="width: 380px; height: 250px; border: 1px solid #ccc; overflow: hidden; background: #fafafa;">${donutHtml}</div></td>` : ''}
+                ${barHtml ? `<td style="width: 50%; padding-left: 10px; vertical-align: top;"><div style="width: 380px; height: 250px; border: 1px solid #ccc; overflow: hidden; background: #fafafa;">${barHtml}</div></td>` : ''}
+              </tr>
+            </table>
+          ` : ''}
       `;
 
       Object.keys(grouped).forEach(key => {
         const data = grouped[key];
         let total = 0;
+        
+        // Travando tamanho da tabela (table-layout: fixed) e aplicando % em cada coluna
         htmlContent += `
-          <h2 style="font-size: 18px; margin-top: 20px; margin-bottom: 10px; color: #1e40af; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${key}</h2>
-          <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; page-break-inside: auto;">
+          <h2 style="font-size: 16px; margin: 20px 0 10px 0; color: #000; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${key}</h2>
+          <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10px; margin-bottom: 20px; page-break-inside: auto;">
             <thead>
-              <tr style="background-color: #f4f4f4; page-break-inside: avoid;">
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Data</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Usuário</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">AF</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">OS</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Serviço</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Duração</th>
-                ${includeTypedStatus ? '<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Status</th>' : ''}
+              <tr style="background-color: #eee; page-break-inside: avoid;">
+                <th style="width: 10%; border: 1px solid #999; padding: 6px; text-align: left;">Data</th>
+                <th style="width: 20%; border: 1px solid #999; padding: 6px; text-align: left;">Usuário</th>
+                <th style="width: 12%; border: 1px solid #999; padding: 6px; text-align: left;">AF</th>
+                <th style="width: 12%; border: 1px solid #999; padding: 6px; text-align: left;">OS</th>
+                <th style="width: 28%; border: 1px solid #999; padding: 6px; text-align: left;">Serviço</th>
+                <th style="width: 10%; border: 1px solid #999; padding: 6px; text-align: left;">Tempo</th>
+                ${includeTypedStatus ? '<th style="width: 8%; border: 1px solid #999; padding: 6px; text-align: center;">Status</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -444,24 +453,25 @@ const AdminReportPage = () => {
         data.forEach((os: any) => {
           const d = calculateDuration(os.hora_inicio, os.hora_final);
           total += d;
+          // Aplicando word-wrap para evitar que o texto grande alargue a tabela
           htmlContent += `
             <tr style="page-break-inside: avoid;">
-              <td style="border: 1px solid #ddd; padding: 8px;">${format(parseISO(os.recordDate), 'dd/MM/yyyy')}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${os.userDisplayName}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${os.af || '-'}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${os.os || '-'}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${os.servico_executado || '-'}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${formatDuration(d)}</td>
-              ${includeTypedStatus ? `<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${os.confirmed ? '✅' : '❌'}</td>` : ''}
+              <td style="border: 1px solid #999; padding: 6px; word-wrap: break-word; overflow-wrap: break-word;">${format(parseISO(os.recordDate), 'dd/MM/yyyy')}</td>
+              <td style="border: 1px solid #999; padding: 6px; word-wrap: break-word; overflow-wrap: break-word;">${os.userDisplayName}</td>
+              <td style="border: 1px solid #999; padding: 6px; word-wrap: break-word; overflow-wrap: break-word;">${os.af || '-'}</td>
+              <td style="border: 1px solid #999; padding: 6px; word-wrap: break-word; overflow-wrap: break-word;">${os.os || '-'}</td>
+              <td style="border: 1px solid #999; padding: 6px; word-wrap: break-word; overflow-wrap: break-word;">${os.servico_executado || '-'}</td>
+              <td style="border: 1px solid #999; padding: 6px; word-wrap: break-word; overflow-wrap: break-word;">${formatDuration(d)}</td>
+              ${includeTypedStatus ? `<td style="border: 1px solid #999; padding: 6px; text-align: center;">${os.confirmed ? '✅' : '❌'}</td>` : ''}
             </tr>
           `;
         });
         
         htmlContent += `
-            <tr style="font-weight: bold; background-color: #f8fafc; page-break-inside: avoid;">
-              <td colspan="5" style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${formatDuration(total)}</td>
-              ${includeTypedStatus ? '<td style="border: 1px solid #ddd; padding: 8px;"></td>' : ''}
+            <tr style="font-weight: bold; background-color: #f5f5f5; page-break-inside: avoid;">
+              <td colspan="5" style="border: 1px solid #999; padding: 6px; text-align: right;">Total</td>
+              <td style="border: 1px solid #999; padding: 6px;">${formatDuration(total)}</td>
+              ${includeTypedStatus ? '<td style="border: 1px solid #999; padding: 6px;"></td>' : ''}
             </tr>
           </tbody>
         </table>
@@ -474,7 +484,7 @@ const AdminReportPage = () => {
         margin:       [10, 10, 10, 10],
         filename:     `relatorio_${company}_${format(new Date(), "dd-MM-yyyy_HH-mm")}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true, logging: false },
+        html2canvas:  { scale: 2, useCORS: true, logging: false, windowWidth: 800 }, // windowWidth ajuda a não deformar em telas mobile
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak:    { mode: ['css', 'legacy'] }
       };
