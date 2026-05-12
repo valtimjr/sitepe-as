@@ -250,9 +250,11 @@ const AdminReportPage = () => {
     } else {
       periodRecords = allData.filter(r => {
         const recordDate = parseISO(r.date);
-        return dateRange?.from && dateRange?.to
+        const inRange = dateRange?.from && dateRange?.to
           ? isWithinInterval(recordDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })
-          : matchesFilters(r);
+          : true;
+        
+        return inRange && matchesFilters(r);
       });
     }
 
