@@ -29,6 +29,8 @@ interface ServiceOrderListDisplayProps {
   onSave?: (updatedOs: ServiceOrderData) => void;
   onAddPart?: () => void;
   readOnly?: boolean;
+  userDisplayName?: string;
+  recordDate?: string;
 }
 
 interface RelatedItem {
@@ -267,7 +269,9 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
   onDelete, 
   onSave, 
   onAddPart,
-  readOnly = false 
+  readOnly = false,
+  userDisplayName,
+  recordDate
 }) => {
   const { company } = useCompany();
   const [isAddingPart, setIsAddingPart] = useState(false);
@@ -361,6 +365,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
     <div className="bg-card shadow-sm rounded-sm overflow-hidden overflow-visible">
       <div className="h-1 bg-blue-600 w-full"></div>
       
+      {(userDisplayName || recordDate) && (
+        <div className="px-4 py-2 bg-blue-50/50 border-b border-blue-100/30">
+          <span className="text-base font-bold text-gray-900">
+            {userDisplayName} {recordDate && `| ${recordDate}`}
+          </span>
+        </div>
+      )}
+
       <div className="p-4 bg-blue-50/30 border-b border-blue-100/50">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div className="flex items-start gap-4">
