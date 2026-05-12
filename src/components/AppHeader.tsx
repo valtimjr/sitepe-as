@@ -174,7 +174,7 @@ const AppHeader: React.FC = () => {
                 <img
                   src={company === 'citrosuco' ? '/Banner_Citrosuco.png' : "/Banner.png"}
                   alt="AutoBoard Logo"
-                  className="h-full w-auto transition-all duration-300"
+                  className="h-full w-auto transition-transform duration-400 ease-in-out hover:scale-95 active:scale-90"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     if (target.src.includes("Banner_Citrosuco.png")) {
