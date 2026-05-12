@@ -16,8 +16,7 @@ import {
   FileText,
   Download,
   X,
-  Search
-} from 'lucide-react';
+  Search} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -55,16 +54,14 @@ import { showSuccess, showError } from '@/utils/toast';
 import { getAfsFromService, Af } from '@/services/partListService';
 import { 
   PieChart, 
-  Pie, 
-  Cell, 
+  Pie,   Cell, 
   ResponsiveContainer, 
   Tooltip as RechartsTooltip, 
   BarChart, 
   Bar, 
   XAxis, 
   YAxis, 
-  CartesianGrid 
-} from 'recharts';
+  CartesianGrid } from 'recharts';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
 
 import jsPDF from 'jspdf';
@@ -106,10 +103,6 @@ const formatDuration = (minutes: number): string => {
   return `${h}h ${m}m`;
 };
 
-const getAfDescription = (afNumber: string, availableAfs: Af[]): string => {
-  return availableAfs.find(a => a.af_number === afNumber)?.descricao || '-';
-};
-
 const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, time }: any) => {
   const RADIAN = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
@@ -124,6 +117,11 @@ const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, perc
       <tspan x={x} dy="1.2em" textAnchor="middle">{time}</tspan>
     </text>
   );
+};
+
+/* Função movida para antes do uso para evitar erro de inicialização */
+const getAfDescription = (afNumber: string, availableAfs: Af[]): string => {
+  return availableAfs.find(a => a.af_number === afNumber)?.descricao || '-';
 };
 
 const AdminReportPage = () => {
@@ -142,8 +140,7 @@ const AdminReportPage = () => {
   const [selectedProfessionCode, setSelectedProfessionCode] = useState<string>('all');
   const [selectedShiftCode, setSelectedShiftCode] = useState<string>('all');
   const [afSearchTerm, setAfSearchTerm] = useState<string>('');
-  
-  const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
+    const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
   const [availableShifts, setAvailableShifts] = useState<AttributeItem[]>([]);
   const [availableAfs, setAvailableAfs] = useState<Af[]>([]);
 
@@ -200,8 +197,7 @@ const AdminReportPage = () => {
           .from('profiles')
           .select('id, first_name, last_name, role, badge, profession_code, shift_code')
           .order('first_name', { ascending: true });
-        
-        if (userError) {
+                if (userError) {
           console.error('[AdminReportPage] Erro ao buscar usuários:', userError);
         }
         
@@ -290,7 +286,7 @@ const AdminReportPage = () => {
     }
 
     return osList.sort((a, b) => b.recordDate.localeCompare(a.recordDate));
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users, afSearchTerm, availableAfs]);
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users, afSearchTerm]);
 
   const dailyChartData = useMemo(() => {
     const osDataMap = new Map<string, any>();
@@ -385,6 +381,8 @@ const AdminReportPage = () => {
     link.click();
   };
 
+  const getAfDescription = (afNumber: string) => availableAfs.find(a => a.af_number === afNumber)?.descricao || '-';
+
   const groupReportData = () => {
     if (reportGroupBy === 'none') return { 'Geral': filteredOSList };
     const grouped: Record<string, any[]> = {};
@@ -430,8 +428,7 @@ const AdminReportPage = () => {
         yPos += 10;
       }
 
-      // Charts
-      if (includeDonutChart || includeBarChart) {
+      // Charts      if (includeDonutChart || includeBarChart) {
         const chartHeight = 160;
         const chartWidth = 220;
         let currentX = 40;
@@ -522,8 +519,7 @@ const AdminReportPage = () => {
           headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
           styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
           columnStyles: {
-            0: { cellWidth: 50 }, // Data
-            1: { cellWidth: 80 }, // Usuário
+            0: { cellWidth: 50 }, // Data            1: { cellWidth: 80 }, // Usuário
             2: { cellWidth: 50 }, // AF
             3: { cellWidth: 50 }, // OS
             4: { cellWidth: 'auto' }, // Serviço
@@ -535,8 +531,7 @@ const AdminReportPage = () => {
           }
         });
 
-        // @ts-ignore
-        yPos = doc.lastAutoTable.finalY + 20; 
+        // @ts-ignore        yPos = doc.lastAutoTable.finalY + 20; 
       });
 
       doc.save(`relatorio_${company}_${format(new Date(), "dd-MM-yyyy_HH-mm")}.pdf`);
@@ -562,8 +557,7 @@ const AdminReportPage = () => {
             <FileText className="h-4 w-4" /> Gerar Relatório
           </Button>
           <Button variant="outline" onClick={() => navigate(`/${company}/service-orders`)}>
-            <ChevronLeft className="mr-2 h-4 w-4" /> Voltar
-          </Button>
+            <ChevronLeft className="mr-2 h-4 w-4" /> Voltar          </Button>
         </div>
       </div>
 
@@ -598,8 +592,7 @@ const AdminReportPage = () => {
                  <Label className="text-[10px] uppercase font-bold">Usuário</Label>
                  <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
                    <PopoverTrigger asChild>
-                     <Button
-                       variant="outline"
+                     <Button                       variant="outline"
                        role="combobox"
                        aria-expanded={openUserSelect}
                        className="w-full justify-between"
@@ -618,8 +611,7 @@ const AdminReportPage = () => {
                        <CommandList>
                          <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
                          <CommandGroup>
-                           <CommandItem
-                             value="all"
+                           <CommandItem                             value="all"
                              onSelect={() => {
                                setSelectedUserId("all");
                                setOpenUserSelect(false);
@@ -670,9 +662,7 @@ const AdminReportPage = () => {
                  <div className="relative">
                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                    <Input 
-                     placeholder="Número ou descrição..." 
-                     className="pl-8" 
-                     value={afSearchTerm} 
+                     placeholder="Número ou descrição..."                      className="pl-8"                      value={afSearchTerm} 
                      onChange={(e) => setAfSearchTerm(e.target.value)}
                    />
                  </div>
