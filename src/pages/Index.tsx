@@ -32,7 +32,6 @@ const Index = () => {
 
   const canAccessAdmin = checkPageAccess('/admin');
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
-  const canAccessCustomMenu = checkPageAccess('/custom-menu-view');
 
   const CardImage = ({ src, alt }: { src: string, alt: string }) => (
     <div className="flex justify-center mb-4 mt-2">
@@ -116,27 +115,25 @@ const Index = () => {
           </div>
         </Card>
 
-        {/* 3. Catálogo de Peças */}
-        {canAccessCustomMenu && (
-          <Card className="text-center animated-card">
-            <div className="card-content-wrapper h-full flex flex-col">
-              <CardHeader>
-                <CardTitle className="text-2xl flex items-center justify-center gap-2">
-                  <Menu className="h-6 w-6" /> Catálogo de Peças
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col pt-0">
-                <CardImage src="11.png" alt="Catálogo de Peças" />
-                <p className="mb-6 text-muted-foreground flex-1">
-                  Navegue pelas listas de peças personalizadas em uma estrutura de menu.
-                </p>
-                <Link to={`/${company}/custom-menu-view`}>
-                  <Button className="w-full">Ver Catálogo</Button>
-                </Link>
-              </CardContent>
-            </div>
-          </Card>
-        )}
+        {/* 3. Catálogo de Peças - Agora sempre visível */}
+        <Card className="text-center animated-card">
+          <div className="card-content-wrapper h-full flex flex-col">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <Menu className="h-6 w-6" /> Catálogo de Peças
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col pt-0">
+              <CardImage src="11.png" alt="Catálogo de Peças" />
+              <p className="mb-6 text-muted-foreground flex-1">
+                Navegue pelas listas de peças personalizadas em uma estrutura de menu.
+              </p>
+              <Link to={`/${company}/custom-menu-view`}>
+                <Button className="w-full">Ver Catálogo</Button>
+              </Link>
+            </CardContent>
+          </div>
+        </Card>
 
         {/* 4. Minha Lista de Peças */}
         <Card className="text-center animated-card">
