@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -5,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Save, Loader2, Settings, ChevronLeft, User as UserIcon } from 'lucide-react';
+import { Save, Loader2, ChevronLeft, User as UserIcon } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
@@ -121,7 +123,7 @@ const UserSettingsPage: React.FC = () => {
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
         <div className="flex items-center gap-3">
-          <Settings className="h-8 w-8 text-primary" />
+          <img src="/icons/tela_inicial/2.png" alt="" className="h-16 w-auto object-contain" />
           Configurações do Usuário
         </div>
         <span className="text-2xl font-bold opacity-80">{branding.name}</span>
