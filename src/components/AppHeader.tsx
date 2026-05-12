@@ -93,8 +93,6 @@ const AppHeader: React.FC = () => {
       if (error) throw error;
       showSuccess('Você foi desconectado com sucesso!');
       
-      // Se a página atual for protegida, redireciona para a home da empresa
-      // Caso contrário, permanece na página atual.
       const protectedPrefixes = ['/admin', '/time-tracking', '/menu-manager', '/settings', '/manage-tags'];
       const isCurrentlyOnProtectedPage = protectedPrefixes.some(prefix => 
         location.pathname.includes(prefix)
@@ -356,15 +354,17 @@ const AppHeader: React.FC = () => {
           ) : (
             !isLoginPage && (
               <>
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  className="flex items-center gap-1 w-10 h-10 p-0 sm:w-auto sm:px-3 sm:h-9"
-                  onClick={() => setIsLoginModalOpen(true)}
-                >
-                  <LogIn className="h-4 w-4" /> 
-                  <span className="hidden sm:inline">Entrar</span>
-                </Button>
+                <div className="uiverse-search-container relative">
+                  <div 
+                    className="uiverse-search-input flex items-center cursor-pointer select-none"
+                    onClick={() => setIsLoginModalOpen(true)}
+                  >
+                    <span className="pl-4 font-bold text-sm text-black uppercase">Entrar</span>
+                  </div>
+                  <div className="uiverse-search-icon" onClick={() => setIsLoginModalOpen(true)}>
+                    <LogIn className="h-5 w-5 text-black" />
+                  </div>
+                </div>
                 <LoginModal isOpen={isLoginModalOpen} onOpenChange={setIsLoginModalOpen} />
               </>
             )
