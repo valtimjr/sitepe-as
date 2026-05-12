@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -36,8 +36,20 @@ const AppHeader: React.FC = () => {
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const isLoginPage = location.pathname === '/login';
+
+  // Fecha o dropdown de pesquisa ao clicar fora dele
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowResults(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (!headerSearchQuery.trim()) {
@@ -93,8 +105,6 @@ const AppHeader: React.FC = () => {
       if (error) throw error;
       showSuccess('Você foi desconectado com sucesso!');
       
-      // Se a página atual for protegida, redireciona para a home da empresa
-      // Caso contrário, permanece na página atual.
       const protectedPrefixes = ['/admin', '/time-tracking', '/menu-manager', '/settings', '/manage-tags'];
       const isCurrentlyOnProtectedPage = protectedPrefixes.some(prefix => 
         location.pathname.includes(prefix)
@@ -276,23 +286,27 @@ const AppHeader: React.FC = () => {
 
         <div className="flex items-center gap-2 shrink-0">
           {!isLoginPage && (
-            <div className="uiverse-search-container relative mr-2">
-              <input
-                type="text"
-                placeholder="Pesquisar peça"
-                className="uiverse-search-input"
-                value={headerSearchQuery}
-                onChange={(e) => setHeaderSearchQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onFocus={() => headerSearchQuery && setShowResults(true)}
-                onBlur={() => setTimeout(() => setShowResults(false), 200)}
-              />
-              <div className="uiverse-search-icon" onClick={() => handleHeaderSearch()}>
-                <Search className="h-5 w-5 text-black" />
+            <div className="relative mr-2 flex items-center" ref={searchContainerRef}>
+              <div className="relative group">
+                <Search 
+                  className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground cursor-pointer z-10" 
+                  onClick={() => handleHeaderSearch()}
+                />
+                <input
+                  type="text"
+                  placeholder="Pesquisar peça"
+                  className="h-9 w-10 sm:w-56 rounded-full border border-input bg-background/50 px-3 py-1 pl-9 text-sm shadow-sm transition-all duration-300 focus:w-48 sm:focus:w-64 focus:outline-none focus:ring-1 focus:ring-primary focus:bg-background cursor-pointer focus:cursor-text"
+                  value={headerSearchQuery}
+                  onChange={(e) => setHeaderSearchQuery(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => {
+                    if (headerSearchQuery.trim()) setShowResults(true);
+                  }}
+                />
               </div>
 
               {showResults && searchResults.length > 0 && (
-                <div className="absolute top-full right-0 mt-2 w-[280px] bg-white border rounded-md shadow-lg overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute top-full right-0 mt-2 w-[280px] sm:w-full min-w-[280px] bg-white border rounded-md shadow-lg overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200">
                   <div className="p-2 bg-blue-50/50 border-b text-[10px] font-bold text-blue-600 uppercase">
                     Resultados Rápidos
                   </div>
@@ -327,7 +341,7 @@ const AppHeader: React.FC = () => {
               <Link to={`/${company}/settings`}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Avatar className="h-8 w-8 rounded-full cursor-pointer">
+                    <Avatar className="h-8 w-8 rounded-full cursor-pointer hover:ring-2 hover:ring-primary transition-all">
                       <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar do Usuário" />
                       <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
                     </Avatar>
@@ -347,7 +361,7 @@ const AppHeader: React.FC = () => {
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem asChild><Link to={`/${company}/settings`}><Settings className="h-4 w-4 mr-2" /> Configurações</Link></DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={handleLogout} className="text-destructive">
+                  <DropdownMenuItem onSelect={handleLogout} className="text-destructive focus:bg-destructive/10">
                     <LogOut className="h-4 w-4 mr-2" /> Sair
                   </DropdownMenuItem>
                 </DropdownMenuContent>
