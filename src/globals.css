@@ -87,4 +87,21 @@
 @layer components {
   /* Classe utilitária para centralização vertical perfeita em elementos de 24px (h-6) */
   /* Removida a classe day-center que não funcionou */
+  
+  .animated-card {
+    transition: transform 0.4s ease;
+  }
+  .animated-card:hover {
+    cursor: pointer;
+    transform: scale(0.97);
+  }
+  .animated-card:active {
+    transform: scale(0.9);
+  }
+  .animated-card .card-content-wrapper {
+    transition: transform 0.4s ease;
+  }
+  .animated-card:hover .card-content-wrapper {
+    transform: scale(0.96);
+  }
 }
