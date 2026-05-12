@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database, Home, Clock, Search, List, ClipboardList, CalendarDays, Menu } from 'lucide-react';
+import { Database, Clock, Search, List, ClipboardList, CalendarDays, Menu } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
 import { getParts, getAfsFromService } from '@/services/partListService';
 import { useCompany } from '@/context/CompanyContext';
@@ -67,11 +67,7 @@ const Index = () => {
           transform: scale(0.96);
         }
       `}</style>
-      <h1 className="text-5xl font-extrabold mb-12 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-4">
-        <div className="flex items-center gap-4">
-          <Home className="h-10 w-10 text-primary" />
-          Bem-vindo ao AutoBoard
-        </div>
+      <h1 className="mb-12 mt-8 text-center flex flex-col items-center gap-4">
         <img
           src={branding.logo}
           alt={branding.name}
