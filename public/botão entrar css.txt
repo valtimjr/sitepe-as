@@ -1,0 +1,73 @@
+.container {
+  position: relative;
+  --size-button: 40px;
+  color: white;
+}
+
+.input {
+  padding: 0;
+  height: var(--size-button);
+  font-size: 15px;
+  border: none;
+  color: white;
+  outline: none;
+  width: var(--size-button); /* Começa como quadrado */
+  transition: all 0.4s ease; /* Aumentei um pouco o tempo para ficar mais fluido */
+  background-color: #0073e6;
+  box-shadow: 1.5px 1.5px 3px #0e0e0e, -1.5px -1.5px 3px rgb(95 94 94 / 25%), inset 0px 0px 0px #0e0e0e, inset 0px -0px 0px #5f5e5e;
+  border-radius: 0px; 
+  cursor: pointer;
+  
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.input:focus,
+.input:hover {
+  /* Em vez de width, usamos um max-width maior que qualquer texto seu */
+  /* O width: auto faz ele parar exatamente no tamanho do texto */
+  width: 100%; 
+  max-width: 300px; /* Um teto para a animação acontecer */
+  
+  /* Aqui garantimos os 20px de respiro (10px de cada lado ou 20px no fim) */
+  padding-left: var(--size-button);
+  padding-right: 20px; 
+  
+  box-shadow: 1.5px 1.5px 3px #0e0e0e, -1.5px -1.5px 3px rgb(95 94 94 / 25%), inset 0px 0px 0px #0e0e0e, inset 0px -0px 0px #5f5e5e;
+}
+
+.text-btn {
+  /* Removido o opacity: 0 para o navegador calcular o tamanho desde o início */
+  /* Usamos a transição para ele aparecer conforme o botão abre */
+  margin-left: 5px;
+  color: white;
+  font-weight: none;
+  visibility: hidden; /* Esconde para não ser clicável enquanto fechado */
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.input:hover .text-btn,
+.input:focus .text-btn {
+  visibility: visible;
+  opacity: 1;
+}
+
+.container .icon {
+  position: absolute;
+  width: var(--size-button);
+  height: var(--size-button);
+  top: 0;
+  left: 0;
+  padding: 8px;
+  pointer-events: none;
+  z-index: 2; /* Garante que o ícone fique acima do texto */
+}
+
+.container .icon svg {
+  width: 100%;
+  height: 100%;
+  fill: white;
+}

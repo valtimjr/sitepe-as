@@ -171,4 +171,74 @@
     height: 100%;
     color: #000;
   }
+
+  /* From Uiverse.io by krlozCJ - Login Button Animation */
+  .login-btn-container {
+    position: relative;
+    --size-button: 36px;
+    color: white;
+  }
+
+  .login-btn-input {
+    padding: 0;
+    height: var(--size-button);
+    font-size: 14px;
+    border: none;
+    color: white;
+    outline: none;
+    width: var(--size-button);
+    transition: all 0.4s ease;
+    background-color: #2563eb; /* Tailwind blue-600 */
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    white-space: nowrap;
+    border: none;
+  }
+
+  .login-btn-input:focus,
+  .login-btn-input:hover {
+    width: 100px;
+    padding-left: var(--size-button);
+    padding-right: 12px;
+    background-color: #1d4ed8; /* Tailwind blue-700 */
+  }
+
+  .login-btn-text {
+    margin-left: 4px;
+    color: white;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    font-weight: 600;
+  }
+
+  .login-btn-input:hover .login-btn-text,
+  .login-btn-input:focus .login-btn-text {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  .login-btn-container .login-btn-icon {
+    position: absolute;
+    width: var(--size-button);
+    height: var(--size-button);
+    top: 0;
+    left: 0;
+    padding: 8px;
+    pointer-events: none;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .login-btn-container .login-btn-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: white;
+  }
 }
