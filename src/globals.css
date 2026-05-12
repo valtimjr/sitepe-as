@@ -128,6 +128,7 @@
   }
 
   .uiverse-search-input:focus,
+  .uiverse-search-input.expanded,
   .uiverse-search-input:not(:placeholder-shown) {
     width: 220px;
     cursor: text;
@@ -141,11 +142,13 @@
     transition: opacity 0.3s ease;
   }
 
-  .uiverse-search-input:focus::placeholder {
+  .uiverse-search-input:focus::placeholder,
+  .uiverse-search-input.expanded::placeholder {
     opacity: 1;
   }
 
   .uiverse-search-input:focus + .uiverse-search-icon,
+  .uiverse-search-input.expanded + .uiverse-search-icon,
   .uiverse-search-input:not(:placeholder-shown) + .uiverse-search-icon {
     pointer-events: all;
     cursor: pointer;

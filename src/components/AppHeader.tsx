@@ -35,6 +35,7 @@ const AppHeader: React.FC = () => {
   const [headerSearchQuery, setHeaderSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   const isLoginPage = location.pathname === '/login';
@@ -280,12 +281,22 @@ const AppHeader: React.FC = () => {
               <input
                 type="text"
                 placeholder="Pesquisar peça"
-                className="uiverse-search-input"
+                className={cn(
+                  "uiverse-search-input",
+                  (isFocused || headerSearchQuery) && "expanded"
+                )}
                 value={headerSearchQuery}
                 onChange={(e) => setHeaderSearchQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                onFocus={() => headerSearchQuery && setShowResults(true)}
-                onBlur={() => setTimeout(() => setShowResults(false), 200)}
+                onFocus={() => {
+                  setIsFocused(true);
+                  if (headerSearchQuery) setShowResults(true);
+                }}
+                onBlur={() => {
+                  setIsFocused(false);
+                  setTimeout(() => setShowResults(false), 200);
+                }}
+                autoComplete="off"
               />
               <div className="uiverse-search-icon" onClick={() => handleHeaderSearch()}>
                 <Search className="h-5 w-5 text-black" />
