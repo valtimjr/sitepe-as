@@ -93,6 +93,8 @@ const AppHeader: React.FC = () => {
       if (error) throw error;
       showSuccess('Você foi desconectado com sucesso!');
       
+      // Se a página atual for protegida, redireciona para a home da empresa
+      // Caso contrário, permanece na página atual.
       const protectedPrefixes = ['/admin', '/time-tracking', '/menu-manager', '/settings', '/manage-tags'];
       const isCurrentlyOnProtectedPage = protectedPrefixes.some(prefix => 
         location.pathname.includes(prefix)
@@ -285,10 +287,7 @@ const AppHeader: React.FC = () => {
                 onFocus={() => headerSearchQuery && setShowResults(true)}
                 onBlur={() => setTimeout(() => setShowResults(false), 200)}
               />
-              <div 
-                className="uiverse-search-icon transition-transform duration-400 ease-in-out hover:scale-95 active:scale-90" 
-                onClick={() => handleHeaderSearch()}
-              >
+              <div className="uiverse-search-icon" onClick={() => handleHeaderSearch()}>
                 <Search className="h-5 w-5 text-black" />
               </div>
 
@@ -360,7 +359,7 @@ const AppHeader: React.FC = () => {
                 <Button 
                   variant="default" 
                   size="sm" 
-                  className="flex items-center gap-1 w-10 h-10 p-0 sm:w-auto sm:px-3 sm:h-9 transition-transform duration-400 ease-in-out hover:scale-95 active:scale-90"
+                  className="flex items-center gap-1 w-10 h-10 p-0 sm:w-auto sm:px-3 sm:h-9"
                   onClick={() => setIsLoginModalOpen(true)}
                 >
                   <LogIn className="h-4 w-4" /> 
