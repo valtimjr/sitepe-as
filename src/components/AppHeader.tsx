@@ -284,7 +284,7 @@ const AppHeader: React.FC = () => {
                 placeholder="Pesquisar peça"
                 className={cn(
                   "uiverse-search-input",
-                  (isFocused || headerSearchQuery) && "expanded"
+                  (isFocused || headerSearchQuery.trim().length > 0) && "expanded"
                 )}
                 value={headerSearchQuery}
                 onChange={(e) => setHeaderSearchQuery(e.target.value)}

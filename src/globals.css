@@ -119,8 +119,9 @@
     border: none;
     color: #000;
     outline: none;
+    width: 36px; /* Fallback fix for Firefox */
     width: var(--size-button);
-    transition: all ease 0.3s;
+    transition: width 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
     background-color: #eff6ff; /* Soft blue (blue-50) */
     box-shadow: 1px 1px 2px rgba(0,0,0,0.1);
     border-radius: 50px;
@@ -128,8 +129,7 @@
   }
 
   .uiverse-search-input:focus,
-  .uiverse-search-input.expanded,
-  .uiverse-search-input:not(:placeholder-shown) {
+  .uiverse-search-input.expanded {
     width: 220px;
     cursor: text;
     background-color: #dbeafe; /* Slightly deeper soft blue on focus (blue-100) */
@@ -148,8 +148,7 @@
   }
 
   .uiverse-search-input:focus + .uiverse-search-icon,
-  .uiverse-search-input.expanded + .uiverse-search-icon,
-  .uiverse-search-input:not(:placeholder-shown) + .uiverse-search-icon {
+  .uiverse-search-input.expanded + .uiverse-search-icon {
     pointer-events: all;
     cursor: pointer;
   }
