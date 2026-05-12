@@ -78,6 +78,9 @@ import {
 } from 'recharts';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
 
+// @ts-ignore
+import html2pdf from 'html2pdf.js';
+
 const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#1d4ed8', '#1e40af', '#1e3a8a'];
 
 interface UserProfile {
@@ -403,8 +406,9 @@ const AdminReportPage = () => {
       const donutHtml = includeDonutChart && donutElement ? donutElement.innerHTML : '';
       const barHtml = includeBarChart && barElement ? barElement.innerHTML : '';
 
+      // Montamos o HTML como string direta, que resolve o problema de tela em branco
       let htmlContent = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; background-color: #fff; width: 100%;">
           <div style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
             <h1 style="font-size: 24px; color: #1e3a8a; margin-bottom: 10px;">Relatório de Ordens de Serviço - ${branding.name}</h1>
             <div style="font-size: 14px; color: #666;">
@@ -414,7 +418,7 @@ const AdminReportPage = () => {
               ${includeTypedStatus && pendingCount > 0 ? `<br/><span style="color: #dc2626; font-style: italic;">(${pendingCount} OS ainda não foram digitadas no ERP)</span>` : ''}
             </div>
           </div>
-          ${donutHtml || barHtml ? `<div style="display:flex; gap:20px; margin-bottom:20px;">${donutHtml ? `<div style="flex:1; border: 1px solid #eee; border-radius: 8px; padding: 10px;">${donutHtml}</div>` : ''}${barHtml ? `<div style="flex:1; border: 1px solid #eee; border-radius: 8px; padding: 10px;">${barHtml}</div>` : ''}</div>` : ''}
+          ${donutHtml || barHtml ? `<div style="display:flex; gap:20px; margin-bottom:20px;">${donutHtml ? `<div style="flex:1; border: 1px solid #eee; border-radius: 8px; padding: 10px; background: #fff;">${donutHtml}</div>` : ''}${barHtml ? `<div style="flex:1; border: 1px solid #eee; border-radius: 8px; padding: 10px; background: #fff;">${barHtml}</div>` : ''}</div>` : ''}
       `;
 
       Object.keys(grouped).forEach(key => {
@@ -422,9 +426,9 @@ const AdminReportPage = () => {
         let total = 0;
         htmlContent += `
           <h2 style="font-size: 18px; margin-top: 20px; margin-bottom: 10px; color: #1e40af; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${key}</h2>
-          <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; page-break-inside: auto;">
             <thead>
-              <tr style="background-color: #f4f4f4;">
+              <tr style="background-color: #f4f4f4; page-break-inside: avoid;">
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Data</th>
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Usuário</th>
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">AF</th>
@@ -441,7 +445,7 @@ const AdminReportPage = () => {
           const d = calculateDuration(os.hora_inicio, os.hora_final);
           total += d;
           htmlContent += `
-            <tr>
+            <tr style="page-break-inside: avoid;">
               <td style="border: 1px solid #ddd; padding: 8px;">${format(parseISO(os.recordDate), 'dd/MM/yyyy')}</td>
               <td style="border: 1px solid #ddd; padding: 8px;">${os.userDisplayName}</td>
               <td style="border: 1px solid #ddd; padding: 8px;">${os.af || '-'}</td>
@@ -454,7 +458,7 @@ const AdminReportPage = () => {
         });
         
         htmlContent += `
-            <tr style="font-weight: bold; background-color: #f8fafc;">
+            <tr style="font-weight: bold; background-color: #f8fafc; page-break-inside: avoid;">
               <td colspan="5" style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total</td>
               <td style="border: 1px solid #ddd; padding: 8px;">${formatDuration(total)}</td>
               ${includeTypedStatus ? '<td style="border: 1px solid #ddd; padding: 8px;"></td>' : ''}
@@ -466,29 +470,17 @@ const AdminReportPage = () => {
 
       htmlContent += `</div>`;
 
-      const container = document.createElement('div');
-      container.innerHTML = htmlContent;
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      container.style.top = '0';
-      container.style.width = '1000px'; 
-      container.style.backgroundColor = '#ffffff'; 
-      document.body.appendChild(container);
-
-      // @ts-ignore
-      const html2pdf = (await import('html2pdf.js')).default;
-      
       const opt = {
         margin:       [10, 10, 10, 10],
         filename:     `relatorio_${company}_${format(new Date(), "dd-MM-yyyy_HH-mm")}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true, logging: false },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['css', 'legacy'] }
       };
 
-      await html2pdf().set(opt).from(container).save();
+      await html2pdf().set(opt).from(htmlContent).save();
       
-      document.body.removeChild(container);
       showSuccess('PDF gerado e baixado com sucesso!');
       setIsReportDialogOpen(false);
     } catch (error) {
