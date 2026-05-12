@@ -672,7 +672,7 @@ const AdminReportPage = () => {
             {filteredOSList.map(os => (
               <div key={os.id} className="bg-card shadow-sm rounded-sm overflow-hidden border border-blue-100/50">
                 <div className="bg-blue-50/30 p-4 border-b border-blue-100/50 flex justify-between items-center">
-                  <div className="flex-1"></div> {/* Placeholder for user span moved into display component */}
+                  <span className="text-lg font-bold text-gray-900">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
                   {os.confirmed ? (
                     <div className="flex items-center gap-1">
                       <span className="text-green-600 text-xs font-bold">Digitado</span>
@@ -680,12 +680,7 @@ const AdminReportPage = () => {
                     </div>
                   ) : <Button variant="outline" size="sm" onClick={() => confirmOrder(os.id)}>Marcar Digitado</Button>}
                 </div>
-                <ServiceOrderListDisplay 
-                  group={os} 
-                  readOnly={true} 
-                  userDisplayName={os.userDisplayName}
-                  recordDate={format(parseISO(os.recordDate), 'dd/MM/yyyy')}
-                />
+                <ServiceOrderListDisplay group={os} readOnly={true} />
               </div>
             ))}
           </div>
