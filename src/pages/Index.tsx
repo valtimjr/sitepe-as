@@ -40,6 +40,19 @@ const Index = () => {
   // Acesso ao catálogo de menus agora verifica a permissão da rota
   const canAccessCustomMenu = checkPageAccess('/custom-menu-view');
 
+  const CardImage = ({ src, alt }: { src: string, alt: string }) => (
+    <div className="flex justify-center mb-4 mt-2">
+      <img 
+        src={`/icons/tela inicial/${src}`} 
+        alt={alt} 
+        className="h-28 w-auto object-contain"
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = 'none';
+        }}
+      />
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
       <style>{`
@@ -81,7 +94,8 @@ const Index = () => {
                 <ClipboardList className="h-6 w-6" /> Ordens de Serviço
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
+            <CardContent className="flex-1 flex flex-col pt-0">
+              <CardImage src="ordens de Serviço - 12.png" alt="Ordens de Serviço" />
               <p className="mb-6 text-muted-foreground flex-1">
                 Visualize e gerencie as ordens de serviço com suas peças associadas.
               </p>
@@ -100,7 +114,8 @@ const Index = () => {
                 <Search className="h-6 w-6" /> Pesquisar Peças
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
+            <CardContent className="flex-1 flex flex-col pt-0">
+              <CardImage src="Pesquisar Peças - 6.png" alt="Pesquisar Peças" />
               <p className="mb-6 text-muted-foreground flex-1">
                 Encontre rapidamente qualquer peça automotiva por código ou descrição.
               </p>
@@ -120,7 +135,8 @@ const Index = () => {
                   <Menu className="h-6 w-6" /> Catálogo de Peças
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 flex flex-col">
+              <CardContent className="flex-1 flex flex-col pt-0">
+                <CardImage src="Catalogo de Peças - 11.png" alt="Catálogo de Peças" />
                 <p className="mb-6 text-muted-foreground flex-1">
                   Navegue pelas listas de peças personalizadas em uma estrutura de menu.
                 </p>
@@ -140,7 +156,8 @@ const Index = () => {
                 <List className="h-6 w-6" /> Minha Lista de Peças
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
+            <CardContent className="flex-1 flex flex-col pt-0">
+              <CardImage src="Minha Lista de Peças - 8.png" alt="Minha Lista de Peças" />
               <p className="mb-6 text-muted-foreground flex-1">
                 Gerencie sua lista de peças, adicione novos itens e exporte para PDF.
               </p>
@@ -159,7 +176,8 @@ const Index = () => {
                 <CalendarDays className="h-6 w-6" /> Escala Anual
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
+            <CardContent className="flex-1 flex flex-col pt-0">
+              <CardImage src="Escala Anual  - 9.png" alt="Escala Anual" />
               <p className="mb-6 text-muted-foreground flex-1">
                 Visualize a escala de turnos rotativos para o ano inteiro.
               </p>
@@ -179,7 +197,8 @@ const Index = () => {
                   <Clock className="h-6 w-6" /> Apontamento de Horas
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 flex flex-col">
+              <CardContent className="flex-1 flex flex-col pt-0">
+                <CardImage src="Apontamento de horas - 10.png" alt="Apontamento de Horas" />
                 <p className="mb-6 text-muted-foreground flex-1">
                   Registre suas horas de entrada e saída para controle mensal.
                 </p>
@@ -200,7 +219,8 @@ const Index = () => {
                   <Database className="h-6 w-6" /> Painel Administração
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 flex flex-col">
+              <CardContent className="flex-1 flex flex-col pt-0">
+                <CardImage src="Painel Administração - 7.png" alt="Painel Administração" />
                 <p className="mb-6 text-muted-foreground flex-1">
                   Acesse as configurações do sistema, gerencie acessos, peças e dados gerais.
                 </p>
