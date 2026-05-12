@@ -6,60 +6,43 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
-
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-
     --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
-
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
-
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
-
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
-
     --radius: 0.5rem;
   }
 
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
-
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
-
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-
     --primary: 217.2 91.2% 59.8%;
     --primary-foreground: 222.2 47.4% 11.2%;
-
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
-
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
@@ -67,25 +50,23 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
 }
 
 /* Custom Login Button Styles */
-.login-btn-container {
+.login-container-animated {
   position: relative;
-  --size-button: 36px;
+  --size-button: 40px;
   color: white;
+  display: flex;
+  align-items: center;
 }
 
-.login-btn-input {
+.login-input-animated {
   padding-left: var(--size-button);
   height: var(--size-button);
-  font-size: 14px;
+  font-size: 15px;
   border: none;
   color: white;
   outline: none;
@@ -93,7 +74,7 @@
   transition: all ease 0.3s;
   background-color: #0073e6;
   box-shadow: 1.5px 1.5px 3px #0e0e0e, -1.5px -1.5px 3px rgb(95 94 94 / 25%), inset 0px 0px 0px #0e0e0e, inset 0px -0px 0px #5f5e5e;
-  border-radius: 18px; /* Tornando mais arredondado para combinar com a UI */
+  border-radius: 4px; /* Ajustado de 0px para combinar levemente com o tema, mas mantendo a ideia */
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -101,16 +82,16 @@
   white-space: nowrap;
 }
 
-.login-btn-input:focus,
-.login-btn-input:hover {
-  width: 100px; 
+.login-input-animated:focus,
+.login-input-animated:hover {
+  width: 110px; 
   min-width: var(--size-button);
   padding-left: var(--size-button);
-  padding-right: 12px;
+  padding-right: 15px;
   box-shadow: 0px 0px 0px #0e0e0e, 0px 0px 0px rgb(95 94 94 / 25%), inset 1.5px 1.5px 3px #0e0e0e, inset -1.5px -1.5px 3px #5f5e5e;
 }
 
-.login-btn-text {
+.login-text-btn-animated {
   opacity: 0;
   transition: opacity 0.2s;
   margin-left: 5px;
@@ -118,22 +99,22 @@
   font-weight: bold;
 }
 
-.login-btn-input:hover .login-btn-text,
-.login-btn-input:focus .login-btn-text {
+.login-input-animated:hover .login-text-btn-animated,
+.login-input-animated:focus .login-text-btn-animated {
   opacity: 1;
 }
 
-.login-btn-container .login-btn-icon {
+.login-container-animated .login-icon-animated {
   position: absolute;
   width: var(--size-button);
   height: var(--size-button);
   top: 0;
   left: 0;
-  padding: 8px;
+  padding: 10px;
   pointer-events: none;
 }
 
-.login-btn-container .login-btn-icon svg {
+.login-container-animated .login-icon-animated svg {
   width: 100%;
   height: 100%;
 }
