@@ -152,6 +152,7 @@ const AdminReportPage = () => {
   const [openUserSelect, setOpenUserSelect] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [allData, setAllData] = useState<any[]>([]); 
 
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
@@ -197,7 +198,6 @@ const AdminReportPage = () => {
       setLoading(true);
 
       try {
-        // Busca usuários com tratamento de erro explícito e ordenação
         const { data: userData, error: userError } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, role, badge, profession_code, shift_code')
@@ -392,86 +392,111 @@ const AdminReportPage = () => {
     return grouped;
   };
 
-  const handleGeneratePDF = () => {
-    const grouped = groupReportData();
-    const donutHtml = includeDonutChart && document.getElementById('print-donut-chart')?.innerHTML || '';
-    const barHtml = includeBarChart && document.getElementById('print-bar-chart')?.innerHTML || '';
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+  const handleGeneratePDF = async () => {
+    setIsGeneratingPdf(true);
+    
+    try {
+      const grouped = groupReportData();
+      const donutElement = document.getElementById('print-donut-chart');
+      const barElement = document.getElementById('print-bar-chart');
+      
+      const donutHtml = includeDonutChart && donutElement ? donutElement.innerHTML : '';
+      const barHtml = includeBarChart && barElement ? barElement.innerHTML : '';
 
-    let html = `
-      <html>
-      <head>
-        <style>
-          body { font-family: sans-serif; padding: 20px; }
-          .meta { margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px; }
-          th, td { border: 1px solid #ddd; padding: 6px; text-align: left; word-break: break-word; }
-          th { background: #f4f4f4; }
-          .summary { font-weight: bold; background: #eee; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Relatório de Ordens de Serviço - ${branding.name}</h1>
-          <div class="meta">
-            Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")} <br/>
-            Período: ${dateMode === 'single' ? format(selectedDate, 'dd/MM/yyyy') : `${format(dateRange?.from || new Date(), 'dd/MM/yyyy')} a ${format(dateRange?.to || new Date(), 'dd/MM/yyyy')}`}<br/>
-            Total Geral de OS: ${filteredOSList.length}
-            ${includeTypedStatus && pendingCount > 0 ? `<br/><span style="color: #dc2626; font-style: italic;">(${pendingCount} OS ainda não foram digitadas no ERP)</span>` : ''}
+      let htmlContent = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <div style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+            <h1 style="font-size: 24px; color: #1e3a8a; margin-bottom: 10px;">Relatório de Ordens de Serviço - ${branding.name}</h1>
+            <div style="font-size: 14px; color: #666;">
+              <strong>Gerado em:</strong> ${format(new Date(), "dd/MM/yyyy HH:mm")} <br/>
+              <strong>Período:</strong> ${dateMode === 'single' ? format(selectedDate, 'dd/MM/yyyy') : `${format(dateRange?.from || new Date(), 'dd/MM/yyyy')} a ${format(dateRange?.to || new Date(), 'dd/MM/yyyy')}`}<br/>
+              <strong>Total Geral de OS:</strong> ${filteredOSList.length}
+              ${includeTypedStatus && pendingCount > 0 ? `<br/><span style="color: #dc2626; font-style: italic;">(${pendingCount} OS ainda não foram digitadas no ERP)</span>` : ''}
+            </div>
           </div>
-        </div>
-        ${donutHtml || barHtml ? `<div style="display:flex; gap:20px; margin-bottom:20px;">${donutHtml ? `<div style="flex:1">${donutHtml}</div>` : ''}${barHtml ? `<div style="flex:1">${barHtml}</div>` : ''}</div>` : ''}
-    `;
-
-    Object.keys(grouped).forEach(key => {
-      const data = grouped[key];
-      let total = 0;
-      html += `
-        <h2>${key}</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Usuário</th>
-              <th>AF</th>
-              <th>OS</th>
-              <th>Serviço</th>
-              <th>Duração</th>
-              ${includeTypedStatus ? '<th>Status</th>' : ''}
-            </tr>
-          </thead>
-          <tbody>
+          ${donutHtml || barHtml ? `<div style="display:flex; gap:20px; margin-bottom:20px;">${donutHtml ? `<div style="flex:1; border: 1px solid #eee; border-radius: 8px; padding: 10px;">${donutHtml}</div>` : ''}${barHtml ? `<div style="flex:1; border: 1px solid #eee; border-radius: 8px; padding: 10px;">${barHtml}</div>` : ''}</div>` : ''}
       `;
-      data.forEach(os => {
-        const d = calculateDuration(os.hora_inicio, os.hora_final);
-        total += d;
-        html += `
-          <tr>
-            <td>${format(parseISO(os.recordDate), 'dd/MM/yyyy')}</td>
-            <td>${os.userDisplayName}</td>
-            <td>${os.af || '-'}</td>
-            <td>${os.os || '-'}</td>
-            <td>${os.servico_executado || '-'}</td>
-            <td>${formatDuration(d)}</td>
-            ${includeTypedStatus ? `<td>${os.confirmed ? '✅' : '❌'}</td>` : ''}
-          </tr>
+
+      Object.keys(grouped).forEach(key => {
+        const data = grouped[key];
+        let total = 0;
+        htmlContent += `
+          <h2 style="font-size: 18px; margin-top: 20px; margin-bottom: 10px; color: #1e40af; border-bottom: 1px solid #ddd; padding-bottom: 5px;">${key}</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
+            <thead>
+              <tr style="background-color: #f4f4f4;">
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Data</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Usuário</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">AF</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">OS</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Serviço</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Duração</th>
+                ${includeTypedStatus ? '<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Status</th>' : ''}
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        data.forEach((os: any) => {
+          const d = calculateDuration(os.hora_inicio, os.hora_final);
+          total += d;
+          htmlContent += `
+            <tr>
+              <td style="border: 1px solid #ddd; padding: 8px;">${format(parseISO(os.recordDate), 'dd/MM/yyyy')}</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">${os.userDisplayName}</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">${os.af || '-'}</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">${os.os || '-'}</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">${os.servico_executado || '-'}</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">${formatDuration(d)}</td>
+              ${includeTypedStatus ? `<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${os.confirmed ? '✅' : '❌'}</td>` : ''}
+            </tr>
+          `;
+        });
+        
+        htmlContent += `
+            <tr style="font-weight: bold; background-color: #f8fafc;">
+              <td colspan="5" style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">${formatDuration(total)}</td>
+              ${includeTypedStatus ? '<td style="border: 1px solid #ddd; padding: 8px;"></td>' : ''}
+            </tr>
+          </tbody>
+        </table>
         `;
       });
-      html += `
-          <tr class="summary">
-            <td colspan="5">Total</td>
-            <td>${formatDuration(total)}</td>
-            ${includeTypedStatus ? '<td></td>' : ''}
-          </tr>
-        </tbody>
-      </table>
-      `;
-    });
 
-    html += '<script>window.onload=()=>setTimeout(()=>window.print(),500)</script></body></html>';
-    printWindow.document.write(html);
-    printWindow.document.close();
+      htmlContent += `</div>`;
+
+      const container = document.createElement('div');
+      container.innerHTML = htmlContent;
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.style.width = '1000px'; 
+      container.style.backgroundColor = '#ffffff'; 
+      document.body.appendChild(container);
+
+      // @ts-ignore
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      const opt = {
+        margin:       [10, 10, 10, 10],
+        filename:     `relatorio_${company}_${format(new Date(), "dd-MM-yyyy_HH-mm")}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, logging: false },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      await html2pdf().set(opt).from(container).save();
+      
+      document.body.removeChild(container);
+      showSuccess('PDF gerado e baixado com sucesso!');
+      setIsReportDialogOpen(false);
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      showError('Erro ao gerar o PDF. Tente novamente.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   return (
@@ -559,7 +584,6 @@ const AdminReportPage = () => {
                          {users.map((u) => {
                            const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
                            const badgeStr = u.badge ? `(${u.badge})` : '';
-                           // O 'value' é usado pelo cmdk para filtrar. Deve ser lowercase para melhor compatibilidade.
                            const searchValue = `${fullName} ${u.badge || ''}`.toLowerCase().trim();
                            
                            return (
@@ -734,7 +758,23 @@ const AdminReportPage = () => {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" className="flex-1" onClick={handleGenerateCSV}>Exportar CSV</Button>
-            <Button className="flex-1" onClick={handleGeneratePDF}>Imprimir PDF</Button>
+            <Button 
+              className="flex-1" 
+              onClick={handleGeneratePDF}
+              disabled={isGeneratingPdf}
+            >
+              {isGeneratingPdf ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Gerando...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Salvar PDF
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
