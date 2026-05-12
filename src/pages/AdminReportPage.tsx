@@ -665,14 +665,15 @@ const AdminReportPage = () => {
              </div>
              <div></div> {/* Spacer for description/service */}
              <div className="text-center w-16">Qtd</div>
-             <div className="text-right w-20">Status</div>
+             <div className="text-right w-20"></div>
           </div>
 
           <div className="space-y-6">
             {filteredOSList.map(os => (
-              <div key={os.id} className="border rounded-lg overflow-hidden">
-                <div className="bg-muted/50 p-2 px-4 border-b flex justify-between items-center">
-                  <span className="text-lg font-bold">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
+              <div key={os.id} className="bg-card shadow-sm rounded-sm overflow-hidden border border-blue-100/50">
+                <div className="h-1 bg-blue-600 w-full"></div>
+                <div className="bg-blue-50/30 p-4 border-b border-blue-100/50 flex justify-between items-center">
+                  <span className="text-lg font-bold text-blue-600">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
                   {os.confirmed ? (
                     <div className="flex items-center gap-1">
                       <span className="text-green-600 text-xs font-bold">Digitado</span>
