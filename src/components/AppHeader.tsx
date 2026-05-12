@@ -93,8 +93,6 @@ const AppHeader: React.FC = () => {
       if (error) throw error;
       showSuccess('Você foi desconectado com sucesso!');
       
-      // Se a página atual for protegida, redireciona para a home da empresa
-      // Caso contrário, permanece na página atual.
       const protectedPrefixes = ['/admin', '/time-tracking', '/menu-manager', '/settings', '/manage-tags'];
       const isCurrentlyOnProtectedPage = protectedPrefixes.some(prefix => 
         location.pathname.includes(prefix)
@@ -356,15 +354,18 @@ const AppHeader: React.FC = () => {
           ) : (
             !isLoginPage && (
               <>
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  className="flex items-center gap-1 w-10 h-10 p-0 sm:w-auto sm:px-3 sm:h-9"
-                  onClick={() => setIsLoginModalOpen(true)}
-                >
-                  <LogIn className="h-4 w-4" /> 
-                  <span className="hidden sm:inline">Entrar</span>
-                </Button>
+                <div className="login-btn-container">
+                    <button type="button" className="login-btn-input" onClick={() => setIsLoginModalOpen(true)}>
+                        <span className="login-btn-text">Entrar</span>
+                    </button>
+                    <div className="login-btn-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="ionicon" viewBox="0 0 512 512">
+                            <title>Entrar</title>
+                            <path className="cls-1" d="M222,327.8a11.34,11.34,0,0,0,16,16L318.86,263h0a11.35,11.35,0,0,0,0-16h0l-80.81-80.82a11.34,11.34,0,0,0-16,16l61.47,61.46H63.9a11.34,11.34,0,0,0,0,22.68H283.47Z" fill="none" stroke="currentColor" strokeMiterlimit="10" strokeWidth="32"></path>
+                            <path fill="none" stroke="currentColor" strokeLinecap="round" strokeMiterlimit="10" strokeWidth="32" d="M372.84,59.53H184.26a45.7,45.7,0,0,0-45.64,45.65V151.3a11.34,11.34,0,0,0,22.67,0V105.18a23,23,0,0,1,23-23H372.84a23,23,0,0,1,23,23V407a23,23,0,0,1-23,23H184.26a23,23,0,0,1-23-23v-45a11.34,11.34,0,1,0-22.67,0v45a45.7,45.7,0,0,0,45.64,45.65H372.84A45.7,45.7,0,0,0,418.49,407V105.18A45.7,45.7,0,0,0,372.84,59.53Z"></path>
+                        </svg>
+                    </div>
+                </div>
                 <LoginModal isOpen={isLoginModalOpen} onOpenChange={setIsLoginModalOpen} />
               </>
             )
