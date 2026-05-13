@@ -13,11 +13,12 @@ import { PasswordInput } from './PasswordInput';
 
 interface CustomSignupFormProps {
   uuid: string; // O UUID do convite
+  onSuccess?: () => void;
 }
 
 type AttributeItem = { name: string; ref_code: number | null };
 
-const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
+const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid, onSuccess }) => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -96,8 +97,12 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
       }
 
       if (data.user) {
-        showSuccess('Cadastro realizado com sucesso! Verifique seu e-mail para confirmar a conta.');
-        navigate('/login');
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          showSuccess('Cadastro realizado com sucesso! Verifique seu e-mail para confirmar a conta.');
+          navigate('/login');
+        }
       } else if (data.session) {
         showSuccess('Login realizado com sucesso!');
         navigate('/admin');
