@@ -113,13 +113,15 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
 
   const markInviteAsUsed = async (userId: string) => {
     try {
-      const { error } = await supabase
-        .from('invites')
-        .update({ is_used: true, used_by: userId, used_at: new Date().toISOString() })
-        .eq('invite_code', uuid);
+      // Usar o RPC mark_invite_used para garantir que o convite seja marcado como usado
+      // mesmo que o usuário ainda não esteja totalmente autenticado (ex: aguardando e-mail)
+      const { error } = await supabase.rpc('mark_invite_used', {
+        invite_code_to_use: uuid,
+        user_id_to_assign: userId
+      });
 
       if (error) {
-        console.error('CustomSignupForm: Erro ao marcar convite como usado:', error);
+        console.error('CustomSignupForm: Erro ao marcar convite como usado via RPC:', error);
       }
     } catch (error) {
       console.error('CustomSignupForm: Erro inesperado ao marcar convite como usado:', error);

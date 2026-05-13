@@ -29,23 +29,18 @@ const SignupPage: React.FC = () => {
 
       try {
         console.log('SignupPage: Verificando convite:', uuid);
-        const { data, error } = await supabase
-          .from('invites')
-          .select('id, is_used')
-          .eq('invite_code', uuid)
-          .single();
+        // Usar o RPC check_invite em vez de SELECT direto para segurança
+        const { data: isValid, error } = await supabase
+          .rpc('check_invite', { invite_code_to_check: uuid });
 
         if (error) {
-          console.error('SignupPage: Erro na query de convite:', error);
-          if (error.code !== 'PGRST116') { // PGRST116 means "no rows found"
-            throw error;
-          }
+          console.error('SignupPage: Erro na verificação do convite:', error);
+          throw error;
         }
 
-        console.log('SignupPage: Resultado da query:', data);
+        console.log('SignupPage: Resultado da verificação:', isValid);
 
-        if (data && !data.is_used) {
-
+        if (isValid) {
           setIsValidInvite(true);
           showSuccess('Convite válido! Prossiga com o cadastro.');
         } else {
