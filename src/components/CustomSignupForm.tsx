@@ -85,6 +85,7 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
             badge: badge,
             profession_code: professionCode,
             shift_code: shiftCode,
+            invite_code: uuid,
           },
           emailRedirectTo: window.location.origin + '/admin',
         },
@@ -96,11 +97,9 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
 
       if (data.user) {
         showSuccess('Cadastro realizado com sucesso! Verifique seu e-mail para confirmar a conta.');
-        await markInviteAsUsed(data.user.id);
         navigate('/login');
       } else if (data.session) {
         showSuccess('Login realizado com sucesso!');
-        await markInviteAsUsed(data.session.user.id);
         navigate('/admin');
       }
     } catch (error: any) {
@@ -108,23 +107,6 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid }) => {
       showError(`Erro ao cadastrar: ${error.message}`);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const markInviteAsUsed = async (userId: string) => {
-    try {
-      // Usar o RPC mark_invite_used para garantir que o convite seja marcado como usado
-      // mesmo que o usuário ainda não esteja totalmente autenticado (ex: aguardando e-mail)
-      const { error } = await supabase.rpc('mark_invite_used', {
-        invite_code_to_use: uuid,
-        user_id_to_assign: userId
-      });
-
-      if (error) {
-        console.error('CustomSignupForm: Erro ao marcar convite como usado via RPC:', error);
-      }
-    } catch (error) {
-      console.error('CustomSignupForm: Erro inesperado ao marcar convite como usado:', error);
     }
   };
 
