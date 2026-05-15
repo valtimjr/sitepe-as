@@ -29,13 +29,21 @@ const DatabaseManagerPage: React.FC = () => {
     if (isLoading) {
       return { visibleTabs: [], defaultTab: '' };
     }
+    const isModerator = profile?.role === 'moderator';
     const canAccessMenuManager = checkPageAccess('/menu-manager');
-    const tabs = [
-      ...(isAdmin ? ['parts', 'afs', 'invites', 'attributes'] : []),
-      ...(canAccessMenuManager ? ['menu'] : []),
-    ];
+    
+    let tabs: string[] = [];
+    
+    if (isAdmin) {
+      tabs = ['parts', 'afs', 'invites', 'attributes'];
+      if (canAccessMenuManager) tabs.push('menu');
+    } else if (isModerator) {
+      // O moderador tem acesso APENAS aos convites na página admin
+      tabs = ['invites'];
+    }
+    
     return { visibleTabs: tabs, defaultTab: tabs[0] || '' };
-  }, [isLoading, isAdmin, checkPageAccess]);
+  }, [isLoading, isAdmin, profile?.role, checkPageAccess]);
 
   useEffect(() => {
     if (!isLoading) {

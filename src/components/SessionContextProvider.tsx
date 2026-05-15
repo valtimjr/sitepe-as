@@ -67,7 +67,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
     // Regras básicas de acesso por rota
     const accessRules: Record<string, string[]> = {
-      '/admin': ['admin'],
+      '/admin': ['admin', 'moderator'],
       '/menu-manager': ['admin', 'moderator'],
       '/time-tracking': ['admin', 'moderator', 'user'],
       '/custom-menu-view': ['admin', 'moderator', 'user'],
