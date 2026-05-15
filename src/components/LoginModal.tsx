@@ -8,9 +8,10 @@ import { LogIn } from 'lucide-react';
 interface LoginModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
-const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onOpenChange }) => {
+const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onOpenChange, onSuccess }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md p-0 overflow-hidden border-none bg-transparent shadow-none">
@@ -27,7 +28,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onOpenChange }) => {
             </div>
           </DialogHeader>
           <div className="p-6 pt-4">
-            <CustomLoginForm />
+            <CustomLoginForm onSuccess={onSuccess} />
           </div>
         </div>
       </DialogContent>

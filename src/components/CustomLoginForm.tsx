@@ -7,10 +7,15 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Loader2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PasswordInput } from './PasswordInput'; // Importar PasswordInput
 
-const CustomLoginForm: React.FC = () => {
+interface CustomLoginFormProps {
+  onSuccess?: () => void;
+}
+
+const CustomLoginForm: React.FC<CustomLoginFormProps> = ({ onSuccess }) => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -30,7 +35,11 @@ const CustomLoginForm: React.FC = () => {
       }
 
       showSuccess('Login realizado com sucesso!');
-      // A navegação para /admin é tratada pelo SessionContextProvider
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate('/usina_vale');
+      }
     } catch (error: any) {
       showError(`Erro ao fazer login: ${error.message}`);
     } finally {

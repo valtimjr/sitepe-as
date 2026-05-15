@@ -19,6 +19,7 @@ import CustomListPage from "./pages/CustomListPage";
 import MyCustomListsPage from "./pages/MyCustomListsPage";
 import CustomMenuOverview from "./pages/CustomMenuOverview";
 import CookiePolicyPage from "./pages/CookiePolicyPage";
+import EmailConfirmationPage from "./pages/EmailConfirmationPage";
 import { SessionContextProvider } from "./components/SessionContextProvider";
 import AppHeader from "./components/AppHeader";
 import CookieConsentBanner from "./components/CookieConsentBanner";
@@ -65,6 +66,7 @@ const AppContent = () => {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/cookie-policy" element={<CookiePolicyPage />} />
+      <Route path="/emailconfirmed" element={<EmailConfirmationPage />} />
 
       {/* Routes WITH company prefix */}
       <Route path="/:company" element={<CompanyLayout />}>
