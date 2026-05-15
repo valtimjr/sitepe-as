@@ -21,7 +21,7 @@ const CustomLoginForm: React.FC<CustomLoginFormProps> = ({ onSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<React.ReactNode | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,7 +40,25 @@ const CustomLoginForm: React.FC<CustomLoginFormProps> = ({ onSuccess }) => {
         if (error.message.includes('Invalid login credentials')) {
           setAuthError('E-mail ou senha incorretos. Por favor, tente novamente.');
         } else if (error.message.includes('Email not confirmed')) {
-          setAuthError('E-mail ainda não confirmado. Verifique sua caixa de entrada.');
+          setAuthError(
+            <div className="flex flex-col gap-2">
+              <p>E-mail ainda não confirmado.</p>
+              <Button
+                variant="link"
+                className="p-0 h-auto text-destructive underline h-auto"
+                onClick={async () => {
+                  const { error } = await supabase.auth.resend({
+                    type: 'signup',
+                    email: email,
+                  });
+                  if (error) showError(error.message);
+                  else showSuccess('E-mail de confirmação reenviado!');
+                }}
+              >
+                Reenviar link de confirmação
+              </Button>
+            </div>
+          );
         } else {
           setAuthError(error.message);
         }
