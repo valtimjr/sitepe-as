@@ -539,7 +539,7 @@ const CustomListPage: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
       <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
         <Link to={`/${company}/custom-menu-view`}>
           <Button variant="outline" className="flex items-center gap-2">

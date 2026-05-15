@@ -210,7 +210,7 @@ const ServiceOrderList: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen p-4 bg-background text-foreground max-w-5xl mx-auto w-full">
+    <div className="min-h-screen p-4 bg-background text-foreground max-w-5xl mx-auto w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
       
       {/* Title */}
       <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center justify-center gap-2">

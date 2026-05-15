@@ -51,7 +51,7 @@ const SearchParts = () => {
   }, [searchQuery, company]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
       <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
         <img src="/icons/tela_inicial/6.png" alt="" className="h-16 w-auto object-contain" />
         Pesquisar Peças

@@ -47,7 +47,7 @@ const Index = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
       <style>{`
         .animated-card {
           transition: transform 0.4s ease;

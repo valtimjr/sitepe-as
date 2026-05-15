@@ -18,7 +18,7 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
       <div className="text-center">
         <h1 className="text-5xl font-extrabold mb-4 text-primary dark:text-primary flex items-center justify-center gap-3">
           <Frown className="h-10 w-10 text-primary" />

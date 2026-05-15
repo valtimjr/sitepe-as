@@ -551,7 +551,7 @@ const AdminReportPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-4 bg-background max-w-7xl mx-auto w-full">
+    <div className="min-h-screen flex flex-col p-4 bg-background max-w-7xl mx-auto w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
       <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
         <h1 className="text-3xl font-extrabold flex items-center gap-3 text-primary">
           <img src="/icons/tela_inicial/7.png" alt="" className="h-12 w-auto object-contain" />
