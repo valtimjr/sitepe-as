@@ -1,56 +1,186 @@
 /** @jsxImportSource react */
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Key } from 'lucide-react';
-import { showSuccess } from '@/utils/toast';
-import ResetPasswordViaEmailForm from '@/components/ResetPasswordViaEmailForm'; // Importar o novo componente
+import { Key, Loader2, CheckCircle2, AlertCircle, LogIn, ArrowRight } from 'lucide-react';
+import { showError } from '@/utils/toast';
+import ResetPasswordViaEmailForm from '@/components/ResetPasswordViaEmailForm';
+import LoginModal from '@/components/LoginModal';
 
 const ResetPasswordPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [status, setStatus] = useState<'verifying' | 'ready' | 'success' | 'error'>('verifying');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const verificationStarted = useRef(false);
 
   useEffect(() => {
     document.title = "Redefinir Senha - AutoBoard";
+    handleTokenVerification();
   }, []);
 
-  const handlePasswordReset = () => {
-    // Esta função será chamada após a senha ser redefinida com sucesso
-    navigate('/'); // Redireciona para a página inicial
+  const handleTokenVerification = async () => {
+    if (verificationStarted.current) return;
+    verificationStarted.current = true;
+
+    const tokenHash = searchParams.get('token');
+    
+    // Se não houver token, verificamos se o usuário já tem uma sessão ativa (fluxo padrão do Supabase às vezes loga antes)
+    if (!tokenHash) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setStatus('ready');
+      } else {
+        setStatus('error');
+        setErrorMessage('Link de redefinição inválido ou expirado.');
+      }
+      return;
+    }
+
+    try {
+      console.log('[ResetPassword] Verificando token de recuperação...');
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: 'recovery',
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('[ResetPassword] Token verificado com sucesso.');
+      setStatus('ready');
+    } catch (error: any) {
+      console.error('[ResetPassword] Erro na verificação:', error);
+      setStatus('error');
+      setErrorMessage(error.message || 'Não foi possível validar seu link de redefinição.');
+    }
   };
 
-  useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === 'SIGNED_IN') {
-        // Se o usuário já estiver logado (por exemplo, se o link de redefinição também o logar),
-        // podemos redirecioná-lo para a página inicial ou admin.
-        // Por enquanto, vamos apenas logar.
-      }
-    });
+  const handlePasswordResetSuccess = () => {
+    setStatus('success');
+  };
 
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [navigate]);
+  const handleLoginSuccess = () => {
+    setIsLoginModalOpen(false);
+    navigate('/usina_vale');
+  };
 
+  if (status === 'verifying') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+        <div className="text-center">
+          <Loader2 className="h-16 w-16 text-primary animate-spin mx-auto mb-6" />
+          <h1 className="text-2xl font-bold mb-2">Validando link de recuperação...</h1>
+          <p className="text-muted-foreground">Por favor, aguarde um instante.</p>
+        </div>
+        <div className="mt-12">
+          <MadeWithDyad />
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'success') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background">
+        <div className="w-full max-w-md animate-in fade-in zoom-in duration-500">
+          <Card className="border-2 border-primary/20 shadow-xl overflow-hidden">
+            <div className="h-2 bg-primary w-full" />
+            <CardHeader className="text-center pb-2">
+              <div className="mx-auto bg-green-50 dark:bg-green-900/20 w-20 h-20 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
+              </div>
+              <CardTitle className="text-3xl font-bold text-primary">Senha Redefinida!</CardTitle>
+              <CardDescription className="text-lg mt-2">
+                Sua nova senha foi salva com sucesso.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 text-center">
+              <p className="text-muted-foreground">
+                Tudo pronto! Agora você pode acessar sua conta com as novas credenciais.
+              </p>
+
+              <Button
+                onClick={() => setIsLoginModalOpen(true)}
+                className="w-full text-lg h-12 shadow-lg hover:shadow-primary/20 transition-all group"
+              >
+                <LogIn className="mr-2 h-5 w-5" />
+                Entrar na Conta
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="mt-8">
+          <MadeWithDyad />
+        </div>
+
+        <LoginModal 
+          isOpen={isLoginModalOpen} 
+          onOpenChange={(open) => setIsLoginModalOpen(open)} 
+          onSuccess={handleLoginSuccess}
+        />
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
+        <div className="w-full max-w-md animate-in fade-in duration-500">
+          <Card className="border-destructive/20 shadow-lg">
+            <CardHeader className="text-center">
+              <div className="mx-auto bg-destructive/10 w-20 h-20 rounded-full flex items-center justify-center mb-4">
+                <AlertCircle className="h-10 w-10 text-destructive" />
+              </div>
+              <CardTitle className="text-2xl text-destructive">Link Inválido</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center space-y-4">
+              <p className="text-muted-foreground">
+                {errorMessage || 'O link de recuperação parece ser inválido ou já expirou.'}
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/forgot-password')}
+                className="w-full"
+              >
+                Solicitar novo link
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="mt-8">
+          <MadeWithDyad />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <Key className="h-8 w-8 text-primary" />
-        Redefinir Senha
-      </h1>
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">Redefinir Senha</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResetPasswordViaEmailForm onPasswordReset={handlePasswordReset} />
-        </CardContent>
-      </Card>
-      <MadeWithDyad />
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+      <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center p-3 bg-primary/10 rounded-2xl mb-4">
+            <Key className="h-8 w-8 text-primary" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">Nova Senha</h1>
+          <p className="text-muted-foreground mt-2">Crie uma senha forte e segura para sua conta.</p>
+        </div>
+
+        <Card className="shadow-xl border-primary/10">
+          <CardContent className="pt-6">
+            <ResetPasswordViaEmailForm onPasswordReset={handlePasswordResetSuccess} />
+          </CardContent>
+        </Card>
+      </div>
+      <div className="mt-8">
+        <MadeWithDyad />
+      </div>
     </div>
   );
 };
