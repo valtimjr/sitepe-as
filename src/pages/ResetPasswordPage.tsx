@@ -19,7 +19,7 @@ const ResetPasswordPage: React.FC = () => {
   const verificationStarted = useRef(false);
 
   useEffect(() => {
-    console.log('[ResetPasswordPage] Status atual:', status);
+    console.log('[ResetPasswordPage] RENDERING - Status:', status);
   }, [status]);
 
   useEffect(() => {
@@ -29,23 +29,22 @@ const ResetPasswordPage: React.FC = () => {
 
   const handleTokenVerification = async () => {
     if (verificationStarted.current) {
-      console.log('[ResetPasswordPage] handleTokenVerification já iniciado/finalizado. Pulando.');
+      console.log('[ResetPasswordPage] handleTokenVerification skipped (already started)');
       return;
     }
     verificationStarted.current = true;
-    console.log('[ResetPasswordPage] Iniciando handleTokenVerification...');
+    console.log('[ResetPasswordPage] START handleTokenVerification');
 
     const tokenHash = searchParams.get('token');
     
-    // Se não houver token, verificamos se o usuário já tem uma sessão ativa
     if (!tokenHash) {
-      console.log('[ResetPasswordPage] Nenhum token na URL. Verificando sessão...');
+      console.log('[ResetPasswordPage] No token in URL, checking session...');
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        console.log('[ResetPasswordPage] Sessão ativa encontrada. Pronto.');
+        console.log('[ResetPasswordPage] Session found -> ready');
         setStatus('ready');
       } else {
-        console.log('[ResetPasswordPage] Nenhuma sessão e nenhum token. Erro.');
+        console.log('[ResetPasswordPage] No session, no token -> error');
         setStatus('error');
         setErrorMessage('Link de redefinição inválido ou expirado.');
       }
@@ -53,33 +52,33 @@ const ResetPasswordPage: React.FC = () => {
     }
 
     try {
-      console.log('[ResetPasswordPage] Verificando token via verifyOtp...');
+      console.log('[ResetPasswordPage] CALL verifyOtp with hash');
       const { error } = await supabase.auth.verifyOtp({
         token_hash: tokenHash,
         type: 'recovery',
       });
 
       if (error) {
-        console.error('[ResetPasswordPage] Erro no verifyOtp:', error);
+        console.error('[ResetPasswordPage] verifyOtp Error:', error);
         throw error;
       }
 
-      console.log('[ResetPasswordPage] Token validado. Pronto para redefinir.');
+      console.log('[ResetPasswordPage] verifyOtp Success -> ready');
       setStatus('ready');
     } catch (error: any) {
-      console.error('[ResetPasswordPage] Erro na verificação:', error);
+      console.error('[ResetPasswordPage] Verification Catch:', error);
       setStatus('error');
       setErrorMessage(error.message || 'Não foi possível validar seu link de redefinição.');
     }
   };
 
   const handlePasswordResetSuccess = () => {
-    console.log('[ResetPasswordPage] handlePasswordResetSuccess chamado. Mudando para sucesso.');
+    console.log('[ResetPasswordPage] CALLBACK handlePasswordResetSuccess triggered');
     setStatus('success');
   };
 
   const handleLoginSuccess = () => {
-    console.log('[ResetPasswordPage] Login bem sucedido. Redirecionando para home.');
+    console.log('[ResetPasswordPage] handleLoginSuccess -> redirecting home');
     setIsLoginModalOpen(false);
     navigate('/usina_vale');
   };
@@ -100,6 +99,7 @@ const ResetPasswordPage: React.FC = () => {
   }
 
   if (status === 'success') {
+    console.log('[ResetPasswordPage] Rendering SUCCESS state UI');
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background">
         <div className="w-full max-w-md animate-in fade-in zoom-in duration-500">

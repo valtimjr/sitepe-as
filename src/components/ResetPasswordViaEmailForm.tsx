@@ -21,65 +21,78 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLoading || isSubmitting.current) return;
+    if (isLoading || isSubmitting.current) {
+      console.log('[ResetPasswordForm] Submit blocked (already loading/submitting)');
+      return;
+    }
     
+    console.log('[ResetPasswordForm] Form submitted');
     setPasswordError('');
     if (newPassword.length < 6) {
+      console.log('[ResetPasswordForm] Error: Password too short');
       setPasswordError('A senha deve ter pelo menos 6 caracteres.');
       return;
     }
     if (newPassword !== confirmPassword) {
+      console.log('[ResetPasswordForm] Error: Passwords mismatch');
       setPasswordError('As senhas não coincidem.');
       return;
     }
 
     setIsLoading(true);
     isSubmitting.current = true;
-    console.log('[ResetPassword] Iniciando tentativa de atualização de senha...');
+    console.log('[ResetPasswordForm] STEP 1: Calling supabase.auth.updateUser');
 
     try {
-      // 1. Enviamos a atualização
-      const { error: updateError } = await supabase.auth.updateUser({ 
+      const { data, error: updateError } = await supabase.auth.updateUser({ 
         password: newPassword 
       });
 
       if (updateError) {
-        // Erro específico de senha repetida
+        console.error('[ResetPasswordForm] STEP 1 Error:', updateError);
+        // Special case for same password
         if (updateError.message?.toLowerCase().includes('different') || updateError.message?.toLowerCase().includes('anterior')) {
           throw new Error('A nova senha não pode ser igual à senha anterior.');
         }
         throw updateError;
       }
 
-      // Se chegamos aqui sem erro, sucesso padrão
-      console.log('[ResetPassword] Resposta de sucesso recebida diretamente.');
+      console.log('[ResetPasswordForm] STEP 1 Success: Password updated directly');
       showSuccess('Senha alterada com sucesso!');
+      console.log('[ResetPasswordForm] Calling onPasswordReset callback...');
       onPasswordReset();
 
     } catch (error: any) {
-      console.warn('[ResetPassword] Erro detectado ou resposta bloqueada:', error.message);
+      console.warn('[ResetPasswordForm] CATCH block triggered:', error.message);
 
-      // 2. VALIDAÇÃO DE "CONTORNO" (Para o erro de CORS/Rede)
-      // Se for um erro de rede/CORS, mas a senha realmente mudou no servidor
-      if (error.message?.includes('NetworkError') || error.name === 'TypeError' || error.message?.includes('fetch')) {
-        console.log('[ResetPassword] Erro de rede detectado. Executando verificação de integridade...');
+      // STEP 2: Integrity check for CORS/Network issues
+      const isNetworkError = error.message?.includes('NetworkError') || 
+                             error.name === 'TypeError' || 
+                             error.message?.includes('fetch') ||
+                             error.message?.includes('Failed to fetch');
+
+      if (isNetworkError) {
+        console.log('[ResetPasswordForm] Network/CORS error detected. STEP 2: Integrity check');
         
-        // Aguardamos um breve momento para o servidor consolidar a mudança
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait a bit for server sync
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
-        // Tentamos buscar o usuário. Se funcionar, a comunicação básica está OK
-        // e como o usuário confirmou que a senha muda no banco, consideramos sucesso.
+        console.log('[ResetPasswordForm] Calling supabase.auth.getUser() to verify session');
         const { data: { user }, error: userError } = await supabase.auth.getUser();
 
         if (user && !userError) {
-          console.log('[ResetPassword] Verificação de integridade passou. Usuário autenticado encontrado.');
+          console.log('[ResetPasswordForm] Integrity check passed: User session is active');
           showSuccess('Senha redefinida com sucesso!');
+          console.log('[ResetPasswordForm] Calling onPasswordReset callback via integrity check');
           onPasswordReset();
           return;
+        } else {
+          console.error('[ResetPasswordForm] Integrity check failed:', userError);
         }
       }
 
-      // 3. TRATAMENTO DE ERROS REAIS (Interface)
+      // STEP 3: Fallback error handling
+      console.log('[ResetPasswordForm] STEP 3: Resetting UI state after error');
       setIsLoading(false);
       isSubmitting.current = false;
 
@@ -136,7 +149,7 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
         {isLoading ? (
           <>
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Validando Alteração...
+            Processando...
           </>
         ) : (
           <>
