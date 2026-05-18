@@ -38,13 +38,21 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
     console.log('[ResetPasswordForm] Iniciando UPDATE USER no Supabase...');
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
+      //timeout de 10 segundos para a chamada do Supabase
+      const updatePromise = supabase.auth.updateUser({
         password: newPassword
       });
 
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('TIMEOUT_LIMIT_REACHED')), 10000)
+      );
+
+      // Corrida entre a resposta real e o timeout
+      const result: any = await Promise.race([updatePromise, timeoutPromise]);
+      const { error: updateError } = result;
+
       if (updateError) {
         console.error('[ResetPasswordForm] Supabase retornou erro:', updateError);
-        // Erro específico de senha repetida
         if (updateError.message?.toLowerCase().includes('different') || updateError.message?.toLowerCase().includes('anterior')) {
           throw new Error('A nova senha não pode ser igual à senha anterior.');
         }
@@ -55,32 +63,28 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
       onPasswordReset();
 
     } catch (error: any) {
-      console.warn('[ResetPasswordForm] Erro detectado:', error.message);
+      console.warn('[ResetPasswordForm] Erro detectado no CATCH:', error.message);
 
-      // VERIFICAÇÃO DE INTEGRIDADE (Para o erro de CORS/Rede do navegador)
-      const isNetError =
+      // Se travar ou der erro de rede, tentamos o Plano B IMEDIATAMENTE
+      const isLikelySuccessDespiteError =
+        error.message === 'TIMEOUT_LIMIT_REACHED' ||
         error.message?.includes('NetworkError') ||
         error.message?.includes('fetch') ||
-        error.name === 'TypeError' ||
-        error.message?.includes('Failed to fetch');
+        error.name === 'TypeError';
       
-      if (isNetError) {
-        console.log('[ResetPasswordForm] Detectado erro de rede/CORS. Verificando sessão como plano B...');
+      if (isLikelySuccessDespiteError) {
+        console.log('[ResetPasswordForm] Possível sucesso silencioso ou travamento. Verificando estado real...');
         
-        // Aguarda um pouco para o servidor processar
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // No Supabase, após trocar a senha com sucesso, o usuário fica com uma sessão ativa
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (session) {
-          console.log('[ResetPasswordForm] Sessão ativa encontrada! O servidor processou a troca apesar do erro de rede. Sucesso.');
-          onPasswordReset();
-          return;
+        // Tenta 3 vezes verificar a sessão com pequenos intervalos
+        for (let i = 0; i < 3; i++) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            console.log(`[ResetPasswordForm] Sessão encontrada na tentativa ${i+1}! Redirecionando.`);
+            onPasswordReset();
+            return;
+          }
         }
-        
-        // Se não houver sessão, talvez o erro de rede tenha sido real ANTES do processamento
-        console.error('[ResetPasswordForm] Erro de rede real ou sessão não iniciada.');
       }
 
       // TRATAMENTO DE ERROS REAIS
@@ -89,8 +93,10 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
 
       if (error.message.includes('igual à senha anterior')) {
         setPasswordError(error.message);
+      } else if (error.message === 'TIMEOUT_LIMIT_REACHED') {
+        setPasswordError('O servidor demorou a responder, mas sua senha pode ter sido alterada. Tente fazer login.');
       } else {
-        showError(`Falha ao redefinir: ${error.message}`);
+        showError(`Falha: ${error.message}`);
       }
     }
   };
