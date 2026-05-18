@@ -35,70 +35,30 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
 
     setIsLoading(true);
     isSubmitting.current = true;
-    console.log('[ResetPasswordForm] Iniciando UPDATE USER no Supabase...');
+    console.log('[ResetPasswordForm] Iniciando UPDATE USER (Modo Otimista)...');
 
-    try {
-      //timeout de 10 segundos para a chamada do Supabase
-      const updatePromise = supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT_LIMIT_REACHED')), 10000)
-      );
-
-      // Corrida entre a resposta real e o timeout
-      const result: any = await Promise.race([updatePromise, timeoutPromise]);
-      const { error: updateError } = result;
-
-      if (updateError) {
-        console.error('[ResetPasswordForm] Supabase retornou erro:', updateError);
-        if (updateError.message?.toLowerCase().includes('different') || updateError.message?.toLowerCase().includes('anterior')) {
-          throw new Error('A nova senha não pode ser igual à senha anterior.');
+    // 1. DISPARA A REQUISIÇÃO (Não esperamos o 'await' para mudar a UI)
+    supabase.auth.updateUser({
+      password: newPassword
+    }).then(({ error }) => {
+      if (error) {
+        console.error('[ResetPasswordForm] Resposta tardia com erro:', error);
+        // Se der erro de senha repetida, avisamos via toast mesmo que a UI já tenha mudado
+        if (error.message?.toLowerCase().includes('different') || error.message?.toLowerCase().includes('anterior')) {
+          showError('Aviso: A senha enviada era igual à anterior. Se o login falhar, tente novamente com uma senha nova.');
         }
-        throw updateError;
-      }
-
-      console.log('[ResetPasswordForm] API respondeu OK. Notificando PAI...');
-      onPasswordReset();
-
-    } catch (error: any) {
-      console.warn('[ResetPasswordForm] Erro detectado no CATCH:', error.message);
-
-      // Se travar ou der erro de rede, tentamos o Plano B IMEDIATAMENTE
-      const isLikelySuccessDespiteError =
-        error.message === 'TIMEOUT_LIMIT_REACHED' ||
-        error.message?.includes('NetworkError') ||
-        error.message?.includes('fetch') ||
-        error.name === 'TypeError';
-      
-      if (isLikelySuccessDespiteError) {
-        console.log('[ResetPasswordForm] Possível sucesso silencioso ou travamento. Verificando estado real...');
-        
-        // Tenta 3 vezes verificar a sessão com pequenos intervalos
-        for (let i = 0; i < 3; i++) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            console.log(`[ResetPasswordForm] Sessão encontrada na tentativa ${i+1}! Redirecionando.`);
-            onPasswordReset();
-            return;
-          }
-        }
-      }
-
-      // TRATAMENTO DE ERROS REAIS
-      setIsLoading(false);
-      isSubmitting.current = false;
-
-      if (error.message.includes('igual à senha anterior')) {
-        setPasswordError(error.message);
-      } else if (error.message === 'TIMEOUT_LIMIT_REACHED') {
-        setPasswordError('O servidor demorou a responder, mas sua senha pode ter sido alterada. Tente fazer login.');
       } else {
-        showError(`Falha: ${error.message}`);
+        console.log('[ResetPasswordForm] Resposta tardia: Sucesso confirmado pelo servidor.');
       }
-    }
+    }).catch(err => {
+      console.warn('[ResetPasswordForm] Erro silencioso na requisição de fundo:', err);
+    });
+
+    // 2. REDIRECIONA IMEDIATAMENTE (Com um pequeno delay visual de 500ms para o usuário sentir o clique)
+    setTimeout(() => {
+      console.log('[ResetPasswordForm] Redirecionando UI de forma otimista!');
+      onPasswordReset();
+    }, 800);
   };
 
   return (
