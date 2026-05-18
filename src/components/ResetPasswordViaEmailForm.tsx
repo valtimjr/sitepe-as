@@ -35,30 +35,34 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
 
     setIsLoading(true);
     isSubmitting.current = true;
-    console.log('[ResetPasswordForm] Iniciando UPDATE USER (Modo Otimista)...');
+    console.log('[ResetPasswordForm] Iniciando UPDATE USER...');
 
-    // 1. DISPARA A REQUISIÇÃO (Não esperamos o 'await' para mudar a UI)
-    supabase.auth.updateUser({
-      password: newPassword
-    }).then(({ error }) => {
+    // Implementação otimista conforme solicitado: dispara e já assume sucesso na UI
+    // mas mantendo a estrutura de comando solicitada para execução em background
+    const handleUpdate = async () => {
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
       if (error) {
-        console.error('[ResetPasswordForm] Resposta tardia com erro:', error);
-        // Se der erro de senha repetida, avisamos via toast mesmo que a UI já tenha mudado
+        console.error("Erro ao atualizar:", error.message);
+        // Se der erro de senha repetida, avisamos via toast
         if (error.message?.toLowerCase().includes('different') || error.message?.toLowerCase().includes('anterior')) {
-          showError('Aviso: A senha enviada era igual à anterior. Se o login falhar, tente novamente com uma senha nova.');
+          showError('Aviso: A senha enviada era igual à anterior.');
         }
       } else {
-        console.log('[ResetPasswordForm] Resposta tardia: Sucesso confirmado pelo servidor.');
+        console.log("Usuário atualizado:", data.user);
       }
-    }).catch(err => {
-      console.warn('[ResetPasswordForm] Erro silencioso na requisição de fundo:', err);
-    });
+    };
 
-    // 2. REDIRECIONA IMEDIATAMENTE (Com um pequeno delay visual de 500ms para o usuário sentir o clique)
+    // Dispara a execução sem dar 'await' no fluxo principal da UI
+    handleUpdate();
+
+    // Redireciona imediatamente para a página de sucesso
     setTimeout(() => {
-      console.log('[ResetPasswordForm] Redirecionando UI de forma otimista!');
+      console.log('[ResetPasswordForm] Redirecionando para sucesso (Modo Otimista)');
       onPasswordReset();
-    }, 800);
+    }, 500);
   };
 
   return (
