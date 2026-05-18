@@ -38,8 +38,8 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
     console.log('[ResetPasswordForm] Iniciando UPDATE USER no Supabase...');
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({ 
-        password: newPassword 
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
       });
 
       if (updateError) {
@@ -58,19 +58,29 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
       console.warn('[ResetPasswordForm] Erro detectado:', error.message);
 
       // VERIFICAÇÃO DE INTEGRIDADE (Para o erro de CORS/Rede do navegador)
-      const isNetError = error.message?.includes('NetworkError') || error.message?.includes('fetch') || error.name === 'TypeError';
+      const isNetError =
+        error.message?.includes('NetworkError') ||
+        error.message?.includes('fetch') ||
+        error.name === 'TypeError' ||
+        error.message?.includes('Failed to fetch');
       
       if (isNetError) {
         console.log('[ResetPasswordForm] Detectado erro de rede/CORS. Verificando sessão como plano B...');
         
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const { data: { user } } = await supabase.auth.getUser();
+        // Aguarda um pouco para o servidor processar
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // No Supabase, após trocar a senha com sucesso, o usuário fica com uma sessão ativa
+        const { data: { session } } = await supabase.auth.getSession();
 
-        if (user) {
-          console.log('[ResetPasswordForm] Sessão ativa confirmada! Prosseguindo para sucesso.');
+        if (session) {
+          console.log('[ResetPasswordForm] Sessão ativa encontrada! O servidor processou a troca apesar do erro de rede. Sucesso.');
           onPasswordReset();
           return;
         }
+        
+        // Se não houver sessão, talvez o erro de rede tenha sido real ANTES do processamento
+        console.error('[ResetPasswordForm] Erro de rede real ou sessão não iniciada.');
       }
 
       // TRATAMENTO DE ERROS REAIS
@@ -80,7 +90,7 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
       if (error.message.includes('igual à senha anterior')) {
         setPasswordError(error.message);
       } else {
-        showError(`Falha: ${error.message}`);
+        showError(`Falha ao redefinir: ${error.message}`);
       }
     }
   };

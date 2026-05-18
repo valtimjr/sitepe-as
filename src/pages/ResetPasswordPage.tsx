@@ -31,7 +31,14 @@ const ResetPasswordPage: React.FC = () => {
 
   useEffect(() => {
     document.title = "Redefinir Senha - AutoBoard";
-    handleTokenVerification();
+    
+    const init = async () => {
+      // Pequeno atraso para garantir que a URL e o estado do Supabase estejam sincronizados
+      await new Promise(r => setTimeout(r, 500));
+      handleTokenVerification();
+    };
+    
+    init();
   }, []);
 
   const handleTokenVerification = async () => {
@@ -42,10 +49,13 @@ const ResetPasswordPage: React.FC = () => {
     console.log('[ResetPassword] Verificando validade do link...');
     
     if (!tokenHash) {
+      console.log('[ResetPassword] Nenhum token na URL. Verificando se já existe sessão ativa...');
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        console.log('[ResetPassword] Sessão ativa detectada sem token. Permitindo redefinição.');
         setStatus('ready');
       } else {
+        console.warn('[ResetPassword] Sem token e sem sessão.');
         setStatus('error');
         setErrorMessage('Link de redefinição inválido ou expirado.');
       }
@@ -53,12 +63,18 @@ const ResetPasswordPage: React.FC = () => {
     }
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      console.log('[ResetPassword] Executando verifyOtp para o token...');
+      const { data, error } = await supabase.auth.verifyOtp({
         token_hash: tokenHash,
         type: 'recovery',
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[ResetPassword] Erro no verifyOtp:', error);
+        throw error;
+      }
+      
+      console.log('[ResetPassword] verifyOtp sucesso!', data);
       setStatus('ready');
     } catch (error: any) {
       console.error('[ResetPassword] Erro na verificação:', error);
