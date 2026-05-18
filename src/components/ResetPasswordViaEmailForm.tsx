@@ -35,34 +35,53 @@ const ResetPasswordViaEmailForm: React.FC<ResetPasswordViaEmailFormProps> = ({ o
 
     setIsLoading(true);
     isSubmitting.current = true;
-    console.log('[ResetPasswordForm] Iniciando UPDATE USER...');
+    setPasswordError('');
+    console.log('[ResetPasswordForm] Iniciando UPDATE USER (Aguardando resposta)...');
 
-    // Implementação otimista conforme solicitado: dispara e já assume sucesso na UI
-    // mas mantendo a estrutura de comando solicitada para execução em background
-    const handleUpdate = async () => {
+    try {
+      // Usando exatamente o comando solicitado e esperando a resposta
       const { data, error } = await supabase.auth.updateUser({
         password: newPassword
       });
 
       if (error) {
         console.error("Erro ao atualizar:", error.message);
-        // Se der erro de senha repetida, avisamos via toast
+        
+        // Tratamento de erros específicos
         if (error.message?.toLowerCase().includes('different') || error.message?.toLowerCase().includes('anterior')) {
-          showError('Aviso: A senha enviada era igual à anterior.');
+          setPasswordError('A nova senha não pode ser igual à senha anterior.');
+        } else {
+          showError(`Erro ao atualizar: ${error.message}`);
         }
+        
+        setIsLoading(false);
+        isSubmitting.current = false;
       } else {
         console.log("Usuário atualizado:", data.user);
+        showSuccess('Senha redefinida com sucesso!');
+        onPasswordReset();
       }
-    };
+    } catch (err: any) {
+      console.error("Erro inesperado na requisição:", err);
+      
+      // Se houver um erro de rede/CORS que lance uma exceção (TypeError/NetworkError)
+      // Fazemos uma última checagem de sessão para ver se o comando funcionou apesar do erro de rede
+      const isNetError = err.message?.includes('NetworkError') || err.message?.includes('fetch') || err.name === 'TypeError';
+      
+      if (isNetError) {
+        console.log("Detectado erro de rede. Verificando se a sessão foi criada mesmo assim...");
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData.session) {
+          console.log("Sessão ativa detectada! Prosseguindo para sucesso.");
+          onPasswordReset();
+          return;
+        }
+      }
 
-    // Dispara a execução sem dar 'await' no fluxo principal da UI
-    handleUpdate();
-
-    // Redireciona imediatamente para a página de sucesso
-    setTimeout(() => {
-      console.log('[ResetPasswordForm] Redirecionando para sucesso (Modo Otimista)');
-      onPasswordReset();
-    }, 500);
+      showError(`Erro de conexão: ${err.message}`);
+      setIsLoading(false);
+      isSubmitting.current = false;
+    }
   };
 
   return (
