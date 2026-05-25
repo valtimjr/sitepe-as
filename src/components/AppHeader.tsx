@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -181,7 +181,9 @@ const AppHeader: React.FC = () => {
     return null;
   };
 
-  if (isLoading) return null;
+  // Removido o bloqueio "if (isLoading) return null;" para garantir que o Header SEMPRE renderize
+  // mesmo se o Supabase cair ou demorar para responder.
+  // Em vez de sumir, mostramos o Header em estado "desconectado" ou carregando discretamente.
 
   const canAccessAdmin = checkPageAccess('/admin');
   const canAccessTimeTracking = checkPageAccess('/time-tracking');
@@ -333,7 +335,12 @@ const AppHeader: React.FC = () => {
             </div>
           )}
 
-          {session ? (
+          {isLoading ? (
+            <div className="flex items-center gap-2 mr-2">
+              <Loader2 className="h-5 w-5 text-primary animate-spin" />
+              <span className="text-xs text-muted-foreground hidden sm:inline">Carregando...</span>
+            </div>
+          ) : session ? (
             <div className="flex items-center gap-2">
               <span className="font-medium text-sm hidden sm:inline">Olá, {profile?.first_name || 'Usuário'}</span>
               <Link to={`/${company}/settings`}>
