@@ -84,19 +84,25 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   };
 
   useEffect(() => {
-    // 1. Verificar sessão inicial de forma segura
+    // 1. Verificar sessão inicial de forma segura com Timeout para não travar em loading infinito
     const checkInitialSession = async () => {
+      // Criamos um timeout de 5 segundos para a requisição inicial do Supabase
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SESSION_FETCH_TIMEOUT')), 5000)
+      );
+
       try {
         console.log('[SessionContext] Verificando sessão inicial no localStorage/Supabase...');
-        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        const fetchPromise = supabase.auth.getSession();
+        const result: any = await Promise.race([fetchPromise, timeoutPromise]);
+        
+        const { data: { session }, error } = result;
         
         if (error) {
           console.error('[SessionContext] Erro ao buscar sessão inicial:', error.message);
-          // Se o token estiver corrompido ou expirado de forma irrecuperável,
-          // limpar os dados do localStorage impede que o client trave em loop
           if (error.message?.includes('JWT') || error.message?.includes('token') || error.message?.includes('invalid')) {
             console.warn('[SessionContext] Token corrompido detectado. Limpando dados locais...');
-            // Encontra e remove qualquer chave do Supabase no localStorage
             Object.keys(localStorage).forEach(key => {
               if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
                 localStorage.removeItem(key);
@@ -112,7 +118,12 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
           await fetchProfile(session.user.id);
         }
       } catch (err: any) {
-        console.error('[SessionContext] Erro fatal na verificação de sessão inicial:', err);
+        console.error('[SessionContext] Erro ou Timeout na verificação inicial de sessão:', err.message);
+        
+        // Se der timeout ou erro de conexão, limpa os estados locais para não travar carregando
+        setSession(null);
+        setUser(null);
+        setProfile(null);
       } finally {
         setIsLoading(false);
       }
@@ -129,13 +140,20 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       setUser(currentUser);
       
       if (currentUser) {
-        await fetchProfile(currentUser.id);
+        // Timeout para a busca de perfil para não travar se a conexão cair bem na hora
+        const profileTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('PROFILE_FETCH_TIMEOUT')), 4000)
+        );
+        
+        try {
+          await Promise.race([fetchProfile(currentUser.id), profileTimeout]);
+        } catch (err: any) {
+          console.warn('[SessionContext] Não foi possível carregar o perfil a tempo:', err.message);
+        }
       } else {
         setProfile(null);
-        // Se o evento for SIGNED_OUT e ainda houver resíduos no localStorage, limpamos
         if (event === 'SIGNED_OUT') {
           console.log('[SessionContext] Desconectado. Limpando storage...');
-          // Encontra e remove qualquer chave do Supabase no localStorage
           Object.keys(localStorage).forEach(key => {
             if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
               localStorage.removeItem(key);
