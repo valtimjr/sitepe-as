@@ -144,39 +144,53 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
     const initializeAuth = async () => {
       try {
-        console.log('[SessionContext] Sincronizando sessão em background...');
+        console.log('[DEBUG_AUTH] 1. Iniciando initializeAuth...');
         
-        // Verifica a sessão atual com o servidor
+        // Verifica se há chaves no localStorage do Supabase antes de fazer chamadas
+        const storageKeys = Object.keys(localStorage);
+        const hasSbKeys = storageKeys.some(k => k.startsWith('sb-') || k.startsWith('supabase.auth'));
+        console.log(`[DEBUG_AUTH] 2. Chaves de autenticação encontradas no localStorage? ${hasSbKeys}. Lista:`, storageKeys.filter(k => k.includes('auth') || k.includes('sb')));
+
+        console.log('[DEBUG_AUTH] 3. Chamando supabase.auth.getSession()...');
         const { data: { session: serverSession }, error } = await supabase.auth.getSession();
         
-        if (!isMounted) return;
+        if (!isMounted) {
+          console.log('[DEBUG_AUTH] O componente desmontou antes do getSession terminar.');
+          return;
+        }
 
         if (error) {
-          console.error('[SessionContext] Erro na sincronização inicial:', error.message);
-          // Se o token estiver corrompido, limpa tudo para permitir novo login
+          console.error('[DEBUG_AUTH] 4. Erro no getSession do Supabase:', error.message, error);
           if (error.message?.includes('JWT') || error.message?.includes('token') || error.message?.includes('invalid')) {
+            console.warn('[DEBUG_AUTH] Token corrompido detectado. Resetando estados de segurança...');
             setSession(null);
             setUser(null);
             setProfile(null);
             updateLocalStorage(null, null, null);
           }
         } else if (serverSession) {
-          // Atualiza o estado e o cache com a sessão oficial do servidor
+          console.log('[DEBUG_AUTH] 4. getSession retornou Sessão Válida do Servidor para o User ID:', serverSession.user.id);
           setSession(serverSession);
           setUser(serverSession.user);
           updateLocalStorage(serverSession, serverSession.user, profile);
           
-          // Busca perfil atualizado
+          console.log('[DEBUG_AUTH] 5. Buscando perfil do banco...');
           await fetchProfile(serverSession.user.id);
+          console.log('[DEBUG_AUTH] 6. Perfil carregado com sucesso.');
         } else {
-          // Se o servidor diz que não há sessão, mas tínhamos cache, mantemos o cache como fallback temporário
-          // para proteger contra quedas de rede do Supabase, exceto se soubermos que foi um logout explícito.
-          console.log('[SessionContext] Sem sessão ativa no servidor. Mantendo cache local caso seja falha de rede.');
+          console.log('[DEBUG_AUTH] 4. getSession retornou NULL (Sem sessão ativa no servidor).');
+          // Se o servidor retornou null mas temos cache local, mantemos temporariamente como barreira contra oscilação
+          if (session) {
+            console.log('[DEBUG_AUTH] Mantendo sessão do cache como plano de contingência para o User ID:', session.user.id);
+          } else {
+            console.log('[DEBUG_AUTH] Nenhum cache disponível. Usuário realmente deslogado.');
+          }
         }
-      } catch (err) {
-        console.error('[SessionContext] Falha ao inicializar autenticação:', err);
+      } catch (err: any) {
+        console.error('[DEBUG_AUTH] Erro catastrófico no initializeAuth:', err.message, err);
       } finally {
         if (isMounted) {
+          console.log('[DEBUG_AUTH] 7. Finalizando estado de carregamento inicial (isLoading = false)');
           setIsLoading(false);
         }
       }
@@ -185,27 +199,28 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     initializeAuth();
 
     // Escuta mudanças reais de estado de autenticação (Login/Logout ativos)
+    console.log('[DEBUG_AUTH] Registrando listener onAuthStateChange...');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      console.log(`[SessionContext] Evento de Auth: ${event}`);
+      console.log(`[DEBUG_AUTH] EVENTO DISPARADO: ${event}. Sessão presente? ${!!currentSession}`);
       if (!isMounted) return;
 
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
         if (currentSession) {
+          console.log('[DEBUG_AUTH] Atualizando estados de sessão locais por evento de Auth para o User ID:', currentSession.user.id);
           setSession(currentSession);
           setUser(currentSession.user);
           updateLocalStorage(currentSession, currentSession.user, profile);
           await fetchProfile(currentSession.user.id);
         }
       } else if (event === 'SIGNED_OUT') {
-        console.log('[SessionContext] Desconexão confirmada. Limpando todos os caches.');
+        console.log('[DEBUG_AUTH] Desconexão processada no listener. Expurgando dados...');
         setSession(null);
         setUser(null);
         setProfile(null);
         updateLocalStorage(null, null, null);
         
-        // Limpa os tokens internos do Supabase também
         Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          if (key.startsWith('sb-') || key.startsWith('supabase.auth')) {
             localStorage.removeItem(key);
           }
         });
