@@ -49,33 +49,20 @@ const AppHeader: React.FC = () => {
     
     const checkSupabaseConnection = async () => {
       try {
-        // Faz uma requisição ultra leve e rápida para checar a saúde da API do Supabase
-        const startTime = performance.now();
         const { error } = await supabase.from('profiles').select('id').limit(1);
-        const duration = performance.now() - startTime;
-        
-        // Se não houver erro de rede (mesmo se der erro de permissão do RLS, a API está viva)
         if (error && error.message?.includes('Fetch')) {
           setSupabaseStatus('offline');
-          console.warn(`[Supabase Monitor] Conexão falhou (Erro de rede)`);
         } else {
           setSupabaseStatus('online');
-          // Loga periodicamente a latência para fins de diagnóstico
-          if (duration > 1000) {
-            console.warn(`[Supabase Monitor] Latência alta detectada: ${duration.toFixed(0)}ms`);
-          }
         }
       } catch (err) {
         setSupabaseStatus('offline');
-        console.error('[Supabase Monitor] Falha catastrófica de conexão:', err);
       }
     };
 
-    // Checa imediatamente e depois a cada 10 segundos
     checkSupabaseConnection();
     intervalId = setInterval(checkSupabaseConnection, 10000);
 
-    // Escuta eventos online/offline nativos do navegador
     const handleOnline = () => {
       setSupabaseStatus('checking');
       checkSupabaseConnection();
