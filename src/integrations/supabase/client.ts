@@ -8,13 +8,11 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    storageKey: 'supabase.auth.token',
-    // Configuração para manter a persistência mesmo após fechar a aba / mudar de foco
+    storageKey: 'sb-vtwlcaikxfnhngisgfgu-auth-token', // Restabelece a chave padrão exata do projeto no Supabase
     storage: window.localStorage,
     flowType: 'pkce'
   },
   global: {
-    // Aumenta a resiliência de rede e reduz falhas por timeout ou oscilação de foco do browser
     headers: {
       'x-client-info': 'autoboard-resilient-client'
     }

@@ -27,9 +27,9 @@ export const useSession = () => useContext(SessionContext);
 
 // Chaves para cache local robusto e offline-first
 const CACHE_KEYS = {
-  SESSION: 'autoboard_cached_session',
-  USER: 'autoboard_cached_user',
-  PROFILE: 'autoboard_cached_profile',
+  SESSION: 'autoboard_cached_session_v2',
+  USER: 'autoboard_cached_user_v2',
+  PROFILE: 'autoboard_cached_profile_v2',
 };
 
 export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
