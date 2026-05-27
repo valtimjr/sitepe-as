@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal, Loader2 } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal, Loader2, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,6 +40,57 @@ const AppHeader: React.FC = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   const isLoginPage = location.pathname === '/login';
+
+  const [supabaseStatus, setSupabaseStatus] = useState<'online' | 'offline' | 'checking'>('checking');
+
+  // Monitor de status ao vivo com o Supabase
+  useEffect(() => {
+    let intervalId: any;
+    
+    const checkSupabaseConnection = async () => {
+      try {
+        // Faz uma requisição ultra leve e rápida para checar a saúde da API do Supabase
+        const startTime = performance.now();
+        const { error } = await supabase.from('profiles').select('id').limit(1);
+        const duration = performance.now() - startTime;
+        
+        // Se não houver erro de rede (mesmo se der erro de permissão do RLS, a API está viva)
+        if (error && error.message?.includes('Fetch')) {
+          setSupabaseStatus('offline');
+          console.warn(`[Supabase Monitor] Conexão falhou (Erro de rede)`);
+        } else {
+          setSupabaseStatus('online');
+          // Loga periodicamente a latência para fins de diagnóstico
+          if (duration > 1000) {
+            console.warn(`[Supabase Monitor] Latência alta detectada: ${duration.toFixed(0)}ms`);
+          }
+        }
+      } catch (err) {
+        setSupabaseStatus('offline');
+        console.error('[Supabase Monitor] Falha catastrófica de conexão:', err);
+      }
+    };
+
+    // Checa imediatamente e depois a cada 10 segundos
+    checkSupabaseConnection();
+    intervalId = setInterval(checkSupabaseConnection, 10000);
+
+    // Escuta eventos online/offline nativos do navegador
+    const handleOnline = () => {
+      setSupabaseStatus('checking');
+      checkSupabaseConnection();
+    };
+    const handleOffline = () => setSupabaseStatus('offline');
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (!headerSearchQuery.trim()) {
@@ -208,6 +259,44 @@ const AppHeader: React.FC = () => {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-2">
+          {/* Indicador de Status do Supabase Ao Vivo */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-muted/50 text-[11px] font-semibold cursor-help select-none transition-all">
+                {supabaseStatus === 'online' && (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <Wifi className="h-3.5 w-3.5 text-emerald-500" />
+                    <span className="text-emerald-600 dark:text-emerald-400 hidden xs:inline">Conectado</span>
+                  </>
+                )}
+                {supabaseStatus === 'offline' && (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive"></span>
+                    </span>
+                    <WifiOff className="h-3.5 w-3.5 text-destructive animate-pulse" />
+                    <span className="text-destructive font-bold">Sem Conexão</span>
+                  </>
+                )}
+                {supabaseStatus === 'checking' && (
+                  <>
+                    <Loader2 className="h-3 w-3 text-amber-500 animate-spin" />
+                    <span className="text-amber-600 dark:text-amber-400 hidden xs:inline">Verificando...</span>
+                  </>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              {supabaseStatus === 'online' && "Comunicação com o banco de dados Supabase ativa e estável."}
+              {supabaseStatus === 'offline' && "Sem conexão com o Supabase. Verifique sua internet."}
+              {supabaseStatus === 'checking' && "Testando ping com os servidores do Supabase..."}
+            </TooltipContent>
+          </Tooltip>
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Link to={`/${company}`} className="flex items-center gap-2 h-10 shrink-0">
