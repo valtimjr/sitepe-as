@@ -210,7 +210,16 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
           setSession(currentSession);
           setUser(currentSession.user);
           updateLocalStorage(currentSession, currentSession.user, profile);
-          await fetchProfile(currentSession.user.id);
+          
+          // Importante: Executar em paralelo e garantir que isLoading mude para false mesmo se fetchProfile demorar
+          fetchProfile(currentSession.user.id).finally(() => {
+            if (isMounted) {
+              console.log('[DEBUG_AUTH] Perfil sincronizado via evento.');
+              setIsLoading(false);
+            }
+          });
+        } else {
+          setIsLoading(false);
         }
       } else if (event === 'SIGNED_OUT') {
         console.log('[DEBUG_AUTH] Desconexão processada no listener. Expurgando dados...');
@@ -224,9 +233,11 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
             localStorage.removeItem(key);
           }
         });
+        setIsLoading(false);
+      } else {
+        // Para qualquer outro evento de Auth, garantir que destrava o carregamento
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     });
 
     return () => {
