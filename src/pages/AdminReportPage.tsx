@@ -141,6 +141,8 @@ const AdminReportPage = () => {
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [selectedProfessionCode, setSelectedProfessionCode] = useState<string>('all');
   const [selectedShiftCode, setSelectedShiftCode] = useState<string>('all');
+  const [selectedDigitadoFilter, setSelectedDigitadoFilter] = useState<'all' | 'sim' | 'nao'>('all'); // Novo filtro de digitadas
+  const [sortDaysDirection, setSortDaysDirection] = useState<'asc' | 'desc'>('desc'); // Ordenação dos dias das OS
   const [afSearchTerm, setAfSearchTerm] = useState<string>('');
   
   const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
@@ -256,7 +258,7 @@ const AdminReportPage = () => {
       });
     }
 
-    const osList: any[] = [];
+    let osList: any[] = [];
     periodRecords.forEach(record => {
       const userProfile = users.find(u => u.id === record.user_id);
       const badge = userProfile?.badge || '';
@@ -265,6 +267,12 @@ const AdminReportPage = () => {
       const recordOsList = record.os_list as any[];
       if (Array.isArray(recordOsList)) {
         recordOsList.forEach((os, index) => {
+          const isConfirmed = os.confirmed === true;
+          
+          // Filtro para ordens Digitadas vs Pendentes
+          if (selectedDigitadoFilter === 'sim' && !isConfirmed) return;
+          if (selectedDigitadoFilter === 'nao' && isConfirmed) return;
+
           osList.push({
             ...os,
             id: os.id || `old-${record.id}-${index}`,
@@ -273,7 +281,7 @@ const AdminReportPage = () => {
             badge,
             profession_code: userProfile?.profession_code || null,
             shift_code: userProfile?.shift_code || null,
-            confirmed: os.confirmed === true,
+            confirmed: isConfirmed,
           });
         });
       }
@@ -282,15 +290,22 @@ const AdminReportPage = () => {
     // Filtro de AF (Número ou Descrição)
     if (afSearchTerm) {
       const term = afSearchTerm.toLowerCase();
-      return osList.filter(os => {
+      osList = osList.filter(os => {
         const afNumber = (os.af || '').toLowerCase();
         const afDesc = getAfDescription(os.af, availableAfs).toLowerCase();
         return afNumber.includes(term) || afDesc.includes(term);
-      }).sort((a, b) => b.recordDate.localeCompare(a.recordDate));
+      });
     }
 
-    return osList.sort((a, b) => b.recordDate.localeCompare(a.recordDate));
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, users, afSearchTerm, availableAfs]);
+    // Ordenação dos dias (Crescente ou Decrescente)
+    return osList.sort((a, b) => {
+      if (sortDaysDirection === 'asc') {
+        return a.recordDate.localeCompare(b.recordDate);
+      } else {
+        return b.recordDate.localeCompare(a.recordDate);
+      }
+    });
+  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, selectedDigitadoFilter, sortDaysDirection, users, afSearchTerm, availableAfs]);
 
   const dailyChartData = useMemo(() => {
     const osDataMap = new Map<string, any>();
@@ -669,16 +684,17 @@ const AdminReportPage = () => {
                  <Label className="text-[10px] uppercase font-bold">Pesquisar AF</Label>
                  <div className="relative">
                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                   <Input 
-                     placeholder="Número ou descrição..." 
-                     className="pl-8" 
-                     value={afSearchTerm} 
+                   <Input
+                     placeholder="Número ou descrição..."
+                     className="pl-8"
+                     value={afSearchTerm}
                      onChange={(e) => setAfSearchTerm(e.target.value)}
                    />
                  </div>
                </div>
              </div>
-             <div className="grid grid-cols-2 gap-4">
+             
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase font-bold">Profissão</Label>
                   <Select value={selectedProfessionCode} onValueChange={setSelectedProfessionCode}>
@@ -696,6 +712,17 @@ const AdminReportPage = () => {
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
                       {availableShifts.map(s => <SelectItem key={s.ref_code} value={s.ref_code!.toString()}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase font-bold">Status Digitado</Label>
+                  <Select value={selectedDigitadoFilter} onValueChange={(v: any) => setSelectedDigitadoFilter(v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os Status</SelectItem>
+                      <SelectItem value="sim">Apenas Digitadas</SelectItem>
+                      <SelectItem value="nao">Apenas Pendentes</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -741,9 +768,23 @@ const AdminReportPage = () => {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
           <CardTitle className="text-xl">Ordens de Serviço Filtradas</CardTitle>
-          <div className="text-sm font-medium">{filteredOSList.length} OS encontrada(s)</div>
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* Botão de Ordenação dos Dias */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSortDaysDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+              className="flex items-center gap-2 text-xs font-bold"
+            >
+              <span>Data dos Dias:</span>
+              <span className="text-primary">
+                {sortDaysDirection === 'asc' ? 'Crescente (Antigas Primeiro) ▲' : 'Decrescente (Recentes Primeiro) ▼'}
+              </span>
+            </Button>
+            <div className="text-sm font-medium">{filteredOSList.length} OS encontrada(s)</div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="mb-2 px-4 hidden md:grid grid-cols-[auto_1fr_auto_auto] gap-4 text-sm text-muted-foreground font-medium">
