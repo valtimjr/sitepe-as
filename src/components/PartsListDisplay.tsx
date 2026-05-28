@@ -47,12 +47,19 @@ interface PartsListDisplayProps {
   onOpenEditForm: (item: SimplePartItem) => void; // Nova prop para abrir o formulário de edição
 }
 
+type SortField = 'codigo' | 'descricao' | 'af' | 'quantidade' | null;
+type SortDirection = 'asc' | 'desc';
+
 const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged, onListReordered, listTitle, onTitleChange, onOpenEditForm }) => {
   const { company, branding } = useCompany();
   const [orderedItems, setOrderedItems] = useState<SimplePartItem[]>(listItems);
   const [draggedItem, setDraggedItem] = useState<SimplePartItem | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [isAddingInline, setIsAddingInline] = useState(false);
+
+  // Estados de ordenação
+  const [sortField, setSortField] = useState<SortField>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
@@ -81,10 +88,71 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   // Cache para itens relacionados
   const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, RelatedPart[]>>(new Map());
 
-  // Sincroniza o estado interno com a prop listItems quando ela muda
+  // Sincroniza o estado interno com a prop listItems quando ela muda e reaplica a ordenação
   useEffect(() => {
-    setOrderedItems(listItems);
+    if (sortField) {
+      applySort(listItems, sortField, sortDirection);
+    } else {
+      setOrderedItems(listItems);
+    }
   }, [listItems]);
+
+  const applySort = (items: SimplePartItem[], field: SortField, direction: SortDirection) => {
+    if (!field) {
+      setOrderedItems(items);
+      return;
+    }
+
+    const sorted = [...items].sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      if (field === 'codigo') {
+        valA = a.codigo_peca || '';
+        valB = b.codigo_peca || '';
+      } else if (field === 'descricao') {
+        valA = a.descricao || '';
+        valB = b.descricao || '';
+      } else if (field === 'af') {
+        valA = a.af || '';
+        valB = b.af || '';
+      } else if (field === 'quantidade') {
+        valA = a.quantidade ?? 0;
+        valB = b.quantidade ?? 0;
+      }
+
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        // Ordenação alfabética sem diferenciar maiúsculas/minúsculas
+        return direction === 'asc'
+          ? valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' })
+          : valB.localeCompare(valA, undefined, { numeric: true, sensitivity: 'base' });
+      } else {
+        // Ordenação numérica
+        return direction === 'asc' ? valA - valB : valB - valA;
+      }
+    });
+
+    setOrderedItems(sorted);
+    onListReordered(sorted);
+  };
+
+  const handleSort = (field: SortField) => {
+    if (!field) return;
+
+    let newDirection: SortDirection = 'asc';
+    if (sortField === field) {
+      newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    }
+
+    setSortField(field);
+    setSortDirection(newDirection);
+    applySort(listItems, field, newDirection);
+  };
+
+  const getSortIndicator = (field: SortField) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? ' ▲' : ' ▼';
+  };
 
   // Load all parts and AFs for search inputs
   useEffect(() => {
@@ -498,8 +566,54 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   <TableHead className="w-[40px] p-2">
                     <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle header */}
                   </TableHead>
-                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça (Cód. / Descrição / AF)</TableHead>
-                  <TableHead className="w-[3rem] p-2">Qtd</TableHead> {/* Largura ajustada */}
+                  <TableHead className="w-auto p-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('codigo')}
+                        className={cn(
+                          "font-bold hover:text-primary transition-colors cursor-pointer select-none focus:outline-none flex items-center gap-0.5",
+                          sortField === 'codigo' && "text-primary"
+                        )}
+                      >
+                        Código{getSortIndicator('codigo')}
+                      </button>
+                      <span className="text-muted-foreground">/</span>
+                      <button
+                        type="button"
+                        onClick={() => handleSort('descricao')}
+                        className={cn(
+                          "font-bold hover:text-primary transition-colors cursor-pointer select-none focus:outline-none flex items-center gap-0.5",
+                          sortField === 'descricao' && "text-primary"
+                        )}
+                      >
+                        Descrição{getSortIndicator('descricao')}
+                      </button>
+                      <span className="text-muted-foreground">/</span>
+                      <button
+                        type="button"
+                        onClick={() => handleSort('af')}
+                        className={cn(
+                          "font-bold hover:text-primary transition-colors cursor-pointer select-none focus:outline-none flex items-center gap-0.5",
+                          sortField === 'af' && "text-primary"
+                        )}
+                      >
+                        AF{getSortIndicator('af')}
+                      </button>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[4rem] p-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('quantidade')}
+                      className={cn(
+                        "font-bold hover:text-primary transition-colors cursor-pointer select-none focus:outline-none w-full text-center flex items-center justify-center gap-0.5",
+                        sortField === 'quantidade' && "text-primary"
+                      )}
+                    >
+                      Qtd{getSortIndicator('quantidade')}
+                    </button>
+                  </TableHead>
                   <TableHead className="w-[80px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -566,7 +680,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                               />
                             </div>
                           </TableCell>
-                          <TableCell className="w-[3rem] p-2 text-center"> {/* Largura ajustada */}
+                          <TableCell className="w-[4rem] p-2 text-center"> {/* Largura ajustada */}
                             <Label htmlFor={`edit-quantity-${item.id}`} className="sr-only">Quantidade</Label>
                             <Input
                               id={`edit-quantity-${item.id}`}
@@ -635,7 +749,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                             </div>
                           </TableCell>
                           
-                          <TableCell className="w-[3rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell> {/* Largura ajustada */}
+                          <TableCell className="w-[4rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell> {/* Largura ajustada */}
                           
                           <TableCell className="w-[80px] p-2 text-right">
                             <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1"> {/* Alterado para flex-col em mobile */}
@@ -725,7 +839,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                         />
                       </div>
                     </TableCell>
-                    <TableCell className="w-[3rem] p-2 text-center"> {/* Largura ajustada */}
+                    <TableCell className="w-[4rem] p-2 text-center"> {/* Largura ajustada */}
                       <Label htmlFor="inline-quantity" className="sr-only">Quantidade</Label>
                       <Input
                         id="inline-quantity"
