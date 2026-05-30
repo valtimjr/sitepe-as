@@ -770,20 +770,19 @@ const AdminReportPage = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
           <CardTitle className="text-xl">Ordens de Serviço Filtradas</CardTitle>
-          <div className="flex items-center gap-4 flex-wrap">
-            {/* Botão de Ordenação dos Dias */}
+          <div className="flex items-center gap-3">
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => setSortDaysDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
-              className="flex items-center gap-2 text-xs font-bold"
+              className="h-8 px-2 text-xs font-medium flex items-center gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors"
             >
-              <span>Data dos Dias:</span>
-              <span className="text-primary">
-                {sortDaysDirection === 'asc' ? 'Crescente (Antigas Primeiro) ▲' : 'Decrescente (Recentes Primeiro) ▼'}
-              </span>
+              <ChevronsUpDown className="h-3.5 w-3.5" />
+              {sortDaysDirection === 'asc' ? 'Data: Antigas' : 'Data: Recentes'}
             </Button>
-            <div className="text-sm font-medium">{filteredOSList.length} OS encontrada(s)</div>
+            <div className="text-sm font-medium text-muted-foreground border-l pl-3">
+              {filteredOSList.length} OS
+            </div>
           </div>
         </CardHeader>
         <CardContent>
