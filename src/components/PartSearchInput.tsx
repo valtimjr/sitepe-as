@@ -28,6 +28,12 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
   // Fetch frequent parts for the user's profession
   useEffect(() => {
     const fetchFrequent = async () => {
+      // Respect user preference. If disabled, do not show suggestions
+      if (profile?.suggest_parts === false) {
+        setFrequentParts([]);
+        return;
+      }
+
       if (profile?.profession_code && company) {
         setIsLoadingFrequent(true);
         try {
@@ -41,7 +47,7 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
       }
     };
     fetchFrequent();
-  }, [profile?.profession_code, company]);
+  }, [profile?.profession_code, profile?.suggest_parts, company]);
 
   // Effect para fechar o dropdown quando clicar fora do componente
   useEffect(() => {

@@ -310,6 +310,12 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
   // Load frequent parts for the user's profession
   useEffect(() => {
     const fetchFrequent = async () => {
+      // Respect user preference. If disabled, do not show suggestions
+      if (profile?.suggest_parts === false) {
+        setFrequentParts([]);
+        return;
+      }
+
       if (profile?.profession_code && company) {
         try {
           const parts = await getFrequentPartsForProfession(profile.profession_code, company);
@@ -320,7 +326,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
       }
     };
     fetchFrequent();
-  }, [profile?.profession_code, company]);
+  }, [profile?.profession_code, profile?.suggest_parts, company]);
 
   const displayedSearchResults = React.useMemo(() => {
     if (searchQuery.length === 0) {

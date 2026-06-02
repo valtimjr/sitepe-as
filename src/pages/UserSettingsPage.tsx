@@ -16,6 +16,7 @@ import ChangePasswordForm from '@/components/ChangePasswordForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCompany } from '@/context/CompanyContext';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type AttributeItem = { name: string; ref_code: number | null };
 
@@ -27,6 +28,7 @@ const UserSettingsPage: React.FC = () => {
   const [lastName, setLastName] = useState('');
   const [badge, setBadge] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [suggestParts, setSuggestParts] = useState(true);
   
   const [professionCode, setProfessionCode] = useState('');
   const [shiftCode, setShiftCode] = useState('');
@@ -46,6 +48,7 @@ const UserSettingsPage: React.FC = () => {
       setLastName(sessionProfile.last_name || '');
       setBadge(sessionProfile.badge || '');
       setAvatarUrl(sessionProfile.avatar_url || '');
+      setSuggestParts(sessionProfile.suggest_parts !== false);
       setProfessionCode(sessionProfile.profession_code ? sessionProfile.profession_code.toString() : '');
       setShiftCode(sessionProfile.shift_code ? sessionProfile.shift_code.toString() : '');
     }
@@ -84,6 +87,7 @@ const UserSettingsPage: React.FC = () => {
           last_name: lastName,
           badge: badge,
           avatar_url: avatarUrl,
+          suggest_parts: suggestParts,
           profession_code: professionCode ? parseInt(professionCode) : null,
           shift_code: shiftCode ? parseInt(shiftCode) : null,
           updated_at: new Date().toISOString(),
@@ -230,6 +234,27 @@ const UserSettingsPage: React.FC = () => {
                     disabled={isSavingProfile}
                   />
                 </div>
+                
+                <div className="flex items-start space-x-2.5 p-3.5 bg-muted/40 rounded-lg border">
+                  <Checkbox
+                    id="suggest-parts"
+                    checked={suggestParts}
+                    onCheckedChange={(checked) => setSuggestParts(checked === true)}
+                    disabled={isSavingProfile}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <Label
+                      htmlFor="suggest-parts"
+                      className="text-sm font-bold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      Habilitar Sugestões de Peças
+                    </Label>
+                    <p className="text-xs text-muted-foreground leading-normal">
+                      Mostra sugestões automáticas das peças mais utilizadas pela sua profissão ao focar ou realizar pesquisas nos campos de busca.
+                    </p>
+                  </div>
+                </div>
+                
                 <Button type="submit" className="w-full" disabled={isSavingProfile}>
                   {isSavingProfile ? (
                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</>
