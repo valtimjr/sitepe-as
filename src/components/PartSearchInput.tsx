@@ -131,8 +131,8 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
         {shouldShowDropdown && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto">
             {searchQuery.length === 0 && frequentParts.length > 0 && (
-              <li className="px-4 py-1.5 text-xs font-bold text-primary bg-primary/5 uppercase tracking-wider border-b sticky top-0 flex items-center gap-1.5">
-                <span className="text-sm">⭐</span> Sugestões para sua profissão
+              <li className="px-4 py-2 text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 border-b flex items-center gap-1.5">
+                <span>⭐</span> SUGESTÕES PARA SUA PROFISSÃO
               </li>
             )}
             {isLoading && searchQuery.length > 0 ? (
@@ -158,8 +158,8 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
                           {part.codigo}
                         </span>
                         {isFrequent && (
-                          <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                            ★ Mais Utilizada
+                          <span className="text-amber-500 font-bold text-sm" title="Peça recomendada para sua profissão">
+                            ★
                           </span>
                         )}
                       </div>

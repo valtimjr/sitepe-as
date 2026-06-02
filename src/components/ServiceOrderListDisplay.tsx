@@ -578,8 +578,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
                        {isSearchFocused && !selectedPart && (searchQuery.length > 0 || frequentParts.length > 0) && (
                           <div className="absolute z-[60] w-full mt-1 bg-popover rounded-md border shadow-2xl max-h-60 overflow-y-auto">
                              {searchQuery.length === 0 && frequentParts.length > 0 && (
-                                <div className="px-3 py-1.5 text-xs font-bold text-primary bg-primary/5 uppercase tracking-wider border-b sticky top-0 flex items-center gap-1.5">
-                                   ⭐ Sugestões para sua profissão
+                                <div className="px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 border-b flex items-center gap-1.5">
+                                   <span>⭐</span> SUGESTÕES PARA SUA PROFISSÃO
                                 </div>
                              )}
                              {displayedSearchResults.length > 0 ? (
@@ -598,8 +598,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
                                          <div className="flex items-center gap-2">
                                             <div className="font-bold text-blue-600">{part.codigo}</div>
                                             {isFrequent && (
-                                               <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 text-[9px] font-bold px-1 rounded">
-                                                  ★ Mais Utilizada
+                                               <span className="text-amber-500 font-bold text-sm" title="Peça recomendada para sua profissão">
+                                                  ★
                                                </span>
                                             )}
                                          </div>
