@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Part } from '@/services/partListService';
-import { searchParts as searchPartsService } from '@/services/partListService'; // Importar a função de serviço
-import { Loader2 } from 'lucide-react'; // Adicionado: Importar Loader2
+import { Part, getFrequentPartsForProfession } from '@/services/partListService';
+import { Loader2 } from 'lucide-react';
+import { useSession } from '@/components/SessionContextProvider';
+import { useCompany } from '@/context/CompanyContext';
 
 interface PartSearchInputProps {
   onSearch: (query: string) => void;
@@ -14,10 +15,33 @@ interface PartSearchInputProps {
 }
 
 const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResults, onSelectPart, searchQuery, isLoading }) => {
+  const { profile } = useSession();
+  const { company } = useCompany();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const [frequentParts, setFrequentParts] = useState<Part[]>([]);
+  const [isLoadingFrequent, setIsLoadingFrequent] = useState(false);
+
+  // Fetch frequent parts for the user's profession
+  useEffect(() => {
+    const fetchFrequent = async () => {
+      if (profile?.profession_code && company) {
+        setIsLoadingFrequent(true);
+        try {
+          const parts = await getFrequentPartsForProfession(profile.profession_code, company);
+          setFrequentParts(parts);
+        } catch (e) {
+          console.error("Error loading frequent parts for search suggestions:", e);
+        } finally {
+          setIsLoadingFrequent(false);
+        }
+      }
+    };
+    fetchFrequent();
+  }, [profile?.profession_code, company]);
 
   // Effect para fechar o dropdown quando clicar fora do componente
   useEffect(() => {
@@ -36,34 +60,54 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
 
   const handleInputFocus = () => {
     setIsFocused(true);
-    // Abre o dropdown apenas se houver uma query ativa ou resultados recentes
-    if (searchQuery.length > 0 || searchResults.length > 0) {
-      setIsDropdownOpen(true);
-    }
+    setIsDropdownOpen(true);
   };
 
   const handleInputBlur = () => {
-    // Pequeno atraso para permitir que os eventos de clique nos itens da lista sejam registrados
     setTimeout(() => {
-      // Verifica se o foco ainda está dentro do componente (ex: se o usuário clicou em um item da lista)
       if (!containerRef.current?.contains(document.activeElement)) {
         setIsFocused(false);
         setIsDropdownOpen(false);
       }
-    }, 100);
+    }, 120);
   };
 
   const handleSelectAndClose = (part: Part) => {
     onSelectPart(part);
-    // onSearch(''); // Não limpa a query de busca aqui, o componente pai deve controlar isso
-    setIsDropdownOpen(false); // Fecha o dropdown imediatamente
+    setIsDropdownOpen(false);
     if (inputRef.current) {
       inputRef.current.blur();
     }
   };
 
-  // A lista de sugestões deve aparecer se o dropdown estiver explicitamente aberto E houver uma query ativa
-  const shouldShowDropdown = isDropdownOpen && searchQuery.length > 0;
+  // Combine search results with frequent parts, placing matching frequent parts first
+  const displayedResults = useMemo(() => {
+    if (searchQuery.length === 0) {
+      return frequentParts;
+    }
+    
+    const queryLower = searchQuery.toLowerCase().trim();
+    
+    // Filter frequent parts matching the query
+    const matchingFrequent = frequentParts.filter(part => {
+      return part.codigo.toLowerCase().includes(queryLower) || 
+             (part.descricao && part.descricao.toLowerCase().includes(queryLower)) ||
+             (part.name && part.name.toLowerCase().includes(queryLower));
+    });
+    
+    // Merge matching frequent parts with the searchResults from parent
+    const merged = [...matchingFrequent];
+    
+    searchResults.forEach(part => {
+      if (!merged.some(m => m.codigo.toLowerCase() === part.codigo.toLowerCase())) {
+        merged.push(part);
+      }
+    });
+    
+    return merged;
+  }, [searchQuery, searchResults, frequentParts]);
+
+  const shouldShowDropdown = isDropdownOpen && (searchQuery.length > 0 || frequentParts.length > 0);
 
   return (
     <div className="relative flex w-full items-center space-x-2" ref={containerRef}>
@@ -76,37 +120,52 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
           value={searchQuery}
           onChange={(e) => {
             onSearch(e.target.value);
-            setIsDropdownOpen(true); // Abre o dropdown ao começar a digitar
+            setIsDropdownOpen(true);
           }}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
           className="w-full"
           ref={inputRef}
+          autoComplete="off"
         />
         {shouldShowDropdown && (
           <ul className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto">
-            {isLoading && searchQuery.length > 0 ? ( // Mostra carregando apenas se houver query
+            {searchQuery.length === 0 && frequentParts.length > 0 && (
+              <li className="px-4 py-1.5 text-xs font-bold text-primary bg-primary/5 uppercase tracking-wider border-b sticky top-0 flex items-center gap-1.5">
+                <span className="text-sm">⭐</span> Sugestões para sua profissão
+              </li>
+            )}
+            {isLoading && searchQuery.length > 0 ? (
               <li className="px-4 py-2 text-gray-500 dark:text-gray-400 flex items-center">
                 <Loader2 className="h-4 w-4 animate-spin mr-2" /> Buscando peças...
               </li>
-            ) : searchResults.length > 0 ? (
-              searchResults.map((part) => {
+            ) : displayedResults.length > 0 ? (
+              displayedResults.map((part) => {
                 const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
                 const subText = part.name && part.name.trim() !== '' ? part.descricao : '';
+                const isFrequent = frequentParts.some(fp => fp.codigo.toLowerCase() === part.codigo.toLowerCase());
 
                 return (
                   <li
                     key={part.id}
-                    className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b last:border-0 border-muted/30"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleSelectAndClose(part)}
                   >
                     <div className="flex flex-col">
-                      <span className="font-medium text-sm">
-                        {part.codigo} - {mainText}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">
+                          {part.codigo}
+                        </span>
+                        {isFrequent && (
+                          <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                            ★ Mais Utilizada
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-foreground mt-0.5">{mainText}</span>
                       {subText && subText.trim() !== '' && (
-                        <span className="text-xs italic text-muted-foreground">
+                        <span className="text-[10px] italic text-muted-foreground mt-0.5">
                           {subText}
                         </span>
                       )}

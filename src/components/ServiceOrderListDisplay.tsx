@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { ServiceOrderData } from '@/types/supabase';
 import { Clock, Pencil, Trash2, PlusCircle, Search, X, Check, GripVertical, Tag, Package } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { searchParts, Part } from '@/services/partListService';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -22,6 +21,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from '@/context/CompanyContext';
 import { cn } from '@/lib/utils';
+import { useSession } from '@/components/SessionContextProvider';
+import { searchParts, getFrequentPartsForProfession, Part } from '@/services/partListService';
 
 interface ServiceOrderListDisplayProps {
   group: ServiceOrderData;
@@ -293,7 +294,9 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
   additionalHeader
 }) => {
   const { company } = useCompany();
+  const { profile } = useSession();
   const [isAddingPart, setIsAddingPart] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
@@ -301,6 +304,47 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
   const [quantityError, setQuantityError] = useState(false);
   const [manualDescription, setManualDescription] = useState('');
   const [manualCode, setManualCode] = useState('');
+
+  const [frequentParts, setFrequentParts] = useState<Part[]>([]);
+
+  // Load frequent parts for the user's profession
+  useEffect(() => {
+    const fetchFrequent = async () => {
+      if (profile?.profession_code && company) {
+        try {
+          const parts = await getFrequentPartsForProfession(profile.profession_code, company);
+          setFrequentParts(parts);
+        } catch (e) {
+          console.error("Error loading frequent parts for ServiceOrderListDisplay:", e);
+        }
+      }
+    };
+    fetchFrequent();
+  }, [profile?.profession_code, company]);
+
+  const displayedSearchResults = React.useMemo(() => {
+    if (searchQuery.length === 0) {
+      return frequentParts;
+    }
+    
+    const queryLower = searchQuery.toLowerCase().trim();
+    
+    const matchingFrequent = frequentParts.filter(part => {
+      return part.codigo.toLowerCase().includes(queryLower) ||
+             (part.descricao && part.descricao.toLowerCase().includes(queryLower)) ||
+             (part.name && part.name.toLowerCase().includes(queryLower));
+    });
+    
+    const merged = [...matchingFrequent];
+    
+    searchResults.forEach(part => {
+      if (!merged.some(m => m.codigo.toLowerCase() === part.codigo.toLowerCase())) {
+        merged.push(part);
+      }
+    });
+    
+    return merged;
+  }, [searchQuery, searchResults, frequentParts]);
 
   useEffect(() => {
     if (!searchQuery.trim() || selectedPart) {
@@ -511,8 +555,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
                  <div className="grid gap-3 relative">
                     <div className="relative z-50">
                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                       <Input 
-                          placeholder="Buscar peça..." 
+                       <Input
+                          placeholder="Buscar peça..."
                           value={searchQuery}
                           onChange={(e) => {
                              if (selectedPart) {
@@ -522,21 +566,50 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
                              }
                              setSearchQuery(e.target.value);
                           }}
+                          onFocus={() => setIsSearchFocused(true)}
+                          onBlur={() => {
+                             // Delay to allow item click
+                             setTimeout(() => setIsSearchFocused(false), 150);
+                          }}
                           className="pl-9"
                           autoFocus
+                          autoComplete="off"
                        />
-                       {searchQuery && !selectedPart && searchResults.length > 0 && (
+                       {isSearchFocused && !selectedPart && (searchQuery.length > 0 || frequentParts.length > 0) && (
                           <div className="absolute z-[60] w-full mt-1 bg-popover rounded-md border shadow-2xl max-h-60 overflow-y-auto">
-                             {searchResults.map((part) => (
-                                <div
-                                   key={part.id}
-                                   className="px-3 py-2 text-sm hover:bg-muted cursor-pointer border-b last:border-0"
-                                   onClick={() => handleSelectPart(part)}
-                                >
-                                   <div className="font-bold text-blue-600">{part.codigo}</div>
-                                   <div className="text-xs text-muted-foreground">{part.descricao}</div>
+                             {searchQuery.length === 0 && frequentParts.length > 0 && (
+                                <div className="px-3 py-1.5 text-xs font-bold text-primary bg-primary/5 uppercase tracking-wider border-b sticky top-0 flex items-center gap-1.5">
+                                   ⭐ Sugestões para sua profissão
                                 </div>
-                             ))}
+                             )}
+                             {displayedSearchResults.length > 0 ? (
+                                displayedSearchResults.map((part) => {
+                                   const isFrequent = frequentParts.some(fp => fp.codigo.toLowerCase() === part.codigo.toLowerCase());
+                                   return (
+                                      <div
+                                         key={part.id}
+                                         className="px-3 py-2 text-sm hover:bg-muted cursor-pointer border-b last:border-0"
+                                         onMouseDown={(e) => e.preventDefault()}
+                                         onClick={() => {
+                                            handleSelectPart(part);
+                                            setIsSearchFocused(false);
+                                         }}
+                                      >
+                                         <div className="flex items-center gap-2">
+                                            <div className="font-bold text-blue-600">{part.codigo}</div>
+                                            {isFrequent && (
+                                               <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 text-[9px] font-bold px-1 rounded">
+                                                  ★ Mais Utilizada
+                                               </span>
+                                            )}
+                                         </div>
+                                         <div className="text-xs text-muted-foreground">{part.name || part.descricao}</div>
+                                      </div>
+                                   );
+                                })
+                             ) : (
+                                <div className="px-3 py-2 text-sm text-muted-foreground">Nenhuma peça encontrada.</div>
+                             )}
                           </div>
                        )}
                     </div>

@@ -206,6 +206,32 @@ export const searchParts = async (query: string, company: CompanyType): Promise<
   return data as Part[];
 };
 
+export const getFrequentPartsForProfession = async (professionCode: number, company: CompanyType): Promise<Part[]> => {
+  try {
+    const { data: freqData, error: freqError } = await supabase
+      .from('profession_frequent_parts')
+      .select('part_code')
+      .eq('profession_code', professionCode)
+      .eq('company', company);
+      
+    if (freqError || !freqData || freqData.length === 0) return [];
+    const codes = freqData.map(item => item.part_code);
+    
+    const tableName = getPartsTable(company);
+    const { data: partsData, error: partsError } = await supabase
+      .from(tableName)
+      .select('*')
+      .in('codigo', codes);
+      
+    if (partsError || !partsData) return [];
+    
+    return partsData as Part[];
+  } catch (err) {
+    console.error('Error in getFrequentPartsForProfession:', err);
+    return [];
+  }
+};
+
 export const getParts = async (company: CompanyType): Promise<Part[]> => {
   const localParts = await getLocalParts(company);
   if (localParts.length > 0) return localParts as Part[];
