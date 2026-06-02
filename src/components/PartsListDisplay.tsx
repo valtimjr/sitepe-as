@@ -64,7 +64,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
   // Form states for the currently edited item (used only for desktop inline editing)
-  const [formQuantity, setFormQuantity] = useState<number>(1);
+  const [formQuantity, setFormQuantity] = useState<number | "">(1);
+  const [formQuantityError, setFormQuantityError] = useState(false);
   const [formAf, setFormAf] = useState('');
   const [formPartCode, setFormPartCode] = useState(''); // Código da peça selecionada/confirmada
   const [formDescription, setFormDescription] = useState(''); // Descrição da peça selecionada/confirmada
@@ -72,7 +73,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   const [searchResultsForEdit, setSearchResultsForEdit] = useState<Part[]>([]);
 
   // Form states for inline add item
-  const [inlineFormQuantity, setInlineFormQuantity] = useState<number>(1);
+  const [inlineFormQuantity, setInlineFormQuantity] = useState<number | "">(1);
+  const [inlineFormQuantityError, setInlineFormQuantityError] = useState(false);
   const [inlineFormAf, setInlineFormAf] = useState('');
   const [inlineFormPartCode, setInlineFormPartCode] = useState(''); // Código da peça selecionada/confirmada
   const [inlineFormDescription, setInlineFormDescription] = useState(''); // Descrição da peça selecionada/confirmada
@@ -344,6 +346,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     // Lógica de edição inline para desktop
     setEditingItemId(item.id);
     setFormQuantity(item.quantidade ?? 1);
+    setFormQuantityError(false);
     setFormAf(item.af || '');
     setFormPartCode(item.codigo_peca || ''); // Define o código da peça confirmada
     setFormDescription(item.descricao || ''); // Define a descrição da peça confirmada
@@ -355,14 +358,16 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showError('O Código da Peça ou a Descrição são obrigatórios.');
       return;
     }
-    if (formQuantity <= 0) {
-      showError('A quantidade deve ser maior que zero.');
+    const qtyNum = formQuantity === "" ? 0 : Number(formQuantity);
+    if (formQuantity === "" || isNaN(qtyNum) || qtyNum <= 0) {
+      setFormQuantityError(true);
+      showError('O valor da quantidade tem que ser maior que "0"');
       return;
     }
 
     const updatedItem: SimplePartItem = {
       ...originalItem,
-      quantidade: formQuantity,
+      quantidade: qtyNum,
       af: formAf.trim() || undefined,
       codigo_peca: formPartCode.trim(),
       descricao: formDescription.trim(),
@@ -410,6 +415,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     setIsAddingInline(prev => !prev);
     if (!isAddingInline) { // Se está abrindo o formulário
       setInlineFormQuantity(1);
+      setInlineFormQuantityError(false);
       setInlineFormAf('');
       setInlineFormPartCode('');
       setInlineFormDescription('');
@@ -423,13 +429,15 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showError('O Código da Peça ou a Descrição são obrigatórios.');
       return;
     }
-    if (inlineFormQuantity <= 0) {
-      showError('A quantidade deve ser maior que zero.');
+    const qtyNum = inlineFormQuantity === "" ? 0 : Number(inlineFormQuantity);
+    if (inlineFormQuantity === "" || isNaN(qtyNum) || qtyNum <= 0) {
+      setInlineFormQuantityError(true);
+      showError('O valor da quantidade tem que ser maior que "0"');
       return;
     }
 
     const newItem: Omit<SimplePartItem, 'id'> = {
-      quantidade: inlineFormQuantity,
+      quantidade: qtyNum,
       af: inlineFormAf.trim() || undefined,
       codigo_peca: inlineFormPartCode.trim(),
       descricao: inlineFormDescription.trim(),
@@ -686,10 +694,21 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                               id={`edit-quantity-${item.id}`}
                               type="number"
                               value={formQuantity}
-                              onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
-                              min="1"
-                              className="w-full text-center"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '') {
+                                  setFormQuantity('');
+                                } else {
+                                  const parsed = parseInt(val, 10);
+                                  setFormQuantity(isNaN(parsed) ? '' : parsed);
+                                }
+                                setFormQuantityError(false);
+                              }}
+                              className={cn("w-full text-center", formQuantityError && "border-destructive focus-visible:ring-destructive")}
                             />
+                            {formQuantityError && (
+                              <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
+                            )}
                           </TableCell>
                           <TableCell className="w-[80px] p-2 text-right">
                             <div className="flex justify-end items-center gap-1">
@@ -845,10 +864,21 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                         id="inline-quantity"
                         type="number"
                         value={inlineFormQuantity}
-                        onChange={(e) => setInlineFormQuantity(parseInt(e.target.value) || 1)}
-                        min="1"
-                        className="w-full text-center"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setInlineFormQuantity('');
+                          } else {
+                            const parsed = parseInt(val, 10);
+                            setInlineFormQuantity(isNaN(parsed) ? '' : parsed);
+                          }
+                          setInlineFormQuantityError(false);
+                        }}
+                        className={cn("w-full text-center", inlineFormQuantityError && "border-destructive focus-visible:ring-destructive")}
                       />
+                      {inlineFormQuantityError && (
+                        <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
+                      )}
                     </TableCell>
                     <TableCell className="w-[80px] p-2 text-right">
                       <div className="flex justify-end items-center gap-1">

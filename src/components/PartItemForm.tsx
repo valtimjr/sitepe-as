@@ -29,7 +29,8 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const { checkPageAccess } = useSession();
   const { company } = useCompany();
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
-  const [quantidade, setQuantidade] = useState<number>(1);
+  const [quantidade, setQuantidade] = useState<number | "">(1);
+  const [quantidadeError, setQuantidadeError] = useState(false);
   const [af, setAf] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
@@ -49,6 +50,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     const initializeForm = async () => {
       if (editingItem) {
         setQuantidade(editingItem.quantidade ?? 1);
+        setQuantidadeError(false);
         setAf(editingItem.af || '');
         setCustomCodigo(editingItem.codigo_peca || '');
         setCustomDescricao(editingItem.descricao || '');
@@ -71,6 +73,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
       } else {
         setSelectedPart(null);
         setQuantidade(1);
+        setQuantidadeError(false);
         setAf('');
         setEditedTags('');
         setSearchQuery('');
@@ -158,8 +161,16 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!customCodigo && !customDescricao) || quantidade <= 0) {
-      showError('Por favor, insira o código ou descrição da peça e a quantidade.');
+    
+    const qtyNum = quantidade === "" ? 0 : Number(quantidade);
+    if (quantidade === "" || isNaN(qtyNum) || qtyNum <= 0) {
+      setQuantidadeError(true);
+      showError('O valor da quantidade tem que ser maior que "0"');
+      return;
+    }
+
+    if (!customCodigo && !customDescricao) {
+      showError('Por favor, insira o código ou descrição da peça.');
       return;
     }
 
@@ -167,7 +178,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
       const itemData = {
         codigo_peca: customCodigo,
         descricao: customDescricao,
-        quantidade,
+        quantidade: qtyNum,
         af: af.trim() !== '' ? af : undefined,
       };
 
@@ -185,6 +196,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
       
       setSelectedPart(null);
       setQuantidade(1);
+      setQuantidadeError(false);
       setAf('');
       setEditedTags('');
       setSearchQuery('');
@@ -258,10 +270,21 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
                 id="quantidade"
                 type="number"
                 value={quantidade}
-                onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
-                min="1"
-                required
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    setQuantidade('');
+                  } else {
+                    const parsed = parseInt(val, 10);
+                    setQuantidade(isNaN(parsed) ? '' : parsed);
+                  }
+                  setQuantidadeError(false);
+                }}
+                className={cn(quantidadeError && "border-destructive focus-visible:ring-destructive")}
               />
+              {quantidadeError && (
+                <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
+              )}
             </div>
           </div>
           {selectedPart && (

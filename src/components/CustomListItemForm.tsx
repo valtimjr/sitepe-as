@@ -50,7 +50,8 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
   const [formItemName, setFormItemName] = useState('');
   const [formPartCode, setFormPartCode] = useState('');
   const [formDescription, setFormDescription] = useState('');
-  const [formQuantity, setFormQuantity] = useState(1);
+  const [formQuantity, setFormQuantity] = useState<number | "">(1);
+  const [formQuantityError, setFormQuantityError] = useState(false);
   const [formItensRelacionados, setFormItensRelacionados] = useState<RelatedPart[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,6 +90,7 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
     setFormPartCode('');
     setFormDescription('');
     setFormQuantity(1);
+    setFormQuantityError(false);
     setFormItensRelacionados([]);
     setSearchQuery('');
     setSearchResults([]);
@@ -132,6 +134,7 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
         setFormPartCode(editingItem.part_code || '');
         setFormDescription(editingItem.description || '');
         setFormQuantity(editingItem.quantity);
+        setFormQuantityError(false);
         setFormItensRelacionados(editingItem.itens_relacionados || []);
         
         if (editingItem.part_code) {
@@ -395,8 +398,10 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
     const trimmedDescription = formDescription.trim();
     const trimmedPartCode = formPartCode.trim();
 
-    if (formType === 'item' && formQuantity <= 0) {
-      showError('A quantidade deve ser maior que zero para itens de peça.');
+    const qtyNum = formQuantity === "" ? 0 : Number(formQuantity);
+    if (formType === 'item' && (formQuantity === "" || isNaN(qtyNum) || qtyNum <= 0)) {
+      setFormQuantityError(true);
+      showError('O valor da quantidade tem que ser maior que "0"');
       return;
     }
     
@@ -441,7 +446,7 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
         item_name: finalItemName,
         part_code: formType === 'item' ? trimmedPartCode || null : null,
         description: formType === 'item' ? trimmedDescription || null : null,
-        quantity: formType === 'item' ? formQuantity : 0,
+        quantity: formType === 'item' ? qtyNum : 0,
         order_index: editingItem ? editingItem.order_index : list.items_data?.length ?? 0,
         itens_relacionados: formType === 'item' ? formItensRelacionados : [],
         mangueira_data: undefined,
@@ -641,11 +646,21 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
                 id="quantity"
                 type="number"
                 value={formQuantity}
-                onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
-                min="1"
-                required
-                className="w-full"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    setFormQuantity('');
+                  } else {
+                    const parsed = parseInt(val, 10);
+                    setFormQuantity(isNaN(parsed) ? '' : parsed);
+                  }
+                  setFormQuantityError(false);
+                }}
+                className={cn("w-full", formQuantityError && "border-destructive focus-visible:ring-destructive")}
               />
+              {formQuantityError && (
+                <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
+              )}
             </div>
           </div>
           

@@ -14,6 +14,7 @@ import { ServiceOrderData } from '@/types/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCompany } from '@/context/CompanyContext';
+import { cn } from '@/lib/utils';
 
 interface ServiceOrderFormProps {
   initialData: ServiceOrderData | null;
@@ -38,7 +39,8 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
   // Novos estados para edição manual da peça antes de adicionar
   const [partCode, setPartCode] = useState('');
   const [partDescription, setPartDescription] = useState('');
-  const [partQuantity, setPartQuantity] = useState(1);
+  const [partQuantity, setPartQuantity] = useState<number | "">(1);
+  const [partQuantityError, setPartQuantityError] = useState(false);
   
   const [availableAfs, setAvailableAfs] = useState<Af[]>([]);
 
@@ -86,16 +88,24 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
       return;
     }
 
+    const qtyNum = partQuantity === "" ? 0 : Number(partQuantity);
+    if (partQuantity === "" || isNaN(qtyNum) || qtyNum <= 0) {
+      setPartQuantityError(true);
+      showError('O valor da quantidade tem que ser maior que "0"');
+      return;
+    }
+
     setParts(prev => [...prev, {
       codigo_peca: partCode.trim(),
       descricao: partDescription.trim(),
-      quantidade: partQuantity
+      quantidade: qtyNum
     }]);
 
     // Limpa os campos após adicionar
     setPartCode('');
     setPartDescription('');
     setPartQuantity(1);
+    setPartQuantityError(false);
     showSuccess('Peça adicionada à lista.');
   };
 
@@ -200,12 +210,24 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
             </div>
             <div className="sm:col-span-2 space-y-1">
               <Label className="text-xs">Qtd</Label>
-              <Input 
-                type="number" 
-                value={partQuantity} 
-                onChange={e => setPartQuantity(Number(e.target.value))} 
-                min={1} 
+              <Input
+                type="number"
+                value={partQuantity}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    setPartQuantity('');
+                  } else {
+                    const parsed = parseInt(val, 10);
+                    setPartQuantity(isNaN(parsed) ? '' : parsed);
+                  }
+                  setPartQuantityError(false);
+                }}
+                className={cn(partQuantityError && "border-destructive focus-visible:ring-destructive")}
               />
+              {partQuantityError && (
+                <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
+              )}
             </div>
             <div className="sm:col-span-1">
               <Button 

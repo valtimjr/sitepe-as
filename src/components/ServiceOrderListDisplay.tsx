@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from '@/context/CompanyContext';
+import { cn } from '@/lib/utils';
 
 interface ServiceOrderListDisplayProps {
   group: ServiceOrderData;
@@ -51,13 +52,15 @@ const ServiceOrderPartRow: React.FC<{
   const [isEditing, setIsEditing] = useState(false);
   const [editCode, setEditCode] = useState(part.codigo_peca);
   const [editDesc, setEditDesc] = useState(part.descricao);
-  const [editQty, setEditQty] = useState(part.quantidade);
+  const [editQty, setEditQty] = useState<number | "">(part.quantidade);
+  const [editQtyError, setEditQtyError] = useState(false);
 
   useEffect(() => {
     if (!isEditing) {
       setEditCode(part.codigo_peca);
       setEditDesc(part.descricao);
       setEditQty(part.quantidade);
+      setEditQtyError(false);
     }
   }, [part, isEditing]);
   
@@ -107,11 +110,17 @@ const ServiceOrderPartRow: React.FC<{
   }, [part.codigo_peca, company]);
 
   const handleSaveEdit = () => {
+    const qtyNum = editQty === "" ? 0 : Number(editQty);
+    if (editQty === "" || isNaN(qtyNum) || qtyNum <= 0) {
+      setEditQtyError(true);
+      return;
+    }
+
     if (onUpdate) {
       onUpdate(index, {
         codigo_peca: editCode,
         descricao: editDesc,
-        quantidade: editQty
+        quantidade: qtyNum
       });
     }
     setIsEditing(false);
@@ -121,6 +130,7 @@ const ServiceOrderPartRow: React.FC<{
     setEditCode(part.codigo_peca);
     setEditDesc(part.descricao);
     setEditQty(part.quantidade);
+    setEditQtyError(false);
     setIsEditing(false);
   };
 
@@ -149,13 +159,24 @@ const ServiceOrderPartRow: React.FC<{
            </div>
            <div className="space-y-1">
              <span className="text-xs font-medium text-muted-foreground md:hidden">Qtd</span>
-             <Input 
-                type="number" 
-                value={editQty} 
-                onChange={(e) => setEditQty(parseInt(e.target.value) || 1)} 
-                className="w-full md:w-20 h-9 text-sm text-center" 
-                min={1} 
-             />
+             <Input
+                type="number"
+                value={editQty}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    setEditQty('');
+                  } else {
+                    const parsed = parseInt(val, 10);
+                    setEditQty(isNaN(parsed) ? '' : parsed);
+                  }
+                  setEditQtyError(false);
+                }}
+                className={cn("w-full md:w-20 h-9 text-sm text-center", editQtyError && "border-destructive focus-visible:ring-destructive")}
+              />
+              {editQtyError && (
+                <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
+              )}
            </div>
            <div className="flex items-end justify-end gap-1 pt-1 md:pt-0">
               <Button size="sm" onClick={handleSaveEdit} className="h-9 w-9 p-0 bg-green-600 hover:bg-green-700">
@@ -262,11 +283,11 @@ const ServiceOrderPartRow: React.FC<{
   );
 };
 
-const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ 
-  group, 
-  onEdit, 
-  onDelete, 
-  onSave, 
+const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
+  group,
+  onEdit,
+  onDelete,
+  onSave,
   onAddPart,
   readOnly = false,
   additionalHeader
@@ -276,7 +297,8 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState<number | "">(1);
+  const [quantityError, setQuantityError] = useState(false);
   const [manualDescription, setManualDescription] = useState('');
   const [manualCode, setManualCode] = useState('');
 
@@ -310,10 +332,16 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
     if (!onSave) return;
     if (!manualDescription) return;
 
+    const qtyNum = quantity === "" ? 0 : Number(quantity);
+    if (quantity === "" || isNaN(qtyNum) || qtyNum <= 0) {
+      setQuantityError(true);
+      return;
+    }
+
     const newPart = {
       codigo_peca: manualCode,
       descricao: manualDescription,
-      quantidade: quantity
+      quantidade: qtyNum
     };
 
     const updatedGroup = {
@@ -328,6 +356,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
     setManualDescription('');
     setManualCode('');
     setQuantity(1);
+    setQuantityError(false);
   };
 
   const handleDeletePart = (index: number) => {
@@ -353,6 +382,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
         setManualDescription('');
         setManualCode('');
         setQuantity(1);
+        setQuantityError(false);
       }
     } else if (onAddPart) {
       onAddPart();
@@ -511,26 +541,39 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
                        )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3 relative z-40">
-                       <Input 
-                          placeholder="Código" 
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3 relative z-40 items-start">
+                       <Input
+                          placeholder="Código"
                           value={manualCode}
                           onChange={(e) => setManualCode(e.target.value)}
                           className="font-mono text-sm"
                        />
-                       <Input 
-                          placeholder="Descrição" 
+                       <Input
+                          placeholder="Descrição"
                           value={manualDescription}
                           onChange={(e) => setManualDescription(e.target.value)}
                           className="text-sm"
                        />
-                       <Input
-                          type="number"
-                          min="1"
-                          value={quantity}
-                          onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                          className="w-20 text-center"
-                       />
+                       <div className="flex flex-col gap-1 w-full md:w-20">
+                         <Input
+                            type="number"
+                            value={quantity}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                setQuantity('');
+                              } else {
+                                const parsed = parseInt(val, 10);
+                                setQuantity(isNaN(parsed) ? '' : parsed);
+                              }
+                              setQuantityError(false);
+                            }}
+                            className={cn("w-full text-center", quantityError && "border-destructive focus-visible:ring-destructive")}
+                         />
+                         {quantityError && (
+                           <p className="text-[10px] text-destructive text-center mt-1">O valor tem que ser maior que "0"</p>
+                         )}
+                       </div>
                        <Button onClick={handleAddPartConfirm} disabled={!manualDescription}>
                           <Check className="h-4 w-4 mr-2" /> Salvar
                        </Button>
