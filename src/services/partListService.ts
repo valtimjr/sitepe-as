@@ -441,3 +441,109 @@ export const deleteApontamentosByMonth = async (userId: string, monthYear: strin
 export const getLocalMonthlyApontamentoService = async (userId: string, monthYear: string, company: CompanyType) => {
   return getLocalMonthlyApontamento(userId, monthYear, company);
 };
+
+// --- Favorite Parts ---
+
+export const getFavoriteParts = async (userId: string | undefined, company: CompanyType): Promise<Part[]> => {
+  try {
+    let codes: string[] = [];
+    if (userId) {
+      const { data, error } = await supabase
+        .from('user_favorite_parts')
+        .select('part_code')
+        .eq('user_id', userId)
+        .eq('company', company);
+        
+      if (error) {
+        console.error('Error fetching favorites from database, falling back to localStorage:', error);
+        const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_${userId}`);
+        codes = cached ? JSON.parse(cached) : [];
+      } else {
+        codes = data ? data.map(item => item.part_code) : [];
+        // cache in localStorage
+        localStorage.setItem(`autoboard_favorite_parts_${company}_${userId}`, JSON.stringify(codes));
+      }
+    } else {
+      const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_guest`);
+      codes = cached ? JSON.parse(cached) : [];
+    }
+    
+    if (codes.length === 0) return [];
+    
+    const tableName = getPartsTable(company);
+    const { data: partsData, error: partsError } = await supabase
+      .from(tableName)
+      .select('*')
+      .in('codigo', codes);
+      
+    if (partsError || !partsData) {
+      const localParts = await getParts(company);
+      return localParts.filter(p => codes.includes(p.codigo));
+    }
+    
+    return partsData as Part[];
+  } catch (err) {
+    console.error('Error in getFavoriteParts:', err);
+    return [];
+  }
+};
+
+export const addFavoritePart = async (userId: string | undefined, company: CompanyType, partCode: string): Promise<void> => {
+  try {
+    if (userId) {
+      const { error } = await supabase
+        .from('user_favorite_parts')
+        .insert({
+          user_id: userId,
+          company,
+          part_code: partCode
+        });
+      if (error && error.code !== '23505') {
+        throw error;
+      }
+      
+      const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_${userId}`);
+      const codes = cached ? JSON.parse(cached) : [];
+      if (!codes.includes(partCode)) {
+        codes.push(partCode);
+        localStorage.setItem(`autoboard_favorite_parts_${company}_${userId}`, JSON.stringify(codes));
+      }
+    } else {
+      const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_guest`);
+      const codes = cached ? JSON.parse(cached) : [];
+      if (!codes.includes(partCode)) {
+        codes.push(partCode);
+        localStorage.setItem(`autoboard_favorite_parts_${company}_guest`, JSON.stringify(codes));
+      }
+    }
+  } catch (err) {
+    console.error('Error in addFavoritePart:', err);
+  }
+};
+
+export const removeFavoritePart = async (userId: string | undefined, company: CompanyType, partCode: string): Promise<void> => {
+  try {
+    if (userId) {
+      const { error } = await supabase
+        .from('user_favorite_parts')
+        .delete()
+        .eq('user_id', userId)
+        .eq('company', company)
+        .eq('part_code', partCode);
+      if (error) throw error;
+      
+      const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_${userId}`);
+      let codes = cached ? JSON.parse(cached) : [];
+      codes = codes.filter((c: string) => c !== partCode);
+      localStorage.setItem(`autoboard_favorite_parts_${company}_${userId}`, JSON.stringify(codes));
+    } else {
+      const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_guest`);
+      let codes = cached ? JSON.parse(cached) : [];
+      codes = codes.filter((c: string) => c !== partCode);
+      localStorage.setItem(`autoboard_favorite_parts_${company}_guest`, JSON.stringify(codes));
+    }
+  } catch (err) {
+    console.error('Error in removeFavoritePart:', err);
+  }
+};
+
