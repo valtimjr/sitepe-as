@@ -95,26 +95,6 @@ const Index = () => {
           </div>
         </Card>
 
-        {/* 2. Pesquisar Peças */}
-        <Card className="text-center animated-card">
-          <div className="card-content-wrapper h-full flex flex-col">
-            <CardHeader>
-              <CardTitle className="text-2xl flex items-center justify-center gap-2">
-                <Search className="h-6 w-6" /> Pesquisar Peças
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 flex flex-col pt-0">
-              <CardImage src="6.png" alt="Pesquisar Peças" />
-              <p className="mb-6 text-muted-foreground flex-1">
-                Encontre rapidamente qualquer peça automotiva por código ou descrição.
-              </p>
-              <Link to={`/${company}/search-parts`}>
-                <Button className="w-full">Ir para Pesquisa</Button>
-              </Link>
-            </CardContent>
-          </div>
-        </Card>
-
         {/* 3. Catálogo de Peças - Agora sempre visível */}
         <Card className="text-center animated-card">
           <div className="card-content-wrapper h-full flex flex-col">
