@@ -75,6 +75,24 @@
 
   body {
     @apply bg-background text-foreground font-sans;
+    background-image: url('/background.webp');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+
+  .dark body {
+    background-image: linear-gradient(rgba(10, 10, 12, 0.9), rgba(10, 10, 12, 0.9)), url('/background.webp');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+
+  div.min-h-screen {
+    background-color: transparent !important;
+    background-image: none !important;
   }
 
   h1, h2, h3, h4, h5, h6 {
