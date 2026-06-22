@@ -18,7 +18,7 @@ import { useSession } from '@/components/SessionContextProvider';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from '@/lib/utils';
+import { cn, getOperationalDate } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -42,7 +42,7 @@ const ServiceOrderList: React.FC = () => {
   const isMobile = useIsMobile();
   const { company, branding } = useCompany();
   
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(getOperationalDate(new Date()));
   const [osList, setOsList] = useState<ServiceOrderData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);

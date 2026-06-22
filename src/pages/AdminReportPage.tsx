@@ -45,7 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
+import { cn, getOperationalDate } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRange } from "react-day-picker";
 import { supabase } from '@/integrations/supabase/client';
@@ -132,10 +132,10 @@ const AdminReportPage = () => {
   const navigate = useNavigate();
 
   const [dateMode, setDateMode] = useState<'single' | 'range'>('single');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(getOperationalDate(new Date()));
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfMonth(new Date()),
-    to: new Date(),
+    from: startOfMonth(getOperationalDate(new Date())),
+    to: getOperationalDate(new Date()),
   });
   
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
@@ -214,8 +214,8 @@ const AdminReportPage = () => {
           start = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
           end = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
         } else {
-          start = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : format(startOfMonth(new Date()), 'yyyy-MM-dd');
-          end = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+          start = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : format(startOfMonth(getOperationalDate(new Date())), 'yyyy-MM-dd');
+          end = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : format(getOperationalDate(new Date()), 'yyyy-MM-dd');
         }
 
         const { data: records } = await supabase
@@ -327,7 +327,7 @@ const AdminReportPage = () => {
 
   const monthlyChartData = useMemo(() => {
     const daysMap = new Map<string, number>();
-    const interval = dateMode === 'single' ? { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) } : { start: dateRange?.from || new Date(), end: dateRange?.to || new Date() };
+    const interval = dateMode === 'single' ? { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) } : { start: dateRange?.from || getOperationalDate(new Date()), end: dateRange?.to || getOperationalDate(new Date()) };
     eachDayOfInterval(interval).forEach(day => daysMap.set(format(day, 'yyyy-MM-dd'), 0));
 
     allData.filter(r => matchesFilters(r)).forEach(record => {
@@ -431,7 +431,7 @@ const AdminReportPage = () => {
       doc.setTextColor(100, 100, 100);
       doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 40, yPos);
       yPos += 15;
-      const periodStr = dateMode === 'single' ? format(selectedDate, 'dd/MM/yyyy') : `${format(dateRange?.from || new Date(), 'dd/MM/yyyy')} a ${format(dateRange?.to || new Date(), 'dd/MM/yyyy')}`;
+      const periodStr = dateMode === 'single' ? format(selectedDate, 'dd/MM/yyyy') : `${format(dateRange?.from || getOperationalDate(new Date()), 'dd/MM/yyyy')} a ${format(dateRange?.to || getOperationalDate(new Date()), 'dd/MM/yyyy')}`;
       doc.text(`Período: ${periodStr}`, 40, yPos);
       yPos += 15;
       doc.text(`Total Geral de OS: ${filteredOSList.length}`, 40, yPos);
