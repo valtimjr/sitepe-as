@@ -22,9 +22,10 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { getFrequentPartsForProfession, Part } from '@/services/partListService';
 
-type AttributeItem = { id: string; name: string; ref_code: number };
+type AttributeItem = { id: string; name: string; ref_code: number; entry_time?: string | null; exit_time?: string | null };
 
 export default function UserAttributesManager() {
   const { company } = useCompany();
@@ -36,6 +37,8 @@ export default function UserAttributesManager() {
   
   const [newShift, setNewShift] = useState('');
   const [newShiftCode, setNewShiftCode] = useState('');
+  const [newShiftEntry, setNewShiftEntry] = useState('');
+  const [newShiftExit, setNewShiftExit] = useState('');
   
   const [editingProfession, setEditingProfession] = useState<string | null>(null);
   const [editProfessionValue, setEditProfessionValue] = useState('');
@@ -44,6 +47,8 @@ export default function UserAttributesManager() {
   const [editingShift, setEditingShift] = useState<string | null>(null);
   const [editShiftValue, setEditShiftValue] = useState('');
   const [editShiftCodeValue, setEditShiftCodeValue] = useState('');
+  const [editShiftEntryValue, setEditShiftEntryValue] = useState('');
+  const [editShiftExitValue, setEditShiftExitValue] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -64,7 +69,7 @@ export default function UserAttributesManager() {
     try {
       const [profRes, shiftRes] = await Promise.all([
         supabase.from('professions').select('id, name, ref_code').eq('company', company).order('name'),
-        supabase.from('shifts').select('id, name, ref_code').eq('company', company).order('name')
+        supabase.from('shifts').select('id, name, ref_code, entry_time, exit_time').eq('company', company).order('name')
       ]);
 
       if (profRes.error) throw profRes.error;
@@ -178,11 +183,23 @@ export default function UserAttributesManager() {
     setSaving(true);
     try {
       const code = parseInt(newShiftCode);
-      const { data, error } = await supabase.from('shifts').insert({ name: trimmed, ref_code: code, company }).select('id, name, ref_code').single();
+      const { data, error } = await supabase
+        .from('shifts')
+        .insert({
+          name: trimmed,
+          ref_code: code,
+          company,
+          entry_time: newShiftEntry || null,
+          exit_time: newShiftExit || null
+        })
+        .select('id, name, ref_code, entry_time, exit_time')
+        .single();
       if (error) throw error;
       setShifts(prev => [...prev, data as AttributeItem].sort((a, b) => a.name.localeCompare(b.name)));
       setNewShift('');
       setNewShiftCode('');
+      setNewShiftEntry('');
+      setNewShiftExit('');
       showSuccess('Turno adicionado com sucesso!');
     } catch (err: any) {
       console.error(err);
@@ -205,12 +222,23 @@ export default function UserAttributesManager() {
     try {
       const { error: updateError } = await supabase
         .from('shifts')
-        .update({ name: trimmed, ref_code: code })
+        .update({
+          name: trimmed,
+          ref_code: code,
+          entry_time: editShiftEntryValue || null,
+          exit_time: editShiftExitValue || null
+        })
         .eq('id', id);
         
       if (updateError) throw updateError;
 
-      setShifts(prev => prev.map(s => s.id === id ? { ...s, name: trimmed, ref_code: code } : s).sort((a, b) => a.name.localeCompare(b.name)));
+      setShifts(prev => prev.map(s => s.id === id ? {
+        ...s,
+        name: trimmed,
+        ref_code: code,
+        entry_time: editShiftEntryValue || null,
+        exit_time: editShiftExitValue || null
+      } : s).sort((a, b) => a.name.localeCompare(b.name)));
       setEditingShift(null);
       showSuccess('Turno atualizado com sucesso!');
     } catch (err: any) {
@@ -475,56 +503,99 @@ export default function UserAttributesManager() {
             <CardTitle>Turnos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2 mb-4">
-              <Input 
-                placeholder="Cód *" 
-                value={newShiftCode} 
-                onChange={e => setNewShiftCode(e.target.value)}
-                className="w-24"
-                type="number"
-                disabled={saving}
-              />
-              <Input 
-                placeholder="Novo turno..." 
-                value={newShift} 
-                onChange={e => setNewShift(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAddShift()}
-                disabled={saving}
-              />
-              <Button onClick={handleAddShift} disabled={saving || !newShift.trim() || !newShiftCode}>
-                <Plus className="h-4 w-4" />
-              </Button>
+            <div className="flex flex-col gap-2 mb-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Cód *"
+                  value={newShiftCode}
+                  onChange={e => setNewShiftCode(e.target.value)}
+                  className="w-24"
+                  type="number"
+                  disabled={saving}
+                />
+                <Input
+                  placeholder="Novo turno..."
+                  value={newShift}
+                  onChange={e => setNewShift(e.target.value)}
+                  disabled={saving}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  type="time"
+                  placeholder="Entrada"
+                  value={newShiftEntry}
+                  onChange={e => setNewShiftEntry(e.target.value)}
+                  disabled={saving}
+                  className="flex-1 h-9"
+                  title="Horário de Entrada"
+                />
+                <Input
+                  type="time"
+                  placeholder="Saída"
+                  value={newShiftExit}
+                  onChange={e => setNewShiftExit(e.target.value)}
+                  disabled={saving}
+                  className="flex-1 h-9"
+                  title="Horário de Saída"
+                />
+                <Button onClick={handleAddShift} disabled={saving || !newShift.trim() || !newShiftCode}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <ul className="space-y-2">
               {shifts.map(shift => (
-                <li key={shift.id} className="flex justify-between items-center bg-muted/50 p-2 rounded h-12">
+                <li
+                  key={shift.id}
+                  className={cn(
+                    "flex justify-between items-center bg-muted/50 p-2 rounded transition-all",
+                    editingShift === shift.id ? "min-h-[8rem] py-3" : "h-12"
+                  )}
+                >
                   {editingShift === shift.id ? (
-                    <div className="flex items-center gap-2 w-full">
-                      <Input 
-                        placeholder="Cód"
-                        type="number"
-                        value={editShiftCodeValue}
-                        onChange={e => setEditShiftCodeValue(e.target.value)}
-                        className="h-8 w-16 px-2"
-                        disabled={saving}
-                      />
-                      <Input 
-                        value={editShiftValue}
-                        onChange={e => setEditShiftValue(e.target.value)}
-                        className="h-8 flex-1"
-                        autoFocus
-                        disabled={saving}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') handleEditShift(shift.id);
-                          if (e.key === 'Escape') setEditingShift(null);
-                        }}
-                      />
-                      <Button size="sm" variant="ghost" onClick={() => handleEditShift(shift.id)} disabled={saving}>
-                        <Check className="h-4 w-4 text-green-600" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditingShift(null)} disabled={saving}>
-                        <X className="h-4 w-4 text-red-600" />
-                      </Button>
+                    <div className="flex flex-col gap-2 w-full">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Cód"
+                          type="number"
+                          value={editShiftCodeValue}
+                          onChange={e => setEditShiftCodeValue(e.target.value)}
+                          className="h-8 w-16 px-2"
+                          disabled={saving}
+                        />
+                        <Input
+                          value={editShiftValue}
+                          onChange={e => setEditShiftValue(e.target.value)}
+                          className="h-8 flex-1"
+                          autoFocus
+                          disabled={saving}
+                        />
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          type="time"
+                          value={editShiftEntryValue}
+                          onChange={e => setEditShiftEntryValue(e.target.value)}
+                          className="h-8 flex-1"
+                          disabled={saving}
+                        />
+                        <Input
+                          type="time"
+                          value={editShiftExitValue}
+                          onChange={e => setEditShiftExitValue(e.target.value)}
+                          className="h-8 flex-1"
+                          disabled={saving}
+                        />
+                        <div className="flex gap-1 shrink-0">
+                          <Button size="sm" variant="ghost" onClick={() => handleEditShift(shift.id)} disabled={saving} className="h-8 w-8 p-0">
+                            <Check className="h-4 w-4 text-green-600" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingShift(null)} disabled={saving} className="h-8 w-8 p-0">
+                            <X className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -534,17 +605,24 @@ export default function UserAttributesManager() {
                             {shift.ref_code}
                           </span>
                         )}
-                        <span className="truncate pr-2">{shift.name}</span>
+                        <span className="truncate pr-2 font-medium">{shift.name}</span>
+                        {(shift.entry_time || shift.exit_time) && (
+                          <span className="text-[11px] text-muted-foreground bg-background/50 px-2 py-0.5 rounded">
+                            {shift.entry_time || '--:--'} - {shift.exit_time || '--:--'}
+                          </span>
+                        )}
                       </div>
                       <div className="flex gap-1 shrink-0">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => { 
-                            setEditingShift(shift.id); 
-                            setEditShiftValue(shift.name); 
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingShift(shift.id);
+                            setEditShiftValue(shift.name);
                             setEditShiftCodeValue(shift.ref_code ? shift.ref_code.toString() : '');
-                          }} 
+                            setEditShiftEntryValue(shift.entry_time || '');
+                            setEditShiftExitValue(shift.exit_time || '');
+                          }}
                           disabled={saving}
                         >
                           <Edit2 className="h-4 w-4 text-blue-600" />

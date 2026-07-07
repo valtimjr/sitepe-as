@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Checkbox } from '@/components/ui/checkbox';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays, FileDown, Syringe, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Copy, Download, Trash2, Save, Loader2, MoreHorizontal, Clock3, X, CheckCircle, XCircle, Ban, Info, CalendarCheck, Eraser, CalendarDays, FileDown, Syringe, ChevronLeft, Plus } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Apontamento, getApontamentos, updateApontamento, deleteApontamento, deleteApontamentosByMonth, syncMonthlyApontamentoToSupabase, getLocalMonthlyApontamentoService } from '@/services/partListService'; // Importar getLocalMonthlyApontamentoService e syncMonthlyApontamentoToSupabase
@@ -21,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { ALL_TURNS, generateMonthlyApontamentos, ShiftTurn } from '@/services/shiftService';
+import { ALL_TURNS, generateMonthlyApontamentos, ShiftTurn, getShiftSchedule } from '@/services/shiftService';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
@@ -88,6 +90,13 @@ const TimeTrackingPage: React.FC = () => {
   const [dayForOtherStatus, setDayForOtherStatus] = useState<Date | null>(null);
   const [selectedTurn, setSelectedTurn] = useState<ShiftTurn | undefined>(undefined);
   const [isGeneratingSchedule, setIsGeneratingSchedule] = useState(false);
+  
+  // Preferência de preenchimento automático
+  const [autoFillChecked, setAutoFillChecked] = useState(false);
+  const [isSavingAutoFill, setIsSavingAutoFill] = useState(false);
+  
+  // Dados do turno do usuário logado
+  const [userShift, setUserShift] = useState<any>(null);
 
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
@@ -96,6 +105,33 @@ const TimeTrackingPage: React.FC = () => {
   }, [branding.name]);
 
   const userId = user?.id;
+
+  // Carregar preferência e turno do usuário logado
+  useEffect(() => {
+    if (profile) {
+      setAutoFillChecked(profile.auto_fill_timesheet || false);
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    const fetchUserShift = async () => {
+      if (!profile?.shift_code) return;
+      try {
+        const { data, error } = await supabase
+          .from('shifts')
+          .select('id, name, ref_code, entry_time, exit_time')
+          .eq('ref_code', profile.shift_code)
+          .eq('company', company)
+          .maybeSingle();
+        if (!error && data) {
+          setUserShift(data);
+        }
+      } catch (err) {
+        console.error('Error fetching user shift:', err);
+      }
+    };
+    fetchUserShift();
+  }, [profile?.shift_code, company]);
 
   useEffect(() => {
     const savedTurn = localStorage.getItem('selectedShiftTurn') as ShiftTurn;
@@ -138,6 +174,112 @@ const TimeTrackingPage: React.FC = () => {
       const filtered = prev.filter(a => a.date !== updated.date); // Filtrar por date
       return [...filtered, updated];
     });
+  };
+
+  const handleAutoFillChange = async (checked: boolean) => {
+    if (!userId) {
+      showError('Faça login para salvar suas preferências.');
+      return;
+    }
+    setAutoFillChecked(checked);
+    setIsSavingAutoFill(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ auto_fill_timesheet: checked })
+        .eq('id', userId);
+      if (error) throw error;
+      showSuccess(`Preenchimento automático ${checked ? 'ativado' : 'desativado'}.`);
+    } catch (error) {
+      setAutoFillChecked(!checked); // revert
+      showError('Erro ao atualizar preferência.');
+    } finally {
+      setIsSavingAutoFill(false);
+    }
+  };
+
+  const getScheduleForDay = (day: Date, shift: any): { entry?: string; exit?: string; status?: string } => {
+    if (!shift) return {};
+    
+    // Se for Turno A, B ou C
+    if (['Turno A', 'Turno B', 'Turno C'].includes(shift.name)) {
+      const schedule = getShiftSchedule(day, shift.name);
+      return {
+        entry: schedule.entry,
+        exit: schedule.exit,
+        status: schedule.status
+      };
+    }
+    
+    // Se for um turno com horários personalizados no banco de dados
+    if (shift.entry_time && shift.exit_time) {
+      const dayOfWeek = getDay(day);
+      if (dayOfWeek === 0) { // Domingo é Folga por padrão para turnos fixos normais
+        return { status: 'Folga' };
+      }
+      return {
+        entry: shift.entry_time,
+        exit: shift.exit_time
+      };
+    }
+    
+    // Fallback usando getShiftSchedule se o nome for conhecido
+    const schedule = getShiftSchedule(day, shift.name);
+    return {
+      entry: schedule.entry,
+      exit: schedule.exit,
+      status: schedule.status
+    };
+  };
+
+  const handleFillDayFromShift = async (day: Date) => {
+    if (!userId) {
+      showError('Faça login para preencher horários.');
+      return;
+    }
+
+    if (!profile?.shift_code) {
+      showError('Nenhum turno selecionado no seu perfil. Configure seu turno nas Configurações de Usuário.');
+      return;
+    }
+
+    if (!userShift) {
+      showError('Carregando informações do seu turno. Por favor, tente novamente em instantes.');
+      return;
+    }
+
+    const schedule = getScheduleForDay(day, userShift);
+    const dateString = format(day, 'yyyy-MM-dd');
+    const existing = getApontamentoForDay(day);
+
+    // Se já tiver horários ou status preenchido, pedir confirmação antes de sobrescrever
+    const hasExistingData = existing && (existing.entry_time || existing.exit_time || existing.status);
+    if (hasExistingData) {
+      const confirmOverwrite = window.confirm(
+        `Já existem dados preenchidos no dia ${format(day, 'dd/MM')}. Deseja sobrescrever com o horário do seu turno?`
+      );
+      if (!confirmOverwrite) return;
+    }
+
+    setIsSaving(true);
+    try {
+      const monthYear = format(day, 'yyyy-MM');
+      const updatedApontamento: Apontamento = {
+        date: dateString,
+        entry_time: schedule.entry,
+        exit_time: schedule.exit,
+        status: schedule.status,
+        created_at: existing?.created_at || new Date().toISOString()
+      };
+
+      await updateApontamento(userId, monthYear, updatedApontamento, company);
+      updateApontamentoState(updatedApontamento);
+      showSuccess(`Horário preenchido para o dia ${format(day, 'dd/MM')}.`);
+    } catch (error) {
+      showError('Erro ao preencher horário.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteApontamento = useCallback(async (dailyApontamentoDate: string, day: Date) => {
@@ -490,6 +632,22 @@ const TimeTrackingPage: React.FC = () => {
             <p className="text-lg font-semibold text-foreground/70 mt-1">
               {employeeHeader}
             </p>
+            {userId && (
+              <div className="flex items-center space-x-2 mt-3 bg-primary/5 px-3 py-1.5 rounded-lg border border-primary/10 w-fit">
+                <Checkbox
+                  id="auto-fill"
+                  checked={autoFillChecked}
+                  onCheckedChange={(checked) => handleAutoFillChange(!!checked)}
+                  disabled={isSavingAutoFill}
+                />
+                <label
+                  htmlFor="auto-fill"
+                  className="text-sm font-semibold peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer text-primary"
+                >
+                  Preencher automaticamente
+                </label>
+              </div>
+            )}
           </div>
           <a href="https://escala.eletricarpm.com.br" target="_blank" rel="noopener noreferrer">
             <Tooltip>
@@ -704,6 +862,19 @@ const TimeTrackingPage: React.FC = () => {
 
                         <TableCell className="text-right">
                           <div className="flex justify-end items-center gap-1">
+                            {userId && profile?.shift_code && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleFillDayFromShift(day)}
+                                disabled={isSaving}
+                                title="Preencher com Horário do Turno"
+                                className="text-primary hover:bg-primary/10 h-8 w-8"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            )}
+
                             {hasStatus ? (
                               <Button
                                 variant="ghost"

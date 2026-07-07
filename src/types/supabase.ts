@@ -17,6 +17,7 @@ export interface UserProfile {
   profession_code: number | null;
   shift_code: number | null;
   suggest_parts?: boolean | null;
+  auto_fill_timesheet?: boolean | null;
 }
 
 export interface RelatedPart {
