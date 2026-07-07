@@ -450,16 +450,17 @@ export const getFavoriteParts = async (userId: string | undefined, company: Comp
     if (userId) {
       const { data, error } = await supabase
         .from('user_favorite_parts')
-        .select('part_code')
+        .select('part_codes')
         .eq('user_id', userId)
-        .eq('company', company);
+        .eq('company', company)
+        .maybeSingle();
         
       if (error) {
         console.error('Error fetching favorites from database, falling back to localStorage:', error);
         const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_${userId}`);
         codes = cached ? JSON.parse(cached) : [];
       } else {
-        codes = data ? data.map(item => item.part_code) : [];
+        codes = data?.part_codes ? (data.part_codes as string[]) : [];
         // cache in localStorage
         localStorage.setItem(`autoboard_favorite_parts_${company}_${userId}`, JSON.stringify(codes));
       }
@@ -491,15 +492,29 @@ export const getFavoriteParts = async (userId: string | undefined, company: Comp
 export const addFavoritePart = async (userId: string | undefined, company: CompanyType, partCode: string): Promise<void> => {
   try {
     if (userId) {
-      const { error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('user_favorite_parts')
-        .insert({
-          user_id: userId,
-          company,
-          part_code: partCode
-        });
-      if (error && error.code !== '23505') {
-        throw error;
+        .select('part_codes')
+        .eq('user_id', userId)
+        .eq('company', company)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      let currentCodes: string[] = data?.part_codes ? (data.part_codes as string[]) : [];
+      if (!currentCodes.includes(partCode)) {
+        currentCodes.push(partCode);
+        
+        const { error: upsertError } = await supabase
+          .from('user_favorite_parts')
+          .upsert({
+            user_id: userId,
+            company,
+            part_codes: currentCodes,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id,company' });
+
+        if (upsertError) throw upsertError;
       }
       
       const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_${userId}`);
@@ -524,13 +539,30 @@ export const addFavoritePart = async (userId: string | undefined, company: Compa
 export const removeFavoritePart = async (userId: string | undefined, company: CompanyType, partCode: string): Promise<void> => {
   try {
     if (userId) {
-      const { error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('user_favorite_parts')
-        .delete()
+        .select('part_codes')
         .eq('user_id', userId)
         .eq('company', company)
-        .eq('part_code', partCode);
-      if (error) throw error;
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      let currentCodes: string[] = data?.part_codes ? (data.part_codes as string[]) : [];
+      if (currentCodes.includes(partCode)) {
+        currentCodes = currentCodes.filter((c: string) => c !== partCode);
+        
+        const { error: upsertError } = await supabase
+          .from('user_favorite_parts')
+          .upsert({
+            user_id: userId,
+            company,
+            part_codes: currentCodes,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id,company' });
+
+        if (upsertError) throw upsertError;
+      }
       
       const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_${userId}`);
       let codes = cached ? JSON.parse(cached) : [];
