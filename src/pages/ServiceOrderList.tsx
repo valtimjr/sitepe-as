@@ -60,6 +60,26 @@ const ServiceOrderList: React.FC = () => {
     document.title = `Ordens de Serviço - AutoBoard (${branding.name})`;
   }, [branding.name]);
 
+  // Atualização automática do dia operacional caso mude no relógio do sistema (ex: ao bater 07:00 AM)
+  useEffect(() => {
+    let prevNowOp = getOperationalDate(new Date());
+
+    const interval = setInterval(() => {
+      const currentNowOp = getOperationalDate(new Date());
+      if (currentNowOp.toDateString() !== prevNowOp.toDateString()) {
+        setSelectedDate(prevSelected => {
+          if (prevSelected.toDateString() === prevNowOp.toDateString()) {
+            return currentNowOp;
+          }
+          return prevSelected;
+        });
+        prevNowOp = currentNowOp;
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const loadDailyOrders = useCallback(async () => {
     setIsLoading(true);
     try {

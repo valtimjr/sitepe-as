@@ -17,5 +17,6 @@ export function getOperationalDate(date: Date = new Date()): Date {
   if (hour < 7) {
     operationalDate.setDate(operationalDate.getDate() - 1);
   }
+  operationalDate.setHours(12, 0, 0, 0);
   return operationalDate;
 }
