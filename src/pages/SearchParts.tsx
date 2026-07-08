@@ -3,16 +3,136 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Part, searchParts as searchPartsService } from '@/services/partListService';
+import { Part, searchParts as searchPartsService, addSimplePartItem } from '@/services/partListService';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Search, Tag } from 'lucide-react';
+import { ArrowLeft, Search, Tag, Plus } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import RelatedPartDisplay from '@/components/RelatedPartDisplay'; // Importado o novo componente
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useCompany } from '@/context/CompanyContext';
+import { showSuccess, showError } from '@/utils/toast';
+
+interface AddPartPopoverProps {
+  part: { codigo: string; descricao: string };
+  company: any;
+}
+
+const AddPartPopover: React.FC<AddPartPopoverProps> = ({ part, company }) => {
+  const [quantidade, setQuantidade] = useState<number>(1);
+  const [af, setAf] = useState<string>('');
+  const [isOpen, setIsOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (quantidade <= 0) {
+      showError('A quantidade deve ser maior que zero.');
+      return;
+    }
+    
+    setIsAdding(true);
+    try {
+      await addSimplePartItem({
+        codigo_peca: part.codigo,
+        descricao: part.descricao,
+        quantidade,
+        af: af.trim() || undefined
+      }, company);
+      showSuccess(`Peça ${part.codigo} adicionada à sua lista!`);
+      setIsOpen(false);
+      setQuantidade(1);
+      setAf('');
+    } catch (err) {
+      showError('Erro ao adicionar peça.');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-primary hover:bg-primary/10"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+          title="Adicionar rápido à lista"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-72 p-4"
+        align="start"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <form onSubmit={handleAdd} className="space-y-3">
+          <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1 text-left">
+            Adicionar à Minha Lista
+          </div>
+          <div className="text-xs text-muted-foreground font-semibold truncate text-left">
+            {part.codigo} - {part.descricao}
+          </div>
+          
+          <div className="space-y-1 text-left">
+            <Label htmlFor={`qty-page-${part.codigo}`} className="text-[10px] font-semibold uppercase">Quantidade</Label>
+            <Input
+              id={`qty-page-${part.codigo}`}
+              type="number"
+              min="1"
+              value={quantidade}
+              onChange={(e) => setQuantidade(Math.max(1, parseInt(e.target.value) || 1))}
+              required
+              className="h-8 text-xs"
+            />
+          </div>
+          
+          <div className="space-y-1 text-left">
+            <Label htmlFor={`af-page-${part.codigo}`} className="text-[10px] font-semibold uppercase">AF / Frota (Opcional)</Label>
+            <Input
+              id={`af-page-${part.codigo}`}
+              type="text"
+              placeholder="Ex: AF42"
+              value={af}
+              onChange={(e) => setAf(e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
+          
+          <div className="flex gap-2 justify-end pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs px-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(false);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-7 text-xs px-2"
+              disabled={isAdding}
+            >
+              {isAdding ? 'Adicionando...' : 'Adicionar'}
+            </Button>
+          </div>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const SearchParts = () => {
   const [searchParams] = useSearchParams();
@@ -86,6 +206,7 @@ const SearchParts = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[50px]"></TableHead>
                       <TableHead>Código</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead>Descrição</TableHead>
@@ -96,6 +217,9 @@ const SearchParts = () => {
                   <TableBody>
                     {displayedParts.map((part) => (
                       <TableRow key={part.id}>
+                        <TableCell className="w-[50px] text-center">
+                          <AddPartPopover part={part} company={company} />
+                        </TableCell>
                         <TableCell className="font-medium">{part.codigo}</TableCell>
                         <TableCell>{part.name || 'N/A'}</TableCell>
                         <TableCell>{part.descricao}</TableCell>

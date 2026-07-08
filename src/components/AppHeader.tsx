@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal, Loader2, Wifi, WifiOff } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal, Loader2, Wifi, WifiOff, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
@@ -24,8 +27,127 @@ import {
 import { getMenuStructure } from '@/services/customListService';
 import { MenuItem, Part } from '@/types/supabase';
 import { useCompany } from '@/context/CompanyContext';
-import { searchParts } from '@/services/partListService';
+import { searchParts, addSimplePartItem } from '@/services/partListService';
 import LoginModal from './LoginModal';
+
+interface AddPartPopoverProps {
+  part: { codigo: string; descricao: string };
+  company: any;
+}
+
+const AddPartPopover: React.FC<AddPartPopoverProps> = ({ part, company }) => {
+  const [quantidade, setQuantidade] = useState<number>(1);
+  const [af, setAf] = useState<string>('');
+  const [isOpen, setIsOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (quantidade <= 0) {
+      showError('A quantidade deve ser maior que zero.');
+      return;
+    }
+    
+    setIsAdding(true);
+    try {
+      await addSimplePartItem({
+        codigo_peca: part.codigo,
+        descricao: part.descricao,
+        quantidade,
+        af: af.trim() || undefined
+      }, company);
+      showSuccess(`Peça ${part.codigo} adicionada à sua lista!`);
+      setIsOpen(false);
+      setQuantidade(1);
+      setAf('');
+    } catch (err) {
+      showError('Erro ao adicionar peça.');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-primary hover:bg-primary/10 shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+          title="Adicionar rápido à lista"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-72 p-4 z-[200]"
+        align="end"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <form onSubmit={handleAdd} className="space-y-3">
+          <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">
+            Adicionar à Minha Lista
+          </div>
+          <div className="text-xs text-muted-foreground font-semibold truncate">
+            {part.codigo} - {part.descricao}
+          </div>
+          
+          <div className="space-y-1 text-left">
+            <Label htmlFor={`qty-${part.codigo}`} className="text-[10px] font-semibold uppercase">Quantidade</Label>
+            <Input
+              id={`qty-${part.codigo}`}
+              type="number"
+              min="1"
+              value={quantidade}
+              onChange={(e) => setQuantidade(Math.max(1, parseInt(e.target.value) || 1))}
+              required
+              className="h-8 text-xs"
+            />
+          </div>
+          
+          <div className="space-y-1 text-left">
+            <Label htmlFor={`af-${part.codigo}`} className="text-[10px] font-semibold uppercase">AF / Frota (Opcional)</Label>
+            <Input
+              id={`af-${part.codigo}`}
+              type="text"
+              placeholder="Ex: AF42"
+              value={af}
+              onChange={(e) => setAf(e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
+          
+          <div className="flex gap-2 justify-end pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs px-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(false);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-7 text-xs px-2"
+              disabled={isAdding}
+            >
+              {isAdding ? 'Adicionando...' : 'Adicionar'}
+            </Button>
+          </div>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const AppHeader: React.FC = () => {
   const { session, isLoading, profile, checkPageAccess } = useSession();
@@ -389,15 +511,18 @@ const AppHeader: React.FC = () => {
                   {searchResults.map(part => (
                     <div
                       key={part.id}
-                      className="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-0 transition-colors"
+                      className="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-0 transition-colors flex items-center justify-between gap-2"
                       onClick={() => {
                         navigate(`/${company}/search-parts?q=${encodeURIComponent(part.codigo)}`);
                         setHeaderSearchQuery('');
                         setShowResults(false);
                       }}
                     >
-                      <div className="font-bold text-xs text-blue-700">{part.codigo}</div>
-                      <div className="text-[10px] text-gray-600 line-clamp-2 leading-tight">{part.descricao}</div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="font-bold text-xs text-blue-700">{part.codigo}</div>
+                        <div className="text-[10px] text-gray-600 line-clamp-2 leading-tight">{part.descricao}</div>
+                      </div>
+                      <AddPartPopover part={part} company={company} />
                     </div>
                   ))}
                   <div
