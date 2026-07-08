@@ -86,7 +86,6 @@ const AddPartPopover: React.FC<AddPartPopoverProps> = ({ part, company }) => {
       <PopoverContent
         className="w-72 p-4 z-[200]"
         align="end"
-        onClick={(e) => e.stopPropagation()}
       >
         <form onSubmit={handleAdd} className="space-y-3">
           <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">
