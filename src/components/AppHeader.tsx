@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal, Loader2, Wifi, WifiOff, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -160,6 +160,22 @@ const AppHeader: React.FC = () => {
   const [showResults, setShowResults] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Monitor de cliques fora do container de busca rápida
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowResults(false);
+        setIsFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const isLoginPage = location.pathname === '/login';
 
@@ -478,7 +494,7 @@ const AppHeader: React.FC = () => {
 
         <div className="flex items-center gap-2 shrink-0">
           {!isLoginPage && (
-            <div className="uiverse-search-container relative mr-2">
+            <div ref={searchContainerRef} className="uiverse-search-container relative mr-2">
               <input
                 type="text"
                 placeholder="Pesquisar peça"
@@ -495,7 +511,6 @@ const AppHeader: React.FC = () => {
                 }}
                 onBlur={() => {
                   setIsFocused(false);
-                  setTimeout(() => setShowResults(false), 200);
                 }}
                 autoComplete="off"
               />
