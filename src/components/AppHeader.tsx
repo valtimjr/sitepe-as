@@ -84,7 +84,7 @@ const AddPartPopover: React.FC<AddPartPopoverProps> = ({ part, company }) => {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-72 p-4 z-[200]"
+        className="w-72 p-4 z-[200] rapid-add-popover-content"
         align="end"
       >
         <form onSubmit={handleAdd} className="space-y-3">
@@ -165,7 +165,14 @@ const AppHeader: React.FC = () => {
   // Monitor de cliques fora do container de busca rápida
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+      const target = event.target as HTMLElement;
+      
+      // Se clicou dentro de um popover de adição rápida, não fecha a pesquisa rápida
+      if (target && target.closest && target.closest('.rapid-add-popover-content')) {
+        return;
+      }
+
+      if (searchContainerRef.current && !searchContainerRef.current.contains(target)) {
         setShowResults(false);
         setIsFocused(false);
       }
