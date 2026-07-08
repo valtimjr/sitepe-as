@@ -178,6 +178,56 @@ export const clearSimplePartsList = async (company: CompanyType) => {
 
 // --- Parts Management ---
 
+const sortPartsByPriority = (parts: Part[], query: string): Part[] => {
+  if (!query) return parts;
+  
+  const getScore = (part: Part): number => {
+    const lowerQuery = query.toLowerCase().trim();
+    const partTags = (part.tags || '').toLowerCase();
+    const partCode = (part.codigo || '').toLowerCase().trim();
+    const partName = (part.name || '').toLowerCase();
+    const partDesc = (part.descricao || '').toLowerCase();
+
+    // 1- tag
+    if (partTags && partTags.includes(lowerQuery)) {
+      return 1;
+    }
+
+    // 2- código (somente se o número do código for exatamente igual)
+    if (partCode === lowerQuery) {
+      return 2;
+    }
+
+    // 3- Nome
+    if (partName && partName.includes(lowerQuery)) {
+      return 3;
+    }
+
+    // 4- Descrição
+    if (partDesc && partDesc.includes(lowerQuery)) {
+      return 4;
+    }
+
+    // 5- Código (caso o número não seja exatamente igual, mas contém o termo)
+    if (partCode && partCode.includes(lowerQuery)) {
+      return 5;
+    }
+
+    return 10;
+  };
+
+  return [...parts].sort((a, b) => {
+    const scoreA = getScore(a);
+    const scoreB = getScore(b);
+    
+    if (scoreA !== scoreB) {
+      return scoreA - scoreB;
+    }
+    
+    return a.codigo.localeCompare(b.codigo);
+  });
+};
+
 export const searchPartsPaginated = async (query: string, company: CompanyType, page: number = 1, pageSize: number = 50): Promise<{ parts: Part[], totalCount: number }> => {
   const lowerCaseQuery = query.toLowerCase().trim();
   const offset = (page - 1) * pageSize;
@@ -191,9 +241,11 @@ export const searchPartsPaginated = async (query: string, company: CompanyType, 
   const { data, error, count } = await queryBuilder;
   if (error) {
     const localResults = await searchLocalParts(query, company);
-    return { parts: localResults.slice(offset, offset + pageSize) as Part[], totalCount: localResults.length };
+    const sortedLocal = sortPartsByPriority(localResults as Part[], query);
+    return { parts: sortedLocal.slice(offset, offset + pageSize) as Part[], totalCount: sortedLocal.length };
   }
-  return { parts: data as Part[], totalCount: count || 0 };
+  const sortedData = sortPartsByPriority(data as Part[], query);
+  return { parts: sortedData, totalCount: count || 0 };
 };
 
 export const searchParts = async (query: string, company: CompanyType): Promise<Part[]> => {
@@ -202,8 +254,11 @@ export const searchParts = async (query: string, company: CompanyType): Promise<
   const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
   const tableName = getPartsTable(company);
   const { data, error } = await supabase.from(tableName).select('*').or(`codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},name.ilike.${searchPattern},tags.ilike.${searchPattern}`).limit(100);
-  if (error) return searchLocalParts(query, company) as Promise<Part[]>;
-  return data as Part[];
+  if (error) {
+    const localResults = await searchLocalParts(query, company);
+    return sortPartsByPriority(localResults as Part[], query);
+  }
+  return sortPartsByPriority(data as Part[], query);
 };
 
 export const getFrequentPartsForProfession = async (professionCode: number, company: CompanyType): Promise<Part[]> => {
