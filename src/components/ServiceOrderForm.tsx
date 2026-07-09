@@ -8,7 +8,7 @@ import { Part, searchParts as searchPartsService, getAfsFromService, Af } from '
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save, XCircle, PlusCircle, Trash2 } from 'lucide-react';
+import { Save, XCircle, PlusCircle, Trash2, Car } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { ServiceOrderData } from '@/types/supabase';
 import { v4 as uuidv4 } from 'uuid';
@@ -149,11 +149,12 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
           onCheckedChange={(checked) => setIsPercurso(!!checked)}
           className="h-5 w-5 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600 border-red-200 cursor-pointer"
         />
+        <Car className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
         <label
           htmlFor="is-percurso"
           className="text-sm font-semibold text-red-700 dark:text-red-400 cursor-pointer select-none"
         >
-          Marcar como Percurso (Deslocamento / Tempo de Viagem)
+          Percurso (Deslocamento)
         </label>
       </div>
 
@@ -167,7 +168,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
             availableAfs={availableAfs}
           />
         </div>
-        {!isPercurso ? (
+        {!isPercurso && (
           <div className="space-y-2 animate-in fade-in duration-200">
             <Label>Número da OS</Label>
             <Input
@@ -175,10 +176,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
               onChange={e => setOs(e.target.value)}
               placeholder="Ex: 45001"
             />
-          </div>
-        ) : (
-          <div className="flex items-end text-xs text-red-600 dark:text-red-400 font-semibold p-2 bg-red-50/30 rounded border border-dashed border-red-100/50 self-end h-[40px]">
-            ✨ Modo Percurso Ativo: OS e peças ocultados.
           </div>
         )}
       </div>
