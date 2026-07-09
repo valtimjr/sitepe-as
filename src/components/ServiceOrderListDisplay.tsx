@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from '@/context/CompanyContext';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/components/SessionContextProvider';
+import { Checkbox } from '@/components/ui/checkbox';
 import { searchParts, getFrequentPartsForProfession, Part, getFavoriteParts, addFavoritePart, removeFavoritePart } from '@/services/partListService';
 
 interface ServiceOrderListDisplayProps {
@@ -32,6 +33,8 @@ interface ServiceOrderListDisplayProps {
   onAddPart?: () => void;
   readOnly?: boolean;
   additionalHeader?: React.ReactNode;
+  isSelected?: boolean;
+  onSelectChange?: (checked: boolean) => void;
 }
 
 interface RelatedItem {
@@ -291,7 +294,9 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
   onSave,
   onAddPart,
   readOnly = false,
-  additionalHeader
+  additionalHeader,
+  isSelected = false,
+  onSelectChange
 }) => {
   const { company } = useCompany();
   const { profile, user } = useSession();
@@ -501,6 +506,17 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
             {!readOnly && (
               <div className="hidden md:flex pt-1 text-muted-foreground/40 cursor-grab active:cursor-grabbing">
                 <GripVertical className="h-5 w-5" />
+              </div>
+            )}
+            
+            {onSelectChange && (
+              <div className="pt-1 flex items-center" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={(checked) => onSelectChange(!!checked)}
+                  aria-label={`Selecionar AF ${group.af}`}
+                  className="h-5 w-5 rounded border-blue-200 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 cursor-pointer"
+                />
               </div>
             )}
             

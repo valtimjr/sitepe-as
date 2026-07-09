@@ -5,8 +5,9 @@ import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import ServiceOrderForm from '@/components/ServiceOrderForm';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
-import { getDailyServiceOrders, ServiceOrderData, saveDailyServiceOrder, clearDailyServiceOrders } from '@/services/partListService';
+import { getDailyServiceOrders, ServiceOrderData, saveDailyServiceOrder } from '@/services/partListService';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { ClipboardList, ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, Trash2, Copy, Share2, FileDown, ArrowUpNarrowWide, ArrowDownWideNarrow, PlusCircle, GripVertical, Clock } from 'lucide-react';
 import { format, addDays, subDays } from 'date-fns';
@@ -48,6 +49,8 @@ const ServiceOrderList: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingOs, setEditingOs] = useState<ServiceOrderData | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  const [selectedOsIds, setSelectedOsIds] = useState<string[]>([]);
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
 
@@ -55,6 +58,11 @@ const ServiceOrderList: React.FC = () => {
     if (!session) return 'visitor';
     return format(selectedDate, 'yyyy-MM-dd');
   }, [selectedDate, session]);
+
+  // Limpa as seleções se o dia mudar
+  useEffect(() => {
+    setSelectedOsIds([]);
+  }, [dateStr]);
 
   useEffect(() => {
     document.title = `Ordens de Serviço - AutoBoard (${branding.name})`;
@@ -114,6 +122,29 @@ const ServiceOrderList: React.FC = () => {
     });
   }, [osList, sortDirection]);
 
+  const handleToggleSelect = (id: string) => {
+    setSelectedOsIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedOsIds(sortedOsList.map(os => os.id));
+    } else {
+      setSelectedOsIds([]);
+    }
+  };
+
+  // Função reutilizável para recuperar todas as OS ou apenas as selecionadas se houver alguma
+  const getTargetOsList = useCallback((onlySelectedIfAny = true) => {
+    const selected = sortedOsList.filter(os => selectedOsIds.includes(os.id));
+    if (onlySelectedIfAny && selected.length > 0) {
+      return selected;
+    }
+    return sortedOsList;
+  }, [sortedOsList, selectedOsIds]);
+
   const handleDateChange = (date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
@@ -150,28 +181,19 @@ const ServiceOrderList: React.FC = () => {
     try {
       await saveDailyServiceOrder(user?.id, dateStr, newList, company);
       setOsList(newList);
+      setSelectedOsIds(prev => prev.filter(item => item !== id));
       showSuccess('OS removida.');
     } catch (error) {
       showError('Erro ao remover OS.');
     }
   };
 
-  const handleClearDay = async () => {
-    try {
-      await clearDailyServiceOrders(user?.id, dateStr, company);
-      setOsList([]);
-      showSuccess('Todas as ordens do dia foram removidas.');
-    } catch (error) {
-      showError('Erro ao limpar o dia.');
-    }
-  };
-
-  const formatListText = () => {
-    if (sortedOsList.length === 0) return '';
+  const formatListText = (items: ServiceOrderData[]) => {
+    if (items.length === 0) return '';
 
     let text = `Ordens de Serviço (${branding.name}) - ${format(selectedDate, 'dd/MM/yyyy')}\n\n`;
 
-    sortedOsList.forEach((group, idx) => {
+    items.forEach((group, idx) => {
       text += `AF: ${group.af}${group.os ? ` OS: ${group.os}` : ''}\n`;
       if (group.hora_inicio || group.hora_final) {
         text += `${group.hora_inicio || '??'}-${group.hora_final || '??'}\n`;
@@ -188,26 +210,31 @@ const ServiceOrderList: React.FC = () => {
           }
         });
       }
-      if (idx < sortedOsList.length - 1) text += `\n`;
+      if (idx < items.length - 1) text += `\n`;
     });
 
     return text.trim();
   };
 
   const handleCopyList = async () => {
-    const textToCopy = formatListText();
+    const targetItems = getTargetOsList();
+    const textToCopy = formatListText(targetItems);
     if (!textToCopy) return;
 
     try {
       await navigator.clipboard.writeText(textToCopy);
-      showSuccess('Ordens copiadas para a área de transferência!');
+      showSuccess(selectedOsIds.length > 0
+        ? 'Ordens selecionadas copiadas para a área de transferência!'
+        : 'Ordens copiadas para a área de transferência!'
+      );
     } catch (err) {
       showError('Falha ao copiar.');
     }
   };
 
   const handleShareOnWhatsApp = () => {
-    const textToShare = formatListText();
+    const targetItems = getTargetOsList();
+    const textToShare = formatListText(targetItems);
     if (!textToShare) return;
 
     const encodedText = encodeURIComponent(textToShare);
@@ -216,17 +243,22 @@ const ServiceOrderList: React.FC = () => {
   };
 
   const handleExportPdf = async () => {
-    if (sortedOsList.length === 0) {
+    const targetItems = getTargetOsList();
+    if (targetItems.length === 0) {
       showError('Nenhuma OS para exportar neste dia.');
       return;
     }
-    const title = `Ordens de Serviço (${branding.name}) - ${format(selectedDate, 'dd/MM/yyyy')}`;
-    await lazyGenerateServiceOrderPdf(sortedOsList.map(os => ({
+    const isSelectedMode = selectedOsIds.length > 0;
+    const title = isSelectedMode
+      ? `Ordens de Serviço Selecionadas (${branding.name}) - ${format(selectedDate, 'dd/MM/yyyy')}`
+      : `Ordens de Serviço (${branding.name}) - ${format(selectedDate, 'dd/MM/yyyy')}`;
+
+    await lazyGenerateServiceOrderPdf(targetItems.map(os => ({
       ...os,
       createdAt: selectedDate,
       parts: os.parts
     })), title);
-    showSuccess('PDF gerado com sucesso!');
+    showSuccess(isSelectedMode ? 'PDF com as OS selecionadas gerado com sucesso!' : 'PDF gerado com sucesso!');
   };
 
   return (
@@ -315,64 +347,69 @@ const ServiceOrderList: React.FC = () => {
 
            <Button
              variant="outline"
-             className="text-primary border-primary/20 hover:bg-primary/5 w-10 h-10 p-0 md:w-auto md:h-10 md:px-4"
+             className="text-primary border-primary/20 hover:bg-primary/5 w-10 h-10 p-0 md:w-auto md:h-10 md:px-4 relative"
              onClick={handleCopyList}
              disabled={osList.length === 0}
            >
              <Copy className="h-4 w-4 md:mr-2" />
-             <span className="hidden md:inline">Copiar Lista</span>
+             <span className="hidden md:inline">
+               {selectedOsIds.length > 0 ? `Copiar Selecionadas (${selectedOsIds.length})` : 'Copiar Lista'}
+             </span>
+             {selectedOsIds.length > 0 && (
+               <span className="md:hidden text-[10px] font-bold absolute top-0 right-0 bg-primary text-primary-foreground rounded-full px-1 min-w-[16px] h-[16px] flex items-center justify-center translate-x-1/3 -translate-y-1/3 shadow">
+                 {selectedOsIds.length}
+               </span>
+             )}
            </Button>
 
-           <Button
-             className="bg-white hover:bg-gray-50 rounded-full w-10 h-10 p-0 border shadow-sm"
-             onClick={handleShareOnWhatsApp}
-             disabled={osList.length === 0}
-           >
-              <img src="/icons/whatsapp.png" alt="WhatsApp" className="h-10 w-10" />
-           </Button>
+           <div className="relative">
+             <Button
+               className="bg-white hover:bg-gray-50 rounded-full w-10 h-10 p-0 border shadow-sm"
+               onClick={handleShareOnWhatsApp}
+               disabled={osList.length === 0}
+               title={selectedOsIds.length > 0 ? "Compartilhar selecionadas no WhatsApp" : "Compartilhar lista no WhatsApp"}
+             >
+                <img src="/icons/whatsapp.png" alt="WhatsApp" className="h-10 w-10" />
+             </Button>
+             {selectedOsIds.length > 0 && (
+               <span className="text-[10px] font-bold absolute top-0 right-0 bg-green-500 text-white rounded-full px-1 min-w-[16px] h-[16px] flex items-center justify-center translate-x-1/3 -translate-y-1/3 shadow">
+                 {selectedOsIds.length}
+               </span>
+             )}
+           </div>
 
            <Button
-             className="bg-primary hover:bg-primary/90 text-primary-foreground w-10 h-10 p-0 md:w-auto md:h-10 md:px-4"
+             className="bg-primary hover:bg-primary/90 text-primary-foreground w-10 h-10 p-0 md:w-auto md:h-10 md:px-4 relative"
              aria-label="Exportar PDF"
              onClick={handleExportPdf}
              disabled={osList.length === 0}
            >
              <FileDown className="h-4 w-4 md:mr-2" />
-             <span className="hidden md:inline">Exportar PDF</span>
+             <span className="hidden md:inline">
+               {selectedOsIds.length > 0 ? `Exportar Selecionadas (${selectedOsIds.length})` : 'Exportar PDF'}
+             </span>
+             {selectedOsIds.length > 0 && (
+               <span className="md:hidden text-[10px] font-bold absolute top-0 right-0 bg-primary-foreground text-primary rounded-full px-1 min-w-[16px] h-[16px] flex items-center justify-center translate-x-1/3 -translate-y-1/3 shadow">
+                 {selectedOsIds.length}
+               </span>
+             )}
            </Button>
-
-           <AlertDialog>
-             <AlertDialogTrigger asChild>
-               <Button 
-                variant="destructive" 
-                className="bg-red-500 hover:bg-red-600 w-10 h-10 p-0 md:w-auto md:h-10 md:px-4" 
-                disabled={osList.length === 0}
-               >
-                 <Trash2 className="h-4 w-4 md:mr-2" />
-                 <span className="hidden md:inline">Limpar Lista</span>
-               </Button>
-             </AlertDialogTrigger>
-             <AlertDialogContent>
-               <AlertDialogHeader>
-                 <AlertDialogTitle>Limpar dia inteiro?</AlertDialogTitle>
-                 <AlertDialogDescription>
-                   Isso excluirá todas as ordens de serviço do dia {format(selectedDate, 'dd/MM/yyyy')}.
-                 </AlertDialogDescription>
-               </AlertDialogHeader>
-               <AlertDialogFooter>
-                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                 <AlertDialogAction onClick={handleClearDay}>Limpar Tudo</AlertDialogAction>
-               </AlertDialogFooter>
-             </AlertDialogContent>
-           </AlertDialog>
         </div>
       </div>
 
       {/* List Header Row (Desktop visible) */}
-      <div className="mt-8 mb-2 px-4 hidden md:grid grid-cols-[auto_1fr_auto_auto] gap-4 text-sm text-muted-foreground font-medium">
+      <div className="mt-8 mb-2 px-4 hidden md:grid grid-cols-[auto_1fr_auto_auto] gap-4 text-sm text-muted-foreground font-medium items-center">
          <div className="flex items-center gap-4">
-            <GripVertical className="h-4 w-4 opacity-50" />
-            <div 
+            <GripVertical className="h-4 w-4 opacity-50 text-transparent" />
+            {sortedOsList.length > 0 && (
+              <Checkbox
+                checked={sortedOsList.length > 0 && sortedOsList.every(os => selectedOsIds.includes(os.id))}
+                onCheckedChange={handleToggleSelectAll}
+                className="h-5 w-5 rounded border-blue-200"
+                aria-label="Selecionar todas as OS"
+              />
+            )}
+            <div
               className="flex items-center gap-2 cursor-pointer hover:text-foreground transition-colors group"
               onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
               title="Ordenar por horário"
@@ -385,7 +422,13 @@ const ServiceOrderList: React.FC = () => {
                )}
             </div>
          </div>
-         <div></div> {/* Spacer for description/service */}
+         <div>
+           {selectedOsIds.length > 0 && (
+             <span className="text-xs font-semibold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-100">
+               {selectedOsIds.length} selecionada(s) para exportação
+             </span>
+           )}
+         </div>
          <div className="text-center w-16">Qtd</div>
          <div className="text-right w-20">Opções</div>
       </div>
@@ -405,13 +448,30 @@ const ServiceOrderList: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-6 mt-2">
+          {/* Mobile Select All Bar */}
+          {sortedOsList.length > 0 && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-blue-50/40 border border-blue-100/50 rounded-sm md:hidden mb-4">
+              <Checkbox
+                checked={sortedOsList.every(os => selectedOsIds.includes(os.id))}
+                onCheckedChange={handleToggleSelectAll}
+                id="mobile-select-all"
+                className="h-5 w-5 rounded border-blue-200"
+              />
+              <label htmlFor="mobile-select-all" className="text-xs font-semibold text-blue-700 cursor-pointer select-none">
+                Selecionar todas as OS ({selectedOsIds.length} selecionadas)
+              </label>
+            </div>
+          )}
+
           {sortedOsList.map(os => (
-            <ServiceOrderListDisplay 
+            <ServiceOrderListDisplay
               key={os.id}
               group={os}
               onEdit={() => handleOpenForm(os)}
               onDelete={() => handleDeleteOS(os.id)}
               onSave={handleSaveOS}
+              isSelected={selectedOsIds.includes(os.id)}
+              onSelectChange={() => handleToggleSelect(os.id)}
             />
           ))}
         </div>
