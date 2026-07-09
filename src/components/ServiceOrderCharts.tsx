@@ -11,29 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
 
 import { useCompany } from '@/context/CompanyContext';
-
-// Helper to calculate duration in minutes
-const calculateDuration = (start?: string, end?: string): number => {
-  if (!start || !end) return 0;
-  const [startH, startM] = start.split(':').map(Number);
-  const [endH, endM] = end.split(':').map(Number);
-  
-  let startMinutes = startH * 60 + startM;
-  let endMinutes = endH * 60 + endM;
-  
-  if (endMinutes < startMinutes) {
-    endMinutes += 24 * 60; // Handle overnight
-  }
-  
-  return endMinutes - startMinutes;
-};
-
-// Helper to format minutes to HH:mm
-const formatDuration = (minutes: number): string => {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h}h ${m}m`;
-};
+import { calculateDuration, formatDuration, calculateOsAndPercursoTimes } from '@/lib/utils';
 
 const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#1d4ed8', '#1e40af', '#1e3a8a'];
 
@@ -41,7 +19,8 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
   const { user } = useSession();
   const [loading, setLoading] = useState(true);
   const [monthlyData, setMonthlyData] = useState<{ date: string; day: string; minutes: number; percursoMinutes: number; hours: number }[]>([]);
-  const [totalMonthlyMinutes, setTotalMonthlyMinutes] = useState(0);
+  const [totalMonthlyOsMinutes, setTotalMonthlyOsMinutes] = useState(0);
+  const [totalMonthlyPercursoMinutes, setTotalMonthlyPercursoMinutes] = useState(0);
 
   useEffect(() => {
     const fetchMonthlyData = async () => {
@@ -64,7 +43,8 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
 
         // Process data
         const daysMap = new Map<string, { minutes: number; percursoMinutes: number }>();
-        let total = 0;
+        let totalOs = 0;
+        let totalPercurso = 0;
 
         // Initialize all days with 0
         const daysInMonth = eachDayOfInterval({
@@ -86,13 +66,14 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
               const dur = calculateDuration(os.hora_inicio, os.hora_final);
               if (os.is_percurso) {
                 dayPercursoMinutes += dur;
+                totalPercurso += dur;
               } else {
                 dayMinutes += dur;
+                totalOs += dur;
               }
             });
             
             daysMap.set(record.date, { minutes: dayMinutes, percursoMinutes: dayPercursoMinutes });
-            total += dayMinutes + dayPercursoMinutes;
           }
         });
 
@@ -105,7 +86,8 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
         }));
 
         setMonthlyData(chartData);
-        setTotalMonthlyMinutes(total);
+        setTotalMonthlyOsMinutes(totalOs);
+        setTotalMonthlyPercursoMinutes(totalPercurso);
 
       } catch (err) {
         console.error('Error fetching monthly data:', err);
@@ -131,11 +113,25 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
         </div>
       ) : (
         <>
-          <div className="text-center bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-            <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Total Trabalhado</p>
-            <p className="text-4xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
-              {formatDuration(totalMonthlyMinutes)}
-            </p>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="text-center bg-blue-50/50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-100/50">
+              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Horas em OS</p>
+              <p className="text-lg sm:text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
+                {formatDuration(totalMonthlyOsMinutes)}
+              </p>
+            </div>
+            <div className="text-center bg-red-50/50 dark:bg-red-950/20 p-3 rounded-lg border border-red-100/50">
+              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Percurso</p>
+              <p className="text-lg sm:text-2xl font-extrabold text-red-600 dark:text-red-400 mt-1">
+                {formatDuration(totalMonthlyPercursoMinutes)}
+              </p>
+            </div>
+            <div className="text-center bg-green-50/50 dark:bg-green-950/20 p-3 rounded-lg border border-green-100/50">
+              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Total Geral</p>
+              <p className="text-lg sm:text-2xl font-extrabold text-green-600 dark:text-green-400 mt-1">
+                {formatDuration(totalMonthlyOsMinutes + totalMonthlyPercursoMinutes)}
+              </p>
+            </div>
           </div>
 
           <div className="h-[300px] w-full mt-4">
@@ -213,6 +209,24 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
     return dailyData.reduce((acc, curr) => acc + curr.value, 0);
   }, [dailyData]);
 
+  const dailyTimes = useMemo(() => {
+    let osMinutes = 0;
+    let percursoMinutes = 0;
+    osList.forEach(os => {
+      const dur = calculateDuration(os.hora_inicio, os.hora_final);
+      if (os.is_percurso) {
+        percursoMinutes += dur;
+      } else {
+        osMinutes += dur;
+      }
+    });
+    return {
+      osMinutes,
+      percursoMinutes,
+      totalMinutes: osMinutes + percursoMinutes
+    };
+  }, [osList]);
+
   // Custom label for Pie Chart
   const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value, fullData }: any) => {
     const RADIAN = Math.PI / 180;
@@ -284,6 +298,23 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
               </div>
             )}
           </div>
+
+          {dailyData.length > 0 && (
+            <div className="w-full grid grid-cols-3 gap-2 p-2 bg-muted/40 rounded-lg border text-xs">
+              <div className="text-center">
+                <span className="text-[9px] text-muted-foreground uppercase font-bold">Horas em OS</span>
+                <p className="font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{formatDuration(dailyTimes.osMinutes)}</p>
+              </div>
+              <div className="text-center border-l border-r border-border px-1">
+                <span className="text-[9px] text-muted-foreground uppercase font-bold">Percurso</span>
+                <p className="font-extrabold text-red-600 dark:text-red-400 mt-0.5">{formatDuration(dailyTimes.percursoMinutes)}</p>
+              </div>
+              <div className="text-center">
+                <span className="text-[9px] text-muted-foreground uppercase font-bold">Total Geral</span>
+                <p className="font-extrabold text-green-600 dark:text-green-400 mt-0.5">{formatDuration(dailyTimes.totalMinutes)}</p>
+              </div>
+            </div>
+          )}
 
           <Dialog open={isMonthlyOpen} onOpenChange={setIsMonthlyOpen}>
             <DialogTrigger asChild>

@@ -45,7 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn, getOperationalDate } from "@/lib/utils";
+import { cn, getOperationalDate, calculateDuration, formatDuration, calculateOsAndPercursoTimes } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRange } from "react-day-picker";
 import { supabase } from '@/integrations/supabase/client';
@@ -84,27 +84,6 @@ interface UserProfile {
 }
 
 type AttributeItem = { name: string; ref_code: number | null };
-
-const calculateDuration = (start?: string, end?: string): number => {
-  if (!start || !end) return 0;
-  const [startH, startM] = start.split(':').map(Number);
-  const [endH, endM] = end.split(':').map(Number);
-  
-  let startMinutes = startH * 60 + startM;
-  let endMinutes = endH * 60 + endM;
-  
-  if (endMinutes < startMinutes) {
-    endMinutes += 24 * 60;
-  }
-  
-  return endMinutes - startMinutes;
-};
-
-const formatDuration = (minutes: number): string => {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h}h ${m}m`;
-};
 
 const getAfDescription = (afNumber: string, availableAfs: Af[]): string => {
   return availableAfs.find(a => a.af_number === afNumber)?.descricao || '-';
@@ -333,40 +312,85 @@ const AdminReportPage = () => {
 
   const totalDailyMinutes = dailyChartData.reduce((acc, curr) => acc + curr.value, 0);
 
-  const monthlyChartData = useMemo(() => {
-    const daysMap = new Map<string, { minutes: number; percursoMinutes: number }>();
-    const interval = dateMode === 'single' ? { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) } : { start: dateRange?.from || getOperationalDate(new Date()), end: dateRange?.to || getOperationalDate(new Date()) };
-    eachDayOfInterval(interval).forEach(day => daysMap.set(format(day, 'yyyy-MM-dd'), { minutes: 0, percursoMinutes: 0 }));
-
-    allData.filter(r => matchesFilters(r)).forEach(record => {
-      const osList = record.os_list as any[];
-      if (Array.isArray(osList)) {
-        let dayMinutes = 0;
-        let dayPercursoMinutes = 0;
-        osList.forEach((os: any) => {
-          const duration = calculateDuration(os.hora_inicio, os.hora_final);
-          if (os.is_percurso) {
-            dayPercursoMinutes += duration;
-          } else {
-            dayMinutes += duration;
-          }
-        });
-        
-        if (daysMap.has(record.date)) {
-          const current = daysMap.get(record.date)!;
-          daysMap.set(record.date, {
-            minutes: current.minutes + dayMinutes,
-            percursoMinutes: current.percursoMinutes + dayPercursoMinutes
-          });
+  const dailyTimes = useMemo(() => {
+    let osMinutes = 0;
+    let percursoMinutes = 0;
+    filteredOSList.forEach(os => {
+      if (os.hora_inicio && os.hora_final) {
+        const duration = calculateDuration(os.hora_inicio, os.hora_final);
+        if (os.is_percurso) {
+          percursoMinutes += duration;
+        } else {
+          osMinutes += duration;
         }
       }
     });
+    return {
+      osMinutes,
+      percursoMinutes,
+      totalMinutes: osMinutes + percursoMinutes
+    };
+  }, [filteredOSList]);
+
+  const monthlyChartData = useMemo(() => {
+    const daysMap = new Map<string, { minutes: number; percursoMinutes: number }>();
+    const interval = dateMode === 'single'
+      ? { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) }
+      : { start: dateRange?.from || getOperationalDate(new Date()), end: dateRange?.to || getOperationalDate(new Date()) };
+    
+    eachDayOfInterval(interval).forEach(day => {
+      daysMap.set(format(day, 'yyyy-MM-dd'), { minutes: 0, percursoMinutes: 0 });
+    });
+
+    filteredOSList.forEach(os => {
+      if (os.hora_inicio && os.hora_final && os.recordDate) {
+        const duration = calculateDuration(os.hora_inicio, os.hora_final);
+        const dayKey = os.recordDate;
+        if (daysMap.has(dayKey)) {
+          const current = daysMap.get(dayKey)!;
+          if (os.is_percurso) {
+            daysMap.set(dayKey, {
+              ...current,
+              percursoMinutes: current.percursoMinutes + duration
+            });
+          } else {
+            daysMap.set(dayKey, {
+              ...current,
+              minutes: current.minutes + duration
+            });
+          }
+        }
+      }
+    });
+
     return Array.from(daysMap.entries()).map(([date, val]) => ({
       day: format(parseISO(date), 'dd/MM'),
       minutes: val.minutes,
       percursoMinutes: val.percursoMinutes
     }));
-  }, [allData, selectedDate, dateRange, dateMode, users]);
+  }, [filteredOSList, selectedDate, dateRange, dateMode]);
+
+  const periodTotals = useMemo(() => {
+    let osMinutes = 0;
+    let percursoMinutes = 0;
+    
+    filteredOSList.forEach(os => {
+      if (os.hora_inicio && os.hora_final) {
+        const duration = calculateDuration(os.hora_inicio, os.hora_final);
+        if (os.is_percurso) {
+          percursoMinutes += duration;
+        } else {
+          osMinutes += duration;
+        }
+      }
+    });
+    
+    return {
+      osMinutes,
+      percursoMinutes,
+      totalMinutes: osMinutes + percursoMinutes
+    };
+  }, [filteredOSList]);
 
   const pendingCount = filteredOSList.filter(os => !os.confirmed).length;
 
@@ -760,13 +784,17 @@ const AdminReportPage = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <Card className="lg:col-span-1">
-          <CardHeader><CardTitle className="text-base">Resumo Diário</CardTitle></CardHeader>
-          <CardContent className="h-64 relative">
-             <div id="print-donut-chart" className="h-full w-full">
+        <Card className="lg:col-span-1 flex flex-col">
+          <CardHeader>
+            <CardTitle className="text-base">
+              {dateMode === 'single' ? "Resumo Diário" : "Resumo do Período"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col justify-between space-y-4">
+             <div id="print-donut-chart" className="h-48 w-full relative">
                <ResponsiveContainer width="100%" height="100%">
                  <PieChart>
-                   <Pie data={dailyChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={renderCustomPieLabel}>
+                   <Pie data={dailyChartData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={renderCustomPieLabel}>
                      {dailyChartData.map((entry, i) => {
                        const isPercurso = !!entry.is_percurso;
                        const cellColor = isPercurso ? '#ef4444' : COLORS[i % COLORS.length];
@@ -777,14 +805,45 @@ const AdminReportPage = () => {
                  </PieChart>
                </ResponsiveContainer>
                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                 <span className="text-lg font-bold">{formatDuration(totalDailyMinutes)}</span>
+                 <span className="text-xs text-muted-foreground uppercase font-semibold">Total</span>
+                 <span className="text-base font-bold text-primary">{formatDuration(dailyTimes.totalMinutes)}</span>
+               </div>
+             </div>
+
+             <div className="w-full grid grid-cols-3 gap-2 p-2.5 bg-muted/30 rounded-lg border text-[11px] sm:text-xs">
+               <div className="text-center">
+                 <span className="text-[9px] text-muted-foreground uppercase font-bold">Horas em OS</span>
+                 <p className="font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{formatDuration(dailyTimes.osMinutes)}</p>
+               </div>
+               <div className="text-center border-l border-r border-border px-1">
+                 <span className="text-[9px] text-muted-foreground uppercase font-bold">Percurso</span>
+                 <p className="font-extrabold text-red-600 dark:text-red-400 mt-0.5">{formatDuration(dailyTimes.percursoMinutes)}</p>
+               </div>
+               <div className="text-center">
+                 <span className="text-[9px] text-muted-foreground uppercase font-bold">Total do dia</span>
+                 <p className="font-extrabold text-green-600 dark:text-green-400 mt-0.5">{formatDuration(dailyTimes.totalMinutes)}</p>
                </div>
              </div>
           </CardContent>
         </Card>
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle className="text-base">Histórico do Período</CardTitle></CardHeader>
-          <CardContent className="h-64">
+        <Card className="lg:col-span-2 flex flex-col">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 flex-wrap gap-2">
+            <CardTitle className="text-base">Histórico do Período</CardTitle>
+            <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm"></span>
+                <span className="text-muted-foreground">Total OS: <strong className="text-foreground">{formatDuration(periodTotals.osMinutes)}</strong></span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 bg-[#dc2626] rounded-sm"></span>
+                <span className="text-muted-foreground">Total Percurso: <strong className="text-foreground">{formatDuration(periodTotals.percursoMinutes)}</strong></span>
+              </div>
+              <div className="flex items-center gap-1.5 border-l pl-3">
+                <span className="text-muted-foreground font-semibold">Total Geral: <strong className="text-green-600 dark:text-green-400 font-extrabold">{formatDuration(periodTotals.totalMinutes)}</strong></span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 min-h-[16rem]">
              <div id="print-bar-chart" className="h-full w-full">
                <ResponsiveContainer width="100%" height="100%">
                  <BarChart data={monthlyChartData}>

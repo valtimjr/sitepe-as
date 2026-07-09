@@ -20,3 +20,57 @@ export function getOperationalDate(date: Date = new Date()): Date {
   operationalDate.setHours(12, 0, 0, 0);
   return operationalDate;
 }
+
+/**
+ * Calcula a duração entre duas strings de horário HH:MM em minutos.
+ */
+export function calculateDuration(start?: string, end?: string): number {
+  if (!start || !end) return 0;
+  const [startH, startM] = start.split(':').map(Number);
+  const [endH, endM] = end.split(':').map(Number);
+  
+  let startMinutes = startH * 60 + startM;
+  let endMinutes = endH * 60 + endM;
+  
+  if (endMinutes < startMinutes) {
+    endMinutes += 24 * 60; // Trata virada de dia (overnight)
+  }
+  
+  return endMinutes - startMinutes;
+}
+
+/**
+ * Formata minutos para o padrão HH:MM, preenchendo com zeros à esquerda.
+ */
+export function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const hStr = h.toString().padStart(2, '0');
+  const mStr = m.toString().padStart(2, '0');
+  return `${hStr}:${mStr}`;
+}
+
+/**
+ * Função utilitária centralizada para calcular horas de OS e Percurso de uma lista de registros.
+ */
+export function calculateOsAndPercursoTimes(osList: any[]) {
+  let osMinutes = 0;
+  let percursoMinutes = 0;
+  
+  if (Array.isArray(osList)) {
+    osList.forEach(os => {
+      const duration = calculateDuration(os.hora_inicio, os.hora_final);
+      if (os.is_percurso) {
+        percursoMinutes += duration;
+      } else {
+        osMinutes += duration;
+      }
+    });
+  }
+  
+  return {
+    osMinutes,
+    percursoMinutes,
+    totalMinutes: osMinutes + percursoMinutes
+  };
+}

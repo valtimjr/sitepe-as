@@ -19,7 +19,7 @@ import { useSession } from '@/components/SessionContextProvider';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn, getOperationalDate } from '@/lib/utils';
+import { cn, getOperationalDate, formatDuration, calculateOsAndPercursoTimes } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -121,6 +121,10 @@ const ServiceOrderList: React.FC = () => {
       return sortDirection === 'asc' ? valA - valB : valB - valA;
     });
   }, [osList, sortDirection]);
+
+  const dailyTimes = useMemo(() => {
+    return calculateOsAndPercursoTimes(osList);
+  }, [osList]);
 
   const handleToggleSelect = (id: string) => {
     setSelectedOsIds(prev =>
@@ -401,6 +405,30 @@ const ServiceOrderList: React.FC = () => {
            </Button>
         </div>
       </div>
+
+      {/* Resumo Diário Cards */}
+      {osList.length > 0 && (
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          <div className="bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 rounded-xl p-3 text-center shadow-sm">
+            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Horas em OS</span>
+            <p className="text-lg sm:text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
+              {formatDuration(dailyTimes.osMinutes)}
+            </p>
+          </div>
+          <div className="bg-red-50/50 dark:bg-red-950/10 border border-red-100/50 rounded-xl p-3 text-center shadow-sm">
+            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Tempo de Percurso</span>
+            <p className="text-lg sm:text-2xl font-extrabold text-red-600 dark:text-red-400 mt-1">
+              {formatDuration(dailyTimes.percursoMinutes)}
+            </p>
+          </div>
+          <div className="bg-green-50/50 dark:bg-green-950/10 border border-green-100/50 rounded-xl p-3 text-center shadow-sm">
+            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Total do dia</span>
+            <p className="text-lg sm:text-2xl font-extrabold text-green-600 dark:text-green-400 mt-1">
+              {formatDuration(dailyTimes.totalMinutes)}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* List Header Row (Desktop visible) */}
       <div className="mt-8 mb-2 px-4 hidden md:grid grid-cols-[auto_1fr_auto_auto] gap-4 text-sm text-muted-foreground font-medium items-center">

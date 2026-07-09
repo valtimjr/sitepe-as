@@ -262,8 +262,67 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: string = 'Ordens de Serviço'): void => {
   const doc = new jsPDF();
 
+  const pdfCalculateDuration = (start?: string, end?: string): number => {
+    if (!start || !end) return 0;
+    const [startH, startM] = start.split(':').map(Number);
+    const [endH, endM] = end.split(':').map(Number);
+    
+    let startMinutes = startH * 60 + startM;
+    let endMinutes = endH * 60 + endM;
+    
+    if (endMinutes < startMinutes) {
+      endMinutes += 24 * 60;
+    }
+    
+    return endMinutes - startMinutes;
+  };
+
+  const pdfFormatDuration = (minutes: number): string => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    const hStr = h.toString().padStart(2, '0');
+    const mStr = m.toString().padStart(2, '0');
+    return `${hStr}:${mStr}`;
+  };
+
+  // 1. Calcular totais para o Resumo do Período
+  let osMinutes = 0;
+  let percursoMinutes = 0;
+  groupedServiceOrders.forEach(os => {
+    if (os.hora_inicio && os.hora_final) {
+      const duration = pdfCalculateDuration(os.hora_inicio, os.hora_final);
+      if (os.is_percurso) {
+        percursoMinutes += duration;
+      } else {
+        osMinutes += duration;
+      }
+    }
+  });
+  const totalMinutes = osMinutes + percursoMinutes;
+
   doc.setFontSize(18);
   doc.text(title, 14, 22);
+
+  // 2. Renderizar tabela do Resumo do Período
+  (doc as any).autoTable({
+    head: [["Resumo do Período", "Tempo"]],
+    body: [
+      ["Horas em OS", pdfFormatDuration(osMinutes)],
+      ["Horas de Percurso", pdfFormatDuration(percursoMinutes)],
+      ["Total Geral", pdfFormatDuration(totalMinutes)]
+    ],
+    startY: 28,
+    theme: 'striped',
+    margin: { left: 14 },
+    styles: { fontSize: 9, cellPadding: 2, lineWidth: 0.5, strokeColor: [220, 220, 220] },
+    headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
+    columnStyles: {
+      0: { cellWidth: 50, fontStyle: 'bold' },
+      1: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }
+    }
+  });
+
+  const nextY = (doc as any).lastAutoTable.finalY + 10;
 
   const tableColumn = ["Detalhes da OS", "Peça", "Qtd."];
   const tableRows: any[] = [];
@@ -326,7 +385,7 @@ Serviço: ${group.servico_executado}`;
   (doc as any).autoTable({
     head: [tableColumn],
     body: tableRows,
-    startY: 30,
+    startY: nextY,
     theme: 'plain',
     styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak', lineWidth: 0 },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
