@@ -194,11 +194,16 @@ const ServiceOrderList: React.FC = () => {
     let text = `Ordens de Serviço (${branding.name}) - ${format(selectedDate, 'dd/MM/yyyy')}\n\n`;
 
     items.forEach((group, idx) => {
-      text += `AF: ${group.af}${group.os ? ` OS: ${group.os}` : ''}\n`;
+      const isPercurso = !!group.is_percurso;
+      if (isPercurso) {
+        text += `Percurso${group.af ? ` (AF: ${group.af})` : ''}\n`;
+      } else {
+        text += `AF: ${group.af}${group.os ? ` OS: ${group.os}` : ''}\n`;
+      }
       if (group.hora_inicio || group.hora_final) {
         text += `${group.hora_inicio || '??'}-${group.hora_final || '??'}\n`;
       }
-      if (group.servico_executado) {
+      if (group.servico_executado && !isPercurso) {
         text += `${group.servico_executado}\n`;
       }
       if (group.parts && group.parts.length > 0) {

@@ -272,7 +272,9 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
     const isPercurso = !!group.is_percurso;
     
     // Create the content for the first column
-    let detailsContent = isPercurso ? `[PERCURSO]\nAF: ${group.af}` : `AF: ${group.af}`;
+    let detailsContent = isPercurso
+      ? `[PERCURSO]\n${group.af ? `AF: ${group.af}` : 'Sem AF'}`
+      : `AF: ${group.af}`;
     if (!isPercurso && group.os) detailsContent += ` (OS: ${group.os})`;
     if (group.hora_inicio || group.hora_final) {
       detailsContent += `

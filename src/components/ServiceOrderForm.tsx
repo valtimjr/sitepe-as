@@ -120,14 +120,14 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!af) {
+    if (!isPercurso && !af) {
       showError('O número do AF é obrigatório.');
       return;
     }
 
     const data: ServiceOrderData = {
       id: initialData?.id || uuidv4(),
-      af,
+      af: af || "",
       os: isPercurso ? "" : os,
       hora_inicio: horaInicio,
       hora_final: horaFinal,
@@ -160,7 +160,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>AF (Número de Frota)</Label>
+          <Label>
+            AF (Número de Frota) {!isPercurso && <span className="text-destructive">*</span>}
+          </Label>
           <AfSearchInput
             value={af}
             onChange={setAf}

@@ -196,7 +196,9 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
     const data = osList
       .filter(os => os.hora_inicio && os.hora_final)
       .map(os => ({
-        name: os.is_percurso ? 'Deslocamento' : (os.os || os.af || 'Sem ID'),
+        name: os.is_percurso
+          ? (os.af ? `Deslocamento (AF: ${os.af})` : 'Deslocamento')
+          : (os.os || os.af || 'Sem ID'),
         value: calculateDuration(os.hora_inicio, os.hora_final),
         fullData: os
       }))

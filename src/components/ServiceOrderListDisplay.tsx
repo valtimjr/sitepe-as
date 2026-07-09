@@ -530,13 +530,18 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <h3 className={cn("text-lg font-bold flex items-center gap-2", isPercurso ? "text-red-600" : "text-blue-600")}>
-                  AF: {group.af}
                   {isPercurso ? (
-                    <span className="text-[10px] bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 font-extrabold px-1.5 py-0.5 rounded border border-red-200 uppercase tracking-wide">
-                      Percurso
-                    </span>
+                    <>
+                      {group.af ? `AF: ${group.af}` : 'Percurso sem AF'}
+                      <span className="text-[10px] bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 font-extrabold px-1.5 py-0.5 rounded border border-red-200 uppercase tracking-wide">
+                        Percurso
+                      </span>
+                    </>
                   ) : (
-                    group.os && <span className="text-blue-600/80 text-base font-semibold">(OS: {group.os})</span>
+                    <>
+                      AF: {group.af}
+                      {group.os && <span className="text-blue-600/80 text-base font-semibold">(OS: {group.os})</span>}
+                    </>
                   )}
                 </h3>
               </div>
