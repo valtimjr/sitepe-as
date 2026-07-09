@@ -312,11 +312,19 @@ const AdminReportPage = () => {
     filteredOSList.forEach(os => {
       if (os.hora_inicio && os.hora_final) {
         const duration = calculateDuration(os.hora_inicio, os.hora_final);
-        const key = os.af || os.os || 'Sem ID';
+        const isPercurso = !!os.is_percurso;
+        const key = isPercurso ? `Percurso-${os.id}` : (os.af || os.os || 'Sem ID');
+        const name = isPercurso ? (os.af ? `Percurso (AF: ${os.af})` : 'Percurso') : (os.af ? `AF: ${os.af}` : `OS: ${os.os}`);
+        
         if (osDataMap.has(key)) {
           osDataMap.get(key).value += duration;
         } else {
-          osDataMap.set(key, { name: os.af ? `AF: ${os.af}` : `OS: ${os.os}`, value: duration, time: `${os.hora_inicio} - ${os.hora_final}` });
+          osDataMap.set(key, {
+            name,
+            value: duration,
+            time: `${os.hora_inicio} - ${os.hora_final}`,
+            is_percurso: isPercurso
+          });
         }
       }
     });
@@ -759,7 +767,11 @@ const AdminReportPage = () => {
                <ResponsiveContainer width="100%" height="100%">
                  <PieChart>
                    <Pie data={dailyChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={renderCustomPieLabel}>
-                     {dailyChartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                     {dailyChartData.map((entry, i) => {
+                       const isPercurso = !!entry.is_percurso;
+                       const cellColor = isPercurso ? '#ef4444' : COLORS[i % COLORS.length];
+                       return <Cell key={i} fill={cellColor} />;
+                     })}
                    </Pie>
                    <RechartsTooltip />
                  </PieChart>
@@ -782,8 +794,8 @@ const AdminReportPage = () => {
                    <RechartsTooltip
                      formatter={(value: number, name: string) => [formatDuration(value), name === 'minutes' ? 'Ordem de Serviço' : 'Percurso']}
                    />
-                   <Bar dataKey="minutes" name="Ordem de Serviço" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                   <Bar dataKey="percursoMinutes" name="Percurso" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                   <Bar dataKey="minutes" name="Ordem de Serviço" fill="#2563eb" stackId="a" radius={[0, 0, 0, 0]} />
+                   <Bar dataKey="percursoMinutes" name="Percurso" fill="#dc2626" stackId="a" radius={[4, 4, 0, 0]} />
                  </BarChart>
                </ResponsiveContainer>
              </div>

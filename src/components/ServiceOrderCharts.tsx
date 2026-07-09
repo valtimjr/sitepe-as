@@ -163,13 +163,15 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
                   dataKey="minutes"
                   name="Ordem de Serviço"
                   fill="#2563eb"
-                  radius={[4, 4, 0, 0]}
+                  stackId="a"
+                  radius={[0, 0, 0, 0]}
                   maxBarSize={25}
                 />
                 <Bar
                   dataKey="percursoMinutes"
                   name="Percurso"
                   fill="#dc2626"
+                  stackId="a"
                   radius={[4, 4, 0, 0]}
                   maxBarSize={25}
                 />
@@ -258,9 +260,13 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
                       label={renderCustomLabel}
                       labelLine={false}
                     >
-                      {dailyData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
+                      {dailyData.map((entry, index) => {
+                        const isPercurso = !!entry.fullData?.is_percurso;
+                        const cellColor = isPercurso ? '#ef4444' : COLORS[index % COLORS.length];
+                        return (
+                          <Cell key={`cell-${index}`} fill={cellColor} />
+                        );
+                      })}
                     </Pie>
                     <RechartsTooltip 
                       formatter={(value: number) => formatDuration(value)}
