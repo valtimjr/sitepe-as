@@ -494,13 +494,15 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
     }
   };
 
+  const isPercurso = !!group.is_percurso;
+
   return (
     <div className="bg-card shadow-sm rounded-sm overflow-hidden overflow-visible">
-      <div className="h-1 bg-blue-600 w-full"></div>
+      <div className={cn("h-1 w-full", isPercurso ? "bg-red-500" : "bg-blue-600")}></div>
       
       {additionalHeader}
       
-      <div className="p-4 bg-blue-50/30 border-b border-blue-100/50">
+      <div className={cn("p-4 border-b", isPercurso ? "bg-red-50/20 border-red-100/30" : "bg-blue-50/30 border-blue-100/50")}>
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div className="flex items-start gap-4">
             {!readOnly && (
@@ -515,15 +517,27 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
                   checked={isSelected}
                   onCheckedChange={(checked) => onSelectChange(!!checked)}
                   aria-label={`Selecionar AF ${group.af}`}
-                  className="h-5 w-5 rounded border-blue-200 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 cursor-pointer"
+                  className={cn(
+                    "h-5 w-5 rounded cursor-pointer transition-colors",
+                    isPercurso
+                      ? "border-red-200 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
+                      : "border-blue-200 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                  )}
                 />
               </div>
             )}
             
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-blue-600">
-                  AF: {group.af} {group.os && <span className="text-blue-600/80 text-base font-semibold">(OS: {group.os})</span>}
+                <h3 className={cn("text-lg font-bold flex items-center gap-2", isPercurso ? "text-red-600" : "text-blue-600")}>
+                  AF: {group.af}
+                  {isPercurso ? (
+                    <span className="text-[10px] bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 font-extrabold px-1.5 py-0.5 rounded border border-red-200 uppercase tracking-wide">
+                      Percurso
+                    </span>
+                  ) : (
+                    group.os && <span className="text-blue-600/80 text-base font-semibold">(OS: {group.os})</span>
+                  )}
                 </h3>
               </div>
               
@@ -535,7 +549,11 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
               )}
               
               <div className="text-foreground font-medium">
-                Serviço: {group.servico_executado || <span className="text-muted-foreground italic font-normal">Sem descrição</span>}
+                {isPercurso ? (
+                  <span className="text-red-600/80 font-semibold text-sm">Tempo de Deslocamento</span>
+                ) : (
+                  <>Serviço: {group.servico_executado || <span className="text-muted-foreground italic font-normal">Sem descrição</span>}</>
+                )}
               </div>
             </div>
           </div>

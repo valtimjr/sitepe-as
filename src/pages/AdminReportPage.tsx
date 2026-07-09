@@ -326,18 +326,38 @@ const AdminReportPage = () => {
   const totalDailyMinutes = dailyChartData.reduce((acc, curr) => acc + curr.value, 0);
 
   const monthlyChartData = useMemo(() => {
-    const daysMap = new Map<string, number>();
+    const daysMap = new Map<string, { minutes: number; percursoMinutes: number }>();
     const interval = dateMode === 'single' ? { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) } : { start: dateRange?.from || getOperationalDate(new Date()), end: dateRange?.to || getOperationalDate(new Date()) };
-    eachDayOfInterval(interval).forEach(day => daysMap.set(format(day, 'yyyy-MM-dd'), 0));
+    eachDayOfInterval(interval).forEach(day => daysMap.set(format(day, 'yyyy-MM-dd'), { minutes: 0, percursoMinutes: 0 }));
 
     allData.filter(r => matchesFilters(r)).forEach(record => {
       const osList = record.os_list as any[];
       if (Array.isArray(osList)) {
-        const dayMinutes = osList.reduce((acc, os) => acc + calculateDuration(os.hora_inicio, os.hora_final), 0);
-        if (daysMap.has(record.date)) daysMap.set(record.date, (daysMap.get(record.date) || 0) + dayMinutes);
+        let dayMinutes = 0;
+        let dayPercursoMinutes = 0;
+        osList.forEach((os: any) => {
+          const duration = calculateDuration(os.hora_inicio, os.hora_final);
+          if (os.is_percurso) {
+            dayPercursoMinutes += duration;
+          } else {
+            dayMinutes += duration;
+          }
+        });
+        
+        if (daysMap.has(record.date)) {
+          const current = daysMap.get(record.date)!;
+          daysMap.set(record.date, {
+            minutes: current.minutes + dayMinutes,
+            percursoMinutes: current.percursoMinutes + dayPercursoMinutes
+          });
+        }
       }
     });
-    return Array.from(daysMap.entries()).map(([date, minutes]) => ({ day: format(parseISO(date), 'dd/MM'), minutes }));
+    return Array.from(daysMap.entries()).map(([date, val]) => ({
+      day: format(parseISO(date), 'dd/MM'),
+      minutes: val.minutes,
+      percursoMinutes: val.percursoMinutes
+    }));
   }, [allData, selectedDate, dateRange, dateMode, users]);
 
   const pendingCount = filteredOSList.filter(os => !os.confirmed).length;
@@ -759,7 +779,11 @@ const AdminReportPage = () => {
                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
                    <XAxis dataKey="day" />
                    <YAxis tickFormatter={v => `${Math.floor(v/60)}h`} />
-                   <Bar dataKey="minutes" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                   <RechartsTooltip
+                     formatter={(value: number, name: string) => [formatDuration(value), name === 'minutes' ? 'Ordem de Serviço' : 'Percurso']}
+                   />
+                   <Bar dataKey="minutes" name="Ordem de Serviço" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                   <Bar dataKey="percursoMinutes" name="Percurso" fill="#dc2626" radius={[4, 4, 0, 0]} />
                  </BarChart>
                </ResponsiveContainer>
              </div>

@@ -40,7 +40,7 @@ const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#1d4ed8'
 const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }> = ({ currentDate, company }) => {
   const { user } = useSession();
   const [loading, setLoading] = useState(true);
-  const [monthlyData, setMonthlyData] = useState<{ date: string; minutes: number }[]>([]);
+  const [monthlyData, setMonthlyData] = useState<{ date: string; day: string; minutes: number; percursoMinutes: number; hours: number }[]>([]);
   const [totalMonthlyMinutes, setTotalMonthlyMinutes] = useState(0);
 
   useEffect(() => {
@@ -63,7 +63,7 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
         if (error) throw error;
 
         // Process data
-        const daysMap = new Map<string, number>();
+        const daysMap = new Map<string, { minutes: number; percursoMinutes: number }>();
         let total = 0;
 
         // Initialize all days with 0
@@ -73,27 +73,35 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
         });
 
         daysInMonth.forEach(day => {
-          daysMap.set(format(day, 'yyyy-MM-dd'), 0);
+          daysMap.set(format(day, 'yyyy-MM-dd'), { minutes: 0, percursoMinutes: 0 });
         });
 
         // Fill with actual data
         data?.forEach(record => {
           const osList = record.os_list as any[]; // Type assertion needed for JSONB
           if (Array.isArray(osList)) {
-            const dayMinutes = osList.reduce((acc: number, os: any) => {
-              return acc + calculateDuration(os.hora_inicio, os.hora_final);
-            }, 0);
+            let dayMinutes = 0;
+            let dayPercursoMinutes = 0;
+            osList.forEach((os: any) => {
+              const dur = calculateDuration(os.hora_inicio, os.hora_final);
+              if (os.is_percurso) {
+                dayPercursoMinutes += dur;
+              } else {
+                dayMinutes += dur;
+              }
+            });
             
-            daysMap.set(record.date, dayMinutes);
-            total += dayMinutes;
+            daysMap.set(record.date, { minutes: dayMinutes, percursoMinutes: dayPercursoMinutes });
+            total += dayMinutes + dayPercursoMinutes;
           }
         });
 
-        const chartData = Array.from(daysMap.entries()).map(([date, minutes]) => ({
+        const chartData = Array.from(daysMap.entries()).map(([date, val]) => ({
           date,
           day: format(parseISO(date), 'dd'),
-          minutes,
-          hours: Number((minutes / 60).toFixed(1)) // For tooltip
+          minutes: val.minutes,
+          percursoMinutes: val.percursoMinutes,
+          hours: Number(((val.minutes + val.percursoMinutes) / 60).toFixed(1)) // For tooltip
         }));
 
         setMonthlyData(chartData);
@@ -146,16 +154,24 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
                   tickLine={false}
                   axisLine={false}
                 />
-                <RechartsTooltip 
-                  formatter={(value: number) => [formatDuration(value), 'Tempo']}
+                <RechartsTooltip
+                  formatter={(value: number, name: string) => [formatDuration(value), name === 'minutes' ? 'Ordem de Serviço' : 'Percurso']}
                   labelFormatter={(label) => `Dia ${label}`}
                   cursor={{ fill: 'rgba(0,0,0,0.05)' }}
                 />
-                <Bar 
-                  dataKey="minutes" 
-                  fill="#2563eb" 
+                <Bar
+                  dataKey="minutes"
+                  name="Ordem de Serviço"
+                  fill="#2563eb"
                   radius={[4, 4, 0, 0]}
-                  maxBarSize={40}
+                  maxBarSize={25}
+                />
+                <Bar
+                  dataKey="percursoMinutes"
+                  name="Percurso"
+                  fill="#dc2626"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={25}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -180,7 +196,7 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
     const data = osList
       .filter(os => os.hora_inicio && os.hora_final)
       .map(os => ({
-        name: os.os || os.af || 'Sem ID',
+        name: os.is_percurso ? 'Deslocamento' : (os.os || os.af || 'Sem ID'),
         value: calculateDuration(os.hora_inicio, os.hora_final),
         fullData: os
       }))

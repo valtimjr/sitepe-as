@@ -123,6 +123,7 @@ export interface ServiceOrderData {
   hora_final: string;
   servico_executado: string;
   parts: ServiceOrderPart[];
+  is_percurso?: boolean;
 }
 
 export interface DailyServiceOrder {

@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCompany } from '@/context/CompanyContext';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface ServiceOrderFormProps {
   initialData: ServiceOrderData | null;
@@ -30,6 +31,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
   const [horaFinal, setHoraFinal] = useState('');
   const [servicoExecutado, setServicoExecutado] = useState('');
   const [parts, setParts] = useState<{codigo_peca: string, descricao: string, quantidade: number}[]>([]);
+  const [isPercurso, setIsPercurso] = useState(false);
   
   // Estados para busca e edição de peças
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,6 +60,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
       setHoraFinal(initialData.hora_final || '');
       setServicoExecutado(initialData.servico_executado || '');
       setParts(initialData.parts || []);
+      setIsPercurso(!!initialData.is_percurso);
+    } else {
+      setIsPercurso(false);
     }
   }, [initialData, company]);
 
@@ -123,11 +128,12 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
     const data: ServiceOrderData = {
       id: initialData?.id || uuidv4(),
       af,
-      os,
+      os: isPercurso ? "" : os,
       hora_inicio: horaInicio,
       hora_final: horaFinal,
-      servico_executado: servicoExecutado,
-      parts
+      servico_executado: isPercurso ? "Percurso" : servicoExecutado,
+      parts: isPercurso ? [] : parts,
+      is_percurso: isPercurso
     };
 
     onSave(data);
@@ -135,6 +141,22 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Checkbox Percurso */}
+      <div className="flex items-center space-x-2 p-3 bg-red-50/50 dark:bg-red-950/10 border border-red-100 dark:border-red-900/30 rounded-md">
+        <Checkbox
+          id="is-percurso"
+          checked={isPercurso}
+          onCheckedChange={(checked) => setIsPercurso(!!checked)}
+          className="h-5 w-5 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600 border-red-200 cursor-pointer"
+        />
+        <label
+          htmlFor="is-percurso"
+          className="text-sm font-semibold text-red-700 dark:text-red-400 cursor-pointer select-none"
+        >
+          Marcar como Percurso (Deslocamento / Tempo de Viagem)
+        </label>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>AF (Número de Frota)</Label>
@@ -145,14 +167,20 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
             availableAfs={availableAfs}
           />
         </div>
-        <div className="space-y-2">
-          <Label>Número da OS</Label>
-          <Input 
-            value={os} 
-            onChange={e => setOs(e.target.value)} 
-            placeholder="Ex: 45001"
-          />
-        </div>
+        {!isPercurso ? (
+          <div className="space-y-2 animate-in fade-in duration-200">
+            <Label>Número da OS</Label>
+            <Input
+              value={os}
+              onChange={e => setOs(e.target.value)}
+              placeholder="Ex: 45001"
+            />
+          </div>
+        ) : (
+          <div className="flex items-end text-xs text-red-600 dark:text-red-400 font-semibold p-2 bg-red-50/30 rounded border border-dashed border-red-100/50 self-end h-[40px]">
+            ✨ Modo Percurso Ativo: OS e peças ocultados.
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -166,113 +194,117 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Serviço Executado</Label>
-        <Textarea 
-          value={servicoExecutado} 
-          onChange={e => setServicoExecutado(e.target.value)} 
-          placeholder="Descreva o trabalho realizado..."
-          rows={3}
-        />
-      </div>
-
-      <div className="border-t pt-4 space-y-4">
-        <h3 className="font-bold text-lg">Peças Utilizadas</h3>
-        
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>Buscar Peça no Banco</Label>
-            <PartSearchInput
-              onSearch={setSearchQuery}
-              searchResults={searchResults}
-              onSelectPart={handleSelectPartFromSearch}
-              searchQuery={searchQuery}
-              isLoading={isLoadingParts}
+      {!isPercurso && (
+        <>
+          <div className="space-y-2 animate-in fade-in duration-200">
+            <Label>Serviço Executado</Label>
+            <Textarea
+              value={servicoExecutado}
+              onChange={e => setServicoExecutado(e.target.value)}
+              placeholder="Descreva o trabalho realizado..."
+              rows={3}
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-            <div className="sm:col-span-4 space-y-1">
-              <Label className="text-xs">Código</Label>
-              <Input 
-                value={partCode} 
-                onChange={e => setPartCode(e.target.value)} 
-                placeholder="Cód. Peça" 
-              />
-            </div>
-            <div className="sm:col-span-5 space-y-1">
-              <Label className="text-xs">Descrição</Label>
-              <Input 
-                value={partDescription} 
-                onChange={e => setPartDescription(e.target.value)} 
-                placeholder="Descrição" 
-              />
-            </div>
-            <div className="sm:col-span-2 space-y-1">
-              <Label className="text-xs">Qtd</Label>
-              <Input
-                type="number"
-                value={partQuantity}
-                onChange={e => {
-                  const val = e.target.value;
-                  if (val === '') {
-                    setPartQuantity('');
-                  } else {
-                    const parsed = parseInt(val, 10);
-                    setPartQuantity(isNaN(parsed) ? '' : parsed);
-                  }
-                  setPartQuantityError(false);
-                }}
-                className={cn(partQuantityError && "border-destructive focus-visible:ring-destructive")}
-              />
-              {partQuantityError && (
-                <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
-              )}
-            </div>
-            <div className="sm:col-span-1">
-              <Button 
-                type="button" 
-                variant="secondary" 
-                size="icon"
-                onClick={handleAddPartToList}
-                className="w-full"
-              >
-                <PlusCircle className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-        </div>
+          <div className="border-t pt-4 space-y-4 animate-in fade-in duration-200">
+            <h3 className="font-bold text-lg">Peças Utilizadas</h3>
+            
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label>Buscar Peça no Banco</Label>
+                <PartSearchInput
+                  onSearch={setSearchQuery}
+                  searchResults={searchResults}
+                  onSelectPart={handleSelectPartFromSearch}
+                  searchQuery={searchQuery}
+                  isLoading={isLoadingParts}
+                />
+              </div>
 
-        {parts.length > 0 && (
-          <div className="border rounded-md overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Peça</TableHead>
-                  <TableHead className="w-16 text-center">Qtd</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {parts.map((p, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="text-sm break-all md:break-normal whitespace-normal">
-                      <div className="font-medium text-xs md:text-sm">{p.codigo_peca || 'S/ Cód'}</div>
-                      <div className="text-xs text-muted-foreground break-words whitespace-normal">{p.descricao || 'S/ Desc'}</div>
-                    </TableCell>
-                    <TableCell className="text-center">{p.quantidade}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemovePart(i)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                <div className="sm:col-span-4 space-y-1">
+                  <Label className="text-xs">Código</Label>
+                  <Input
+                    value={partCode}
+                    onChange={e => setPartCode(e.target.value)}
+                    placeholder="Cód. Peça"
+                  />
+                </div>
+                <div className="sm:col-span-5 space-y-1">
+                  <Label className="text-xs">Descrição</Label>
+                  <Input
+                    value={partDescription}
+                    onChange={e => setPartDescription(e.target.value)}
+                    placeholder="Descrição"
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-1">
+                  <Label className="text-xs">Qtd</Label>
+                  <Input
+                    type="number"
+                    value={partQuantity}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setPartQuantity('');
+                      } else {
+                        const parsed = parseInt(val, 10);
+                        setPartQuantity(isNaN(parsed) ? '' : parsed);
+                      }
+                      setPartQuantityError(false);
+                    }}
+                    className={cn(partQuantityError && "border-destructive focus-visible:ring-destructive")}
+                  />
+                  {partQuantityError && (
+                    <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
+                  )}
+                </div>
+                <div className="sm:col-span-1">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    onClick={handleAddPartToList}
+                    className="w-full"
+                  >
+                    <PlusCircle className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {parts.length > 0 && (
+              <div className="border rounded-md overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Peça</TableHead>
+                      <TableHead className="w-16 text-center">Qtd</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parts.map((p, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-sm break-all md:break-normal whitespace-normal">
+                          <div className="font-medium text-xs md:text-sm">{p.codigo_peca || 'S/ Cód'}</div>
+                          <div className="text-xs text-muted-foreground break-words whitespace-normal">{p.descricao || 'S/ Desc'}</div>
+                        </TableCell>
+                        <TableCell className="text-center">{p.quantidade}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemovePart(i)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       <div className="flex gap-3 pt-4">
         <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>

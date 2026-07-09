@@ -269,35 +269,53 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
   const tableRows: any[] = [];
 
   groupedServiceOrders.forEach(group => {
+    const isPercurso = !!group.is_percurso;
+    
     // Create the content for the first column
-    let detailsContent = `AF: ${group.af}`;
-    if (group.os) detailsContent += ` (OS: ${group.os})`;
+    let detailsContent = isPercurso ? `[PERCURSO]\nAF: ${group.af}` : `AF: ${group.af}`;
+    if (!isPercurso && group.os) detailsContent += ` (OS: ${group.os})`;
     if (group.hora_inicio || group.hora_final) {
       detailsContent += `
 Horário: ${group.hora_inicio || '??'} - ${group.hora_final || '??'}`;
     }
-    if (group.servico_executado) {
+    if (isPercurso) {
+      detailsContent += `
+Tempo de Deslocamento`;
+    } else if (group.servico_executado) {
       detailsContent += `
 Serviço: ${group.servico_executado}`;
     }
 
-    const partsToRender = group.parts.length > 0 ? group.parts : [{ id: 'no-parts', codigo_peca: 'Nenhuma peça adicionada', descricao: '', quantidade: '' }];
+    const partsToRender = isPercurso
+      ? [{ id: 'percurso', codigo_peca: 'Percurso (Tempo de Deslocamento)', descricao: '', quantidade: '' }]
+      : (group.parts.length > 0 ? group.parts : [{ id: 'no-parts', codigo_peca: 'Nenhuma peça adicionada', descricao: '', quantidade: '' }]);
     
     partsToRender.forEach((part: any, index: number) => {
-      const partDescription = part.codigo_peca && part.descricao 
-        ? `${part.codigo_peca} - ${part.descricao}` 
-        : part.codigo_peca || part.descricao || 'N/A';
+      const partDescription = isPercurso
+        ? 'Percurso (Tempo de Deslocamento)'
+        : (part.codigo_peca && part.descricao
+          ? `${part.codigo_peca} - ${part.descricao}`
+          : part.codigo_peca || part.descricao || 'N/A');
+
+      const rowFillColor = isPercurso ? [254, 242, 242] : undefined;
+      const rowTextColor = isPercurso ? [220, 38, 38] : undefined;
+      const cellStyles: any = {};
+      if (rowFillColor) cellStyles.fillColor = rowFillColor;
+      if (rowTextColor) {
+        cellStyles.textColor = rowTextColor;
+        cellStyles.fontStyle = 'bold';
+      }
 
       if (index === 0) {
         tableRows.push([
-          { content: detailsContent, rowSpan: partsToRender.length, styles: { valign: 'top' } },
-          partDescription,
-          { content: part.quantidade ?? '', styles: { halign: 'center' } },
+          { content: detailsContent, rowSpan: partsToRender.length, styles: { valign: 'top', ...cellStyles } },
+          { content: partDescription, styles: cellStyles },
+          { content: part.quantidade ?? '', styles: { halign: 'center', ...cellStyles } },
         ]);
       } else {
         tableRows.push([
-          partDescription,
-          { content: part.quantidade ?? '', styles: { halign: 'center' } },
+          { content: partDescription, styles: cellStyles },
+          { content: part.quantidade ?? '', styles: { halign: 'center', ...cellStyles } },
         ]);
       }
     });
