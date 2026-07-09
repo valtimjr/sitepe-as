@@ -879,7 +879,7 @@ const AdminReportPage = () => {
                      content={<BarChartTooltip />}
                    />
                    <Bar dataKey="minutes" name="Ordem de Serviço" fill="#2563eb" stackId="a" radius={[0, 0, 0, 0]} />
-                   <Bar dataKey="percursoMinutes" name="Percurso" fill="#dc2626" stackId="a" radius={[4, 4, 0, 0]} />
+                   <Bar dataKey="percursoMinutes" name="Percurso" fill="#dc2626" stackId="a" radius={[0, 0, 0, 0]} />
                  </BarChart>
                </ResponsiveContainer>
              </div>
