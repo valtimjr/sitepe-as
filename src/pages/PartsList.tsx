@@ -43,6 +43,16 @@ const PartsList = () => {
     loadListItems();
   }, [loadListItems]);
 
+  useEffect(() => {
+    const handlePartAdded = () => {
+      loadListItems();
+    };
+    window.addEventListener('part-added-to-list', handlePartAdded);
+    return () => {
+      window.removeEventListener('part-added-to-list', handlePartAdded);
+    };
+  }, [loadListItems]);
+
   const handleListReordered = (reorderedItems: SimplePartItem[]) => {
     setListItems(reorderedItems);
     // A ordem é apenas visual e para exportação/cópia imediata.

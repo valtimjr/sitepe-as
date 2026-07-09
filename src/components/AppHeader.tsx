@@ -58,6 +58,7 @@ const AddPartPopover: React.FC<AddPartPopoverProps> = ({ part, company }) => {
         af: af.trim() || undefined
       }, company);
       showSuccess(`Peça ${part.codigo} adicionada à sua lista!`);
+      window.dispatchEvent(new CustomEvent('part-added-to-list'));
       setIsOpen(false);
       setQuantidade(1);
       setAf('');
