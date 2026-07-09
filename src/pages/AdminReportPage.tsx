@@ -782,8 +782,8 @@ const AdminReportPage = () => {
                    <RechartsTooltip
                      formatter={(value: number, name: string) => [formatDuration(value), name === 'minutes' ? 'Ordem de Serviço' : 'Percurso']}
                    />
-                   <Bar dataKey="minutes" name="Ordem de Serviço" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                   <Bar dataKey="percursoMinutes" name="Percurso" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                   <Bar dataKey="minutes" name="Ordem de Serviço" stackId="a" fill="#2563eb" />
+                   <Bar dataKey="percursoMinutes" name="Percurso" stackId="a" fill="#dc2626" radius={[4, 4, 0, 0]} />
                  </BarChart>
                </ResponsiveContainer>
              </div>

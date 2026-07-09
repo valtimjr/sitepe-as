@@ -497,12 +497,17 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
   const isPercurso = !!group.is_percurso;
 
   return (
-    <div className="bg-card shadow-sm rounded-sm overflow-hidden overflow-visible">
+    <div className={cn(
+      "bg-card shadow-sm rounded-sm overflow-hidden overflow-visible border-l-4 transition-all",
+      isPercurso
+        ? "border-l-red-500 bg-red-50/[0.04] dark:bg-red-950/[0.04]"
+        : "border-l-transparent"
+    )}>
       <div className={cn("h-1 w-full", isPercurso ? "bg-red-500" : "bg-blue-600")}></div>
       
       {additionalHeader}
       
-      <div className={cn("p-4 border-b", isPercurso ? "bg-red-50/20 border-red-100/30" : "bg-blue-50/30 border-blue-100/50")}>
+      <div className={cn("p-4 border-b", isPercurso ? "bg-red-50/30 border-red-100/30" : "bg-blue-50/30 border-blue-100/50")}>
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div className="flex items-start gap-4">
             {!readOnly && (
