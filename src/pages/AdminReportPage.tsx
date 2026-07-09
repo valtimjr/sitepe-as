@@ -73,6 +73,31 @@ import html2canvas from 'html2canvas';
 
 const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#1d4ed8', '#1e40af', '#1e3a8a'];
 
+const BarChartTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const activePayload = payload.filter((item: any) => item.value > 0);
+    if (activePayload.length === 0) return null;
+
+    return (
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-lg shadow-lg text-xs space-y-1">
+        <p className="font-semibold text-slate-500 dark:text-slate-400">Dia {label}</p>
+        {activePayload.map((item: any, idx: number) => {
+          const isPercurso = item.dataKey === 'percursoMinutes';
+          const displayName = isPercurso ? 'Percurso' : 'OS';
+          const textColor = isPercurso ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400';
+          return (
+            <p key={idx} className={`${textColor} font-bold flex items-center gap-1`}>
+              <span>{displayName}:</span>
+              <span>{formatDuration(item.value)}</span>
+            </p>
+          );
+        })}
+      </div>
+    );
+  }
+  return null;
+};
+
 interface UserProfile {
   id: string;
   first_name: string | null;
@@ -801,7 +826,7 @@ const AdminReportPage = () => {
                        return <Cell key={i} fill={cellColor} />;
                      })}
                    </Pie>
-                   <RechartsTooltip />
+                   <RechartsTooltip formatter={(value: number) => formatDuration(value)} />
                  </PieChart>
                </ResponsiveContainer>
                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -851,7 +876,7 @@ const AdminReportPage = () => {
                    <XAxis dataKey="day" />
                    <YAxis tickFormatter={v => `${Math.floor(v/60)}h`} />
                    <RechartsTooltip
-                     formatter={(value: number, name: string) => [formatDuration(value), name === 'minutes' ? 'Ordem de Serviço' : 'Percurso']}
+                     content={<BarChartTooltip />}
                    />
                    <Bar dataKey="minutes" name="Ordem de Serviço" fill="#2563eb" stackId="a" radius={[0, 0, 0, 0]} />
                    <Bar dataKey="percursoMinutes" name="Percurso" fill="#dc2626" stackId="a" radius={[4, 4, 0, 0]} />
