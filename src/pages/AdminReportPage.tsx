@@ -83,7 +83,7 @@ const BarChartTooltip = ({ active, payload, label }: any) => {
         <p className="font-semibold text-slate-500 dark:text-slate-400">Dia {label}</p>
         {activePayload.map((item: any, idx: number) => {
           const isPercurso = item.dataKey === 'percursoMinutes';
-          const displayName = isPercurso ? 'Percurso' : 'Ordem de Serviço';
+          const displayName = isPercurso ? 'Percurso' : 'OS';
           const textColor = isPercurso ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400';
           return (
             <p key={idx} className={`${textColor} font-bold flex items-center gap-1`}>
