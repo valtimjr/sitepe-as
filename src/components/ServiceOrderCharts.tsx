@@ -3,7 +3,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, B
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { PieChart as PieChartIcon, BarChart3, Loader2, Car } from 'lucide-react';
+import { PieChart as PieChartIcon, BarChart3, Loader2 } from 'lucide-react';
 import { ServiceOrderData } from '@/services/partListService';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -162,14 +162,13 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
                 <Bar
                   dataKey="minutes"
                   name="Ordem de Serviço"
-                  stackId="a"
                   fill="#2563eb"
+                  radius={[4, 4, 0, 0]}
                   maxBarSize={25}
                 />
                 <Bar
                   dataKey="percursoMinutes"
                   name="Percurso"
-                  stackId="a"
                   fill="#dc2626"
                   radius={[4, 4, 0, 0]}
                   maxBarSize={25}
