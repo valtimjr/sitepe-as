@@ -124,18 +124,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
       showError('O número do AF é obrigatório.');
       return;
     }
-    if (!horaInicio || !horaFinal) {
-      showError('As horas de início e fim são obrigatórias.');
-      return;
-    }
-    if (!isPercurso && !os) {
-      showError('O número da OS é obrigatório para ordens de serviço normais.');
-      return;
-    }
-    if (!isPercurso && !servicoExecutado) {
-      showError('A descrição do serviço é obrigatória para ordens de serviço normais.');
-      return;
-    }
 
     const data: ServiceOrderData = {
       id: initialData?.id || uuidv4(),
