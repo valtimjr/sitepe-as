@@ -120,12 +120,13 @@ const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, perc
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-  if (percent < 0.05) return null;
+  // Hide labels for slices smaller than 10% to prevent overlapping
+  if (percent < 0.10) return null;
 
   return (
-    <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={10} className="font-bold drop-shadow-md">
-      <tspan x={x} dy="-0.5em" textAnchor="middle">{name}</tspan>
-      <tspan x={x} dy="1.2em" textAnchor="middle">{time}</tspan>
+    <text x={x} y={y} fill="#1e293b" textAnchor="middle" dominantBaseline="central" className="font-semibold text-[10px] fill-slate-800 dark:fill-slate-200">
+      <tspan x={x} dy="-0.5em">{name}</tspan>
+      <tspan x={x} dy="1.2em">{time}</tspan>
     </text>
   );
 };
@@ -522,18 +523,65 @@ const AdminReportPage = () => {
         yPos += 10;
       }
 
-      // Charts
+      // Calcular totais de OS vs Percurso
+      let reportOsMinutes = 0;
+      let reportPercursoMinutes = 0;
+      filteredOSList.forEach((os: any) => {
+        if (os.hora_inicio && os.hora_final) {
+          const duration = calculateDuration(os.hora_inicio, os.hora_final);
+          if (os.is_percurso) {
+            reportPercursoMinutes += duration;
+          } else {
+            reportOsMinutes += duration;
+          }
+        }
+      });
+      const reportTotalMinutes = reportOsMinutes + reportPercursoMinutes;
+
+      // Resumo do Período em texto estilizado
+      doc.setFontSize(11);
+      doc.setTextColor(30, 41, 59); // slate-800
+      doc.setFont(undefined, 'bold');
+      doc.text("Resumo do Período", 40, yPos);
+      yPos += 15;
+
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(10);
+      doc.text(`Horas em OS:`, 40, yPos);
+      doc.setFont(undefined, 'bold');
+      doc.text(formatDuration(reportOsMinutes), 160, yPos);
+      yPos += 12;
+
+      doc.setFont(undefined, 'normal');
+      doc.text(`Horas de Percurso:`, 40, yPos);
+      doc.setFont(undefined, 'bold');
+      doc.text(formatDuration(reportPercursoMinutes), 160, yPos);
+      yPos += 12;
+
+      doc.setFont(undefined, 'normal');
+      doc.text(`Total Geral:`, 40, yPos);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(22, 163, 74); // green-600
+      doc.text(formatDuration(reportTotalMinutes), 160, yPos);
+      yPos += 25;
+
+      doc.setTextColor(100, 100, 100);
+
+      // Charts com proporção preservada
       if (includeDonutChart || includeBarChart) {
-        const chartHeight = 160;
-        const chartWidth = 220;
+        const chartWidth = 240;
         let currentX = 40;
+        let maxChartHeight = 0;
 
         if (includeDonutChart) {
           const donutEl = document.getElementById('print-donut-chart');
           if (donutEl) {
             const canvas = await html2canvas(donutEl, { scale: 2 });
             const imgData = canvas.toDataURL('image/png');
-            doc.addImage(imgData, 'PNG', currentX, yPos, chartWidth, chartHeight);
+            const aspectRatio = canvas.width / canvas.height;
+            const targetHeight = chartWidth / aspectRatio;
+            doc.addImage(imgData, 'PNG', currentX, yPos, chartWidth, targetHeight);
+            maxChartHeight = Math.max(maxChartHeight, targetHeight);
             currentX += chartWidth + 20;
           }
         }
@@ -543,11 +591,14 @@ const AdminReportPage = () => {
           if (barEl) {
             const canvas = await html2canvas(barEl, { scale: 2 });
             const imgData = canvas.toDataURL('image/png');
-            doc.addImage(imgData, 'PNG', currentX, yPos, chartWidth, chartHeight);
+            const aspectRatio = canvas.width / canvas.height;
+            const targetHeight = chartWidth / aspectRatio;
+            doc.addImage(imgData, 'PNG', currentX, yPos, chartWidth, targetHeight);
+            maxChartHeight = Math.max(maxChartHeight, targetHeight);
           }
         }
 
-        yPos += chartHeight + 20;
+        yPos += maxChartHeight + 25;
       }
 
       // Grouped Data Tables
@@ -575,12 +626,15 @@ const AdminReportPage = () => {
           const d = calculateDuration(os.hora_inicio, os.hora_final);
           total += d;
           
-          const row: any[] = [
+          const isPercurso = !!os.is_percurso;
+          const serviceName = isPercurso ? 'Percurso (Tempo de Deslocamento)' : (os.servico_executado || '-');
+          
+          const row: any = [
             format(parseISO(os.recordDate), 'dd/MM/yyyy'),
             os.userDisplayName,
             os.af || '-',
-            os.os || '-',
-            os.servico_executado || '-',
+            isPercurso ? '-' : (os.os || '-'),
+            serviceName,
             formatDuration(d)
           ];
           
@@ -595,6 +649,7 @@ const AdminReportPage = () => {
             });
           }
           
+          row.is_percurso = isPercurso;
           return row;
         });
 
@@ -621,6 +676,14 @@ const AdminReportPage = () => {
             4: { cellWidth: 'auto' }, // Serviço
             5: { cellWidth: 50 }, // Tempo
             6: { cellWidth: 50 }, // Status
+          },
+          didParseCell: (hookData) => {
+            const rawRow: any = hookData.row.raw;
+            if (rawRow && rawRow.is_percurso) {
+              hookData.cell.styles.fillColor = [254, 242, 242]; // red-50
+              hookData.cell.styles.textColor = [220, 38, 38];   // red-600
+              hookData.cell.styles.fontStyle = 'bold';
+            }
           },
           didDrawPage: (hookData) => {
             yPos = hookData.cursor?.y || yPos;

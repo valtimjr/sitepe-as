@@ -258,15 +258,15 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-    // Only show if slice is big enough
-    if (percent < 0.05) return null;
+    // Hide labels for slices smaller than 10% to prevent overlapping
+    if (percent < 0.10) return null;
 
     const timeStr = fullData ? `${fullData.hora_inicio} - ${fullData.hora_final}` : formatDuration(value);
 
     return (
-      <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={10} className="font-bold drop-shadow-md">
-        <tspan x={x} dy="-0.5em" textAnchor="middle">{name}</tspan>
-        <tspan x={x} dy="1.2em" textAnchor="middle">{timeStr}</tspan>
+      <text x={x} y={y} fill="#1e293b" textAnchor="middle" dominantBaseline="central" className="font-semibold text-[10px] fill-slate-800 dark:fill-slate-200">
+        <tspan x={x} dy="-0.5em">{name}</tspan>
+        <tspan x={x} dy="1.2em">{timeStr}</tspan>
       </text>
     );
   };
