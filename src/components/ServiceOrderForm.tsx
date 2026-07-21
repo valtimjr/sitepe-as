@@ -16,15 +16,67 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useCompany } from '@/context/CompanyContext';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useSession } from '@/components/SessionContextProvider';
+import { supabase } from '@/integrations/supabase/client';
+import { validateTimesAgainstShift } from '@/services/shiftService';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ServiceOrderFormProps {
   initialData: ServiceOrderData | null;
   onSave: (data: ServiceOrderData) => void;
   onCancel: () => void;
+  existingOsList?: ServiceOrderData[];
+  selectedDate: Date;
 }
 
-const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave, onCancel }) => {
+const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
+  initialData,
+  onSave,
+  onCancel,
+  existingOsList,
+  selectedDate
+}) => {
   const { company } = useCompany();
+  const { user, profile } = useSession();
+  
+  const [userShift, setUserShift] = useState<any>(null);
+  const [isLoadingShift, setIsLoadingShift] = useState(false);
+
+  useEffect(() => {
+    const fetchUserShift = async () => {
+      if (!profile?.shift_code || !company) return;
+      setIsLoadingShift(true);
+      try {
+        const { data, error } = await supabase
+          .from('shifts')
+          .select('id, name, ref_code, entry_time, exit_time')
+          .eq('ref_code', profile.shift_code)
+          .eq('company', company)
+          .maybeSingle();
+        if (!error && data) {
+          setUserShift(data);
+        }
+      } catch (err) {
+        console.error('Error fetching user shift in ServiceOrderForm:', err);
+      } finally {
+        setIsLoadingShift(false);
+      }
+    };
+    fetchUserShift();
+  }, [profile?.shift_code, company]);
+
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [validationInfo, setValidationInfo] = useState<{ shiftRangeStr: string; offTime: string } | null>(null);
+
   const [af, setAf] = useState('');
   const [os, setOs] = useState('');
   const [horaInicio, setHoraInicio] = useState('');
@@ -118,13 +170,106 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
     setParts(prev => prev.filter((_, i) => i !== index));
   };
 
+  const checkTimeOverlap = (
+    horaInicioA: string,
+    horaFinalA: string,
+    horaInicioB: string,
+    horaFinalB: string
+  ): boolean => {
+    if (!horaInicioA || !horaFinalA || !horaInicioB || !horaFinalB) return false;
+
+    const toMinutes = (time: string) => {
+      const [h, m] = time.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    let startA = toMinutes(horaInicioA);
+    let endA = toMinutes(horaFinalA);
+    let startB = toMinutes(horaInicioB);
+    let endB = toMinutes(horaFinalB);
+
+    if (endA < startA) endA += 24 * 60;
+    if (endB < startB) endB += 24 * 60;
+
+    const overlaps = (s1: number, e1: number, s2: number, e2: number) => {
+      return Math.max(s1, s2) < Math.min(e1, e2);
+    };
+
+    if (overlaps(startA, endA, startB, endB)) return true;
+    if (overlaps(startA, endA, startB + 24 * 60, endB + 24 * 60)) return true;
+    if (overlaps(startA + 24 * 60, endA + 24 * 60, startB, endB)) return true;
+
+    return false;
+  };
+
+  const handleConfirmSave = () => {
+    setIsConfirmDialogOpen(false);
+    const data: ServiceOrderData = {
+      id: initialData?.id || uuidv4(),
+      af: af || "",
+      os: isPercurso ? "" : os,
+      hora_inicio: horaInicio,
+      hora_final: horaFinal,
+      servico_executado: isPercurso ? "Percurso" : servicoExecutado,
+      parts: isPercurso ? [] : parts,
+      is_percurso: isPercurso
+    };
+    onSave(data);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1. Validar campos obrigatórios
     if (!isPercurso && !af) {
       showError('O número do AF é obrigatório.');
       return;
     }
 
+    if ((horaInicio && !horaFinal) || (!horaInicio && horaFinal)) {
+      showError('Por favor, informe ambos os horários (início e término).');
+      return;
+    }
+
+    // 2. Validar formato das horas
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (horaInicio && !timeRegex.test(horaInicio)) {
+      showError('O horário de início deve estar no formato de horas válido (HH:MM).');
+      return;
+    }
+    if (horaFinal && !timeRegex.test(horaFinal)) {
+      showError('O horário de término deve estar no formato de horas válido (HH:MM).');
+      return;
+    }
+
+    // 3. Validar conflitos já existentes no sistema (sobreposição de horário)
+    if (horaInicio && horaFinal && existingOsList) {
+      const hasConflict = existingOsList.some(item => {
+        if (initialData && item.id === initialData.id) return false;
+        return checkTimeOverlap(horaInicio, horaFinal, item.hora_inicio, item.hora_final);
+      });
+      if (hasConflict) {
+        showError('Há uma sobreposição de horários com outra Ordem de Serviço ou Percurso já existente nesta data.');
+        return;
+      }
+    }
+
+    // 4. Validar horário do turno
+    // Se o usuário não informou horário de início nem término, não há o que validar contra o turno.
+    if (horaInicio || horaFinal) {
+      // Usando a data operacional (selectedDate) para verificar folgas e turnos rotativos
+      const validation = validateTimesAgainstShift(horaInicio, horaFinal, selectedDate, userShift);
+      if (!validation.isValid) {
+        setValidationInfo({
+          shiftRangeStr: validation.shiftRangeStr || 'Folga',
+          offTime: validation.offTime || ''
+        });
+        setIsConfirmDialogOpen(true);
+        return;
+      }
+    }
+
+    // 5. Caso esteja tudo correto, prosseguir com o salvamento direto
     const data: ServiceOrderData = {
       id: initialData?.id || uuidv4(),
       af: af || "",
@@ -140,8 +285,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Checkbox Percurso */}
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Checkbox Percurso */}
       <div className="flex items-center space-x-2 p-3 bg-red-50/50 dark:bg-red-950/10 border border-red-100 dark:border-red-900/30 rounded-md">
         <Checkbox
           id="is-percurso"
@@ -314,6 +460,45 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ initialData, onSave
         </Button>
       </div>
     </form>
+
+    <AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-destructive flex items-center gap-2">
+            Horário fora do turno
+          </AlertDialogTitle>
+          <AlertDialogDescription className="space-y-4 pt-2 text-foreground">
+            <p>O horário informado está fora do horário previsto para o seu turno.</p>
+            
+            <div className="bg-muted p-3 rounded-md space-y-2 border text-left">
+              <div>
+                <span className="font-semibold block text-xs uppercase text-muted-foreground">Turno do funcionário:</span>
+                <span className="text-sm font-medium">{validationInfo?.shiftRangeStr || 'Folga'}</span>
+              </div>
+              <div>
+                <span className="font-semibold block text-xs uppercase text-muted-foreground">Horário informado:</span>
+                <span className="text-sm font-medium text-destructive">{validationInfo?.offTime || '--:--'}</span>
+              </div>
+            </div>
+            
+            <p className="font-semibold text-sm">Deseja salvar mesmo assim?</p>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="flex gap-2 sm:gap-0 sm:flex-row justify-end">
+          <AlertDialogCancel asChild>
+            <Button variant="outline" className="mt-0" onClick={() => setIsConfirmDialogOpen(false)}>
+              Cancelar
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button variant="destructive" onClick={handleConfirmSave}>
+              Salvar mesmo assim
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>
   );
 };
 

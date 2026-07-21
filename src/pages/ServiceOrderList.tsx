@@ -516,10 +516,12 @@ const ServiceOrderList: React.FC = () => {
             <SheetTitle>{editingOs ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}</SheetTitle>
           </SheetHeader>
           <div className="py-6">
-            <ServiceOrderForm 
+            <ServiceOrderForm
               initialData={editingOs}
               onSave={handleSaveOS}
               onCancel={() => setIsFormOpen(false)}
+              existingOsList={osList}
+              selectedDate={selectedDate}
             />
           </div>
         </SheetContent>

@@ -154,3 +154,103 @@ export const generateMonthlyApontamentos = (monthDate: Date, turn: string, userI
 export type ShiftTurn = 'Turno A' | 'Turno B' | 'Turno C' | 'Turno Dia 07:00 - 17:00' | 'Turno Dia 07:30 - 17:00';
 export const ROTATING_TURNS_ONLY: ShiftTurn[] = [...ROTATING_TURNS] as ShiftTurn[];
 export const ALL_TURNS: ShiftTurn[] = [...ROTATING_TURNS, ...FIXED_TURNS] as ShiftTurn[];
+
+/**
+ * Lógica reutilizável para validar horários de início e término contra o turno do funcionário.
+ * Suporta turnos que cruzam a meia-noite e segue a regra do Dia Operacional.
+ *
+ * @param horaInicio Horário de início informado (ex: "08:30") ou vazio
+ * @param horaFinal Horário de término informado (ex: "17:00") ou vazio
+ * @param date A data operacional em que a OS/Percurso está sendo criada/editada
+ * @param shift O objeto de turno do usuário contendo name, entry_time, exit_time
+ * @returns { isValid: boolean; shiftRangeStr?: string; offTime?: string }
+ */
+export const validateTimesAgainstShift = (
+  horaInicio: string,
+  horaFinal: string,
+  date: Date,
+  shift: { name: string; entry_time?: string | null; exit_time?: string | null } | null
+): { isValid: boolean; shiftRangeStr?: string; offTime?: string } => {
+  if (!shift) {
+    return { isValid: true };
+  }
+
+  // 1. Determinar o horário de entrada e saída previsto para o dia
+  let entry: string | undefined;
+  let exit: string | undefined;
+  let status: string | undefined;
+
+  if (['Turno A', 'Turno B', 'Turno C'].includes(shift.name)) {
+    const schedule = getShiftSchedule(date, shift.name);
+    entry = schedule.entry;
+    exit = schedule.exit;
+    status = schedule.status;
+  } else if (shift.entry_time && shift.exit_time) {
+    const dayOfWeek = getDay(date);
+    if (dayOfWeek === 0) { // Domingo é Folga por padrão para turnos fixos normais
+      status = 'Folga';
+    } else {
+      entry = shift.entry_time;
+      exit = shift.exit_time;
+    }
+  } else {
+    const schedule = getShiftSchedule(date, shift.name);
+    entry = schedule.entry;
+    exit = schedule.exit;
+    status = schedule.status;
+  }
+
+  // Se o dia for de folga, qualquer horário informado estará fora do turno
+  if (status === 'Folga' || (!entry && !exit)) {
+    if (horaInicio || horaFinal) {
+      return {
+        isValid: false,
+        shiftRangeStr: 'Folga',
+        offTime: horaInicio || horaFinal
+      };
+    }
+    return { isValid: true };
+  }
+
+  const shiftEntry = entry!;
+  const shiftExit = exit!;
+
+  // Função interna para validar se um horário específico está dentro do turno
+  const isTimeInInterval = (time: string, start: string, end: string): boolean => {
+    if (!time) return true;
+    
+    const [tH, tM] = time.split(':').map(Number);
+    const [sH, sM] = start.split(':').map(Number);
+    const [eH, eM] = end.split(':').map(Number);
+    
+    const tMin = tH * 60 + tM;
+    const sMin = sH * 60 + sM;
+    const eMin = eH * 60 + eM;
+
+    if (sMin <= eMin) {
+      // Turno normal (não cruza meia-noite)
+      return tMin >= sMin && tMin <= eMin;
+    } else {
+      // Turno cruza a meia-noite
+      return tMin >= sMin || tMin <= eMin;
+    }
+  };
+
+  if (horaInicio && !isTimeInInterval(horaInicio, shiftEntry, shiftExit)) {
+    return {
+      isValid: false,
+      shiftRangeStr: `${shiftEntry} às ${shiftExit}`,
+      offTime: horaInicio
+    };
+  }
+
+  if (horaFinal && !isTimeInInterval(horaFinal, shiftEntry, shiftExit)) {
+    return {
+      isValid: false,
+      shiftRangeStr: `${shiftEntry} às ${shiftExit}`,
+      offTime: horaFinal
+    };
+  }
+
+  return { isValid: true };
+};
