@@ -117,6 +117,7 @@ export interface ServiceOrderPart {
 
 export interface ServiceOrderData {
   id: string;
+  cracha?: string | null;
   af: string;
   os: string;
   hora_inicio: string;

@@ -202,10 +202,14 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     return false;
   };
 
-  const handleConfirmSave = () => {
-    setIsConfirmDialogOpen(false);
-    const data: ServiceOrderData = {
+  const buildServiceOrderObject = (): ServiceOrderData => {
+    // Se já tinha um crachá no registro existente, preserva.
+    // Caso contrário (registro antigo ou novo), usa o crachá do profile.
+    const crachaToSave = initialData?.cracha || profile?.badge || "";
+
+    return {
       id: initialData?.id || uuidv4(),
+      cracha: crachaToSave,
       af: af || "",
       os: isPercurso ? "" : os,
       hora_inicio: horaInicio,
@@ -214,7 +218,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       parts: isPercurso ? [] : parts,
       is_percurso: isPercurso
     };
-    onSave(data);
+  };
+
+  const handleConfirmSave = () => {
+    setIsConfirmDialogOpen(false);
+    onSave(buildServiceOrderObject());
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -270,18 +278,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     }
 
     // 5. Caso esteja tudo correto, prosseguir com o salvamento direto
-    const data: ServiceOrderData = {
-      id: initialData?.id || uuidv4(),
-      af: af || "",
-      os: isPercurso ? "" : os,
-      hora_inicio: horaInicio,
-      hora_final: horaFinal,
-      servico_executado: isPercurso ? "Percurso" : servicoExecutado,
-      parts: isPercurso ? [] : parts,
-      is_percurso: isPercurso
-    };
-
-    onSave(data);
+    onSave(buildServiceOrderObject());
   };
 
   return (

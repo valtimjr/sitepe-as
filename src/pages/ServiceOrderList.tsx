@@ -161,13 +161,26 @@ const ServiceOrderList: React.FC = () => {
   };
 
   const handleSaveOS = async (updatedOs: ServiceOrderData) => {
-    const newList = osList.some(o => o.id === updatedOs.id) 
-      ? osList.map(o => o.id === updatedOs.id ? updatedOs : o)
-      : [...osList, updatedOs];
+    // 1. Garantir que a OS atualizada tenha crachá se estiver sem
+    const osWithBadge = {
+      ...updatedOs,
+      cracha: updatedOs.cracha || profile?.badge || ""
+    };
+
+    // 2. Construir a nova lista, garantindo a migração lazy para outros itens da lista salvos
+    const newList = osList.some(o => o.id === osWithBadge.id)
+      ? osList.map(o => o.id === osWithBadge.id ? osWithBadge : o)
+      : [...osList, osWithBadge];
     
+    // Lazy migration de crachá para outros itens da mesma lista que estão sendo salvos de novo
+    const migratedList = newList.map(o => ({
+      ...o,
+      cracha: o.cracha || profile?.badge || ""
+    }));
+
     try {
-      await saveDailyServiceOrder(user?.id, dateStr, newList, company);
-      setOsList(newList);
+      await saveDailyServiceOrder(user?.id, dateStr, migratedList, company);
+      setOsList(migratedList);
       if (isFormOpen) {
         setIsFormOpen(false);
         showSuccess(editingOs ? 'OS atualizada!' : 'OS adicionada!');
@@ -182,9 +195,14 @@ const ServiceOrderList: React.FC = () => {
 
   const handleDeleteOS = async (id: string) => {
     const newList = osList.filter(o => o.id !== id);
+    // Lazy migration para o restante da lista de OS
+    const migratedList = newList.map(o => ({
+      ...o,
+      cracha: o.cracha || profile?.badge || ""
+    }));
     try {
-      await saveDailyServiceOrder(user?.id, dateStr, newList, company);
-      setOsList(newList);
+      await saveDailyServiceOrder(user?.id, dateStr, migratedList, company);
+      setOsList(migratedList);
       setSelectedOsIds(prev => prev.filter(item => item !== id));
       showSuccess('OS removida.');
     } catch (error) {
