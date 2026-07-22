@@ -26,3 +26,9 @@ dist-ssr
 # Ignorar arquivos de imagem específicos que podem ser alterados externamente
 public/Lista.png
 .dyad/
+
+# Playwright test artifacts
+/test-results/
+/playwright-report/
+/playwright/.cache/
+.last-run.json
