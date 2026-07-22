@@ -10,7 +10,7 @@ import {
   getLocalAfs,
   isOnline,
   getLocalMonthlyApontamento,
-  putLocalMonthlyApontamento, 
+  putLocalMonthlyApontamento,
   deleteLocalMonthlyApontamento,
   getLocalDailyServiceOrder,
   putLocalDailyServiceOrder,
@@ -31,6 +31,14 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, DailyServiceOrder, ServiceOrderData, Af as SupabaseAf, ServiceOrderPart } from '@/types/supabase';
 import { CompanyType } from '@/types/company';
+import {
+  getListsData,
+  getActiveList,
+  addItemToActiveList,
+  updateItemInActiveList,
+  deleteItemFromActiveList,
+  clearActiveList
+} from '@/services/localListStorage';
 
 // Export types used in other files
 export type { SimplePartItem, ServiceOrderItem } from '@/services/localDbService';
@@ -157,23 +165,36 @@ export const clearDailyServiceOrders = async (userId: string | undefined, date: 
 // --- Simple Parts List (Local Only) ---
 
 export const getSimplePartsListItems = async (company: CompanyType) => {
-  return getLocalSimplePartsListItems(company);
+  const activeList = await getActiveList(company);
+  return activeList.items;
 };
 
 export const addSimplePartItem = async (item: { codigo_peca: string; descricao: string; quantidade: number; af?: string }, company: CompanyType) => {
-  return addLocalSimplePartItem(item, company);
+  return addItemToActiveList(company, item);
 };
 
 export const updateSimplePartItem = async (item: any) => {
-  return updateLocalSimplePartItem(item);
+  const company = item.company || 'usina_vale';
+  return updateItemInActiveList(company, item);
 };
 
 export const deleteSimplePartItem = async (id: string) => {
-  return deleteLocalSimplePartItem(id);
+  const companies: CompanyType[] = ['usina_vale', 'citrosuco'];
+  for (const company of companies) {
+    const data = await getListsData(company);
+    const activeList = data.lists.find(l => l.id === data.activeListId);
+    if (activeList) {
+      const index = activeList.items.findIndex(item => item.id === id);
+      if (index !== -1) {
+        await deleteItemFromActiveList(company, id);
+        return;
+      }
+    }
+  }
 };
 
 export const clearSimplePartsList = async (company: CompanyType) => {
-  return clearLocalSimplePartsList(company);
+  return clearActiveList(company);
 };
 
 // --- Parts Management ---

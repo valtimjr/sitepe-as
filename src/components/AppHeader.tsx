@@ -28,6 +28,8 @@ import { getMenuStructure } from '@/services/customListService';
 import { MenuItem, Part } from '@/types/supabase';
 import { useCompany } from '@/context/CompanyContext';
 import { searchParts, addSimplePartItem } from '@/services/partListService';
+import { getListsData } from '@/services/localListStorage';
+import { ListSelectorModal } from './ListSelectorModal';
 import LoginModal from './LoginModal';
 
 interface AddPartPopoverProps {
@@ -40,6 +42,8 @@ const AddPartPopover: React.FC<AddPartPopoverProps> = ({ part, company }) => {
   const [af, setAf] = useState<string>('');
   const [isOpen, setIsOpen] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [selectorPart, setSelectorPart] = useState<{ codigo: string; descricao: string; quantidade: number; af?: string } | null>(null);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,17 +55,31 @@ const AddPartPopover: React.FC<AddPartPopoverProps> = ({ part, company }) => {
     
     setIsAdding(true);
     try {
-      await addSimplePartItem({
-        codigo_peca: part.codigo,
+      const listsData = await getListsData(company);
+      const partData = {
+        codigo: part.codigo,
         descricao: part.descricao,
         quantidade,
         af: af.trim() || undefined
-      }, company);
-      showSuccess(`Peça ${part.codigo} adicionada à sua lista!`);
-      window.dispatchEvent(new CustomEvent('part-added-to-list'));
-      setIsOpen(false);
-      setQuantidade(1);
-      setAf('');
+      };
+
+      if (listsData.lists.length <= 1) {
+        await addSimplePartItem({
+          codigo_peca: part.codigo,
+          descricao: part.descricao,
+          quantidade,
+          af: af.trim() || undefined
+        }, company);
+        showSuccess(`Peça ${part.codigo} adicionada à sua lista!`);
+        window.dispatchEvent(new CustomEvent('part-added-to-list'));
+        setIsOpen(false);
+        setQuantidade(1);
+        setAf('');
+      } else {
+        setSelectorPart(partData);
+        setIsSelectorOpen(true);
+        setIsOpen(false);
+      }
     } catch (err) {
       showError('Erro ao adicionar peça.');
     } finally {
@@ -70,83 +88,92 @@ const AddPartPopover: React.FC<AddPartPopoverProps> = ({ part, company }) => {
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-primary hover:bg-primary/10 shrink-0"
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-          title="Adicionar rápido à lista"
+    <>
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-primary hover:bg-primary/10 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+            title="Adicionar rápido à lista"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-72 p-4 z-[200] rapid-add-popover-content"
+          align="end"
+          onClick={(e) => e.stopPropagation()}
         >
-          <Plus className="h-4 w-4" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-72 p-4 z-[200] rapid-add-popover-content"
-        align="end"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <form onSubmit={handleAdd} className="space-y-3">
-          <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">
-            Adicionar à Minha Lista
-          </div>
-          <div className="text-xs text-muted-foreground font-semibold truncate">
-            {part.codigo} - {part.descricao}
-          </div>
-          
-          <div className="space-y-1 text-left">
-            <Label htmlFor={`qty-${part.codigo}`} className="text-[10px] font-semibold uppercase">Quantidade</Label>
-            <Input
-              id={`qty-${part.codigo}`}
-              type="number"
-              min="1"
-              value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, parseInt(e.target.value) || 1))}
-              required
-              className="h-8 text-xs"
-            />
-          </div>
-          
-          <div className="space-y-1 text-left">
-            <Label htmlFor={`af-${part.codigo}`} className="text-[10px] font-semibold uppercase">AF / Frota (Opcional)</Label>
-            <Input
-              id={`af-${part.codigo}`}
-              type="text"
-              placeholder="Ex: AF42"
-              value={af}
-              onChange={(e) => setAf(e.target.value)}
-              className="h-8 text-xs"
-            />
-          </div>
-          
-          <div className="flex gap-2 justify-end pt-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs px-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsOpen(false);
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              className="h-7 text-xs px-2"
-              disabled={isAdding}
-            >
-              {isAdding ? 'Adicionando...' : 'Adicionar'}
-            </Button>
-          </div>
-        </form>
-      </PopoverContent>
-    </Popover>
+          <form onSubmit={handleAdd} className="space-y-3">
+            <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">
+              Adicionar à Minha Lista
+            </div>
+            <div className="text-xs text-muted-foreground font-semibold truncate">
+              {part.codigo} - {part.descricao}
+            </div>
+            
+            <div className="space-y-1 text-left">
+              <Label htmlFor={`qty-${part.codigo}`} className="text-[10px] font-semibold uppercase">Quantidade</Label>
+              <Input
+                id={`qty-${part.codigo}`}
+                type="number"
+                min="1"
+                value={quantidade}
+                onChange={(e) => setQuantidade(Math.max(1, parseInt(e.target.value) || 1))}
+                required
+                className="h-8 text-xs"
+              />
+            </div>
+            
+            <div className="space-y-1 text-left">
+              <Label htmlFor={`af-${part.codigo}`} className="text-[10px] font-semibold uppercase">AF / Frota (Opcional)</Label>
+              <Input
+                id={`af-${part.codigo}`}
+                type="text"
+                placeholder="Ex: AF42"
+                value={af}
+                onChange={(e) => setAf(e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+            
+            <div className="flex gap-2 justify-end pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs px-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsOpen(false);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="h-7 text-xs px-2"
+                disabled={isAdding}
+              >
+                {isAdding ? 'Adicionando...' : 'Adicionar'}
+              </Button>
+            </div>
+          </form>
+        </PopoverContent>
+      </Popover>
+
+      <ListSelectorModal
+        isOpen={isSelectorOpen}
+        onClose={() => setIsSelectorOpen(false)}
+        part={selectorPart}
+        company={company}
+      />
+    </>
   );
 };
 

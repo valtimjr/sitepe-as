@@ -11,6 +11,8 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts } from '@/services/partListService';
+import { getListsData, addItemToList, LocalList } from '@/services/localListStorage';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
@@ -40,10 +42,21 @@ const CustomListPage: React.FC = () => {
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
+  const [lists, setLists] = useState<LocalList[]>([]);
+  const [selectedListId, setSelectedListId] = useState<string>('');
 
   const [openRelatedItemsPopoverId, setOpenRelatedItemsPopoverId] = useState<string | null>(null);
 
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (isExportSheetOpen) {
+      getListsData(company).then(data => {
+        setLists(data.lists);
+        setSelectedListId(data.activeListId);
+      });
+    }
+  }, [isExportSheetOpen, company]);
 
   const loadList = useCallback(async () => {
     if (!listId) return;
@@ -259,6 +272,10 @@ const CustomListPage: React.FC = () => {
       showError('Por favor, selecione um AF para os itens exportados.');
       return;
     }
+    if (!selectedListId) {
+      showError('Por favor, selecione uma lista de destino.');
+      return;
+    }
     const itemsToExport = items.filter(item => selectedItemIds.has(item.id));
     if (itemsToExport.length === 0) {
       showError('Nenhum item selecionado para exportar.');
@@ -271,39 +288,39 @@ const CustomListPage: React.FC = () => {
           const data = item.mangueira_data;
           
           // Exporta a Mangueira como item simples (1 unidade)
-          await addSimplePartItem({
+          await addItemToList(company, selectedListId, {
             codigo_peca: data.mangueira.codigo || '',
             descricao: `Mangueira: ${data.mangueira.name || data.mangueira.codigo} - Corte: ${data.corte_cm} cm`,
             quantidade: 1,
             af: afForExport.trim(),
-          }, company);
+          });
 
           // Exporta Conexão 1
-          await addSimplePartItem({
+          await addItemToList(company, selectedListId, {
             codigo_peca: data.conexao1.codigo || '',
             descricao: `Conexão 1: ${data.conexao1.name || data.conexao1.codigo}`,
             quantidade: 1,
             af: afForExport.trim(),
-          }, company);
+          });
 
           // Exporta Conexão 2
-          await addSimplePartItem({
+          await addItemToList(company, selectedListId, {
             codigo_peca: data.conexao2.codigo || '',
             descricao: `Conexão 2: ${data.conexao2.name || data.conexao2.codigo}`,
             quantidade: 1,
             af: afForExport.trim(),
-          }, company);
+          });
 
         } else if (item.type === 'item') {
-          await addSimplePartItem({
+          await addItemToList(company, selectedListId, {
             codigo_peca: item.part_code || '',
             descricao: item.description || item.item_name,
             quantidade: item.quantity,
             af: afForExport.trim(),
-          }, company);
+          });
         }
       }
-      showSuccess(`${itemsToExport.length} item(s) exportado(s) para 'Minha Lista de Peças' com sucesso!`);
+      showSuccess(`${itemsToExport.length} item(s) exportado(s) com sucesso!`);
       setSelectedItemIds(new Set());
       setIsExportSheetOpen(false);
       setAfForExport('');
@@ -665,10 +682,25 @@ const CustomListPage: React.FC = () => {
           <SheetHeader>
             <SheetTitle>Exportar Itens para Minha Lista</SheetTitle>
             <SheetDescription>
-              Selecione um AF (Número de Frota) para aplicar a todos os {selectedItemIds.size} itens selecionados antes de exportar para "Minha Lista de Peças".
+              Selecione a lista de destino e o AF (Número de Frota) para aplicar a todos os {selectedItemIds.size} itens selecionados.
             </SheetDescription>
           </SheetHeader>
           <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="list-for-export">Lista de Destino</Label>
+              <Select value={selectedListId} onValueChange={setSelectedListId}>
+                <SelectTrigger id="list-for-export">
+                  <SelectValue placeholder="Selecione a lista" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lists.map(list => (
+                    <SelectItem key={list.id} value={list.id}>
+                      {list.name} ({list.items?.length || 0} peças)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="af-for-export">AF (Número de Frota)</Label>
               {isLoadingAfs ? (
@@ -687,7 +719,7 @@ const CustomListPage: React.FC = () => {
             <Button type="button" variant="outline" onClick={() => setIsExportSheetOpen(false)}>
               <XCircle className="h-4 w-4 mr-2" /> Cancelar
             </Button>
-            <Button type="button" onClick={handleConfirmExport} disabled={!afForExport.trim() || isLoadingAfs}>
+            <Button type="button" onClick={handleConfirmExport} disabled={!afForExport.trim() || !selectedListId || isLoadingAfs}>
               <Check className="h-4 w-4 mr-2" /> Confirmar Exportação
             </Button>
           </SheetFooter>
