@@ -196,7 +196,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
               onDragEnd={handleDragEnd}
               onClick={() => onSelectList(list.id)}
               className={cn(
-                "relative flex-shrink-0 w-44 h-24 rounded-xl p-3 flex flex-col justify-between cursor-pointer select-none transition-all duration-200 snap-start",
+                "relative flex-shrink-0 w-44 h-24 p-3 flex flex-col justify-between cursor-pointer select-none transition-all duration-200 snap-start",
                 "border bg-card text-card-foreground",
                 isActive 
                   ? "border-primary ring-2 ring-primary/20 shadow-md scale-[1.02]" 
@@ -214,7 +214,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
                 <div onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-muted">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-muted">
                         <MoreVertical className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </DropdownMenuTrigger>
