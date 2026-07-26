@@ -51,6 +51,25 @@ export function formatDuration(minutes: number): string {
 }
 
 /**
+ * Verifica se um elemento do DOM pertence ao contexto interativo do seletor de listas,
+ * inclusive quando renderizado via React Portal (Radix Select, Popover, etc.).
+ */
+export function isInsideListSelector(target: EventTarget | null | undefined): boolean {
+  if (!target) return false;
+  const el = (target instanceof HTMLElement || target instanceof Element) ? (target as HTMLElement) : null;
+  if (!el) return false;
+
+  return !!(
+    el.closest('.list-selector-portal') ||
+    el.closest('.list-selector-content') ||
+    el.closest('.list-selector-dropdown') ||
+    el.closest('.create-list-panel') ||
+    el.closest('[data-list-selector]') ||
+    el.closest('[data-create-list]')
+  );
+}
+
+/**
  * Função utilitária centralizada para calcular horas de OS e Percurso de uma lista de registros.
  */
 export function calculateOsAndPercursoTimes(osList: any[]) {

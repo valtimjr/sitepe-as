@@ -146,7 +146,11 @@ export const ListSelectorDropdown = forwardRef<HTMLDivElement, ListSelectorDropd
   }
 
   return (
-    <div className="space-y-1.5 text-left" ref={ref} onClick={(e) => e.stopPropagation()}> {/* Expose ref */}
+    <div
+      ref={ref}
+      className="list-selector-portal list-selector-dropdown space-y-1.5 text-left"
+      data-list-selector="true"
+    >
       {!isCreatingInline ? (
         <>
           <Label htmlFor="list-select" className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -156,7 +160,7 @@ export const ListSelectorDropdown = forwardRef<HTMLDivElement, ListSelectorDropd
             <SelectTrigger id="list-select" className="h-8 text-xs border bg-background/50 focus:ring-1 focus:ring-primary">
               <SelectValue placeholder="Selecione uma lista" />
             </SelectTrigger>
-            <SelectContent className="z-[300]">
+            <SelectContent className="list-selector-portal list-selector-content z-[300]" data-list-selector="true">
               {lists.map((list) => (
                 <SelectItem key={list.id} value={list.id} className="text-xs">
                   <span className="flex items-center gap-1.5 font-medium">
@@ -165,7 +169,7 @@ export const ListSelectorDropdown = forwardRef<HTMLDivElement, ListSelectorDropd
                 </SelectItem>
               ))}
               <div className="h-px bg-muted my-1" />
-              <SelectItem value="CREATE_NEW_LIST" className="text-xs text-primary font-bold focus:text-primary focus:bg-primary/5">
+              <SelectItem value="CREATE_NEW_LIST" className="list-selector-create-list text-xs text-primary font-bold focus:text-primary focus:bg-primary/5" data-create-list="true">
                 <span className="flex items-center gap-1.5">
                   <Plus className="h-3.5 w-3.5" />
                   Criar nova lista
@@ -175,7 +179,7 @@ export const ListSelectorDropdown = forwardRef<HTMLDivElement, ListSelectorDropd
           </Select>
         </>
       ) : (
-        <div className="space-y-2 border p-2.5 rounded-lg bg-primary/5 border-primary/20 animate-in fade-in-50 duration-150">
+        <div className="create-list-panel space-y-2 border p-2.5 rounded-lg bg-primary/5 border-primary/20 animate-in fade-in-50 duration-150" data-create-list="true" data-list-selector="true">
           <Label htmlFor="inline-list-name" className="text-[9px] font-bold uppercase tracking-wider text-primary">
             Nome da nova lista
           </Label>

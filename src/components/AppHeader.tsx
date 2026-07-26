@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
 import { showSuccess, showError } from '@/utils/toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, isInsideListSelector } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -202,8 +202,8 @@ const AppHeader: React.FC = () => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       
-      // Se clicou dentro de um popover de adição rápida, não fecha a pesquisa rápida
-      if (target && target.closest && target.closest('.rapid-add-popover-content')) {
+      // Se clicou dentro do seletor de listas ou do popover de adição rápida, ignora o fechamento
+      if (isInsideListSelector(target) || (target && target.closest && target.closest('.rapid-add-popover-content'))) {
         return;
       }
 
