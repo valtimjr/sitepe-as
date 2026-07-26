@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
 import { 
   Select, 
   SelectContent, 
@@ -33,16 +33,16 @@ interface ListSelectorDropdownProps {
   onCreatedAndAdded?: () => void;
 }
 
-export const ListSelectorDropdown: React.FC<ListSelectorDropdownProps> = ({
+export const ListSelectorDropdown = forwardRef<HTMLDivElement, ListSelectorDropdownProps>(({
   company,
   selectedListId,
   onSelectedListIdChange,
   part,
   onCreatedAndAdded,
-}) => {
+}, ref) => {
   const [lists, setLists] = useState<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Inline creation states
   const [isCreatingInline, setIsCreatingInline] = useState(false);
   const [newListName, setNewListName] = useState('');
@@ -57,11 +57,11 @@ export const ListSelectorDropdown: React.FC<ListSelectorDropdownProps> = ({
         // Only keep id and name for performance and memory efficiency
         const simplifiedLists = data.lists.map(l => ({ id: l.id, name: l.name }));
         setLists(simplifiedLists);
-        
+
         // Check for last selected list in localStorage
         const storedLastSelected = localStorage.getItem(`${LAST_SELECTED_KEY_PREFIX}${company}`);
         const isValidStored = storedLastSelected && simplifiedLists.some(l => l.id === storedLastSelected);
-        
+
         if (isValidStored) {
           onSelectedListIdChange(storedLastSelected);
         } else {
@@ -98,7 +98,7 @@ export const ListSelectorDropdown: React.FC<ListSelectorDropdownProps> = ({
     try {
       // 1. Create the new list
       const newList = await createList(company, newListName);
-      
+
       // 2. Persist as selected/active
       onSelectedListIdChange(newList.id);
       localStorage.setItem(`${LAST_SELECTED_KEY_PREFIX}${company}`, newList.id);
@@ -120,7 +120,7 @@ export const ListSelectorDropdown: React.FC<ListSelectorDropdownProps> = ({
       } else {
         showSuccess(`Lista "${newList.name}" criada com sucesso!`);
       }
-      
+
       // Reset inline creation state
       setIsCreatingInline(false);
       setNewListName('');
@@ -146,7 +146,7 @@ export const ListSelectorDropdown: React.FC<ListSelectorDropdownProps> = ({
   }
 
   return (
-    <div className="space-y-1.5 text-left" onClick={(e) => e.stopPropagation()}>
+    <div className="space-y-1.5 text-left" ref={ref} onClick={(e) => e.stopPropagation()}> {/* Expose ref */}
       {!isCreatingInline ? (
         <>
           <Label htmlFor="list-select" className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -214,4 +214,6 @@ export const ListSelectorDropdown: React.FC<ListSelectorDropdownProps> = ({
       )}
     </div>
   );
-};
+});
+
+ListSelectorDropdown.displayName = 'ListSelectorDropdown';
