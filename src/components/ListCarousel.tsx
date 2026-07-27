@@ -272,7 +272,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
         <div
           onClick={() => setIsCreateOpen(true)}
           className={cn(
-            "flex-shrink-0 w-44 h-24 rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer select-none transition-all duration-200 snap-start",
+            "flex-shrink-0 w-44 h-24 p-3 flex flex-col items-center justify-center cursor-pointer select-none transition-all duration-200 snap-start",
             "border border-dashed border-muted-foreground/30 bg-muted/20 hover:bg-muted/40 hover:border-primary/40"
           )}
         >

@@ -197,7 +197,7 @@ const PartsList = () => {
 
       {/* Active List Header Info */}
       {activeList && (
-        <div className="w-full max-w-6xl mx-auto mb-6 px-4 py-3 rounded-xl bg-card border border-border/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="w-full max-w-6xl mx-auto mb-6 px-4 py-3 bg-card border border-border/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10 text-primary">
               <Package className="h-5 w-5" />
