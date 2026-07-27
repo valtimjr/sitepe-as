@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreHorizontal, Loader2, Wifi, WifiOff, Plus } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreVertical, Loader2, Wifi, WifiOff, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
@@ -423,78 +423,26 @@ const AppHeader: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between px-4 md:px-6">
-        <div className="flex items-center gap-2">
-          {/* Indicador de Status do Supabase Ao Vivo */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-muted/50 text-[11px] font-semibold cursor-help select-none transition-all">
-                {supabaseStatus === 'online' && (
-                  <>
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <Wifi className="h-3.5 w-3.5 text-emerald-500" />
-                    <span className="text-emerald-600 dark:text-emerald-400 hidden xs:inline">Conectado</span>
-                  </>
-                )}
-                {supabaseStatus === 'offline' && (
-                  <>
-                    <span className="relative flex h-2 w-2">
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive"></span>
-                    </span>
-                    <WifiOff className="h-3.5 w-3.5 text-destructive animate-pulse" />
-                    <span className="text-destructive font-bold">Sem Conexão</span>
-                  </>
-                )}
-                {supabaseStatus === 'checking' && (
-                  <>
-                    <Loader2 className="h-3 w-3 text-amber-500 animate-spin" />
-                    <span className="text-amber-600 dark:text-amber-400 hidden xs:inline">Verificando...</span>
-                  </>
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              {supabaseStatus === 'online' && "Comunicação com o banco de dados Supabase ativa e estável."}
-              {supabaseStatus === 'offline' && "Sem conexão com o Supabase. Verifique sua internet."}
-              {supabaseStatus === 'checking' && "Testando ping com os servidores do Supabase..."}
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link to={`/${company}`} className="flex items-center gap-2 h-10 shrink-0">
-                <img
-                  src={company === 'citrosuco' ? '/Banner_Citrosuco.png' : "/Banner.png"}
-                  alt="AutoBoard Logo"
-                  className="h-full w-auto transition-transform duration-400 ease-in-out hover:scale-95 active:scale-90"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    if (target.src.includes("Banner_Citrosuco.png")) target.src = "/Banner.png";
-                  }}
-                />
-                <span className="sr-only">Página Inicial</span>
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent>Página Inicial</TooltipContent>
-          </Tooltip>
-          
+      <div className="container flex h-14 sm:h-16 items-center justify-between px-2 sm:px-4 md:px-6 max-w-7xl mx-auto">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {!isLoginPage && (
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="flex items-center gap-1 shrink-0" aria-label="Abrir Menu de Navegação">
-                      <Menu className="h-5 w-5" />
-                      <span className="hidden sm:inline">Menu</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 p-0 hover:bg-muted/80"
+                      aria-label="Abrir Menu de Navegação"
+                    >
+                      <Menu className="h-5 w-5 text-foreground/90" />
                     </Button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
                 <TooltipContent>Menu de Navegação</TooltipContent>
               </Tooltip>
-              <DropdownMenuContent align="start" className="w-52 sm:w-64">
+              <DropdownMenuContent align="start" className="w-56 sm:w-64">
                 {standardDropdownItems.map(item => (
                   item.external ? (
                     <a href={item.path} target="_blank" rel="noopener noreferrer" key={item.path}>
@@ -526,16 +474,72 @@ const AppHeader: React.FC = () => {
             </DropdownMenu>
           )}
 
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link to={`/${company}`} className="flex items-center h-7 sm:h-8 md:h-10 shrink-0">
+                <img
+                  src={company === 'citrosuco' ? '/Banner_Citrosuco.png' : "/Banner.png"}
+                  alt="AutoBoard Logo"
+                  className="h-full w-auto object-contain transition-transform duration-300 hover:scale-95 active:scale-90"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src.includes("Banner_Citrosuco.png")) target.src = "/Banner.png";
+                  }}
+                />
+                <span className="sr-only">Página Inicial</span>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>Página Inicial</TooltipContent>
+          </Tooltip>
+
+          {/* Indicador de Status do Supabase Ao Vivo */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full border bg-muted/40 text-[10px] sm:text-[11px] font-semibold cursor-help select-none shrink-0">
+                {supabaseStatus === 'online' && (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <Wifi className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-500" />
+                    <span className="text-emerald-600 dark:text-emerald-400 hidden min-[420px]:inline">Conectado</span>
+                  </>
+                )}
+                {supabaseStatus === 'offline' && (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive"></span>
+                    </span>
+                    <WifiOff className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-destructive animate-pulse" />
+                    <span className="text-destructive font-bold text-[10px] sm:text-xs">Sem Conexão</span>
+                  </>
+                )}
+                {supabaseStatus === 'checking' && (
+                  <>
+                    <Loader2 className="h-3 w-3 text-amber-500 animate-spin" />
+                    <span className="text-amber-600 dark:text-amber-400 hidden min-[420px]:inline">Verificando...</span>
+                  </>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              {supabaseStatus === 'online' && "Comunicação com o banco de dados Supabase ativa e estável."}
+              {supabaseStatus === 'offline' && "Sem conexão com o Supabase. Verifique sua internet."}
+              {supabaseStatus === 'checking' && "Testando ping com os servidores do Supabase..."}
+            </TooltipContent>
+          </Tooltip>
+
           {!isLoginPage && dynamicMenuLinks.length > 0 && (
-            <nav className="hidden md:flex items-center gap-1">
+            <nav className="hidden lg:flex items-center gap-1">
               {dynamicMenuLinks.map(renderRootItem)}
             </nav>
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {!isLoginPage && (
-            <div ref={searchContainerRef} className="uiverse-search-container relative mr-2">
+            <div ref={searchContainerRef} className="uiverse-search-container relative shrink-0">
               <input
                 type="text"
                 placeholder="Pesquisar peça"
@@ -556,18 +560,18 @@ const AppHeader: React.FC = () => {
                 autoComplete="off"
               />
               <div className="uiverse-search-icon" onClick={() => handleHeaderSearch()}>
-                <Search className="h-5 w-5 text-black" />
+                <Search className="h-4 w-4 text-slate-800 dark:text-slate-200" />
               </div>
 
               {showResults && searchResults.length > 0 && (
-                <div className="absolute top-full right-0 mt-2 w-[280px] bg-white border rounded-md shadow-lg overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute top-full right-0 mt-2 w-[260px] sm:w-[280px] bg-popover border rounded-md shadow-lg overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200">
                   <div className="p-2 bg-blue-50/50 border-b text-[10px] font-bold text-blue-600 uppercase">
                     Resultados Rápidos
                   </div>
                   {searchResults.map(part => (
                     <div
                       key={part.id}
-                      className="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-0 transition-colors flex items-center justify-between gap-2"
+                      className="p-2.5 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 cursor-pointer border-b last:border-0 transition-colors flex items-center justify-between gap-2"
                       onClick={() => {
                         navigate(`/${company}/search-parts?q=${encodeURIComponent(part.codigo)}`);
                         setHeaderSearchQuery('');
@@ -575,14 +579,14 @@ const AppHeader: React.FC = () => {
                       }}
                     >
                       <div className="flex-1 min-w-0 text-left">
-                        <div className="font-bold text-xs text-blue-700">{part.codigo}</div>
-                        <div className="text-[10px] text-gray-600 line-clamp-2 leading-tight">{part.descricao}</div>
+                        <div className="font-bold text-xs text-blue-600 dark:text-blue-400">{part.codigo}</div>
+                        <div className="text-[10px] text-muted-foreground line-clamp-2 leading-tight">{part.descricao}</div>
                       </div>
                       <AddPartPopover part={part} company={company} />
                     </div>
                   ))}
                   <div
-                    className="p-2 text-center text-[10px] font-bold text-gray-400 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+                    className="p-2 text-center text-[10px] font-bold text-muted-foreground bg-muted/30 hover:bg-muted/60 cursor-pointer transition-colors"
                     onClick={() => handleHeaderSearch()}
                   >
                     Pressione Enter para ver tudo
@@ -593,19 +597,22 @@ const AppHeader: React.FC = () => {
           )}
 
           {isLoading ? (
-            <div className="flex items-center gap-2 mr-2">
-              <Loader2 className="h-5 w-5 text-primary animate-spin" />
-              <span className="text-xs text-muted-foreground hidden sm:inline">Carregando...</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Loader2 className="h-4 w-4 text-primary animate-spin" />
             </div>
           ) : session ? (
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-sm hidden sm:inline">Olá, {profile?.first_name || 'Usuário'}</span>
-              <Link to={`/${company}/settings`}>
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <span className="font-medium text-xs sm:text-sm hidden lg:inline truncate max-w-[120px]">
+                Olá, {profile?.first_name || 'Usuário'}
+              </span>
+              <Link to={`/${company}/settings`} className="shrink-0">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Avatar className="h-8 w-8 rounded-full cursor-pointer">
+                    <Avatar className="h-8 w-8 rounded-full cursor-pointer shrink-0 border border-border/60 hover:border-primary/50 transition-colors">
                       <AvatarImage src={profile?.avatar_url || undefined} alt="Avatar do Usuário" />
-                      <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
+                      <AvatarFallback className="text-xs font-semibold">
+                        {getInitials(profile?.first_name, profile?.last_name)}
+                      </AvatarFallback>
                     </Avatar>
                   </TooltipTrigger>
                   <TooltipContent>Configurações</TooltipContent>
@@ -615,13 +622,19 @@ const AppHeader: React.FC = () => {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 hover:bg-muted/80 p-0">
+                        <MoreVertical className="h-4 w-4 text-foreground/80" />
+                      </Button>
                     </DropdownMenuTrigger>
                   </TooltipTrigger>
                   <TooltipContent>Opções do Perfil</TooltipContent>
                 </Tooltip>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem asChild><Link to={`/${company}/settings`}><Settings className="h-4 w-4 mr-2" /> Configurações</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to={`/${company}/settings`}>
+                      <Settings className="h-4 w-4 mr-2" /> Configurações
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={handleLogout} className="text-destructive">
                     <LogOut className="h-4 w-4 mr-2" /> Sair
@@ -632,7 +645,7 @@ const AppHeader: React.FC = () => {
           ) : (
             !isLoginPage && (
               <>
-                <div className="login-btn-container">
+                <div className="login-btn-container shrink-0">
                   <button
                     type="button"
                     className="login-btn-input"
