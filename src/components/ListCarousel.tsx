@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { 
   Dialog, 
-  DialogContent, 
+  DialogContent,
   DialogHeader, 
   DialogTitle, 
   DialogFooter,
@@ -80,7 +80,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
   const trackRef = useRef<HTMLDivElement>(null);
   
   const [containerWidth, setContainerWidth] = useState(0);
-  const [cardWidth, setCardWidth] = useState(280);
+  const [cardWidth, setCardWidth] = useState(80);
 
   // Carousel state
   const numLists = lists.length;
@@ -151,7 +151,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
         const cWidth = containerRef.current.clientWidth;
         setContainerWidth(cWidth);
         // Card takes ~78% of mobile screen width or max 280px
-        const calculatedCardWidth = Math.min(Math.max(cWidth * 0.78, 220), 280);
+        const calculatedCardWidth = Math.min(Math.max(cWidth * 0.6, 120), 180);
         setCardWidth(calculatedCardWidth);
       }
     };
