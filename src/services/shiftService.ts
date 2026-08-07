@@ -293,43 +293,6 @@ export function opMinutesToTime(opMin: number): string {
 }
 
 /**
- * Mapeia o código numérico do turno (ref_code) para o nome oficial da escala rotativa/fixa.
- */
-export function mapRefCodeToTurnName(refCode: number | string): string | null {
-  const num = typeof refCode === 'number' ? refCode : parseInt(String(refCode), 10);
-  if (isNaN(num)) return null;
-  switch (num) {
-    case 1:
-      return 'Turno A';
-    case 2:
-      return 'Turno B';
-    case 3:
-      return 'Turno C';
-    case 4:
-      return 'Turno Dia 07:30 - 17:00';
-    case 5:
-      return 'Turno Dia 07:00 - 17:00';
-    default:
-      return null;
-  }
-}
-
-/**
- * Normaliza variações de nomes de turno para um dos nomes reconhecidos pelo sistema.
- */
-export function normalizeTurnName(name: string): string {
-  if (!name) return 'Turno Dia 07:00 - 17:00';
-  const clean = name.trim();
-  if (ALL_TURNS.includes(clean as ShiftTurn)) return clean;
-  if (clean === 'Dia(07:00)') return 'Turno Dia 07:00 - 17:00';
-  if (clean === 'Dia(07:30)') return 'Turno Dia 07:30 - 17:00';
-  if (clean.toLowerCase().includes('noite')) return 'Turno A';
-  if (clean.toLowerCase().includes('intermediario') || clean.toLowerCase().includes('intermediário')) return 'Turno C';
-  if (clean.toLowerCase().includes('dia')) return 'Turno Dia 07:00 - 17:00';
-  return clean;
-}
-
-/**
  * Resolve as informações de horário de turno para uma data e referência de turno.
  */
 export function resolveShiftScheduleInfo(
@@ -340,58 +303,40 @@ export function resolveShiftScheduleInfo(
     return getShiftSchedule(date, 'Turno Dia 07:00 - 17:00');
   }
 
-  // Se shiftOrTurn for um número (ex: profile.shift_code = 1, 2, 3, 4, 5)
-  if (typeof shiftOrTurn === 'number') {
-    const turnName = mapRefCodeToTurnName(shiftOrTurn);
-    if (turnName) {
-      return getShiftSchedule(date, turnName);
-    }
-  }
-
-  // Se shiftOrTurn for uma string
   if (typeof shiftOrTurn === 'string') {
-    const mapped = mapRefCodeToTurnName(shiftOrTurn);
-    if (mapped) {
-      return getShiftSchedule(date, mapped);
-    }
-    const normalized = normalizeTurnName(shiftOrTurn);
-    return getShiftSchedule(date, normalized);
+    return getShiftSchedule(date, shiftOrTurn);
   }
 
-  // Se shiftOrTurn for um objeto (ex: userShift carregado da tabela shifts ou profile)
   if (typeof shiftOrTurn === 'object') {
     if (shiftOrTurn.status === 'Folga') {
       return { status: 'Folga', shiftName: shiftOrTurn.name || shiftOrTurn.shiftName || 'Folga' };
     }
 
+    const name = shiftOrTurn.name || shiftOrTurn.shiftName;
+    if (name && ALL_TURNS.includes(name as ShiftTurn)) {
+      return getShiftSchedule(date, name);
+    }
+
     const entry = shiftOrTurn.entry_time || shiftOrTurn.entry;
     const exit = shiftOrTurn.exit_time || shiftOrTurn.exit;
-    const name = shiftOrTurn.name || shiftOrTurn.shiftName;
+    const dayOfWeek = getDay(date);
 
-    // Se ref_code estiver presente e entry/exit forem nulos (turnos rotativos A, B, C)
-    if (shiftOrTurn.ref_code && (!entry || !exit)) {
-      const turnName = mapRefCodeToTurnName(shiftOrTurn.ref_code);
-      if (turnName) {
-        return getShiftSchedule(date, turnName);
+    if (dayOfWeek === 0 && (!name || !['Turno A', 'Turno B', 'Turno C'].includes(name))) {
+      if (!entry && !exit) {
+        return { status: 'Folga', shiftName: name || 'Folga' };
       }
     }
 
-    // Se tiver horários fixos customizados preenchidos (ex: Dia 07:00-17:00), usa-os diretamente
     if (entry && exit) {
-      const dayOfWeek = getDay(date);
-      if (dayOfWeek === 0 && (!name || (!ALL_TURNS.includes(name) && !['Turno A', 'Turno B', 'Turno C'].includes(name)))) {
-        return { status: 'Folga', shiftName: name || 'Folga' };
-      }
       return { entry, exit, shiftName: name || 'Turno Customizado' };
     }
 
     if (name) {
-      const normalized = normalizeTurnName(name);
-      return getShiftSchedule(date, normalized);
+      return getShiftSchedule(date, name);
     }
   }
 
-  return getShiftSchedule(date, 'Turno Dia 07:00 - 17:00');
+  return { shiftName: 'Sem Turno' };
 }
 
 /**
