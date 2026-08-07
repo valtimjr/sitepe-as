@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { calculateDailyTimesAndGaps } from "@/services/shiftService";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -70,9 +71,9 @@ export function isInsideListSelector(target: EventTarget | null | undefined): bo
 }
 
 /**
- * Função utilitária centralizada para calcular horas de OS e Percurso de uma lista de registros.
+ * Função utilitária centralizada para calcular horas de OS, Percurso e Aguardando Serviço de uma lista de registros.
  */
-export function calculateOsAndPercursoTimes(osList: any[]) {
+export function calculateOsAndPercursoTimes(osList: any[], date?: Date, shiftOrTurn?: any) {
   let osMinutes = 0;
   let percursoMinutes = 0;
   
@@ -86,10 +87,21 @@ export function calculateOsAndPercursoTimes(osList: any[]) {
       }
     });
   }
+
+  let waitingMinutes = 0;
+  let waitingIntervals: Array<{ start: string; end: string; durationMinutes: number }> = [];
+
+  if (date && shiftOrTurn) {
+    const breakdown = calculateDailyTimesAndGaps(osList, date, shiftOrTurn);
+    waitingMinutes = breakdown.waitingMinutes;
+    waitingIntervals = breakdown.waitingIntervals;
+  }
   
   return {
     osMinutes,
     percursoMinutes,
-    totalMinutes: osMinutes + percursoMinutes
+    waitingMinutes,
+    totalMinutes: osMinutes + percursoMinutes + waitingMinutes,
+    waitingIntervals
   };
 }

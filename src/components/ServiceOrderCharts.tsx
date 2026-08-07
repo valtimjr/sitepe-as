@@ -1,19 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Label } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { PieChart as PieChartIcon, BarChart3, Loader2 } from 'lucide-react';
 import { ServiceOrderData } from '@/services/partListService';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
 
 import { useCompany } from '@/context/CompanyContext';
-import { calculateDuration, formatDuration, calculateOsAndPercursoTimes } from '@/lib/utils';
+import { calculateDuration, formatDuration } from '@/lib/utils';
+import { calculateDailyTimesAndGaps } from '@/services/shiftService';
 
-const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#1d4ed8', '#1e40af', '#1e3a8a'];
+const BLUE_COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#1d4ed8', '#1e40af', '#1e3a8a'];
 
 const BarChartTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -24,9 +25,17 @@ const BarChartTooltip = ({ active, payload, label }: any) => {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-lg shadow-lg text-xs space-y-1">
         <p className="font-semibold text-slate-500 dark:text-slate-400">Dia {label}</p>
         {activePayload.map((item: any, idx: number) => {
-          const isPercurso = item.dataKey === 'percursoMinutes';
-          const displayName = isPercurso ? 'Percurso' : 'OS';
-          const textColor = isPercurso ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400';
+          let displayName = 'OS';
+          let textColor = 'text-blue-600 dark:text-blue-400';
+
+          if (item.dataKey === 'percursoMinutes') {
+            displayName = 'Percurso';
+            textColor = 'text-red-600 dark:text-red-400';
+          } else if (item.dataKey === 'waitingMinutes') {
+            displayName = 'Aguardando Serviço';
+            textColor = 'text-green-600 dark:text-green-400';
+          }
+
           return (
             <p key={idx} className={`${textColor} font-bold flex items-center gap-1`}>
               <span>{displayName}:</span>
@@ -41,11 +50,31 @@ const BarChartTooltip = ({ active, payload, label }: any) => {
 };
 
 const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }> = ({ currentDate, company }) => {
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const [loading, setLoading] = useState(true);
-  const [monthlyData, setMonthlyData] = useState<{ date: string; day: string; minutes: number; percursoMinutes: number; hours: number }[]>([]);
+  const [userShift, setUserShift] = useState<any>(null);
+  const [monthlyData, setMonthlyData] = useState<{ date: string; day: string; minutes: number; percursoMinutes: number; waitingMinutes: number; total: number }[]>([]);
   const [totalMonthlyOsMinutes, setTotalMonthlyOsMinutes] = useState(0);
   const [totalMonthlyPercursoMinutes, setTotalMonthlyPercursoMinutes] = useState(0);
+  const [totalMonthlyWaitingMinutes, setTotalMonthlyWaitingMinutes] = useState(0);
+
+  useEffect(() => {
+    const fetchUserShift = async () => {
+      if (!profile?.shift_code) return;
+      try {
+        const { data } = await supabase
+          .from('shifts')
+          .select('id, name, ref_code, entry_time, exit_time')
+          .eq('ref_code', profile.shift_code)
+          .eq('company', company)
+          .maybeSingle();
+        if (data) setUserShift(data);
+      } catch (err) {
+        console.error('Error fetching shift:', err);
+      }
+    };
+    fetchUserShift();
+  }, [profile?.shift_code, company]);
 
   useEffect(() => {
     const fetchMonthlyData = async () => {
@@ -66,53 +95,47 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
 
         if (error) throw error;
 
-        // Process data
-        const daysMap = new Map<string, { minutes: number; percursoMinutes: number }>();
+        const recordsMap = new Map<string, any[]>();
+        data?.forEach(record => {
+          if (Array.isArray(record.os_list)) {
+            recordsMap.set(record.date, record.os_list);
+          }
+        });
+
         let totalOs = 0;
         let totalPercurso = 0;
+        let totalWaiting = 0;
 
-        // Initialize all days with 0
         const daysInMonth = eachDayOfInterval({
           start: startOfMonth(currentDate),
           end: endOfMonth(currentDate)
         });
 
-        daysInMonth.forEach(day => {
-          daysMap.set(format(day, 'yyyy-MM-dd'), { minutes: 0, percursoMinutes: 0 });
-        });
+        const chartData = daysInMonth.map(day => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const osListForDay = recordsMap.get(dateStr) || [];
+          
+          const shiftRef = userShift || profile?.shift_code;
+          const breakdown = calculateDailyTimesAndGaps(osListForDay, day, shiftRef);
 
-        // Fill with actual data
-        data?.forEach(record => {
-          const osList = record.os_list as any[]; // Type assertion needed for JSONB
-          if (Array.isArray(osList)) {
-            let dayMinutes = 0;
-            let dayPercursoMinutes = 0;
-            osList.forEach((os: any) => {
-              const dur = calculateDuration(os.hora_inicio, os.hora_final);
-              if (os.is_percurso) {
-                dayPercursoMinutes += dur;
-                totalPercurso += dur;
-              } else {
-                dayMinutes += dur;
-                totalOs += dur;
-              }
-            });
-            
-            daysMap.set(record.date, { minutes: dayMinutes, percursoMinutes: dayPercursoMinutes });
-          }
-        });
+          totalOs += breakdown.osMinutes;
+          totalPercurso += breakdown.percursoMinutes;
+          totalWaiting += breakdown.waitingMinutes;
 
-        const chartData = Array.from(daysMap.entries()).map(([date, val]) => ({
-          date,
-          day: format(parseISO(date), 'dd'),
-          minutes: val.minutes,
-          percursoMinutes: val.percursoMinutes,
-          hours: Number(((val.minutes + val.percursoMinutes) / 60).toFixed(1)) // For tooltip
-        }));
+          return {
+            date: dateStr,
+            day: format(day, 'dd'),
+            minutes: breakdown.osMinutes,
+            percursoMinutes: breakdown.percursoMinutes,
+            waitingMinutes: breakdown.waitingMinutes,
+            total: breakdown.totalMinutes
+          };
+        });
 
         setMonthlyData(chartData);
         setTotalMonthlyOsMinutes(totalOs);
         setTotalMonthlyPercursoMinutes(totalPercurso);
+        setTotalMonthlyWaitingMinutes(totalWaiting);
 
       } catch (err) {
         console.error('Error fetching monthly data:', err);
@@ -122,12 +145,12 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
     };
 
     fetchMonthlyData();
-  }, [user, currentDate]);
+  }, [user, currentDate, company, userShift, profile?.shift_code]);
 
   return (
     <div className="space-y-6">
       <DialogHeader>
-        <DialogTitle className="text-2xl font-bold text-center">
+        <DialogTitle className="text-2xl font-bold text-center capitalize">
           Desempenho de {format(currentDate, 'MMMM', { locale: ptBR })}
         </DialogTitle>
       </DialogHeader>
@@ -138,23 +161,29 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="text-center bg-blue-50/50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-100/50">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="text-center bg-blue-50/50 dark:bg-blue-950/20 p-2.5 rounded-lg border border-blue-100/50">
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Horas em OS</p>
-              <p className="text-lg sm:text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
+              <p className="text-base sm:text-xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
                 {formatDuration(totalMonthlyOsMinutes)}
               </p>
             </div>
-            <div className="text-center bg-red-50/50 dark:bg-red-950/20 p-3 rounded-lg border border-red-100/50">
+            <div className="text-center bg-red-50/50 dark:bg-red-950/20 p-2.5 rounded-lg border border-red-100/50">
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Percurso</p>
-              <p className="text-lg sm:text-2xl font-extrabold text-red-600 dark:text-red-400 mt-1">
+              <p className="text-base sm:text-xl font-extrabold text-red-600 dark:text-red-400 mt-1">
                 {formatDuration(totalMonthlyPercursoMinutes)}
               </p>
             </div>
-            <div className="text-center bg-green-50/50 dark:bg-green-950/20 p-3 rounded-lg border border-green-100/50">
+            <div className="text-center bg-green-50/50 dark:bg-green-950/20 p-2.5 rounded-lg border border-green-100/50">
+              <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Aguardando</p>
+              <p className="text-base sm:text-xl font-extrabold text-green-600 dark:text-green-400 mt-1">
+                {formatDuration(totalMonthlyWaitingMinutes)}
+              </p>
+            </div>
+            <div className="text-center bg-slate-50 dark:bg-slate-900/40 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800">
               <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Total Geral</p>
-              <p className="text-lg sm:text-2xl font-extrabold text-green-600 dark:text-green-400 mt-1">
-                {formatDuration(totalMonthlyOsMinutes + totalMonthlyPercursoMinutes)}
+              <p className="text-base sm:text-xl font-extrabold text-slate-800 dark:text-slate-200 mt-1">
+                {formatDuration(totalMonthlyOsMinutes + totalMonthlyPercursoMinutes + totalMonthlyWaitingMinutes)}
               </p>
             </div>
           </div>
@@ -195,6 +224,14 @@ const MonthlyPerformanceContent: React.FC<{ currentDate: Date; company: string }
                   radius={[0, 0, 0, 0]}
                   maxBarSize={25}
                 />
+                <Bar
+                  dataKey="waitingMinutes"
+                  name="Aguardando Serviço"
+                  fill="#16a34a"
+                  stackId="a"
+                  radius={[2, 2, 0, 0]}
+                  maxBarSize={25}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -211,62 +248,98 @@ interface ServiceOrderChartsProps {
 
 export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, currentDate }) => {
   const { company } = useCompany();
+  const { profile } = useSession();
   const [isMonthlyOpen, setIsMonthlyOpen] = useState(false);
+  const [userShift, setUserShift] = useState<any>(null);
 
-  // Prepare data for Daily Donut Chart
+  useEffect(() => {
+    const fetchUserShift = async () => {
+      if (!profile?.shift_code) return;
+      try {
+        const { data } = await supabase
+          .from('shifts')
+          .select('id, name, ref_code, entry_time, exit_time')
+          .eq('ref_code', profile.shift_code)
+          .eq('company', company)
+          .maybeSingle();
+        if (data) setUserShift(data);
+      } catch (err) {
+        console.error('Error fetching shift:', err);
+      }
+    };
+    fetchUserShift();
+  }, [profile?.shift_code, company]);
+
+  const dailyBreakdown = useMemo(() => {
+    const shiftRef = userShift || profile?.shift_code;
+    return calculateDailyTimesAndGaps(osList, currentDate, shiftRef);
+  }, [osList, currentDate, userShift, profile?.shift_code]);
+
+  // Prepare data for Daily Donut Chart including OS, Percurso and Aguardando gaps
   const dailyData = useMemo(() => {
-    const data = osList
+    const slices: Array<{
+      name: string;
+      value: number;
+      timeStr?: string;
+      color: string;
+      isPercurso?: boolean;
+      isWaiting?: boolean;
+    }> = [];
+
+    // Add OS and Percurso
+    osList
       .filter(os => os.hora_inicio && os.hora_final)
-      .map(os => ({
-        name: os.is_percurso
-          ? (os.af ? `Deslocamento (AF: ${os.af})` : 'Deslocamento')
-          : (os.os || os.af || 'Sem ID'),
-        value: calculateDuration(os.hora_inicio, os.hora_final),
-        fullData: os
-      }))
-      .filter(item => item.value > 0);
+      .forEach((os, idx) => {
+        const duration = calculateDuration(os.hora_inicio, os.hora_final);
+        if (duration <= 0) return;
 
-    return data;
-  }, [osList]);
+        const isPercurso = !!os.is_percurso;
+        const name = isPercurso
+          ? (os.af ? `Percurso (AF: ${os.af})` : 'Percurso')
+          : (os.os || os.af || 'Sem ID');
 
-  const totalDailyMinutes = useMemo(() => {
-    return dailyData.reduce((acc, curr) => acc + curr.value, 0);
-  }, [dailyData]);
+        slices.push({
+          name,
+          value: duration,
+          timeStr: `${os.hora_inicio} - ${os.hora_final}`,
+          color: isPercurso ? '#dc2626' : BLUE_COLORS[idx % BLUE_COLORS.length],
+          isPercurso
+        });
+      });
 
-  const dailyTimes = useMemo(() => {
-    let osMinutes = 0;
-    let percursoMinutes = 0;
-    osList.forEach(os => {
-      const dur = calculateDuration(os.hora_inicio, os.hora_final);
-      if (os.is_percurso) {
-        percursoMinutes += dur;
-      } else {
-        osMinutes += dur;
+    // Add Aguardando Serviço intervals
+    dailyBreakdown.waitingIntervals.forEach((interval) => {
+      if (interval.durationMinutes > 0) {
+        slices.push({
+          name: 'Aguardando Serviço',
+          value: interval.durationMinutes,
+          timeStr: `${interval.start} - ${interval.end}`,
+          color: '#16a34a',
+          isWaiting: true
+        });
       }
     });
-    return {
-      osMinutes,
-      percursoMinutes,
-      totalMinutes: osMinutes + percursoMinutes
-    };
-  }, [osList]);
+
+    return slices;
+  }, [osList, dailyBreakdown]);
+
+  const totalDailyMinutes = dailyBreakdown.totalMinutes;
 
   // Custom label for Pie Chart
-  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value, fullData }: any) => {
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, value, timeStr }: any) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-    // Hide labels for slices smaller than 10% to prevent overlapping
-    if (percent < 0.10) return null;
+    if (percent < 0.08) return null;
 
-    const timeStr = fullData ? `${fullData.hora_inicio} - ${fullData.hora_final}` : formatDuration(value);
+    const displayTime = timeStr || formatDuration(value);
 
     return (
       <text x={x} y={y} fill="#1e293b" textAnchor="middle" dominantBaseline="central" className="font-semibold text-[10px] fill-slate-800 dark:fill-slate-200">
         <tspan x={x} dy="-0.5em">{name}</tspan>
-        <tspan x={x} dy="1.2em">{timeStr}</tspan>
+        <tspan x={x} dy="1.2em">{displayTime}</tspan>
       </text>
     );
   };
@@ -278,7 +351,7 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
           <PieChartIcon className="h-5 w-5" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-4" align="end">
+      <PopoverContent className="w-80 sm:w-96 p-4" align="end">
         <div className="flex flex-col items-center space-y-4">
           <h3 className="font-semibold text-lg text-center">Desempenho Diário</h3>
           
@@ -298,16 +371,15 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
                       label={renderCustomLabel}
                       labelLine={false}
                     >
-                      {dailyData.map((entry, index) => {
-                        const isPercurso = !!entry.fullData?.is_percurso;
-                        const cellColor = isPercurso ? '#ef4444' : COLORS[index % COLORS.length];
-                        return (
-                          <Cell key={`cell-${index}`} fill={cellColor} />
-                        );
-                      })}
+                      {dailyData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
                     </Pie>
                     <RechartsTooltip 
-                      formatter={(value: number) => formatDuration(value)}
+                      formatter={(value: number, name: string, item: any) => [
+                        `${formatDuration(value)} (${item.payload.timeStr || ''})`,
+                        item.payload.name
+                      ]}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -323,22 +395,24 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
             )}
           </div>
 
-          {dailyData.length > 0 && (
-            <div className="w-full grid grid-cols-3 gap-2 p-2 bg-muted/40 rounded-lg border text-xs">
-              <div className="text-center">
-                <span className="text-[9px] text-muted-foreground uppercase font-bold">Horas em OS</span>
-                <p className="font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{formatDuration(dailyTimes.osMinutes)}</p>
-              </div>
-              <div className="text-center border-l border-r border-border px-1">
-                <span className="text-[9px] text-muted-foreground uppercase font-bold">Percurso</span>
-                <p className="font-extrabold text-red-600 dark:text-red-400 mt-0.5">{formatDuration(dailyTimes.percursoMinutes)}</p>
-              </div>
-              <div className="text-center">
-                <span className="text-[9px] text-muted-foreground uppercase font-bold">Total Geral</span>
-                <p className="font-extrabold text-green-600 dark:text-green-400 mt-0.5">{formatDuration(dailyTimes.totalMinutes)}</p>
-              </div>
+          <div className="w-full grid grid-cols-4 gap-1.5 p-2 bg-muted/40 rounded-lg border text-[10px] sm:text-xs">
+            <div className="text-center">
+              <span className="text-[9px] text-muted-foreground uppercase font-bold">Horas OS</span>
+              <p className="font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{formatDuration(dailyBreakdown.osMinutes)}</p>
             </div>
-          )}
+            <div className="text-center border-l border-r border-border px-0.5">
+              <span className="text-[9px] text-muted-foreground uppercase font-bold">Percurso</span>
+              <p className="font-extrabold text-red-600 dark:text-red-400 mt-0.5">{formatDuration(dailyBreakdown.percursoMinutes)}</p>
+            </div>
+            <div className="text-center border-r border-border pr-0.5">
+              <span className="text-[9px] text-muted-foreground uppercase font-bold">Aguardando</span>
+              <p className="font-extrabold text-green-600 dark:text-green-400 mt-0.5">{formatDuration(dailyBreakdown.waitingMinutes)}</p>
+            </div>
+            <div className="text-center">
+              <span className="text-[9px] text-muted-foreground uppercase font-bold">Total</span>
+              <p className="font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">{formatDuration(dailyBreakdown.totalMinutes)}</p>
+            </div>
+          </div>
 
           <Dialog open={isMonthlyOpen} onOpenChange={setIsMonthlyOpen}>
             <DialogTrigger asChild>
@@ -350,7 +424,6 @@ export const ServiceOrderCharts: React.FC<ServiceOrderChartsProps> = ({ osList, 
             <DialogContent className="sm:max-w-3xl">
               <MonthlyPerformanceContent currentDate={currentDate} company={company} />
             </DialogContent>
-
           </Dialog>
         </div>
       </PopoverContent>

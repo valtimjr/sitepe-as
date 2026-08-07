@@ -20,6 +20,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, getOperationalDate, formatDuration, calculateOsAndPercursoTimes } from '@/lib/utils';
+import { calculateDailyTimesAndGaps } from '@/services/shiftService';
+import { supabase } from '@/integrations/supabase/client';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -51,6 +53,7 @@ const ServiceOrderList: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   const [selectedOsIds, setSelectedOsIds] = useState<string[]>([]);
+  const [userShift, setUserShift] = useState<any>(null);
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
 
@@ -104,6 +107,24 @@ const ServiceOrderList: React.FC = () => {
     loadDailyOrders();
   }, [loadDailyOrders]);
 
+  useEffect(() => {
+    const fetchUserShift = async () => {
+      if (!profile?.shift_code) return;
+      try {
+        const { data } = await supabase
+          .from('shifts')
+          .select('id, name, ref_code, entry_time, exit_time')
+          .eq('ref_code', profile.shift_code)
+          .eq('company', company)
+          .maybeSingle();
+        if (data) setUserShift(data);
+      } catch (err) {
+        console.error('Error fetching user shift:', err);
+      }
+    };
+    fetchUserShift();
+  }, [profile?.shift_code, company]);
+
   const sortedOsList = useMemo(() => {
     const getSortValue = (time?: string) => {
       if (!time) return sortDirection === 'asc' ? Infinity : -Infinity;
@@ -123,8 +144,9 @@ const ServiceOrderList: React.FC = () => {
   }, [osList, sortDirection]);
 
   const dailyTimes = useMemo(() => {
-    return calculateOsAndPercursoTimes(osList);
-  }, [osList]);
+    const shiftRef = userShift || profile?.shift_code;
+    return calculateDailyTimesAndGaps(osList, selectedDate, shiftRef);
+  }, [osList, selectedDate, userShift, profile?.shift_code]);
 
   const handleToggleSelect = (id: string) => {
     setSelectedOsIds(prev =>
@@ -428,8 +450,8 @@ const ServiceOrderList: React.FC = () => {
       </div>
 
       {/* Resumo Diário Cards */}
-      {osList.length > 0 && (
-        <div className="mt-6 grid grid-cols-3 gap-3">
+      {(osList.length > 0 || dailyTimes.waitingMinutes > 0) && (
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 rounded-xl p-3 text-center shadow-sm">
             <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Horas em OS</span>
             <p className="text-lg sm:text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
@@ -443,8 +465,14 @@ const ServiceOrderList: React.FC = () => {
             </p>
           </div>
           <div className="bg-green-50/50 dark:bg-green-950/10 border border-green-100/50 rounded-xl p-3 text-center shadow-sm">
-            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Total do dia</span>
+            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Aguardando Serviço</span>
             <p className="text-lg sm:text-2xl font-extrabold text-green-600 dark:text-green-400 mt-1">
+              {formatDuration(dailyTimes.waitingMinutes)}
+            </p>
+          </div>
+          <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-center shadow-sm">
+            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Total do dia</span>
+            <p className="text-lg sm:text-2xl font-extrabold text-slate-800 dark:text-slate-200 mt-1">
               {formatDuration(dailyTimes.totalMinutes)}
             </p>
           </div>

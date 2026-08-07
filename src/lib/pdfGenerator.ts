@@ -5,6 +5,7 @@ import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, 
 import { ptBR } from 'date-fns/locale';
 import { CustomListItem, MangueiraPartDetails } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
+import { calculateDailyTimesAndGaps } from '@/services/shiftService';
 
 // Aplica o plugin explicitamente ao jsPDF
 applyPlugin(jsPDF);
@@ -288,6 +289,10 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
   // 1. Calcular totais para o Resumo do Período
   let osMinutes = 0;
   let percursoMinutes = 0;
+  let waitingMinutes = 0;
+
+  const dateUserGroups = new Map<string, { date: Date; shift: any; items: any[] }>();
+
   groupedServiceOrders.forEach(os => {
     if (os.hora_inicio && os.hora_final) {
       const duration = pdfCalculateDuration(os.hora_inicio, os.hora_final);
@@ -297,8 +302,30 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
         osMinutes += duration;
       }
     }
+
+    const itemDate = os.createdAt
+      ? (os.createdAt instanceof Date ? os.createdAt : parseISO(os.createdAt))
+      : (os.recordDate ? parseISO(os.recordDate) : new Date());
+    
+    const key = `${os.user_id || os.userDisplayName || 'user'}_${format(itemDate, 'yyyy-MM-dd')}`;
+
+    if (!dateUserGroups.has(key)) {
+      dateUserGroups.set(key, {
+        date: itemDate,
+        shift: os.shift_code || os.shift || os.shiftName,
+        items: [os]
+      });
+    } else {
+      dateUserGroups.get(key)!.items.push(os);
+    }
   });
-  const totalMinutes = osMinutes + percursoMinutes;
+
+  dateUserGroups.forEach(group => {
+    const breakdown = calculateDailyTimesAndGaps(group.items, group.date, group.shift);
+    waitingMinutes += breakdown.waitingMinutes;
+  });
+
+  const totalMinutes = osMinutes + percursoMinutes + waitingMinutes;
 
   doc.setFontSize(18);
   doc.text(title, 14, 22);
@@ -309,6 +336,7 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
     body: [
       ["Horas em OS", pdfFormatDuration(osMinutes)],
       ["Horas de Percurso", pdfFormatDuration(percursoMinutes)],
+      ["Aguardando Serviço", pdfFormatDuration(waitingMinutes)],
       ["Total Geral", pdfFormatDuration(totalMinutes)]
     ],
     startY: 28,
@@ -319,6 +347,12 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
     columnStyles: {
       0: { cellWidth: 50, fontStyle: 'bold' },
       1: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }
+    },
+    didParseCell: (data: any) => {
+      if (data.section === 'body' && data.row.index === 2) {
+        data.cell.styles.textColor = [22, 163, 74];
+        data.cell.styles.fontStyle = 'bold';
+      }
     }
   });
 

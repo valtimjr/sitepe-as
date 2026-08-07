@@ -46,6 +46,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn, getOperationalDate, calculateDuration, formatDuration, calculateOsAndPercursoTimes } from "@/lib/utils";
+import { calculateDailyTimesAndGaps } from '@/services/shiftService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRange } from "react-day-picker";
 import { supabase } from '@/integrations/supabase/client';
@@ -82,9 +83,15 @@ const BarChartTooltip = ({ active, payload, label }: any) => {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-lg shadow-lg text-xs space-y-1">
         <p className="font-semibold text-slate-500 dark:text-slate-400">Dia {label}</p>
         {activePayload.map((item: any, idx: number) => {
-          const isPercurso = item.dataKey === 'percursoMinutes';
-          const displayName = isPercurso ? 'Percurso' : 'OS';
-          const textColor = isPercurso ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400';
+          let displayName = 'OS';
+          let textColor = 'text-blue-600 dark:text-blue-400';
+          if (item.dataKey === 'percursoMinutes') {
+            displayName = 'Percurso';
+            textColor = 'text-red-600 dark:text-red-400';
+          } else if (item.dataKey === 'waitingMinutes') {
+            displayName = 'Aguardando Serviço';
+            textColor = 'text-green-600 dark:text-green-400';
+          }
           return (
             <p key={idx} className={`${textColor} font-bold flex items-center gap-1`}>
               <span>{displayName}:</span>
@@ -151,7 +158,7 @@ const AdminReportPage = () => {
   const [afSearchTerm, setAfSearchTerm] = useState<string>('');
   
   const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
-  const [availableShifts, setAvailableShifts] = useState<AttributeItem[]>([]);
+  const [availableShifts, setAvailableShifts] = useState<any[]>([]);
   const [availableAfs, setAvailableAfs] = useState<Af[]>([]);
 
   const [openUserSelect, setOpenUserSelect] = useState(false);
@@ -183,7 +190,7 @@ const AdminReportPage = () => {
       try {
         const [profRes, shiftRes, afsData] = await Promise.all([
           supabase.from('professions').select('name, ref_code').eq('company', company).order('name'),
-          supabase.from('shifts').select('name, ref_code').eq('company', company).order('name'),
+          supabase.from('shifts').select('name, ref_code, entry_time, exit_time').eq('company', company).order('name'),
           getAfsFromService(company)
         ]);
         
@@ -312,7 +319,49 @@ const AdminReportPage = () => {
     });
   }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, selectedDigitadoFilter, sortDaysDirection, users, afSearchTerm, availableAfs]);
 
+  const dailyTimes = useMemo(() => {
+    let osMinutes = 0;
+    let percursoMinutes = 0;
+    let waitingMinutes = 0;
+
+    // Agrupar ordens por usuário e data para calcular lacunas de turno
+    const userDateGroups = new Map<string, { userId: string; recordDate: string; osList: any[]; userShift: any }>();
+
+    filteredOSList.forEach(os => {
+      const userProfile = users.find(u => u.id === os.user_id);
+      const userShift = availableShifts.find(s => s.ref_code === userProfile?.shift_code) || userProfile?.shift_code;
+      const key = `${os.user_id || os.userDisplayName}_${os.recordDate}`;
+
+      if (!userDateGroups.has(key)) {
+        userDateGroups.set(key, {
+          userId: os.user_id,
+          recordDate: os.recordDate,
+          osList: [os],
+          userShift
+        });
+      } else {
+        userDateGroups.get(key)!.osList.push(os);
+      }
+    });
+
+    userDateGroups.forEach(group => {
+      const breakdown = calculateDailyTimesAndGaps(group.osList, parseISO(group.recordDate), group.userShift);
+      osMinutes += breakdown.osMinutes;
+      percursoMinutes += breakdown.percursoMinutes;
+      waitingMinutes += breakdown.waitingMinutes;
+    });
+
+    return {
+      osMinutes,
+      percursoMinutes,
+      waitingMinutes,
+      totalMinutes: osMinutes + percursoMinutes + waitingMinutes
+    };
+  }, [filteredOSList, users, availableShifts]);
+
   const dailyChartData = useMemo(() => {
+    const slices: Array<{ name: string; value: number; time: string; is_percurso?: boolean; is_waiting?: boolean }> = [];
+
     const osDataMap = new Map<string, any>();
     filteredOSList.forEach(os => {
       if (os.hora_inicio && os.hora_final) {
@@ -333,90 +382,100 @@ const AdminReportPage = () => {
         }
       }
     });
-    return Array.from(osDataMap.values());
-  }, [filteredOSList]);
 
-  const totalDailyMinutes = dailyChartData.reduce((acc, curr) => acc + curr.value, 0);
+    slices.push(...Array.from(osDataMap.values()));
 
-  const dailyTimes = useMemo(() => {
-    let osMinutes = 0;
-    let percursoMinutes = 0;
-    filteredOSList.forEach(os => {
-      if (os.hora_inicio && os.hora_final) {
-        const duration = calculateDuration(os.hora_inicio, os.hora_final);
-        if (os.is_percurso) {
-          percursoMinutes += duration;
-        } else {
-          osMinutes += duration;
-        }
-      }
-    });
-    return {
-      osMinutes,
-      percursoMinutes,
-      totalMinutes: osMinutes + percursoMinutes
-    };
-  }, [filteredOSList]);
+    if (dailyTimes.waitingMinutes > 0) {
+      slices.push({
+        name: 'Aguardando Serviço',
+        value: dailyTimes.waitingMinutes,
+        time: formatDuration(dailyTimes.waitingMinutes),
+        is_waiting: true
+      });
+    }
+
+    return slices;
+  }, [filteredOSList, dailyTimes.waitingMinutes]);
+
+  const totalDailyMinutes = dailyTimes.totalMinutes;
 
   const monthlyChartData = useMemo(() => {
-    const daysMap = new Map<string, { minutes: number; percursoMinutes: number }>();
+    const daysMap = new Map<string, { minutes: number; percursoMinutes: number; waitingMinutes: number }>();
     const interval = dateMode === 'single'
       ? { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) }
       : { start: dateRange?.from || getOperationalDate(new Date()), end: dateRange?.to || getOperationalDate(new Date()) };
     
     eachDayOfInterval(interval).forEach(day => {
-      daysMap.set(format(day, 'yyyy-MM-dd'), { minutes: 0, percursoMinutes: 0 });
+      daysMap.set(format(day, 'yyyy-MM-dd'), { minutes: 0, percursoMinutes: 0, waitingMinutes: 0 });
     });
 
+    // Agrupar por data e usuário para calcular os tempos do dia com turno
+    const dateUserMap = new Map<string, Map<string, any[]>>();
+
     filteredOSList.forEach(os => {
-      if (os.hora_inicio && os.hora_final && os.recordDate) {
-        const duration = calculateDuration(os.hora_inicio, os.hora_final);
-        const dayKey = os.recordDate;
-        if (daysMap.has(dayKey)) {
-          const current = daysMap.get(dayKey)!;
-          if (os.is_percurso) {
-            daysMap.set(dayKey, {
-              ...current,
-              percursoMinutes: current.percursoMinutes + duration
-            });
-          } else {
-            daysMap.set(dayKey, {
-              ...current,
-              minutes: current.minutes + duration
-            });
-          }
+      if (os.recordDate) {
+        if (!dateUserMap.has(os.recordDate)) {
+          dateUserMap.set(os.recordDate, new Map());
         }
+        const userMap = dateUserMap.get(os.recordDate)!;
+        const uId = os.user_id || os.userDisplayName;
+        if (!userMap.has(uId)) {
+          userMap.set(uId, []);
+        }
+        userMap.get(uId)!.push(os);
+      }
+    });
+
+    dateUserMap.forEach((userMap, dateStr) => {
+      if (daysMap.has(dateStr)) {
+        let dayOs = 0;
+        let dayPercurso = 0;
+        let dayWaiting = 0;
+
+        userMap.forEach((osList, uId) => {
+          const userObj = users.find(u => u.id === uId);
+          const userShift = availableShifts.find(s => s.ref_code === userObj?.shift_code) || userObj?.shift_code;
+          const breakdown = calculateDailyTimesAndGaps(osList, parseISO(dateStr), userShift);
+
+          dayOs += breakdown.osMinutes;
+          dayPercurso += breakdown.percursoMinutes;
+          dayWaiting += breakdown.waitingMinutes;
+        });
+
+        daysMap.set(dateStr, {
+          minutes: dayOs,
+          percursoMinutes: dayPercurso,
+          waitingMinutes: dayWaiting
+        });
       }
     });
 
     return Array.from(daysMap.entries()).map(([date, val]) => ({
       day: format(parseISO(date), 'dd/MM'),
       minutes: val.minutes,
-      percursoMinutes: val.percursoMinutes
+      percursoMinutes: val.percursoMinutes,
+      waitingMinutes: val.waitingMinutes
     }));
-  }, [filteredOSList, selectedDate, dateRange, dateMode]);
+  }, [filteredOSList, selectedDate, dateRange, dateMode, users, availableShifts]);
 
   const periodTotals = useMemo(() => {
     let osMinutes = 0;
     let percursoMinutes = 0;
-    
-    filteredOSList.forEach(os => {
-      if (os.hora_inicio && os.hora_final) {
-        const duration = calculateDuration(os.hora_inicio, os.hora_final);
-        if (os.is_percurso) {
-          percursoMinutes += duration;
-        } else {
-          osMinutes += duration;
-        }
-      }
+    let waitingMinutes = 0;
+
+    monthlyChartData.forEach(d => {
+      osMinutes += d.minutes;
+      percursoMinutes += d.percursoMinutes;
+      waitingMinutes += d.waitingMinutes;
     });
     
     return {
       osMinutes,
       percursoMinutes,
-      totalMinutes: osMinutes + percursoMinutes
+      waitingMinutes,
+      totalMinutes: osMinutes + percursoMinutes + waitingMinutes
     };
-  }, [filteredOSList]);
+  }, [monthlyChartData]);
 
   const pendingCount = filteredOSList.filter(os => !os.confirmed).length;
 
@@ -551,20 +610,27 @@ const AdminReportPage = () => {
       doc.setFontSize(10);
       doc.text(`Horas em OS:`, 40, yPos);
       doc.setFont(undefined, 'bold');
-      doc.text(formatDuration(reportOsMinutes), 160, yPos);
+      doc.text(formatDuration(periodTotals.osMinutes), 160, yPos);
       yPos += 12;
 
       doc.setFont(undefined, 'normal');
       doc.text(`Horas de Percurso:`, 40, yPos);
       doc.setFont(undefined, 'bold');
-      doc.text(formatDuration(reportPercursoMinutes), 160, yPos);
+      doc.text(formatDuration(periodTotals.percursoMinutes), 160, yPos);
       yPos += 12;
 
       doc.setFont(undefined, 'normal');
-      doc.text(`Total Geral:`, 40, yPos);
+      doc.text(`Aguardando Serviço:`, 40, yPos);
       doc.setFont(undefined, 'bold');
       doc.setTextColor(22, 163, 74); // green-600
-      doc.text(formatDuration(reportTotalMinutes), 160, yPos);
+      doc.text(formatDuration(periodTotals.waitingMinutes), 160, yPos);
+      yPos += 12;
+
+      doc.setTextColor(30, 41, 59);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Total Geral:`, 40, yPos);
+      doc.setFont(undefined, 'bold');
+      doc.text(formatDuration(periodTotals.totalMinutes), 160, yPos);
       yPos += 25;
 
       doc.setTextColor(100, 100, 100);
@@ -890,7 +956,8 @@ const AdminReportPage = () => {
                    <Pie data={dailyChartData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={renderCustomPieLabel}>
                      {dailyChartData.map((entry, i) => {
                        const isPercurso = !!entry.is_percurso;
-                       const cellColor = isPercurso ? '#ef4444' : COLORS[i % COLORS.length];
+                       const isWaiting = !!entry.is_waiting;
+                       const cellColor = isWaiting ? '#16a34a' : isPercurso ? '#ef4444' : COLORS[i % COLORS.length];
                        return <Cell key={i} fill={cellColor} />;
                      })}
                    </Pie>
@@ -899,22 +966,26 @@ const AdminReportPage = () => {
                </ResponsiveContainer>
                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                  <span className="text-xs text-muted-foreground uppercase font-semibold">Total</span>
-                 <span className="text-base font-bold text-primary">{formatDuration(dailyTimes.totalMinutes)}</span>
+                 <span className="text-base font-bold text-primary">{formatDuration(totalDailyMinutes)}</span>
                </div>
              </div>
 
-             <div className="w-full grid grid-cols-3 gap-2 p-2.5 bg-muted/30 rounded-lg border text-[11px] sm:text-xs">
+             <div className="w-full grid grid-cols-4 gap-1 p-2 bg-muted/30 rounded-lg border text-[10px] sm:text-xs">
                <div className="text-center">
-                 <span className="text-[9px] text-muted-foreground uppercase font-bold">Horas em OS</span>
+                 <span className="text-[9px] text-muted-foreground uppercase font-bold">Horas OS</span>
                  <p className="font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{formatDuration(dailyTimes.osMinutes)}</p>
                </div>
-               <div className="text-center border-l border-r border-border px-1">
+               <div className="text-center border-l border-r border-border px-0.5">
                  <span className="text-[9px] text-muted-foreground uppercase font-bold">Percurso</span>
                  <p className="font-extrabold text-red-600 dark:text-red-400 mt-0.5">{formatDuration(dailyTimes.percursoMinutes)}</p>
                </div>
+               <div className="text-center border-r border-border pr-0.5">
+                 <span className="text-[9px] text-muted-foreground uppercase font-bold">Aguardando</span>
+                 <p className="font-extrabold text-green-600 dark:text-green-400 mt-0.5">{formatDuration(dailyTimes.waitingMinutes)}</p>
+               </div>
                <div className="text-center">
-                 <span className="text-[9px] text-muted-foreground uppercase font-bold">Total do dia</span>
-                 <p className="font-extrabold text-green-600 dark:text-green-400 mt-0.5">{formatDuration(dailyTimes.totalMinutes)}</p>
+                 <span className="text-[9px] text-muted-foreground uppercase font-bold">Total</span>
+                 <p className="font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">{formatDuration(dailyTimes.totalMinutes)}</p>
                </div>
              </div>
           </CardContent>
@@ -922,17 +993,21 @@ const AdminReportPage = () => {
         <Card className="lg:col-span-2 flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between pb-2 flex-wrap gap-2">
             <CardTitle className="text-base">Histórico do Período</CardTitle>
-            <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-3 text-xs flex-wrap">
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm"></span>
-                <span className="text-muted-foreground">Total OS: <strong className="text-foreground">{formatDuration(periodTotals.osMinutes)}</strong></span>
+                <span className="text-muted-foreground">OS: <strong className="text-foreground">{formatDuration(periodTotals.osMinutes)}</strong></span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 bg-[#dc2626] rounded-sm"></span>
-                <span className="text-muted-foreground">Total Percurso: <strong className="text-foreground">{formatDuration(periodTotals.percursoMinutes)}</strong></span>
+                <span className="text-muted-foreground">Percurso: <strong className="text-foreground">{formatDuration(periodTotals.percursoMinutes)}</strong></span>
               </div>
-              <div className="flex items-center gap-1.5 border-l pl-3">
-                <span className="text-muted-foreground font-semibold">Total Geral: <strong className="text-green-600 dark:text-green-400 font-extrabold">{formatDuration(periodTotals.totalMinutes)}</strong></span>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 bg-[#16a34a] rounded-sm"></span>
+                <span className="text-muted-foreground">Aguardando: <strong className="text-foreground">{formatDuration(periodTotals.waitingMinutes)}</strong></span>
+              </div>
+              <div className="flex items-center gap-1.5 border-l pl-2">
+                <span className="text-muted-foreground font-semibold">Total: <strong className="text-slate-800 dark:text-slate-200 font-extrabold">{formatDuration(periodTotals.totalMinutes)}</strong></span>
               </div>
             </div>
           </CardHeader>
@@ -948,6 +1023,7 @@ const AdminReportPage = () => {
                    />
                    <Bar dataKey="minutes" name="Ordem de Serviço" fill="#2563eb" stackId="a" radius={[0, 0, 0, 0]} />
                    <Bar dataKey="percursoMinutes" name="Percurso" fill="#dc2626" stackId="a" radius={[0, 0, 0, 0]} />
+                   <Bar dataKey="waitingMinutes" name="Aguardando Serviço" fill="#16a34a" stackId="a" radius={[2, 2, 0, 0]} />
                  </BarChart>
                </ResponsiveContainer>
              </div>
