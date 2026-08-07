@@ -8,7 +8,7 @@ import { Part, searchParts as searchPartsService, getAfsFromService, Af } from '
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save, XCircle, PlusCircle, Trash2, Car } from 'lucide-react';
+import { Save, XCircle, PlusCircle, Trash2, Car, Truck } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { ServiceOrderData } from '@/types/supabase';
 import { v4 as uuidv4 } from 'uuid';
@@ -84,6 +84,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const [servicoExecutado, setServicoExecutado] = useState('');
   const [parts, setParts] = useState<{codigo_peca: string, descricao: string, quantidade: number}[]>([]);
   const [isPercurso, setIsPercurso] = useState(false);
+  const [isAgregado, setIsAgregado] = useState(false);
+  const [numeroAgregado, setNumeroAgregado] = useState('');
+  const [agregadoError, setAgregadoError] = useState(false);
   
   // Estados para busca e edição de peças
   const [searchQuery, setSearchQuery] = useState('');
@@ -113,10 +116,22 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       setServicoExecutado(initialData.servico_executado || '');
       setParts(initialData.parts || []);
       setIsPercurso(!!initialData.is_percurso);
+      setIsAgregado(!initialData.is_percurso && !!initialData.agregado);
+      setNumeroAgregado(!initialData.is_percurso ? (initialData.numero_agregado || '') : '');
     } else {
       setIsPercurso(false);
+      setIsAgregado(false);
+      setNumeroAgregado('');
     }
   }, [initialData, company]);
+
+  useEffect(() => {
+    if (isPercurso) {
+      setIsAgregado(false);
+      setNumeroAgregado('');
+      setAgregadoError(false);
+    }
+  }, [isPercurso]);
 
   useEffect(() => {
     const handler = setTimeout(async () => {
@@ -216,7 +231,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       hora_final: horaFinal,
       servico_executado: isPercurso ? "Percurso" : servicoExecutado,
       parts: isPercurso ? [] : parts,
-      is_percurso: isPercurso
+      is_percurso: isPercurso,
+      agregado: !isPercurso && isAgregado,
+      numero_agregado: (!isPercurso && isAgregado) ? numeroAgregado.trim() : null
     };
   };
 
@@ -228,7 +245,18 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 1. Validar campos obrigatórios
+    // 1. Validar campos obrigatórios e compatibilidade com Agregado
+    if (isPercurso && isAgregado) {
+      showError('OS de percurso não pode possuir agregado.');
+      return;
+    }
+
+    if (!isPercurso && isAgregado && !numeroAgregado.trim()) {
+      setAgregadoError(true);
+      showError('Informe o Nº Agregado para continuar.');
+      return;
+    }
+
     if (!isPercurso && !af) {
       showError('O número do AF é obrigatório.');
       return;
@@ -299,6 +327,71 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         >
           Percurso (Deslocamento)
         </label>
+      </div>
+
+      {/* Checkbox Agregado */}
+      <div className={cn(
+        "p-3 border rounded-md transition-colors",
+        isPercurso
+          ? "bg-muted/40 border-muted opacity-70"
+          : "bg-blue-50/50 dark:bg-blue-950/10 border-blue-100 dark:border-blue-900/30"
+      )}>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="is-agregado"
+            checked={isAgregado}
+            disabled={isPercurso}
+            onCheckedChange={(checked) => {
+              setIsAgregado(!!checked);
+              setAgregadoError(false);
+            }}
+            className="h-5 w-5 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 border-blue-200 cursor-pointer disabled:cursor-not-allowed"
+          />
+          <Truck className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+          <label
+            htmlFor="is-agregado"
+            className={cn(
+              "text-sm font-semibold select-none",
+              isPercurso
+                ? "text-muted-foreground cursor-not-allowed"
+                : "text-blue-700 dark:text-blue-400 cursor-pointer"
+            )}
+          >
+            Agregado
+          </label>
+        </div>
+
+        {isPercurso && (
+          <p className="text-xs text-muted-foreground mt-1 ml-7">
+            Indisponível em OS de percurso
+          </p>
+        )}
+
+        {!isPercurso && isAgregado && (
+          <div className="mt-3 ml-7 space-y-1 animate-in fade-in duration-200">
+            <Label htmlFor="numero-agregado" className="text-xs font-medium">
+              Nº Agregado <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="numero-agregado"
+              value={numeroAgregado}
+              onChange={(e) => {
+                setNumeroAgregado(e.target.value);
+                setAgregadoError(false);
+              }}
+              placeholder="Ex: 123456"
+              className={cn(
+                "h-9 max-w-xs",
+                agregadoError && "border-destructive focus-visible:ring-destructive"
+              )}
+            />
+            {agregadoError && (
+              <p className="text-xs text-destructive">
+                Informe o Nº Agregado para continuar.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

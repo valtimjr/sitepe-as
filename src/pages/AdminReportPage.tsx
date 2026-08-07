@@ -451,20 +451,22 @@ const AdminReportPage = () => {
 
   const handleGenerateCSV = () => {
     const grouped = groupReportData();
-    const headers = ['Data', 'Usuário', 'AF', 'OS', 'Equipamento', 'Serviço', 'Início', 'Fim', 'Duração'];
+    const headers = ['Data', 'Usuário', 'AF', 'OS', 'Agregado', 'Equipamento', 'Serviço', 'Início', 'Fim', 'Duração'];
     if (includeTypedStatus) headers.push('Status');
     let csvContent = headers.join(',') + '\n';
     Object.values(grouped).forEach(data => {
       data.forEach((os: any) => {
+        const agregadoVal = (!os.is_percurso && os.agregado && os.numero_agregado) ? os.numero_agregado : '-';
         const row = [
-          format(parseISO(os.recordDate), 'dd/MM/yyyy'), 
-          `"${os.userDisplayName}"`, 
-          `"${os.af || '-'}"`, 
-          `"${os.os || '-'}"`, 
-          `"${getAfDescription(os.af, availableAfs)}"`, 
+          format(parseISO(os.recordDate), 'dd/MM/yyyy'),
+          `"${os.userDisplayName}"`,
+          `"${os.af || '-'}"`,
+          `"${os.os || '-'}"`,
+          `"${agregadoVal}"`,
+          `"${getAfDescription(os.af, availableAfs)}"`,
           `"${os.servico_executado || '-'}"`,
-          os.hora_inicio || '-', 
-          os.hora_final || '-', 
+          os.hora_inicio || '-',
+          os.hora_final || '-',
           formatDuration(calculateDuration(os.hora_inicio, os.hora_final))
         ];
         if (includeTypedStatus) row.push(os.confirmed ? 'Digitado' : 'Pendente');
@@ -627,7 +629,10 @@ const AdminReportPage = () => {
           total += d;
           
           const isPercurso = !!os.is_percurso;
-          const serviceName = isPercurso ? 'Percurso (Tempo de Deslocamento)' : (os.servico_executado || '-');
+          let serviceName = isPercurso ? 'Percurso (Tempo de Deslocamento)' : (os.servico_executado || '-');
+          if (!isPercurso && os.agregado && os.numero_agregado) {
+            serviceName = `[Agregado: ${os.numero_agregado}] ${serviceName}`;
+          }
           
           const row: any = [
             format(parseISO(os.recordDate), 'dd/MM/yyyy'),

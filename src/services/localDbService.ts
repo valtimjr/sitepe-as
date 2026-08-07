@@ -32,6 +32,9 @@ export interface ServiceOrderItem {
   parts: { codigo_peca: string; descricao: string; quantidade: number }[];
   created_at?: Date;
   company?: CompanyType;
+  is_percurso?: boolean;
+  agregado?: boolean;
+  numero_agregado?: string | null;
 }
 
 export type Apontamento = DailyApontamento;

@@ -538,10 +538,15 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
                       </span>
                     </>
                   ) : (
-                    <>
-                      AF: {group.af}
+                    <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                      <span>AF: {group.af}</span>
                       {group.os && <span className="text-blue-600/80 text-base font-semibold">(OS: {group.os})</span>}
-                    </>
+                      {!isPercurso && group.agregado && group.numero_agregado && (
+                        <span className="text-blue-600/80 text-base font-semibold">
+                          • Agregado: {group.numero_agregado}
+                        </span>
+                      )}
+                    </span>
                   )}
                 </h3>
               </div>

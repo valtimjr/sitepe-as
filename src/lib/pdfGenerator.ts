@@ -335,6 +335,9 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
       ? `[PERCURSO]\n${group.af ? `AF: ${group.af}` : 'Sem AF'}`
       : `AF: ${group.af}`;
     if (!isPercurso && group.os) detailsContent += ` (OS: ${group.os})`;
+    if (!isPercurso && group.agregado && group.numero_agregado) {
+      detailsContent += `\nAgregado: ${group.numero_agregado}`;
+    }
     if (group.hora_inicio || group.hora_final) {
       detailsContent += `
 Horário: ${group.hora_inicio || '??'} - ${group.hora_final || '??'}`;

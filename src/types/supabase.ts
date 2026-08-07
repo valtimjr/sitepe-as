@@ -125,6 +125,8 @@ export interface ServiceOrderData {
   servico_executado: string;
   parts: ServiceOrderPart[];
   is_percurso?: boolean;
+  agregado?: boolean;
+  numero_agregado?: string | null;
 }
 
 export interface DailyServiceOrder {

@@ -221,6 +221,9 @@ const ServiceOrderList: React.FC = () => {
         text += `Percurso${group.af ? ` (AF: ${group.af})` : ''}\n`;
       } else {
         text += `AF: ${group.af}${group.os ? ` OS: ${group.os}` : ''}\n`;
+        if (group.agregado && group.numero_agregado) {
+          text += `Agregado: ${group.numero_agregado}\n`;
+        }
       }
       if (group.hora_inicio || group.hora_final) {
         text += `${group.hora_inicio || '??'}-${group.hora_final || '??'}\n`;

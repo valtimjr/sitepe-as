@@ -63,7 +63,10 @@ export const getVisitorServiceOrders = async (company: CompanyType): Promise<Ser
     hora_inicio: item.hora_inicio || '',
     hora_final: item.hora_final || '',
     servico_executado: item.servico_executado || '',
-    parts: item.parts || []
+    parts: item.parts || [],
+    is_percurso: item.is_percurso,
+    agregado: item.agregado,
+    numero_agregado: item.numero_agregado
   }));
 };
 
