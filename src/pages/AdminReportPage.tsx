@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, isWithinInterval, startOfDay, endOfDay, subDays, addDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO, startOfDay, endOfDay, subDays, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Calendar as CalendarIcon,
   ChevronsUpDown,
   Check,
   Clock,
@@ -16,7 +15,8 @@ import {
   FileText,
   Download,
   X,
-  Search
+  Search,
+  RefreshCw
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -45,8 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn, getOperationalDate, calculateDuration, formatDuration, calculateOsAndPercursoTimes } from "@/lib/utils";
-import { calculateDailyTimesAndGaps } from '@/services/shiftService';
+import { cn, getOperationalDate, calculateDuration, formatDuration } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRange } from "react-day-picker";
 import { supabase } from '@/integrations/supabase/client';
@@ -67,6 +66,11 @@ import {
   CartesianGrid 
 } from 'recharts';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
+import {
+  RawSnapshot,
+  ProcessedSnapshot,
+  processSnapshot
+} from '@/services/adminReportSnapshotService';
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -127,7 +131,6 @@ const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, perc
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-  // Hide labels for slices smaller than 10% to prevent overlapping
   if (percent < 0.10) return null;
 
   return (
@@ -143,6 +146,7 @@ const AdminReportPage = () => {
   const { company, branding } = useCompany();
   const navigate = useNavigate();
 
+  // Estados dos Filtros
   const [dateMode, setDateMode] = useState<'single' | 'range'>('single');
   const [selectedDate, setSelectedDate] = useState<Date>(getOperationalDate(new Date()));
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -153,202 +157,245 @@ const AdminReportPage = () => {
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [selectedProfessionCode, setSelectedProfessionCode] = useState<string>('all');
   const [selectedShiftCode, setSelectedShiftCode] = useState<string>('all');
-  const [selectedDigitadoFilter, setSelectedDigitadoFilter] = useState<'all' | 'sim' | 'nao'>('all'); // Novo filtro de digitadas
-  const [sortDaysDirection, setSortDaysDirection] = useState<'asc' | 'desc'>('desc'); // Ordenação dos dias das OS
+  const [selectedDigitadoFilter, setSelectedDigitadoFilter] = useState<'all' | 'sim' | 'nao'>('all');
+  const [sortDaysDirection, setSortDaysDirection] = useState<'asc' | 'desc'>('desc');
   const [afSearchTerm, setAfSearchTerm] = useState<string>('');
-  
+
+  // Atributos dinâmicos para renderização dos selects
   const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
   const [availableShifts, setAvailableShifts] = useState<any[]>([]);
   const [availableAfs, setAvailableAfs] = useState<Af[]>([]);
-
-  const [openUserSelect, setOpenUserSelect] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [allData, setAllData] = useState<any[]>([]); 
 
-  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  // Estados do Snapshot Temporário Local em Memória
+  const [rawSnapshot, setRawSnapshot] = useState<RawSnapshot | null>(null);
+  const [processedSnapshot, setProcessedSnapshot] = useState<ProcessedSnapshot | null>(null);
+
+  // Indicadores de estado de UI
+  const [isFetching, setIsFetching] = useState<boolean>(true);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [openUserSelect, setOpenUserSelect] = useState<boolean>(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
+
+  // Estados dos diálogos de relatório e confirmação
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState<boolean>(false);
   const [reportGroupBy, setReportGroupBy] = useState<string>('none');
-  const [includeDonutChart, setIncludeDonutChart] = useState(false);
-  const [includeBarChart, setIncludeBarChart] = useState(false);
-  const [includeTypedStatus, setIncludeTypedStatus] = useState(true);
+  const [includeDonutChart, setIncludeDonutChart] = useState<boolean>(false);
+  const [includeBarChart, setIncludeBarChart] = useState<boolean>(false);
+  const [includeTypedStatus, setIncludeTypedStatus] = useState<boolean>(true);
 
   const [unconfirmOrderId, setUnconfirmOrderId] = useState<string | null>(null);
-  const [isUnconfirmDialogOpen, setIsUnconfirmDialogOpen] = useState(false);
+  const [isUnconfirmDialogOpen, setIsUnconfirmDialogOpen] = useState<boolean>(false);
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
 
+  // Verificação de permissões
   useEffect(() => {
-    if (!loading && !isAdmin) {
+    if (!isFetching && !isAdmin && profile) {
       showError('Acesso negado.');
       navigate(`/${company}`);
     }
-  }, [loading, isAdmin, navigate, company, profile]);
+  }, [isFetching, isAdmin, navigate, company, profile]);
 
+  // Limpeza explícita do Snapshot ao desmontar o componente
   useEffect(() => {
-    const fetchAttributes = async () => {
-      try {
-        const [profRes, shiftRes, afsData] = await Promise.all([
-          supabase.from('professions').select('name, ref_code').eq('company', company).order('name'),
-          supabase.from('shifts').select('name, ref_code, entry_time, exit_time').eq('company', company).order('name'),
-          getAfsFromService(company)
-        ]);
-        
-        if (profRes.data) setAvailableProfessions(profRes.data);
-        if (shiftRes.data) setAvailableShifts(shiftRes.data);
-        if (afsData) setAvailableAfs(afsData);
-      } catch (e) {
-        console.error('Error fetching dynamic attributes:', e);
-      }
+    return () => {
+      setRawSnapshot(null);
+      setProcessedSnapshot(null);
     };
-    if (user) fetchAttributes();
-  }, [company, user]);
+  }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-      setLoading(true);
+  // Download em Lote (Etapa 1 do Fluxo Determinístico)
+  const loadBatchDataAndProcess = useCallback(async () => {
+    if (!user) return;
 
-      try {
-        const { data: userData, error: userError } = await supabase
+    setIsFetching(true);
+    setIsProcessing(false);
+
+    try {
+      let startStr: string;
+      let endStr: string;
+
+      if (dateMode === 'single') {
+        const selObj = selectedDate;
+        startStr = format(startOfMonth(selObj), 'yyyy-MM-dd');
+        endStr = format(endOfMonth(selObj), 'yyyy-MM-dd');
+      } else {
+        startStr = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : format(startOfMonth(getOperationalDate(new Date())), 'yyyy-MM-dd');
+        endStr = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : format(getOperationalDate(new Date()), 'yyyy-MM-dd');
+      }
+
+      // Download em lote paralelo via Supabase
+      const [profilesRes, shiftsRes, profsRes, afsData, ordersRes] = await Promise.all([
+        supabase
           .from('profiles')
           .select('id, first_name, last_name, role, badge, profession_code, shift_code')
-          .order('first_name', { ascending: true });
-        
-        if (userError) {
-          console.error('[AdminReportPage] Erro ao buscar usuários:', userError);
-        }
-        
-        setUsers((userData as UserProfile[]) || []);
-
-        let start, end;
-        if (dateMode === 'single') {
-          start = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
-          end = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
-        } else {
-          start = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : format(startOfMonth(getOperationalDate(new Date())), 'yyyy-MM-dd');
-          end = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : format(getOperationalDate(new Date()), 'yyyy-MM-dd');
-        }
-
-        const { data: records } = await supabase
+          .order('first_name', { ascending: true }),
+        supabase
+          .from('shifts')
+          .select('name, ref_code, entry_time, exit_time')
+          .eq('company', company)
+          .order('name'),
+        supabase
+          .from('professions')
+          .select('name, ref_code')
+          .eq('company', company)
+          .order('name'),
+        getAfsFromService(company),
+        supabase
           .from('daily_service_orders')
           .select('*')
-          .gte('date', start)
-          .lte('date', end);
-        
-        setAllData((records || []).filter(r => r.company === company));
-      } catch (err) {
-        showError('Erro ao carregar dados.');
-      } finally {
-        setLoading(false);
+          .gte('date', startStr)
+          .lte('date', endStr)
+          .eq('company', company)
+      ]);
+
+      const fetchedUsers = (profilesRes.data as UserProfile[]) || [];
+      const fetchedShifts = shiftsRes.data || [];
+      const fetchedProfessions = profsRes.data || [];
+      const fetchedAfs = afsData || [];
+      const fetchedOrders = ordersRes.data || [];
+
+      setUsers(fetchedUsers);
+      setAvailableShifts(fetchedShifts);
+      setAvailableProfessions(fetchedProfessions);
+      setAvailableAfs(fetchedAfs);
+
+      // Estruturar RawSnapshot em Memória (JSONB)
+      const newRawSnapshot: RawSnapshot = {
+        meta: {
+          generatedAt: new Date().toISOString(),
+          filter: {
+            dateMode,
+            selectedDate: format(selectedDate, 'yyyy-MM-dd'),
+            startDate: startStr,
+            endDate: endStr,
+            userId: selectedUserId,
+            professionCode: selectedProfessionCode,
+            shiftCode: selectedShiftCode,
+            digitadoFilter: selectedDigitadoFilter,
+            afSearchTerm,
+            sortDaysDirection
+          },
+          version: 1
+        },
+        profiles: fetchedUsers,
+        shifts: fetchedShifts,
+        dailyServiceOrders: fetchedOrders,
+        professions: fetchedProfessions,
+        afs: fetchedAfs
+      };
+
+      setRawSnapshot(newRawSnapshot);
+
+      // Iniciar Etapa de Processamento Determinístico Local
+      setIsFetching(false);
+      setIsProcessing(true);
+
+      const newProcessedSnapshot = processSnapshot(newRawSnapshot);
+      setProcessedSnapshot(newProcessedSnapshot);
+    } catch (err) {
+      console.error('[AdminReportPage] Erro ao carregar dados em lote:', err);
+      showError('Erro ao carregar dados do relatório.');
+    } finally {
+      setIsFetching(false);
+      setIsProcessing(false);
+    }
+  }, [
+    user,
+    company,
+    dateMode,
+    selectedDate,
+    dateRange,
+    selectedUserId,
+    selectedProfessionCode,
+    selectedShiftCode,
+    selectedDigitadoFilter,
+    sortDaysDirection,
+    afSearchTerm
+  ]);
+
+  // Recarregar dados quando os filtros primários (datas/período) mudam
+  useEffect(() => {
+    loadBatchDataAndProcess();
+  }, [loadBatchDataAndProcess]);
+
+  // Se o RawSnapshot já existir e mudarem filtros locais rápidos, reprocessar em memória sem requisições Supabase
+  useEffect(() => {
+    if (!rawSnapshot) return;
+
+    setIsProcessing(true);
+    const updatedFilterRawSnapshot: RawSnapshot = {
+      ...rawSnapshot,
+      meta: {
+        ...rawSnapshot.meta,
+        filter: {
+          dateMode,
+          selectedDate: format(selectedDate, 'yyyy-MM-dd'),
+          startDate: rawSnapshot.meta.filter.startDate,
+          endDate: rawSnapshot.meta.filter.endDate,
+          userId: selectedUserId,
+          professionCode: selectedProfessionCode,
+          shiftCode: selectedShiftCode,
+          digitadoFilter: selectedDigitadoFilter,
+          afSearchTerm,
+          sortDaysDirection
+        }
       }
     };
-    fetchData();
-  }, [selectedDate, dateRange, dateMode, company, user]);
 
-  const matchesFilters = (record: any) => {
-    const userProfile = users.find(u => u.id === record.user_id);
-    if (selectedUserId !== 'all' && record.user_id !== selectedUserId) return false;
-    if (selectedProfessionCode !== 'all' && userProfile?.profession_code?.toString() !== selectedProfessionCode) return false;
-    if (selectedShiftCode !== 'all' && userProfile?.shift_code?.toString() !== selectedShiftCode) return false;
-    return true;
-  };
+    const newProcessedSnapshot = processSnapshot(updatedFilterRawSnapshot);
+    setProcessedSnapshot(newProcessedSnapshot);
+    setIsProcessing(false);
+  }, [
+    selectedUserId,
+    selectedProfessionCode,
+    selectedShiftCode,
+    selectedDigitadoFilter,
+    sortDaysDirection,
+    afSearchTerm,
+    dateMode,
+    selectedDate
+  ]);
 
+  // Dados derivados do ProcessedSnapshot para consumo imediato dos gráficos/tabelas
   const filteredOSList = useMemo(() => {
-    let periodRecords;
-    if (dateMode === 'single') {
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      periodRecords = allData.filter(r => r.date === dateStr && matchesFilters(r));
-    } else {
-      periodRecords = allData.filter(r => {
-        const recordDate = parseISO(r.date);
-        const inRange = dateRange?.from && dateRange?.to
-          ? isWithinInterval(recordDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })
-          : true;
-        
-        return inRange && matchesFilters(r);
-      });
-    }
+    return processedSnapshot?.flatOSList || [];
+  }, [processedSnapshot]);
 
-    let osList: any[] = [];
-    periodRecords.forEach(record => {
-      const userProfile = users.find(u => u.id === record.user_id);
-      const badge = userProfile?.badge || '';
-      const userDisplayName = userProfile ? `${badge ? badge + ' - ' : ''}${userProfile.first_name} ${userProfile.last_name || ''}` : 'Desconhecido';
+  const summaryTotals = useMemo(() => {
+    return processedSnapshot?.summaryTotals || {
+      osMinutes: 0,
+      percursoMinutes: 0,
+      aguardandoMinutes: 0,
+      totalMinutes: 0,
+      totalOsCount: 0,
+      pendingOsCount: 0
+    };
+  }, [processedSnapshot]);
 
-      const recordOsList = record.os_list as any[];
-      if (Array.isArray(recordOsList)) {
-        recordOsList.forEach((os, index) => {
-          const isConfirmed = os.confirmed === true;
-          
-          // Filtro para ordens Digitadas vs Pendentes
-          if (selectedDigitadoFilter === 'sim' && !isConfirmed) return;
-          if (selectedDigitadoFilter === 'nao' && isConfirmed) return;
+  const dailyChartData = useMemo(() => {
+    return processedSnapshot?.dailyChartSlices || [];
+  }, [processedSnapshot]);
 
-          osList.push({
-            ...os,
-            id: os.id || `old-${record.id}-${index}`,
-            userDisplayName,
-            recordDate: record.date,
-            badge,
-            profession_code: userProfile?.profession_code || null,
-            shift_code: userProfile?.shift_code || null,
-            confirmed: isConfirmed,
-          });
-        });
-      }
-    });
+  const monthlyChartData = useMemo(() => {
+    return processedSnapshot?.monthlyChartSlices || [];
+  }, [processedSnapshot]);
 
-    // Filtro de AF (Número ou Descrição)
-    if (afSearchTerm) {
-      const term = afSearchTerm.toLowerCase();
-      osList = osList.filter(os => {
-        const afNumber = (os.af || '').toLowerCase();
-        const afDesc = getAfDescription(os.af, availableAfs).toLowerCase();
-        return afNumber.includes(term) || afDesc.includes(term);
-      });
-    }
-
-    // Ordenação dos dias (Crescente ou Decrescente)
-    return osList.sort((a, b) => {
-      if (sortDaysDirection === 'asc') {
-        return a.recordDate.localeCompare(b.recordDate);
-      } else {
-        return b.recordDate.localeCompare(a.recordDate);
-      }
-    });
-  }, [allData, selectedDate, dateRange, dateMode, selectedUserId, selectedProfessionCode, selectedShiftCode, selectedDigitadoFilter, sortDaysDirection, users, afSearchTerm, availableAfs]);
-
+  // Totais do Resumo Diário (dias primários filtrados)
   const dailyTimes = useMemo(() => {
     let osMinutes = 0;
     let percursoMinutes = 0;
     let waitingMinutes = 0;
 
-    // Agrupar ordens por usuário e data para calcular lacunas de turno
-    const userDateGroups = new Map<string, { userId: string; recordDate: string; osList: any[]; userShift: any }>();
-
-    filteredOSList.forEach(os => {
-      const userProfile = users.find(u => u.id === os.user_id);
-      const userShift = availableShifts.find(s => s.ref_code === userProfile?.shift_code) || userProfile?.shift_code;
-      const key = `${os.user_id || os.userDisplayName}_${os.recordDate}`;
-
-      if (!userDateGroups.has(key)) {
-        userDateGroups.set(key, {
-          userId: os.user_id,
-          recordDate: os.recordDate,
-          osList: [os],
-          userShift
-        });
+    dailyChartData.forEach(slice => {
+      if (slice.is_waiting) {
+        waitingMinutes += slice.value;
+      } else if (slice.is_percurso) {
+        percursoMinutes += slice.value;
       } else {
-        userDateGroups.get(key)!.osList.push(os);
+        osMinutes += slice.value;
       }
-    });
-
-    userDateGroups.forEach(group => {
-      const breakdown = calculateDailyTimesAndGaps(group.osList, parseISO(group.recordDate), group.userShift);
-      osMinutes += breakdown.osMinutes;
-      percursoMinutes += breakdown.percursoMinutes;
-      waitingMinutes += breakdown.waitingMinutes;
     });
 
     return {
@@ -357,157 +404,104 @@ const AdminReportPage = () => {
       waitingMinutes,
       totalMinutes: osMinutes + percursoMinutes + waitingMinutes
     };
-  }, [filteredOSList, users, availableShifts]);
+  }, [dailyChartData]);
 
-  const dailyChartData = useMemo(() => {
-    const slices: Array<{ name: string; value: number; time: string; is_percurso?: boolean; is_waiting?: boolean }> = [];
-
-    const osDataMap = new Map<string, any>();
-    filteredOSList.forEach(os => {
-      if (os.hora_inicio && os.hora_final) {
-        const duration = calculateDuration(os.hora_inicio, os.hora_final);
-        const isPercurso = !!os.is_percurso;
-        const key = isPercurso ? `Percurso-${os.id}` : (os.af || os.os || 'Sem ID');
-        const name = isPercurso ? (os.af ? `Percurso (AF: ${os.af})` : 'Percurso') : (os.af ? `AF: ${os.af}` : `OS: ${os.os}`);
-        
-        if (osDataMap.has(key)) {
-          osDataMap.get(key).value += duration;
-        } else {
-          osDataMap.set(key, {
-            name,
-            value: duration,
-            time: `${os.hora_inicio} - ${os.hora_final}`,
-            is_percurso: isPercurso
-          });
-        }
-      }
-    });
-
-    slices.push(...Array.from(osDataMap.values()));
-
-    if (dailyTimes.waitingMinutes > 0) {
-      slices.push({
-        name: 'Aguardando Serviço',
-        value: dailyTimes.waitingMinutes,
-        time: formatDuration(dailyTimes.waitingMinutes),
-        is_waiting: true
-      });
-    }
-
-    return slices;
-  }, [filteredOSList, dailyTimes.waitingMinutes]);
-
-  const totalDailyMinutes = dailyTimes.totalMinutes;
-
-  const monthlyChartData = useMemo(() => {
-    const daysMap = new Map<string, { minutes: number; percursoMinutes: number; waitingMinutes: number }>();
-    const interval = dateMode === 'single'
-      ? { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) }
-      : { start: dateRange?.from || getOperationalDate(new Date()), end: dateRange?.to || getOperationalDate(new Date()) };
-    
-    eachDayOfInterval(interval).forEach(day => {
-      daysMap.set(format(day, 'yyyy-MM-dd'), { minutes: 0, percursoMinutes: 0, waitingMinutes: 0 });
-    });
-
-    // Agrupar por data e usuário para calcular os tempos do dia com turno
-    const dateUserMap = new Map<string, Map<string, any[]>>();
-
-    filteredOSList.forEach(os => {
-      if (os.recordDate) {
-        if (!dateUserMap.has(os.recordDate)) {
-          dateUserMap.set(os.recordDate, new Map());
-        }
-        const userMap = dateUserMap.get(os.recordDate)!;
-        const uId = os.user_id || os.userDisplayName;
-        if (!userMap.has(uId)) {
-          userMap.set(uId, []);
-        }
-        userMap.get(uId)!.push(os);
-      }
-    });
-
-    dateUserMap.forEach((userMap, dateStr) => {
-      if (daysMap.has(dateStr)) {
-        let dayOs = 0;
-        let dayPercurso = 0;
-        let dayWaiting = 0;
-
-        userMap.forEach((osList, uId) => {
-          const userObj = users.find(u => u.id === uId);
-          const userShift = availableShifts.find(s => s.ref_code === userObj?.shift_code) || userObj?.shift_code;
-          const breakdown = calculateDailyTimesAndGaps(osList, parseISO(dateStr), userShift);
-
-          dayOs += breakdown.osMinutes;
-          dayPercurso += breakdown.percursoMinutes;
-          dayWaiting += breakdown.waitingMinutes;
-        });
-
-        daysMap.set(dateStr, {
-          minutes: dayOs,
-          percursoMinutes: dayPercurso,
-          waitingMinutes: dayWaiting
-        });
-      }
-    });
-
-    return Array.from(daysMap.entries()).map(([date, val]) => ({
-      day: format(parseISO(date), 'dd/MM'),
-      minutes: val.minutes,
-      percursoMinutes: val.percursoMinutes,
-      waitingMinutes: val.waitingMinutes
-    }));
-  }, [filteredOSList, selectedDate, dateRange, dateMode, users, availableShifts]);
-
-  const periodTotals = useMemo(() => {
-    let osMinutes = 0;
-    let percursoMinutes = 0;
-    let waitingMinutes = 0;
-
-    monthlyChartData.forEach(d => {
-      osMinutes += d.minutes;
-      percursoMinutes += d.percursoMinutes;
-      waitingMinutes += d.waitingMinutes;
-    });
-    
-    return {
-      osMinutes,
-      percursoMinutes,
-      waitingMinutes,
-      totalMinutes: osMinutes + percursoMinutes + waitingMinutes
-    };
-  }, [monthlyChartData]);
-
-  const pendingCount = filteredOSList.filter(os => !os.confirmed).length;
-
+  // Ações de Confirmação e Atualização de Status Digitado em Memória
   const confirmOrder = async (orderId: string) => {
+    if (!rawSnapshot) return;
     try {
-      const record = allData.find(r => Array.isArray(r.os_list) && r.os_list.some((os: any, idx: number) => (os.id || `old-${r.id}-${idx}`) === orderId));
+      const record = rawSnapshot.dailyServiceOrders.find((r: any) =>
+        Array.isArray(r.os_list) && r.os_list.some((os: any, idx: number) => (os.id || `old-${r.id}-${idx}`) === orderId)
+      );
+
       if (!record) return;
-      const updatedOsList = record.os_list.map((os: any, idx: number) => (os.id || `old-${record.id}-${idx}`) === orderId ? { ...os, confirmed: true } : os);
-      const { error } = await supabase.from('daily_service_orders').update({ os_list: updatedOsList }).eq('id', record.id);
+
+      const updatedOsList = record.os_list.map((os: any, idx: number) =>
+        (os.id || `old-${record.id}-${idx}`) === orderId ? { ...os, confirmed: true } : os
+      );
+
+      const { error } = await supabase
+        .from('daily_service_orders')
+        .update({ os_list: updatedOsList })
+        .eq('id', record.id);
+
       if (error) throw error;
+
       showSuccess('Ordem marcada como digitada!');
-      setAllData(prev => prev.map(r => r.id === record.id ? { ...r, os_list: updatedOsList } : r));
+
+      // Atualizar snapshot bruto local e reprocessar imediatamente em memória
+      const updatedOrders = rawSnapshot.dailyServiceOrders.map((r: any) =>
+        r.id === record.id ? { ...r, os_list: updatedOsList } : r
+      );
+
+      const updatedRawSnapshot: RawSnapshot = {
+        ...rawSnapshot,
+        dailyServiceOrders: updatedOrders
+      };
+
+      setRawSnapshot(updatedRawSnapshot);
+      setProcessedSnapshot(processSnapshot(updatedRawSnapshot));
     } catch (err) {
+      console.error('Erro ao confirmar ordem:', err);
       showError('Erro ao confirmar ordem.');
     }
   };
 
   const unconfirmOrder = async (orderId: string) => {
+    if (!rawSnapshot) return;
     try {
-      const record = allData.find(r => Array.isArray(r.os_list) && r.os_list.some((os: any, idx: number) => (os.id || `old-${r.id}-${idx}`) === orderId));
+      const record = rawSnapshot.dailyServiceOrders.find((r: any) =>
+        Array.isArray(r.os_list) && r.os_list.some((os: any, idx: number) => (os.id || `old-${r.id}-${idx}`) === orderId)
+      );
+
       if (!record) return;
-      const updatedOsList = record.os_list.map((os: any, idx: number) => (os.id || `old-${record.id}-${idx}`) === orderId ? { ...os, confirmed: false } : os);
-      const { error } = await supabase.from('daily_service_orders').update({ os_list: updatedOsList }).eq('id', record.id);
+
+      const updatedOsList = record.os_list.map((os: any, idx: number) =>
+        (os.id || `old-${record.id}-${idx}`) === orderId ? { ...os, confirmed: false } : os
+      );
+
+      const { error } = await supabase
+        .from('daily_service_orders')
+        .update({ os_list: updatedOsList })
+        .eq('id', record.id);
+
       if (error) throw error;
+
       showSuccess('Status removido!');
-      setAllData(prev => prev.map(r => r.id === record.id ? { ...r, os_list: updatedOsList } : r));
+
+      const updatedOrders = rawSnapshot.dailyServiceOrders.map((r: any) =>
+        r.id === record.id ? { ...r, os_list: updatedOsList } : r
+      );
+
+      const updatedRawSnapshot: RawSnapshot = {
+        ...rawSnapshot,
+        dailyServiceOrders: updatedOrders
+      };
+
+      setRawSnapshot(updatedRawSnapshot);
+      setProcessedSnapshot(processSnapshot(updatedRawSnapshot));
       setIsUnconfirmDialogOpen(false);
     } catch (err) {
+      console.error('Erro ao desmarcar ordem:', err);
       showError('Erro ao desmarcar ordem.');
     }
   };
 
+  // Agrupamento para Relatórios (PDF / CSV) consumindo o ProcessedSnapshot
+  const groupReportData = () => {
+    if (reportGroupBy === 'none') return { 'Geral': filteredOSList };
+    const grouped: Record<string, any[]> = {};
+    filteredOSList.forEach(item => {
+      let key = 'Outros';
+      if (reportGroupBy === 'date') key = format(parseISO(item.recordDate), 'dd/MM/yyyy');
+      else if (reportGroupBy === 'badge') key = item.badge || 'Sem Crachá';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(item);
+    });
+    return grouped;
+  };
+
+  // Exportação CSV
   const handleGenerateCSV = () => {
     const grouped = groupReportData();
     const headers = ['Data', 'Usuário', 'AF', 'OS', 'Agregado', 'Equipamento', 'Serviço', 'Início', 'Fim', 'Duração'];
@@ -539,30 +533,17 @@ const AdminReportPage = () => {
     link.click();
   };
 
-  const groupReportData = () => {
-    if (reportGroupBy === 'none') return { 'Geral': filteredOSList };
-    const grouped: Record<string, any[]> = {};
-    filteredOSList.forEach(item => {
-      let key = 'Outros';
-      if (reportGroupBy === 'date') key = format(parseISO(item.recordDate), 'dd/MM/yyyy');
-      else if (reportGroupBy === 'badge') key = item.badge || 'Sem Crachá';
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(item);
-    });
-    return grouped;
-  };
-
+  // Exportação PDF
   const handleGeneratePDF = async () => {
     setIsGeneratingPdf(true);
     
     try {
       const doc = new jsPDF('p', 'pt', 'a4');
-      const pageWidth = doc.internal.pageSize.getWidth();
       let yPos = 40;
 
-      // Header Text
+      // Cabeçalho
       doc.setFontSize(18);
-      doc.setTextColor(30, 58, 138); // #1e3a8a
+      doc.setTextColor(30, 58, 138);
       doc.text(`Relatório de Ordens de Serviço - ${branding.name}`, 40, yPos);
       yPos += 20;
 
@@ -570,12 +551,13 @@ const AdminReportPage = () => {
       doc.setTextColor(100, 100, 100);
       doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 40, yPos);
       yPos += 15;
-      const periodStr = dateMode === 'single' ? format(selectedDate, 'dd/MM/yyyy') : `${format(dateRange?.from || getOperationalDate(new Date()), 'dd/MM/yyyy')} a ${format(dateRange?.to || getOperationalDate(new Date()), 'dd/MM/yyyy')}`;
+      const periodStr = processedSnapshot?.meta.periodStr || '';
       doc.text(`Período: ${periodStr}`, 40, yPos);
       yPos += 15;
       doc.text(`Total Geral de OS: ${filteredOSList.length}`, 40, yPos);
       yPos += 15;
 
+      const pendingCount = summaryTotals.pendingOsCount;
       if (includeTypedStatus && pendingCount > 0) {
         doc.setTextColor(220, 38, 38);
         doc.text(`(${pendingCount} OS ainda não foram digitadas no ERP)`, 40, yPos);
@@ -584,24 +566,9 @@ const AdminReportPage = () => {
         yPos += 10;
       }
 
-      // Calcular totais de OS vs Percurso
-      let reportOsMinutes = 0;
-      let reportPercursoMinutes = 0;
-      filteredOSList.forEach((os: any) => {
-        if (os.hora_inicio && os.hora_final) {
-          const duration = calculateDuration(os.hora_inicio, os.hora_final);
-          if (os.is_percurso) {
-            reportPercursoMinutes += duration;
-          } else {
-            reportOsMinutes += duration;
-          }
-        }
-      });
-      const reportTotalMinutes = reportOsMinutes + reportPercursoMinutes;
-
-      // Resumo do Período em texto estilizado
+      // Resumo do Período
       doc.setFontSize(11);
-      doc.setTextColor(30, 41, 59); // slate-800
+      doc.setTextColor(30, 41, 59);
       doc.setFont(undefined, 'bold');
       doc.text("Resumo do Período", 40, yPos);
       yPos += 15;
@@ -610,32 +577,32 @@ const AdminReportPage = () => {
       doc.setFontSize(10);
       doc.text(`Horas em OS:`, 40, yPos);
       doc.setFont(undefined, 'bold');
-      doc.text(formatDuration(periodTotals.osMinutes), 160, yPos);
+      doc.text(formatDuration(summaryTotals.osMinutes), 160, yPos);
       yPos += 12;
 
       doc.setFont(undefined, 'normal');
       doc.text(`Horas de Percurso:`, 40, yPos);
       doc.setFont(undefined, 'bold');
-      doc.text(formatDuration(periodTotals.percursoMinutes), 160, yPos);
+      doc.text(formatDuration(summaryTotals.percursoMinutes), 160, yPos);
       yPos += 12;
 
       doc.setFont(undefined, 'normal');
       doc.text(`Aguardando Serviço:`, 40, yPos);
       doc.setFont(undefined, 'bold');
-      doc.setTextColor(22, 163, 74); // green-600
-      doc.text(formatDuration(periodTotals.waitingMinutes), 160, yPos);
+      doc.setTextColor(22, 163, 74);
+      doc.text(formatDuration(summaryTotals.aguardandoMinutes), 160, yPos);
       yPos += 12;
 
       doc.setTextColor(30, 41, 59);
       doc.setFont(undefined, 'normal');
       doc.text(`Total Geral:`, 40, yPos);
       doc.setFont(undefined, 'bold');
-      doc.text(formatDuration(periodTotals.totalMinutes), 160, yPos);
+      doc.text(formatDuration(summaryTotals.totalMinutes), 160, yPos);
       yPos += 25;
 
       doc.setTextColor(100, 100, 100);
 
-      // Charts com proporção preservada
+      // Inclusão de Gráficos no PDF
       if (includeDonutChart || includeBarChart) {
         const chartWidth = 240;
         let currentX = 40;
@@ -669,14 +636,13 @@ const AdminReportPage = () => {
         yPos += maxChartHeight + 25;
       }
 
-      // Grouped Data Tables
+      // Tabelas de dados agrupados
       const grouped = groupReportData();
       
-      Object.keys(grouped).forEach((key, index) => {
+      Object.keys(grouped).forEach((key) => {
         const data = grouped[key];
         let total = 0;
 
-        // Check if we need a new page for the group title
         if (yPos > doc.internal.pageSize.getHeight() - 60) {
           doc.addPage();
           yPos = 40;
@@ -724,7 +690,6 @@ const AdminReportPage = () => {
           return row;
         });
 
-        // Total Row
         const totalRow: any[] = [
           { content: 'Total', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } },
           { content: formatDuration(total), styles: { fontStyle: 'bold' } }
@@ -740,19 +705,19 @@ const AdminReportPage = () => {
           headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
           styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
           columnStyles: {
-            0: { cellWidth: 50 }, // Data
-            1: { cellWidth: 80 }, // Usuário
-            2: { cellWidth: 50 }, // AF
-            3: { cellWidth: 50 }, // OS
-            4: { cellWidth: 'auto' }, // Serviço
-            5: { cellWidth: 50 }, // Tempo
-            6: { cellWidth: 50 }, // Status
+            0: { cellWidth: 50 },
+            1: { cellWidth: 80 },
+            2: { cellWidth: 50 },
+            3: { cellWidth: 50 },
+            4: { cellWidth: 'auto' },
+            5: { cellWidth: 50 },
+            6: { cellWidth: 50 },
           },
           didParseCell: (hookData) => {
             const rawRow: any = hookData.row.raw;
             if (rawRow && rawRow.is_percurso) {
-              hookData.cell.styles.fillColor = [254, 242, 242]; // red-50
-              hookData.cell.styles.textColor = [220, 38, 38];   // red-600
+              hookData.cell.styles.fillColor = [254, 242, 242];
+              hookData.cell.styles.textColor = [220, 38, 38];
               hookData.cell.styles.fontStyle = 'bold';
             }
           },
@@ -783,7 +748,22 @@ const AdminReportPage = () => {
           <img src="/icons/tela_inicial/7.png" alt="" className="h-12 w-auto object-contain" />
           Relatório Administrativo ({branding.name})
         </h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {(isFetching || isProcessing) && (
+            <div className="flex items-center gap-2 text-xs font-semibold text-primary bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20 animate-pulse">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>{isFetching ? "Carregando dados..." : "Processando relatório..."}</span>
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={loadBatchDataAndProcess}
+            disabled={isFetching || isProcessing}
+            title="Recarregar snapshot"
+          >
+            <RefreshCw className={cn("h-4 w-4", (isFetching || isProcessing) && "animate-spin")} />
+          </Button>
           <Button variant="default" onClick={() => setIsReportDialogOpen(true)} className="flex items-center gap-2">
             <FileText className="h-4 w-4" /> Gerar Relatório
           </Button>
@@ -966,7 +946,7 @@ const AdminReportPage = () => {
                </ResponsiveContainer>
                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                  <span className="text-xs text-muted-foreground uppercase font-semibold">Total</span>
-                 <span className="text-base font-bold text-primary">{formatDuration(totalDailyMinutes)}</span>
+                 <span className="text-base font-bold text-primary">{formatDuration(dailyTimes.totalMinutes)}</span>
                </div>
              </div>
 
@@ -990,24 +970,25 @@ const AdminReportPage = () => {
              </div>
           </CardContent>
         </Card>
+
         <Card className="lg:col-span-2 flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between pb-2 flex-wrap gap-2">
             <CardTitle className="text-base">Histórico do Período</CardTitle>
             <div className="flex items-center gap-3 text-xs flex-wrap">
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm"></span>
-                <span className="text-muted-foreground">OS: <strong className="text-foreground">{formatDuration(periodTotals.osMinutes)}</strong></span>
+                <span className="text-muted-foreground">OS: <strong className="text-foreground">{formatDuration(summaryTotals.osMinutes)}</strong></span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 bg-[#dc2626] rounded-sm"></span>
-                <span className="text-muted-foreground">Percurso: <strong className="text-foreground">{formatDuration(periodTotals.percursoMinutes)}</strong></span>
+                <span className="text-muted-foreground">Percurso: <strong className="text-foreground">{formatDuration(summaryTotals.percursoMinutes)}</strong></span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 bg-[#16a34a] rounded-sm"></span>
-                <span className="text-muted-foreground">Aguardando: <strong className="text-foreground">{formatDuration(periodTotals.waitingMinutes)}</strong></span>
+                <span className="text-muted-foreground">Aguardando: <strong className="text-foreground">{formatDuration(summaryTotals.aguardandoMinutes)}</strong></span>
               </div>
               <div className="flex items-center gap-1.5 border-l pl-2">
-                <span className="text-muted-foreground font-semibold">Total: <strong className="text-slate-800 dark:text-slate-200 font-extrabold">{formatDuration(periodTotals.totalMinutes)}</strong></span>
+                <span className="text-muted-foreground font-semibold">Total: <strong className="text-slate-800 dark:text-slate-200 font-extrabold">{formatDuration(summaryTotals.totalMinutes)}</strong></span>
               </div>
             </div>
           </CardHeader>
@@ -1018,9 +999,7 @@ const AdminReportPage = () => {
                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
                    <XAxis dataKey="day" />
                    <YAxis tickFormatter={v => `${Math.floor(v/60)}h`} />
-                   <RechartsTooltip
-                     content={<BarChartTooltip />}
-                   />
+                   <RechartsTooltip content={<BarChartTooltip />} />
                    <Bar dataKey="minutes" name="Ordem de Serviço" fill="#2563eb" stackId="a" radius={[0, 0, 0, 0]} />
                    <Bar dataKey="percursoMinutes" name="Percurso" fill="#dc2626" stackId="a" radius={[0, 0, 0, 0]} />
                    <Bar dataKey="waitingMinutes" name="Aguardando Serviço" fill="#16a34a" stackId="a" radius={[2, 2, 0, 0]} />
@@ -1063,24 +1042,31 @@ const AdminReportPage = () => {
           </div>
 
           <div className="space-y-6">
-            {filteredOSList.map(os => (
-              <ServiceOrderListDisplay 
-                key={os.id} 
-                group={os} 
-                readOnly={true} 
-                additionalHeader={
-                  <div className="bg-blue-50/30 p-4 border-b border-blue-100/50 flex justify-between items-center">
-                    <span className="text-lg font-bold text-gray-900">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
-                    {os.confirmed ? (
-                      <div className="flex items-center gap-1">
-                        <span className="text-green-600 text-xs font-bold">Digitado</span>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setUnconfirmOrderId(os.id); setIsUnconfirmDialogOpen(true); }}><X className="h-4 w-4" /></Button>
-                      </div>
-                    ) : <Button variant="outline" size="sm" onClick={() => confirmOrder(os.id)}>Marcar Digitado</Button>}
-                  </div>
-                }
-              />
-            ))}
+            {filteredOSList.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-base font-semibold">Nenhuma Ordem de Serviço encontrada.</p>
+                <p className="text-xs mt-1">Tente ajustar os filtros ou selecionar outro período.</p>
+              </div>
+            ) : (
+              filteredOSList.map(os => (
+                <ServiceOrderListDisplay 
+                  key={os.id} 
+                  group={os} 
+                  readOnly={true} 
+                  additionalHeader={
+                    <div className="bg-blue-50/30 p-4 border-b border-blue-100/50 flex justify-between items-center">
+                      <span className="text-lg font-bold text-gray-900">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
+                      {os.confirmed ? (
+                        <div className="flex items-center gap-1">
+                          <span className="text-green-600 text-xs font-bold">Digitado</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setUnconfirmOrderId(os.id); setIsUnconfirmDialogOpen(true); }}><X className="h-4 w-4" /></Button>
+                        </div>
+                      ) : <Button variant="outline" size="sm" onClick={() => confirmOrder(os.id)}>Marcar Digitado</Button>}
+                    </div>
+                  }
+                />
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1091,7 +1077,7 @@ const AdminReportPage = () => {
             <DialogTitle>Gerar Relatório</DialogTitle>
             <DialogDescription>
               O relatório usará as <strong>{filteredOSList.length} Ordens de Serviço</strong> filtradas.
-              {pendingCount > 0 && <span className="block mt-1 text-red-600 font-medium italic">({pendingCount} OS pendentes de digitação)</span>}
+              {summaryTotals.pendingOsCount > 0 && <span className="block mt-1 text-red-600 font-medium italic">({summaryTotals.pendingOsCount} OS pendentes de digitação)</span>}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
