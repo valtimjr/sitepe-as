@@ -68,19 +68,87 @@ const calculateCycleIndex = (date: Date): number => {
   return Math.floor(daysSinceReference / 7) % 3;
 };
 
-function normalizeScheduleName(turn: string): string {
-  if (!turn) return '';
-  const trimmed = turn.trim();
-  if (trimmed === 'Intermediário') return 'Intermediario';
-  return trimmed;
+/**
+ * Normaliza qualquer variação de nome, alias ou código de turno para o padrão do sistema.
+ */
+export function normalizeScheduleName(turn: any): string {
+  if (turn === null || turn === undefined) return '';
+  const str = String(turn).trim();
+  if (!str) return '';
+
+  const upper = str.toUpperCase();
+
+  // Turno A / Código 1
+  if (
+    str === '1' ||
+    upper === 'A' ||
+    upper === 'TURNO A' ||
+    upper === 'TURNO 1' ||
+    upper === 'TURNO_A'
+  ) {
+    return 'Turno A';
+  }
+
+  // Turno B / Código 2
+  if (
+    str === '2' ||
+    upper === 'B' ||
+    upper === 'TURNO B' ||
+    upper === 'TURNO 2' ||
+    upper === 'TURNO_B'
+  ) {
+    return 'Turno B';
+  }
+
+  // Turno C / Código 3
+  if (
+    str === '3' ||
+    upper === 'C' ||
+    upper === 'TURNO C' ||
+    upper === 'TURNO 3' ||
+    upper === 'TURNO_C'
+  ) {
+    return 'Turno C';
+  }
+
+  // Turno Dia 07:30 - 17:00
+  if (
+    upper.includes('07:30') ||
+    upper === 'TURNO DIA 07:30 - 17:00' ||
+    upper === 'TURNO DIA 07:30' ||
+    upper === 'FIXO DIA 07:30'
+  ) {
+    return 'Turno Dia 07:30 - 17:00';
+  }
+
+  // Turno Dia 07:00 - 17:00 / Fixo Dia / Código 4
+  if (
+    str === '4' ||
+    upper.includes('FIXO') ||
+    upper.includes('07:00') ||
+    upper === 'TURNO DIA' ||
+    upper === 'DIA 07:00 - 17:00' ||
+    upper === 'TURNO DIA 07:00 - 17:00'
+  ) {
+    return 'Turno Dia 07:00 - 17:00';
+  }
+
+  if (upper === 'INTERMEDIÁRIO' || upper === 'INTERMEDIARIO') return 'Intermediario';
+  if (upper === 'DIA') return 'Dia';
+  if (upper === 'NOITE') return 'Noite';
+
+  return str;
 }
 
 /**
  * Determina o horário de trabalho para um turno específico em uma data.
  * @param date Data para verificação
- * @param turn Nome do turno (Turno A, Turno B, Turno C, Dia, Intermediario, Noite, Turno Dia 07:00 - 17:00, etc.)
+ * @param turn Nome, código ou alias do turno
  */
-export const getShiftSchedule = (date: Date, turn: string): { entry?: string; exit?: string; status?: string; shiftName: string } => {
+export const getShiftSchedule = (
+  date: Date,
+  turn: any
+): { entry?: string; exit?: string; status?: string; shiftName: string } => {
   if (!turn) {
     return getShiftSchedule(date, 'Turno Dia 07:00 - 17:00');
   }
@@ -268,7 +336,7 @@ export function resolveShiftScheduleInfo(
     return getShiftSchedule(date, 'Turno Dia 07:00 - 17:00');
   }
 
-  if (typeof shiftOrTurn === 'string') {
+  if (typeof shiftOrTurn === 'string' || typeof shiftOrTurn === 'number') {
     return getShiftSchedule(date, shiftOrTurn);
   }
 
@@ -277,36 +345,40 @@ export function resolveShiftScheduleInfo(
       return { status: 'Folga', shiftName: shiftOrTurn.name || shiftOrTurn.shiftName || 'Folga' };
     }
 
-    const name = shiftOrTurn.name || shiftOrTurn.shiftName || shiftOrTurn.ref_code;
+    const rawIdentifier = shiftOrTurn.name || shiftOrTurn.shiftName || shiftOrTurn.ref_code;
+    const normalized = normalizeScheduleName(rawIdentifier);
+
+    const isKnownShift =
+      normalized in SHIFT_SCHEDULES ||
+      FIXED_TURNS.includes(normalized) ||
+      typeof TURN_BASE_INDEX[normalized] !== 'undefined';
+
+    if (isKnownShift) {
+      return getShiftSchedule(date, normalized);
+    }
+
     const entry = shiftOrTurn.entry_time || shiftOrTurn.entry;
     const exit = shiftOrTurn.exit_time || shiftOrTurn.exit;
-
-    if (name) {
-      const scheduleResult = getShiftSchedule(date, name);
-      if (scheduleResult.entry || scheduleResult.status === 'Folga') {
-        return scheduleResult;
-      }
-    }
 
     if (entry && exit) {
       const dayOfWeek = getDay(date);
       if (dayOfWeek === 0 && !shiftOrTurn.work_sundays) {
-        return { status: 'Folga', shiftName: name || 'Folga' };
+        return { status: 'Folga', shiftName: rawIdentifier || 'Folga' };
       }
-      return { entry, exit, shiftName: name || 'Turno Customizado' };
+      return { entry, exit, shiftName: rawIdentifier || 'Turno Customizado' };
     }
 
-    if (name) {
-      return getShiftSchedule(date, name);
+    if (normalized) {
+      return getShiftSchedule(date, normalized);
     }
   }
 
-  return { shiftName: 'Sem Turno' };
+  return getShiftSchedule(date, 'Turno Dia 07:00 - 17:00');
 }
 
 /**
  * Função utilitária centralizada para calcular os tempos do dia (OS, Percurso e Aguardando Serviço).
- * O tempo em "Aguardando Serviço" é calculado exclusivamente como lacunas dentro do horário de turno do funcionário.
+ * O tempo em "Aguardando Serviço" é calculated exclusivamente como lacunas dentro do horário de turno do funcionário.
  */
 export function calculateDailyTimesAndGaps(
   osList: any[],
