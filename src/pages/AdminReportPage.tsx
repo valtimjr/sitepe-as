@@ -344,6 +344,18 @@ const AdminReportPage = () => {
       }
     });
 
+    if (userDateGroups.size === 0 && selectedUserId !== 'all' && dateMode === 'single') {
+      const userProfile = users.find(u => u.id === selectedUserId);
+      const userShift = availableShifts.find(s => s.ref_code === userProfile?.shift_code) || userProfile?.shift_code;
+      const breakdown = calculateDailyTimesAndGaps([], selectedDate, userShift);
+      return {
+        osMinutes: 0,
+        percursoMinutes: 0,
+        waitingMinutes: breakdown.waitingMinutes,
+        totalMinutes: breakdown.waitingMinutes
+      };
+    }
+
     userDateGroups.forEach(group => {
       const breakdown = calculateDailyTimesAndGaps(group.osList, parseISO(group.recordDate), group.userShift);
       osMinutes += breakdown.osMinutes;
@@ -357,7 +369,7 @@ const AdminReportPage = () => {
       waitingMinutes,
       totalMinutes: osMinutes + percursoMinutes + waitingMinutes
     };
-  }, [filteredOSList, users, availableShifts]);
+  }, [filteredOSList, users, availableShifts, selectedUserId, dateMode, selectedDate]);
 
   const dailyChartData = useMemo(() => {
     const slices: Array<{ name: string; value: number; time: string; is_percurso?: boolean; is_waiting?: boolean }> = [];

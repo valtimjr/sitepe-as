@@ -74,6 +74,17 @@ export function isInsideListSelector(target: EventTarget | null | undefined): bo
  * Função utilitária centralizada para calcular horas de OS, Percurso e Aguardando Serviço de uma lista de registros.
  */
 export function calculateOsAndPercursoTimes(osList: any[], date?: Date, shiftOrTurn?: any) {
+  if (date) {
+    const breakdown = calculateDailyTimesAndGaps(osList, date, shiftOrTurn);
+    return {
+      osMinutes: breakdown.osMinutes,
+      percursoMinutes: breakdown.percursoMinutes,
+      waitingMinutes: breakdown.waitingMinutes,
+      totalMinutes: breakdown.totalMinutes,
+      waitingIntervals: breakdown.waitingIntervals
+    };
+  }
+
   let osMinutes = 0;
   let percursoMinutes = 0;
   
@@ -88,20 +99,11 @@ export function calculateOsAndPercursoTimes(osList: any[], date?: Date, shiftOrT
     });
   }
 
-  let waitingMinutes = 0;
-  let waitingIntervals: Array<{ start: string; end: string; durationMinutes: number }> = [];
-
-  if (date && shiftOrTurn) {
-    const breakdown = calculateDailyTimesAndGaps(osList, date, shiftOrTurn);
-    waitingMinutes = breakdown.waitingMinutes;
-    waitingIntervals = breakdown.waitingIntervals;
-  }
-  
   return {
     osMinutes,
     percursoMinutes,
-    waitingMinutes,
-    totalMinutes: osMinutes + percursoMinutes + waitingMinutes,
-    waitingIntervals
+    waitingMinutes: 0,
+    totalMinutes: osMinutes + percursoMinutes,
+    waitingIntervals: []
   };
 }

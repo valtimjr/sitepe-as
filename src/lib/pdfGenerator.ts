@@ -294,15 +294,6 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
   const dateUserGroups = new Map<string, { date: Date; shift: any; items: any[] }>();
 
   groupedServiceOrders.forEach(os => {
-    if (os.hora_inicio && os.hora_final) {
-      const duration = pdfCalculateDuration(os.hora_inicio, os.hora_final);
-      if (os.is_percurso) {
-        percursoMinutes += duration;
-      } else {
-        osMinutes += duration;
-      }
-    }
-
     const itemDate = os.createdAt
       ? (os.createdAt instanceof Date ? os.createdAt : parseISO(os.createdAt))
       : (os.recordDate ? parseISO(os.recordDate) : new Date());
@@ -322,6 +313,8 @@ export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: stri
 
   dateUserGroups.forEach(group => {
     const breakdown = calculateDailyTimesAndGaps(group.items, group.date, group.shift);
+    osMinutes += breakdown.osMinutes;
+    percursoMinutes += breakdown.percursoMinutes;
     waitingMinutes += breakdown.waitingMinutes;
   });
 

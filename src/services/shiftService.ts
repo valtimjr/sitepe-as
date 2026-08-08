@@ -1,135 +1,137 @@
 import { format, isSameDay, parseISO, startOfDay, differenceInDays, getDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
-import { v4 as uuidv4 } from 'uuid';
-import { Apontamento } from './partListService'; // Importando Apontamento para tipagem
+import { Apontamento } from './partListService';
 
 // 1. Definição dos Horários de Trabalho por Escala (Dia da Semana: 0=Dom, 1=Seg, ..., 6=Sáb)
 const SHIFT_SCHEDULES = {
   Dia: {
     0: { status: 'Folga' }, // Domingo folga
-    1: { entry: '07:00', exit: '15:00' }, // Segunda
-    2: { entry: '07:00', exit: '15:00' }, // Terça
-    3: { entry: '07:00', exit: '15:00' }, // Quarta
-    4: { entry: '07:00', exit: '15:00' }, // Quinta
-    5: { entry: '07:00', exit: '19:00' }, // Sexta
-    6: { entry: '07:00', exit: '19:00' }, // Sábado
+    1: { entry: '07:00', exit: '15:00' }, // Segunda (8h)
+    2: { entry: '07:00', exit: '15:00' }, // Terça (8h)
+    3: { entry: '07:00', exit: '15:00' }, // Quarta (8h)
+    4: { entry: '07:00', exit: '15:00' }, // Quinta (8h)
+    5: { entry: '07:00', exit: '19:00' }, // Sexta (12h)
+    6: { entry: '07:00', exit: '19:00' }, // Sábado (12h)
   },
   Intermediario: {
-    0: { entry: '19:00', exit: '07:00', overnight: true }, // Domingo
-    1: { entry: '15:00', exit: '23:00' }, // Segunda
-    2: { entry: '15:00', exit: '23:00' }, // Terça
-    3: { entry: '15:00', exit: '23:00' }, // Quarta
-    4: { entry: '15:00', exit: '23:00' }, // Quinta
+    0: { entry: '19:00', exit: '07:00', overnight: true }, // Domingo (12h)
+    1: { entry: '15:00', exit: '23:00' }, // Segunda (8h)
+    2: { entry: '15:00', exit: '23:00' }, // Terça (8h)
+    3: { entry: '15:00', exit: '23:00' }, // Quarta (8h)
+    4: { entry: '15:00', exit: '23:00' }, // Quinta (8h)
     5: { status: 'Folga' }, // Sexta folga
-    6: { entry: '19:00', exit: '07:00', overnight: true }, // Sábado
+    6: { entry: '19:00', exit: '07:00', overnight: true }, // Sábado (12h)
   },
   Noite: {
-    0: { entry: '07:00', exit: '19:00' }, // Domingo: ALTERADO para 07:00 - 19:00
-    1: { entry: '23:00', exit: '07:00', overnight: true }, // Segunda
-    2: { entry: '23:00', exit: '07:00', overnight: true }, // Terça
-    3: { entry: '23:00', exit: '07:00', overnight: true }, // Quarta
-    4: { entry: '23:00', exit: '07:00', overnight: true }, // Quinta
-    5: { entry: '19:00', exit: '07:00', overnight: true }, // Sexta
-    6: { status: 'Folga' }, // Sábado (Folga)
+    0: { entry: '07:00', exit: '19:00' }, // Domingo (12h)
+    1: { entry: '23:00', exit: '07:00', overnight: true }, // Segunda (8h)
+    2: { entry: '23:00', exit: '07:00', overnight: true }, // Terça (8h)
+    3: { entry: '23:00', exit: '07:00', overnight: true }, // Quarta (8h)
+    4: { entry: '23:00', exit: '07:00', overnight: true }, // Quinta (8h)
+    5: { entry: '19:00', exit: '07:00', overnight: true }, // Sexta (12h)
+    6: { status: 'Folga' }, // Sábado folga
   },
-  // Turnos Fixos: Agora preenchem todos os 7 dias da semana
   'Turno Dia 07:00 - 17:00': {
-    0: { entry: '07:00', exit: '17:00' }, // Domingo
-    1: { entry: '07:00', exit: '17:00' }, // Segunda
-    2: { entry: '07:00', exit: '17:00' }, // Terça
-    3: { entry: '07:00', exit: '17:00' }, // Quarta
-    4: { entry: '07:00', exit: '17:00' }, // Quinta
-    5: { entry: '07:00', exit: '17:00' }, // Sexta
-    6: { entry: '07:00', exit: '17:00' }, // Sábado
+    0: { entry: '07:00', exit: '17:00' },
+    1: { entry: '07:00', exit: '17:00' },
+    2: { entry: '07:00', exit: '17:00' },
+    3: { entry: '07:00', exit: '17:00' },
+    4: { entry: '07:00', exit: '17:00' },
+    5: { entry: '07:00', exit: '17:00' },
+    6: { entry: '07:00', exit: '17:00' },
   },
   'Turno Dia 07:30 - 17:00': {
-    0: { entry: '07:30', exit: '17:00' }, // Domingo
-    1: { entry: '07:30', exit: '17:00' }, // Segunda
-    2: { entry: '07:30', exit: '17:00' }, // Terça
-    3: { entry: '07:30', exit: '17:00' }, // Quarta
-    4: { entry: '07:30', exit: '17:00' }, // Quinta
-    5: { entry: '07:30', exit: '17:00' }, // Sexta
-    6: { entry: '07:30', exit: '17:00' }, // Sábado
+    0: { entry: '07:30', exit: '17:00' },
+    1: { entry: '07:30', exit: '17:00' },
+    2: { entry: '07:30', exit: '17:00' },
+    3: { entry: '07:30', exit: '17:00' },
+    4: { entry: '07:30', exit: '17:00' },
+    5: { entry: '07:30', exit: '17:00' },
+    6: { entry: '07:30', exit: '17:00' },
   },
 };
 
 // 2. Definição da Rotação
 const SHIFT_ORDER = ['Dia', 'Intermediario', 'Noite'];
 const ROTATING_TURNS = ['Turno A', 'Turno B', 'Turno C'];
-const FIXED_TURNS = ['Turno Dia 07:00 - 17:00', 'Turno Dia 07:30 - 17:00']; // Mantido para referência interna, mas não exportado
+const FIXED_TURNS = ['Turno Dia 07:00 - 17:00', 'Turno Dia 07:30 - 17:00'];
 
-// Mapeamento de Turno para o índice da escala na Semana 1 (2024-01-01)
-// Turno A = Noite (Índice 2) - REVERTIDO
-// Turno B = Dia (Índice 0)
-// Turno C = Intermediário (Índice 1)
 const TURN_BASE_INDEX: { [key: string]: number } = {
-  'Turno A': 2, // Noite (Revertido para o valor anterior)
+  'Turno A': 2, // Noite
   'Turno B': 0, // Dia
   'Turno C': 1, // Intermediário
 };
 
-// Data de Referência (Ponto de partida do ciclo)
-// 2024-01-01 é uma Segunda-feira (dayOfWeek = 1)
 const REFERENCE_DATE = parseISO('2024-01-01T00:00:00');
 
-/**
- * Calcula o índice do ciclo de 3 semanas (0, 1, ou 2) para uma dada data.
- * @param date A data para calcular o ciclo.
- * @returns O índice do ciclo (0, 1 ou 2).
- */
 const calculateCycleIndex = (date: Date): number => {
   const daysSinceReference = differenceInDays(startOfDay(date), startOfDay(REFERENCE_DATE));
-  // O ciclo se repete a cada 21 dias (3 semanas)
-  // O índice da semana é (dias / 7) % 3
   return Math.floor(daysSinceReference / 7) % 3;
 };
 
+function normalizeScheduleName(turn: string): string {
+  if (!turn) return '';
+  const trimmed = turn.trim();
+  if (trimmed === 'Intermediário') return 'Intermediario';
+  return trimmed;
+}
+
 /**
  * Determina o horário de trabalho para um turno específico em uma data.
- * @param date The date to check.
- * @param turn The shift turn (Turno A, Turno B, Turno C, Turno Dia 07:00 - 17:00, etc.).
- * @returns The entry and exit times (or status for day off), PLUS the determined shift name.
+ * @param date Data para verificação
+ * @param turn Nome do turno (Turno A, Turno B, Turno C, Dia, Intermediario, Noite, Turno Dia 07:00 - 17:00, etc.)
  */
 export const getShiftSchedule = (date: Date, turn: string): { entry?: string; exit?: string; status?: string; shiftName: string } => {
+  if (!turn) {
+    return getShiftSchedule(date, 'Turno Dia 07:00 - 17:00');
+  }
+
+  const normalized = normalizeScheduleName(turn);
   const dayOfWeek = getDay(date); // 0 (Dom) a 6 (Sáb)
 
-  if (FIXED_TURNS.includes(turn)) {
-    const schedule = SHIFT_SCHEDULES[turn as keyof typeof SHIFT_SCHEDULES];
-    const shift = schedule[dayOfWeek as keyof typeof schedule] || {};
-    return { ...shift, shiftName: turn };
+  if (FIXED_TURNS.includes(normalized)) {
+    const schedule = SHIFT_SCHEDULES[normalized as keyof typeof SHIFT_SCHEDULES];
+    const shift = schedule?.[dayOfWeek as keyof typeof schedule] || {};
+    return { ...shift, shiftName: normalized };
   }
 
-  // Lógica para turnos rotativos
-  const cycleIndex = calculateCycleIndex(date); // 0, 1, ou 2
-  const turnBaseIndex = TURN_BASE_INDEX[turn];
-  if (typeof turnBaseIndex === 'undefined') return { shiftName: 'Outros' };
-
-  // O índice da escala de horário para o turno é (BaseIndex + cycleIndex) % 3
-  const scheduleIndex = (turnBaseIndex + cycleIndex) % 3;
-  const scheduleName = SHIFT_ORDER[scheduleIndex];
-  const schedule = SHIFT_SCHEDULES[scheduleName as keyof typeof SHIFT_SCHEDULES];
-
-  // 2. Aplicar as regras de horário/folga
-  const shift = schedule[dayOfWeek as keyof typeof schedule];
-
-  if (shift) {
-    if ('status' in shift && shift.status === 'Folga') {
-      return { status: 'Folga', shiftName: 'Folga' };
+  if (normalized in SHIFT_SCHEDULES) {
+    const schedule = SHIFT_SCHEDULES[normalized as keyof typeof SHIFT_SCHEDULES];
+    const shift = schedule?.[dayOfWeek as keyof typeof schedule];
+    if (shift) {
+      if ('status' in shift && shift.status === 'Folga') {
+        return { status: 'Folga', shiftName: 'Folga' };
+      }
+      if ('entry' in shift && 'exit' in shift) {
+        return { entry: shift.entry, exit: shift.exit, shiftName: normalized };
+      }
     }
-    if ('entry' in shift && 'exit' in shift) {
-      return { entry: shift.entry, exit: shift.exit, shiftName: scheduleName };
-    }
+    return { status: 'Folga', shiftName: 'Folga' };
   }
 
-  // Se não houver regra definida para o dia da semana na escala atual, é folga.
-  return { status: 'Folga', shiftName: 'Folga' };
+  const turnBaseIndex = TURN_BASE_INDEX[normalized];
+  if (typeof turnBaseIndex !== 'undefined') {
+    const cycleIndex = calculateCycleIndex(date); // 0, 1, ou 2
+    const scheduleIndex = (turnBaseIndex + cycleIndex) % 3;
+    const scheduleName = SHIFT_ORDER[scheduleIndex];
+    const schedule = SHIFT_SCHEDULES[scheduleName as keyof typeof SHIFT_SCHEDULES];
+
+    const shift = schedule?.[dayOfWeek as keyof typeof schedule];
+    if (shift) {
+      if ('status' in shift && shift.status === 'Folga') {
+        return { status: 'Folga', shiftName: 'Folga' };
+      }
+      if ('entry' in shift && 'exit' in shift) {
+        return { entry: shift.entry, exit: shift.exit, shiftName: scheduleName };
+      }
+    }
+    return { status: 'Folga', shiftName: 'Folga' };
+  }
+
+  return { status: 'Folga', shiftName: normalized || 'Outros' };
 };
 
 /**
  * Gera os apontamentos automáticos para um mês inteiro.
- * @param monthDate Qualquer data dentro do mês desejado.
- * @param turn The shift turn (Turno A, Turno B, Turno C, Turno Dia 07:00 - 17:00, etc.).
- * @param userId O ID do usuário para preencher o apontamento.
- * @returns Uma lista de objetos Apontamento.
  */
 export const generateMonthlyApontamentos = (monthDate: Date, turn: string, userId: string): Apontamento[] => {
   const start = startOfMonth(monthDate);
@@ -141,12 +143,11 @@ export const generateMonthlyApontamentos = (monthDate: Date, turn: string, userI
     const dateString = format(day, 'yyyy-MM-dd');
 
     return {
-      // REMOVIDO: id: uuidv4(), // Não é mais necessário, 'date' é o identificador único
       date: dateString,
       entry_time: schedule.entry,
       exit_time: schedule.exit,
       status: schedule.status,
-      created_at: new Date().toISOString(), // Convertido para ISO string
+      created_at: new Date().toISOString(),
     };
   });
 };
@@ -157,13 +158,6 @@ export const ALL_TURNS: ShiftTurn[] = [...ROTATING_TURNS, ...FIXED_TURNS] as Shi
 
 /**
  * Lógica reutilizável para validar horários de início e término contra o turno do funcionário.
- * Suporta turnos que cruzam a meia-noite e segue a regra do Dia Operacional.
- *
- * @param horaInicio Horário de início informado (ex: "08:30") ou vazio
- * @param horaFinal Horário de término informado (ex: "17:00") ou vazio
- * @param date A data operacional em que a OS/Percurso está sendo criada/editada
- * @param shift O objeto de turno do usuário contendo name, entry_time, exit_time
- * @returns { isValid: boolean; shiftRangeStr?: string; offTime?: string }
  */
 export const validateTimesAgainstShift = (
   horaInicio: string,
@@ -175,32 +169,11 @@ export const validateTimesAgainstShift = (
     return { isValid: true };
   }
 
-  // 1. Determinar o horário de entrada e saída previsto para o dia
-  let entry: string | undefined;
-  let exit: string | undefined;
-  let status: string | undefined;
+  const schedule = resolveShiftScheduleInfo(date, shift);
+  const entry = schedule.entry;
+  const exit = schedule.exit;
+  const status = schedule.status;
 
-  if (['Turno A', 'Turno B', 'Turno C'].includes(shift.name)) {
-    const schedule = getShiftSchedule(date, shift.name);
-    entry = schedule.entry;
-    exit = schedule.exit;
-    status = schedule.status;
-  } else if (shift.entry_time && shift.exit_time) {
-    const dayOfWeek = getDay(date);
-    if (dayOfWeek === 0) { // Domingo é Folga por padrão para turnos fixos normais
-      status = 'Folga';
-    } else {
-      entry = shift.entry_time;
-      exit = shift.exit_time;
-    }
-  } else {
-    const schedule = getShiftSchedule(date, shift.name);
-    entry = schedule.entry;
-    exit = schedule.exit;
-    status = schedule.status;
-  }
-
-  // Se o dia for de folga, qualquer horário informado estará fora do turno
   if (status === 'Folga' || (!entry && !exit)) {
     if (horaInicio || horaFinal) {
       return {
@@ -215,7 +188,6 @@ export const validateTimesAgainstShift = (
   const shiftEntry = entry!;
   const shiftExit = exit!;
 
-  // Função interna para validar se um horário específico está dentro do turno
   const isTimeInInterval = (time: string, start: string, end: string): boolean => {
     if (!time) return true;
     
@@ -228,10 +200,8 @@ export const validateTimesAgainstShift = (
     const eMin = eH * 60 + eM;
 
     if (sMin <= eMin) {
-      // Turno normal (não cruza meia-noite)
       return tMin >= sMin && tMin <= eMin;
     } else {
-      // Turno cruza a meia-noite
       return tMin >= sMin || tMin <= eMin;
     }
   };
@@ -266,11 +236,6 @@ export interface DailyTimesBreakdown {
 
 /**
  * Converte horário HH:MM para minutos operacionais a partir das 07:00 (base 0).
- * 07:00 = 0
- * 17:00 = 600
- * 23:59 = 1019
- * 00:00 = 1020
- * 06:59 = 1439
  */
 export function timeToOpMinutes(time: string): number {
   if (!time) return 0;
@@ -312,22 +277,22 @@ export function resolveShiftScheduleInfo(
       return { status: 'Folga', shiftName: shiftOrTurn.name || shiftOrTurn.shiftName || 'Folga' };
     }
 
-    const name = shiftOrTurn.name || shiftOrTurn.shiftName;
-    if (name && ALL_TURNS.includes(name as ShiftTurn)) {
-      return getShiftSchedule(date, name);
-    }
-
+    const name = shiftOrTurn.name || shiftOrTurn.shiftName || shiftOrTurn.ref_code;
     const entry = shiftOrTurn.entry_time || shiftOrTurn.entry;
     const exit = shiftOrTurn.exit_time || shiftOrTurn.exit;
-    const dayOfWeek = getDay(date);
 
-    if (dayOfWeek === 0 && (!name || !['Turno A', 'Turno B', 'Turno C'].includes(name))) {
-      if (!entry && !exit) {
-        return { status: 'Folga', shiftName: name || 'Folga' };
+    if (name) {
+      const scheduleResult = getShiftSchedule(date, name);
+      if (scheduleResult.entry || scheduleResult.status === 'Folga') {
+        return scheduleResult;
       }
     }
 
     if (entry && exit) {
+      const dayOfWeek = getDay(date);
+      if (dayOfWeek === 0 && !shiftOrTurn.work_sundays) {
+        return { status: 'Folga', shiftName: name || 'Folga' };
+      }
       return { entry, exit, shiftName: name || 'Turno Customizado' };
     }
 
@@ -388,10 +353,9 @@ export function calculateDailyTimesAndGaps(
   const shiftStartOp = timeToOpMinutes(shiftInfo.entry);
   let shiftEndOp = timeToOpMinutes(shiftInfo.exit);
   if (shiftEndOp <= shiftStartOp) {
-    shiftEndOp += 24 * 60; // Trata turnos que viram a noite ou terminam às 07:00 do dia seguinte
+    shiftEndOp += 24 * 60; // Trata turnos que viram a noite ou terminam no dia seguinte
   }
 
-  // Mapear intervalos ocupados por OS/Percurso limitados (clamped) ao horário do turno
   const occupiedIntervals: Array<[number, number]> = [];
 
   if (Array.isArray(osList)) {
@@ -414,7 +378,6 @@ export function calculateDailyTimesAndGaps(
     });
   }
 
-  // Ordenar e mesclar intervalos ocupados sobrepostos ou adjacentes
   occupiedIntervals.sort((a, b) => a[0] - b[0]);
 
   const mergedOccupied: Array<[number, number]> = [];
@@ -431,7 +394,6 @@ export function calculateDailyTimesAndGaps(
     }
   }
 
-  // Encontrar lacunas (Aguardando Serviço) no turno
   const waitingIntervals: Array<{ start: string; end: string; durationMinutes: number }> = [];
   let currentPointer = shiftStartOp;
 
