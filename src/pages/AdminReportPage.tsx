@@ -45,7 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn, getOperationalDate, calculateDuration, formatDuration } from "@/lib/utils";
+import { cn, getOperationalDate, calculateDuration, formatDuration, calculateOsAndPercursoTimes } from "@/lib/utils";
 import { calculateDailyTimesAndGaps } from '@/services/shiftService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRange } from "react-day-picker";
@@ -127,6 +127,7 @@ const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, perc
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
+  // Hide labels for slices smaller than 10% to prevent overlapping
   if (percent < 0.10) return null;
 
   return (
@@ -152,8 +153,8 @@ const AdminReportPage = () => {
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [selectedProfessionCode, setSelectedProfessionCode] = useState<string>('all');
   const [selectedShiftCode, setSelectedShiftCode] = useState<string>('all');
-  const [selectedDigitadoFilter, setSelectedDigitadoFilter] = useState<'all' | 'sim' | 'nao'>('all');
-  const [sortDaysDirection, setSortDaysDirection] = useState<'asc' | 'desc'>('desc');
+  const [selectedDigitadoFilter, setSelectedDigitadoFilter] = useState<'all' | 'sim' | 'nao'>('all'); // Novo filtro de digitadas
+  const [sortDaysDirection, setSortDaysDirection] = useState<'asc' | 'desc'>('desc'); // Ordenação dos dias das OS
   const [afSearchTerm, setAfSearchTerm] = useState<string>('');
   
   const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
@@ -253,35 +254,6 @@ const AdminReportPage = () => {
     return true;
   };
 
-  const activeFilteredUsers = useMemo(() => {
-    return users.filter(u => {
-      if (selectedUserId !== 'all' && u.id !== selectedUserId) return false;
-      if (selectedProfessionCode !== 'all' && u.profession_code?.toString() !== selectedProfessionCode) return false;
-      if (selectedShiftCode !== 'all' && u.shift_code?.toString() !== selectedShiftCode) return false;
-      return true;
-    });
-  }, [users, selectedUserId, selectedProfessionCode, selectedShiftCode]);
-
-  const periodDays = useMemo(() => {
-    if (dateMode === 'single') {
-      return [selectedDate];
-    } else {
-      if (!dateRange?.from || !dateRange?.to) return [getOperationalDate(new Date())];
-      return eachDayOfInterval({ start: startOfDay(dateRange.from), end: startOfDay(dateRange.to) });
-    }
-  }, [dateMode, selectedDate, dateRange]);
-
-  const chartDays = useMemo(() => {
-    if (dateMode === 'single') {
-      const start = startOfMonth(selectedDate);
-      const end = endOfMonth(selectedDate);
-      return eachDayOfInterval({ start, end });
-    } else {
-      if (!dateRange?.from || !dateRange?.to) return [getOperationalDate(new Date())];
-      return eachDayOfInterval({ start: startOfDay(dateRange.from), end: startOfDay(dateRange.to) });
-    }
-  }, [dateMode, selectedDate, dateRange]);
-
   const filteredOSList = useMemo(() => {
     let periodRecords;
     if (dateMode === 'single') {
@@ -309,6 +281,7 @@ const AdminReportPage = () => {
         recordOsList.forEach((os, index) => {
           const isConfirmed = os.confirmed === true;
           
+          // Filtro para ordens Digitadas vs Pendentes
           if (selectedDigitadoFilter === 'sim' && !isConfirmed) return;
           if (selectedDigitadoFilter === 'nao' && isConfirmed) return;
 
@@ -326,6 +299,7 @@ const AdminReportPage = () => {
       }
     });
 
+    // Filtro de AF (Número ou Descrição)
     if (afSearchTerm) {
       const term = afSearchTerm.toLowerCase();
       osList = osList.filter(os => {
@@ -335,6 +309,7 @@ const AdminReportPage = () => {
       });
     }
 
+    // Ordenação dos dias (Crescente ou Decrescente)
     return osList.sort((a, b) => {
       if (sortDaysDirection === 'asc') {
         return a.recordDate.localeCompare(b.recordDate);
@@ -349,47 +324,31 @@ const AdminReportPage = () => {
     let percursoMinutes = 0;
     let waitingMinutes = 0;
 
-    const osByUserAndDate = new Map<string, any[]>();
+    // Agrupar ordens por usuário e data para calcular lacunas de turno
+    const userDateGroups = new Map<string, { userId: string; recordDate: string; osList: any[]; userShift: any }>();
+
     filteredOSList.forEach(os => {
+      const userProfile = users.find(u => u.id === os.user_id);
+      const userShift = availableShifts.find(s => s.ref_code === userProfile?.shift_code) || userProfile?.shift_code;
       const key = `${os.user_id || os.userDisplayName}_${os.recordDate}`;
-      if (!osByUserAndDate.has(key)) {
-        osByUserAndDate.set(key, []);
+
+      if (!userDateGroups.has(key)) {
+        userDateGroups.set(key, {
+          userId: os.user_id,
+          recordDate: os.recordDate,
+          osList: [os],
+          userShift
+        });
+      } else {
+        userDateGroups.get(key)!.osList.push(os);
       }
-      osByUserAndDate.get(key)!.push(os);
     });
 
-    let debugLogged = false;
-
-    periodDays.forEach(day => {
-      const dateStr = format(day, 'yyyy-MM-dd');
-      const processedKeys = new Set<string>();
-
-      activeFilteredUsers.forEach(user => {
-        const userShift = availableShifts.find(s => s.ref_code === user.shift_code) || user.shift_code;
-        const key = `${user.id}_${dateStr}`;
-        processedKeys.add(key);
-
-        const userDayOS = osByUserAndDate.get(key) || [];
-        const breakdown = calculateDailyTimesAndGaps(userDayOS, day, userShift);
-
-        osMinutes += breakdown.osMinutes;
-        percursoMinutes += breakdown.percursoMinutes;
-        waitingMinutes += breakdown.waitingMinutes;
-
-        if (!debugLogged && activeFilteredUsers.length > 0) {
-          debugLogged = true;
-          console.log(`[AdminReportPage Debug] User: ${user.first_name} ${user.last_name}, Date: ${dateStr}, Shift: ${breakdown.shiftInfo.shiftName} (Entry: ${breakdown.shiftInfo.entry || 'N/A'}, Exit: ${breakdown.shiftInfo.exit || 'N/A'}, Status: ${breakdown.shiftInfo.status || 'Ativo'}), OS/Percurso Count: ${userDayOS.length}, OS Min: ${breakdown.osMinutes}, Percurso Min: ${breakdown.percursoMinutes}, Waiting Min: ${breakdown.waitingMinutes}`);
-        }
-      });
-
-      osByUserAndDate.forEach((osList, key) => {
-        if (key.endsWith(`_${dateStr}`) && !processedKeys.has(key)) {
-          const breakdown = calculateDailyTimesAndGaps(osList, day, null);
-          osMinutes += breakdown.osMinutes;
-          percursoMinutes += breakdown.percursoMinutes;
-          waitingMinutes += breakdown.waitingMinutes;
-        }
-      });
+    userDateGroups.forEach(group => {
+      const breakdown = calculateDailyTimesAndGaps(group.osList, parseISO(group.recordDate), group.userShift);
+      osMinutes += breakdown.osMinutes;
+      percursoMinutes += breakdown.percursoMinutes;
+      waitingMinutes += breakdown.waitingMinutes;
     });
 
     return {
@@ -398,7 +357,7 @@ const AdminReportPage = () => {
       waitingMinutes,
       totalMinutes: osMinutes + percursoMinutes + waitingMinutes
     };
-  }, [filteredOSList, periodDays, activeFilteredUsers, availableShifts]);
+  }, [filteredOSList, users, availableShifts]);
 
   const dailyChartData = useMemo(() => {
     const slices: Array<{ name: string; value: number; time: string; is_percurso?: boolean; is_waiting?: boolean }> = [];
@@ -441,53 +400,63 @@ const AdminReportPage = () => {
   const totalDailyMinutes = dailyTimes.totalMinutes;
 
   const monthlyChartData = useMemo(() => {
-    const osByUserAndDate = new Map<string, any[]>();
+    const daysMap = new Map<string, { minutes: number; percursoMinutes: number; waitingMinutes: number }>();
+    const interval = dateMode === 'single'
+      ? { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) }
+      : { start: dateRange?.from || getOperationalDate(new Date()), end: dateRange?.to || getOperationalDate(new Date()) };
+    
+    eachDayOfInterval(interval).forEach(day => {
+      daysMap.set(format(day, 'yyyy-MM-dd'), { minutes: 0, percursoMinutes: 0, waitingMinutes: 0 });
+    });
+
+    // Agrupar por data e usuário para calcular os tempos do dia com turno
+    const dateUserMap = new Map<string, Map<string, any[]>>();
+
     filteredOSList.forEach(os => {
-      const key = `${os.user_id || os.userDisplayName}_${os.recordDate}`;
-      if (!osByUserAndDate.has(key)) {
-        osByUserAndDate.set(key, []);
-      }
-      osByUserAndDate.get(key)!.push(os);
-    });
-
-    return chartDays.map(day => {
-      const dateStr = format(day, 'yyyy-MM-dd');
-      let dayOsMinutes = 0;
-      let dayPercursoMinutes = 0;
-      let dayWaitingMinutes = 0;
-
-      const processedKeys = new Set<string>();
-
-      activeFilteredUsers.forEach(user => {
-        const userShift = availableShifts.find(s => s.ref_code === user.shift_code) || user.shift_code;
-        const key = `${user.id}_${dateStr}`;
-        processedKeys.add(key);
-
-        const userDayOS = osByUserAndDate.get(key) || [];
-        const breakdown = calculateDailyTimesAndGaps(userDayOS, day, userShift);
-
-        dayOsMinutes += breakdown.osMinutes;
-        dayPercursoMinutes += breakdown.percursoMinutes;
-        dayWaitingMinutes += breakdown.waitingMinutes;
-      });
-
-      osByUserAndDate.forEach((osList, key) => {
-        if (key.endsWith(`_${dateStr}`) && !processedKeys.has(key)) {
-          const breakdown = calculateDailyTimesAndGaps(osList, day, null);
-          dayOsMinutes += breakdown.osMinutes;
-          dayPercursoMinutes += breakdown.percursoMinutes;
-          dayWaitingMinutes += breakdown.waitingMinutes;
+      if (os.recordDate) {
+        if (!dateUserMap.has(os.recordDate)) {
+          dateUserMap.set(os.recordDate, new Map());
         }
-      });
-
-      return {
-        day: format(day, 'dd/MM'),
-        minutes: dayOsMinutes,
-        percursoMinutes: dayPercursoMinutes,
-        waitingMinutes: dayWaitingMinutes
-      };
+        const userMap = dateUserMap.get(os.recordDate)!;
+        const uId = os.user_id || os.userDisplayName;
+        if (!userMap.has(uId)) {
+          userMap.set(uId, []);
+        }
+        userMap.get(uId)!.push(os);
+      }
     });
-  }, [filteredOSList, chartDays, activeFilteredUsers, availableShifts]);
+
+    dateUserMap.forEach((userMap, dateStr) => {
+      if (daysMap.has(dateStr)) {
+        let dayOs = 0;
+        let dayPercurso = 0;
+        let dayWaiting = 0;
+
+        userMap.forEach((osList, uId) => {
+          const userObj = users.find(u => u.id === uId);
+          const userShift = availableShifts.find(s => s.ref_code === userObj?.shift_code) || userObj?.shift_code;
+          const breakdown = calculateDailyTimesAndGaps(osList, parseISO(dateStr), userShift);
+
+          dayOs += breakdown.osMinutes;
+          dayPercurso += breakdown.percursoMinutes;
+          dayWaiting += breakdown.waitingMinutes;
+        });
+
+        daysMap.set(dateStr, {
+          minutes: dayOs,
+          percursoMinutes: dayPercurso,
+          waitingMinutes: dayWaiting
+        });
+      }
+    });
+
+    return Array.from(daysMap.entries()).map(([date, val]) => ({
+      day: format(parseISO(date), 'dd/MM'),
+      minutes: val.minutes,
+      percursoMinutes: val.percursoMinutes,
+      waitingMinutes: val.waitingMinutes
+    }));
+  }, [filteredOSList, selectedDate, dateRange, dateMode, users, availableShifts]);
 
   const periodTotals = useMemo(() => {
     let osMinutes = 0;
@@ -539,19 +508,6 @@ const AdminReportPage = () => {
     }
   };
 
-  const groupReportData = () => {
-    if (reportGroupBy === 'none') return { 'Geral': filteredOSList };
-    const grouped: Record<string, any[]> = {};
-    filteredOSList.forEach(item => {
-      let key = 'Outros';
-      if (reportGroupBy === 'date') key = format(parseISO(item.recordDate), 'dd/MM/yyyy');
-      else if (reportGroupBy === 'badge') key = item.badge || 'Sem Crachá';
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(item);
-    });
-    return grouped;
-  };
-
   const handleGenerateCSV = () => {
     const grouped = groupReportData();
     const headers = ['Data', 'Usuário', 'AF', 'OS', 'Agregado', 'Equipamento', 'Serviço', 'Início', 'Fim', 'Duração'];
@@ -583,15 +539,30 @@ const AdminReportPage = () => {
     link.click();
   };
 
+  const groupReportData = () => {
+    if (reportGroupBy === 'none') return { 'Geral': filteredOSList };
+    const grouped: Record<string, any[]> = {};
+    filteredOSList.forEach(item => {
+      let key = 'Outros';
+      if (reportGroupBy === 'date') key = format(parseISO(item.recordDate), 'dd/MM/yyyy');
+      else if (reportGroupBy === 'badge') key = item.badge || 'Sem Crachá';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(item);
+    });
+    return grouped;
+  };
+
   const handleGeneratePDF = async () => {
     setIsGeneratingPdf(true);
     
     try {
       const doc = new jsPDF('p', 'pt', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
       let yPos = 40;
 
+      // Header Text
       doc.setFontSize(18);
-      doc.setTextColor(30, 58, 138);
+      doc.setTextColor(30, 58, 138); // #1e3a8a
       doc.text(`Relatório de Ordens de Serviço - ${branding.name}`, 40, yPos);
       yPos += 20;
 
@@ -613,8 +584,24 @@ const AdminReportPage = () => {
         yPos += 10;
       }
 
+      // Calcular totais de OS vs Percurso
+      let reportOsMinutes = 0;
+      let reportPercursoMinutes = 0;
+      filteredOSList.forEach((os: any) => {
+        if (os.hora_inicio && os.hora_final) {
+          const duration = calculateDuration(os.hora_inicio, os.hora_final);
+          if (os.is_percurso) {
+            reportPercursoMinutes += duration;
+          } else {
+            reportOsMinutes += duration;
+          }
+        }
+      });
+      const reportTotalMinutes = reportOsMinutes + reportPercursoMinutes;
+
+      // Resumo do Período em texto estilizado
       doc.setFontSize(11);
-      doc.setTextColor(30, 41, 59);
+      doc.setTextColor(30, 41, 59); // slate-800
       doc.setFont(undefined, 'bold');
       doc.text("Resumo do Período", 40, yPos);
       yPos += 15;
@@ -635,7 +622,7 @@ const AdminReportPage = () => {
       doc.setFont(undefined, 'normal');
       doc.text(`Aguardando Serviço:`, 40, yPos);
       doc.setFont(undefined, 'bold');
-      doc.setTextColor(22, 163, 74);
+      doc.setTextColor(22, 163, 74); // green-600
       doc.text(formatDuration(periodTotals.waitingMinutes), 160, yPos);
       yPos += 12;
 
@@ -648,6 +635,7 @@ const AdminReportPage = () => {
 
       doc.setTextColor(100, 100, 100);
 
+      // Charts com proporção preservada
       if (includeDonutChart || includeBarChart) {
         const chartWidth = 240;
         let currentX = 40;
@@ -681,12 +669,14 @@ const AdminReportPage = () => {
         yPos += maxChartHeight + 25;
       }
 
+      // Grouped Data Tables
       const grouped = groupReportData();
       
-      Object.keys(grouped).forEach((key) => {
+      Object.keys(grouped).forEach((key, index) => {
         const data = grouped[key];
         let total = 0;
 
+        // Check if we need a new page for the group title
         if (yPos > doc.internal.pageSize.getHeight() - 60) {
           doc.addPage();
           yPos = 40;
@@ -734,6 +724,7 @@ const AdminReportPage = () => {
           return row;
         });
 
+        // Total Row
         const totalRow: any[] = [
           { content: 'Total', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } },
           { content: formatDuration(total), styles: { fontStyle: 'bold' } }
@@ -749,19 +740,19 @@ const AdminReportPage = () => {
           headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
           styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
           columnStyles: {
-            0: { cellWidth: 50 },
-            1: { cellWidth: 80 },
-            2: { cellWidth: 50 },
-            3: { cellWidth: 50 },
-            4: { cellWidth: 'auto' },
-            5: { cellWidth: 50 },
-            6: { cellWidth: 50 },
+            0: { cellWidth: 50 }, // Data
+            1: { cellWidth: 80 }, // Usuário
+            2: { cellWidth: 50 }, // AF
+            3: { cellWidth: 50 }, // OS
+            4: { cellWidth: 'auto' }, // Serviço
+            5: { cellWidth: 50 }, // Tempo
+            6: { cellWidth: 50 }, // Status
           },
           didParseCell: (hookData) => {
             const rawRow: any = hookData.row.raw;
             if (rawRow && rawRow.is_percurso) {
-              hookData.cell.styles.fillColor = [254, 242, 242];
-              hookData.cell.styles.textColor = [220, 38, 38];
+              hookData.cell.styles.fillColor = [254, 242, 242]; // red-50
+              hookData.cell.styles.textColor = [220, 38, 38];   // red-600
               hookData.cell.styles.fontStyle = 'bold';
             }
           },

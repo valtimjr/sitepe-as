@@ -20,7 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, getOperationalDate, formatDuration, calculateOsAndPercursoTimes } from '@/lib/utils';
-import { calculateDailyTimesAndGaps, timeToOpMinutes } from '@/services/shiftService';
+import { calculateDailyTimesAndGaps } from '@/services/shiftService';
 import { supabase } from '@/integrations/supabase/client';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -233,80 +233,36 @@ const ServiceOrderList: React.FC = () => {
   };
 
   const formatListText = (items: ServiceOrderData[]) => {
-    const shiftRef = userShift || profile?.shift_code;
-    const breakdown = calculateDailyTimesAndGaps(osList, selectedDate, shiftRef);
-
-    type EventItem =
-      | { type: 'os'; startOp: number; data: ServiceOrderData }
-      | { type: 'waiting'; startOp: number; data: { start: string; end: string; durationMinutes: number } };
-
-    const events: EventItem[] = [];
-
-    items.forEach(item => {
-      events.push({
-        type: 'os',
-        startOp: timeToOpMinutes(item.hora_inicio),
-        data: item
-      });
-    });
-
-    if (selectedOsIds.length === 0 || items.length === osList.length) {
-      breakdown.waitingIntervals.forEach(gap => {
-        if (gap.durationMinutes > 0) {
-          events.push({
-            type: 'waiting',
-            startOp: timeToOpMinutes(gap.start),
-            data: gap
-          });
-        }
-      });
-    }
-
-    if (events.length === 0) return '';
-
-    events.sort((a, b) => {
-      if (a.startOp !== b.startOp) return a.startOp - b.startOp;
-      if (a.type === 'os' && b.type === 'waiting') return -1;
-      if (a.type === 'waiting' && b.type === 'os') return 1;
-      return 0;
-    });
+    if (items.length === 0) return '';
 
     let text = `Ordens de Serviço (${branding.name}) - ${format(selectedDate, 'dd/MM/yyyy')}\n\n`;
 
-    events.forEach((evt, idx) => {
-      if (evt.type === 'os') {
-        const group = evt.data;
-        const isPercurso = !!group.is_percurso;
-        if (isPercurso) {
-          text += `Percurso${group.af ? ` (AF: ${group.af})` : ''}\n`;
-        } else {
-          text += `AF: ${group.af}${group.os ? ` OS: ${group.os}` : ''}\n`;
-          if (group.agregado && group.numero_agregado) {
-            text += `Agregado: ${group.numero_agregado}\n`;
-          }
+    items.forEach((group, idx) => {
+      const isPercurso = !!group.is_percurso;
+      if (isPercurso) {
+        text += `Percurso${group.af ? ` (AF: ${group.af})` : ''}\n`;
+      } else {
+        text += `AF: ${group.af}${group.os ? ` OS: ${group.os}` : ''}\n`;
+        if (group.agregado && group.numero_agregado) {
+          text += `Agregado: ${group.numero_agregado}\n`;
         }
-        if (group.hora_inicio || group.hora_final) {
-          text += `${group.hora_inicio || '??'}-${group.hora_final || '??'}\n`;
-        }
-        if (group.servico_executado && !isPercurso) {
-          text += `${group.servico_executado}\n`;
-        }
-        if (group.parts && group.parts.length > 0) {
-          text += `Peças:\n`;
-          group.parts.forEach(p => {
-            text += `${p.quantidade} - ${p.descricao}\n`;
-            if (p.codigo_peca) {
-              text += `Cód: ${p.codigo_peca}\n`;
-            }
-          });
-        }
-      } else if (evt.type === 'waiting') {
-        const gap = evt.data;
-        text += `Aguardando Serviço\n`;
-        text += `${gap.start}-${gap.end} (${formatDuration(gap.durationMinutes)})\n`;
       }
-
-      if (idx < events.length - 1) text += `\n`;
+      if (group.hora_inicio || group.hora_final) {
+        text += `${group.hora_inicio || '??'}-${group.hora_final || '??'}\n`;
+      }
+      if (group.servico_executado && !isPercurso) {
+        text += `${group.servico_executado}\n`;
+      }
+      if (group.parts && group.parts.length > 0) {
+        text += `Peças:\n`;
+        group.parts.forEach(p => {
+          text += `${p.quantidade} - ${p.descricao}\n`;
+          if (p.codigo_peca) {
+            text += `Cód: ${p.codigo_peca}\n`;
+          }
+        });
+      }
+      if (idx < items.length - 1) text += `\n`;
     });
 
     return text.trim();
@@ -445,7 +401,7 @@ const ServiceOrderList: React.FC = () => {
              variant="outline"
              className="text-primary border-primary/20 hover:bg-primary/5 w-10 h-10 p-0 md:w-auto md:h-10 md:px-4 relative"
              onClick={handleCopyList}
-             disabled={osList.length === 0 && dailyTimes.waitingMinutes === 0}
+             disabled={osList.length === 0}
            >
              <Copy className="h-4 w-4 md:mr-2" />
              <span className="hidden md:inline">
@@ -462,7 +418,7 @@ const ServiceOrderList: React.FC = () => {
              <Button
                className="bg-white hover:bg-gray-50 rounded-full w-10 h-10 p-0 border shadow-sm"
                onClick={handleShareOnWhatsApp}
-               disabled={osList.length === 0 && dailyTimes.waitingMinutes === 0}
+               disabled={osList.length === 0}
                title={selectedOsIds.length > 0 ? "Compartilhar selecionadas no WhatsApp" : "Compartilhar lista no WhatsApp"}
              >
                 <img src="/icons/whatsapp.png" alt="WhatsApp" className="h-10 w-10" />
