@@ -21,6 +21,12 @@ import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, getOperationalDate, formatDuration, calculateOsAndPercursoTimes } from '@/lib/utils';
 import { calculateDailyTimesAndGaps } from '@/services/shiftService';
+import {
+  ExportEntry,
+  validateExportTimes,
+  calculateExportIntervals,
+  buildInvalidTimesMessage,
+} from '@/lib/serviceOrderExport';
 import { supabase } from '@/integrations/supabase/client';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -33,7 +39,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 import { ServiceOrderCharts } from '@/components/ServiceOrderCharts';
@@ -54,6 +59,7 @@ const ServiceOrderList: React.FC = () => {
   
   const [selectedOsIds, setSelectedOsIds] = useState<string[]>([]);
   const [userShift, setUserShift] = useState<any>(null);
+  const [invalidTimesDialog, setInvalidTimesDialog] = useState<{ title: string; lines: string[] } | null>(null);
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
 
@@ -232,12 +238,19 @@ const ServiceOrderList: React.FC = () => {
     }
   };
 
-  const formatListText = (items: ServiceOrderData[]) => {
+  const formatListText = (items: ExportEntry[]) => {
     if (items.length === 0) return '';
 
     let text = `Ordens de Serviço (${branding.name}) - ${format(selectedDate, 'dd/MM/yyyy')}\n\n`;
 
-    items.forEach((group, idx) => {
+    items.forEach((entry, idx) => {
+      if (entry.kind === 'waiting') {
+        text += `Aguardando Serviço\n${entry.start}-${entry.end}\n`;
+        if (idx < items.length - 1) text += `\n`;
+        return;
+      }
+
+      const group = entry.os;
       const isPercurso = !!group.is_percurso;
       if (isPercurso) {
         text += `Percurso${group.af ? ` (AF: ${group.af})` : ''}\n`;
@@ -268,9 +281,37 @@ const ServiceOrderList: React.FC = () => {
     return text.trim();
   };
 
+  // Gera o texto de exportação (Copiar / WhatsApp). Retorna null se a exportação deve ser bloqueada.
+  const buildExportText = (): string | null => {
+    try {
+      let entries: ExportEntry[];
+
+      if (selectedOsIds.length > 0) {
+        entries = getTargetOsList().map(os => ({ kind: 'activity' as const, os }));
+      } else {
+        const problems = validateExportTimes(osList);
+        if (problems.length > 0) {
+          setInvalidTimesDialog(buildInvalidTimesMessage(problems));
+          return null;
+        }
+        entries = calculateExportIntervals(
+          osList,
+          sortDirection,
+          selectedDate,
+          userShift || profile?.shift_code
+        );
+      }
+
+      return formatListText(entries);
+    } catch (err) {
+      console.error('Erro ao gerar exportação de OS:', err);
+      showError('Não foi possível gerar a exportação.');
+      return null;
+    }
+  };
+
   const handleCopyList = async () => {
-    const targetItems = getTargetOsList();
-    const textToCopy = formatListText(targetItems);
+    const textToCopy = buildExportText();
     if (!textToCopy) return;
 
     try {
@@ -285,8 +326,7 @@ const ServiceOrderList: React.FC = () => {
   };
 
   const handleShareOnWhatsApp = () => {
-    const targetItems = getTargetOsList();
-    const textToShare = formatListText(targetItems);
+    const textToShare = buildExportText();
     if (!textToShare) return;
 
     const encodedText = encodeURIComponent(textToShare);
@@ -575,6 +615,22 @@ const ServiceOrderList: React.FC = () => {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={!!invalidTimesDialog} onOpenChange={(open) => { if (!open) setInvalidTimesDialog(null); }}>
+        <AlertDialogContent data-testid="invalid-times-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{invalidTimesDialog?.title}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="whitespace-pre-line text-sm text-muted-foreground">
+                {invalidTimesDialog?.lines.join('\n')}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setInvalidTimesDialog(null)}>Entendi</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       
       <div className="flex justify-center mt-8 mb-8">
         <Link to={`/${company}`}>

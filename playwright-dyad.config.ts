@@ -13,8 +13,17 @@ export default defineConfig({
   reporter: [["json", { outputFile: "test-results/results.json" }]],
   use: {
     baseURL: process.env.DYAD_TEST_BASE_URL || "http://localhost:32100",
+    // Slow motion: Dyad sets DYAD_TEST_SLOW_MO (milliseconds between
+    // actions) while the Tests panel's slow-motion toggle is on, so a run is
+    // easy to follow. Unset means full speed.
+    launchOptions: { slowMo: Number(process.env.DYAD_TEST_SLOW_MO) || 0 },
     channel: "msedge",
-    screenshot: "only-on-failure",
-    trace: "retain-on-failure",
+    // Off for a preview run: tracing expects browser-global CDP access, which
+    // the preview-only automation broker deliberately rejects. The fixture
+    // shim attaches a screenshot of the selected page instead.
+    screenshot: process.env.DYAD_PREVIEW_CDP_ENDPOINT
+      ? "off"
+      : "only-on-failure",
+    trace: process.env.DYAD_PREVIEW_CDP_ENDPOINT ? "off" : "retain-on-failure",
   },
 });
