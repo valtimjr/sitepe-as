@@ -5,6 +5,7 @@ import { format, parseISO, setHours, setMinutes, addDays, subMonths, addMonths, 
 import { ptBR } from 'date-fns/locale';
 import { CustomListItem, MangueiraPartDetails } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
+import { calculateDailyTimesAndGaps } from '@/services/shiftService';
 
 // Aplica o plugin explicitamente ao jsPDF
 applyPlugin(jsPDF);
@@ -262,42 +263,157 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 export const generateServiceOrderPdf = (groupedServiceOrders: any[], title: string = 'Ordens de Serviço'): void => {
   const doc = new jsPDF();
 
+  const pdfCalculateDuration = (start?: string, end?: string): number => {
+    if (!start || !end) return 0;
+    const [startH, startM] = start.split(':').map(Number);
+    const [endH, endM] = end.split(':').map(Number);
+    
+    let startMinutes = startH * 60 + startM;
+    let endMinutes = endH * 60 + endM;
+    
+    if (endMinutes < startMinutes) {
+      endMinutes += 24 * 60;
+    }
+    
+    return endMinutes - startMinutes;
+  };
+
+  const pdfFormatDuration = (minutes: number): string => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    const hStr = h.toString().padStart(2, '0');
+    const mStr = m.toString().padStart(2, '0');
+    return `${hStr}:${mStr}`;
+  };
+
+  // 1. Calcular totais para o Resumo do Período
+  let osMinutes = 0;
+  let percursoMinutes = 0;
+  let waitingMinutes = 0;
+
+  const dateUserGroups = new Map<string, { date: Date; shift: any; items: any[] }>();
+
+  groupedServiceOrders.forEach(os => {
+    if (os.hora_inicio && os.hora_final) {
+      const duration = pdfCalculateDuration(os.hora_inicio, os.hora_final);
+      if (os.is_percurso) {
+        percursoMinutes += duration;
+      } else {
+        osMinutes += duration;
+      }
+    }
+
+    const itemDate = os.createdAt
+      ? (os.createdAt instanceof Date ? os.createdAt : parseISO(os.createdAt))
+      : (os.recordDate ? parseISO(os.recordDate) : new Date());
+    
+    const key = `${os.user_id || os.userDisplayName || 'user'}_${format(itemDate, 'yyyy-MM-dd')}`;
+
+    if (!dateUserGroups.has(key)) {
+      dateUserGroups.set(key, {
+        date: itemDate,
+        shift: os.shift_code || os.shift || os.shiftName,
+        items: [os]
+      });
+    } else {
+      dateUserGroups.get(key)!.items.push(os);
+    }
+  });
+
+  dateUserGroups.forEach(group => {
+    const breakdown = calculateDailyTimesAndGaps(group.items, group.date, group.shift);
+    waitingMinutes += breakdown.waitingMinutes;
+  });
+
+  const totalMinutes = osMinutes + percursoMinutes + waitingMinutes;
+
   doc.setFontSize(18);
   doc.text(title, 14, 22);
+
+  // 2. Renderizar tabela do Resumo do Período
+  (doc as any).autoTable({
+    head: [["Resumo do Período", "Tempo"]],
+    body: [
+      ["Horas em OS", pdfFormatDuration(osMinutes)],
+      ["Horas de Percurso", pdfFormatDuration(percursoMinutes)],
+      ["Aguardando Serviço", pdfFormatDuration(waitingMinutes)],
+      ["Total Geral", pdfFormatDuration(totalMinutes)]
+    ],
+    startY: 28,
+    theme: 'striped',
+    margin: { left: 14 },
+    styles: { fontSize: 9, cellPadding: 2, lineWidth: 0.5, strokeColor: [220, 220, 220] },
+    headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
+    columnStyles: {
+      0: { cellWidth: 50, fontStyle: 'bold' },
+      1: { cellWidth: 30, halign: 'right', fontStyle: 'bold' }
+    },
+    didParseCell: (data: any) => {
+      if (data.section === 'body' && data.row.index === 2) {
+        data.cell.styles.textColor = [22, 163, 74];
+        data.cell.styles.fontStyle = 'bold';
+      }
+    }
+  });
+
+  const nextY = (doc as any).lastAutoTable.finalY + 10;
 
   const tableColumn = ["Detalhes da OS", "Peça", "Qtd."];
   const tableRows: any[] = [];
 
   groupedServiceOrders.forEach(group => {
+    const isPercurso = !!group.is_percurso;
+    
     // Create the content for the first column
-    let detailsContent = `AF: ${group.af}`;
-    if (group.os) detailsContent += ` (OS: ${group.os})`;
+    let detailsContent = isPercurso
+      ? `[PERCURSO]\n${group.af ? `AF: ${group.af}` : 'Sem AF'}`
+      : `AF: ${group.af}`;
+    if (!isPercurso && group.os) detailsContent += ` (OS: ${group.os})`;
+    if (!isPercurso && group.agregado && group.numero_agregado) {
+      detailsContent += `\nAgregado: ${group.numero_agregado}`;
+    }
     if (group.hora_inicio || group.hora_final) {
       detailsContent += `
 Horário: ${group.hora_inicio || '??'} - ${group.hora_final || '??'}`;
     }
-    if (group.servico_executado) {
+    if (isPercurso) {
+      detailsContent += `
+Tempo de Deslocamento`;
+    } else if (group.servico_executado) {
       detailsContent += `
 Serviço: ${group.servico_executado}`;
     }
 
-    const partsToRender = group.parts.length > 0 ? group.parts : [{ id: 'no-parts', codigo_peca: 'Nenhuma peça adicionada', descricao: '', quantidade: '' }];
+    const partsToRender = isPercurso
+      ? [{ id: 'percurso', codigo_peca: 'Percurso (Tempo de Deslocamento)', descricao: '', quantidade: '' }]
+      : (group.parts.length > 0 ? group.parts : [{ id: 'no-parts', codigo_peca: 'Nenhuma peça adicionada', descricao: '', quantidade: '' }]);
     
     partsToRender.forEach((part: any, index: number) => {
-      const partDescription = part.codigo_peca && part.descricao 
-        ? `${part.codigo_peca} - ${part.descricao}` 
-        : part.codigo_peca || part.descricao || 'N/A';
+      const partDescription = isPercurso
+        ? 'Percurso (Tempo de Deslocamento)'
+        : (part.codigo_peca && part.descricao
+          ? `${part.codigo_peca} - ${part.descricao}`
+          : part.codigo_peca || part.descricao || 'N/A');
+
+      const rowFillColor = isPercurso ? [254, 242, 242] : undefined;
+      const rowTextColor = isPercurso ? [220, 38, 38] : undefined;
+      const cellStyles: any = {};
+      if (rowFillColor) cellStyles.fillColor = rowFillColor;
+      if (rowTextColor) {
+        cellStyles.textColor = rowTextColor;
+        cellStyles.fontStyle = 'bold';
+      }
 
       if (index === 0) {
         tableRows.push([
-          { content: detailsContent, rowSpan: partsToRender.length, styles: { valign: 'top' } },
-          partDescription,
-          { content: part.quantidade ?? '', styles: { halign: 'center' } },
+          { content: detailsContent, rowSpan: partsToRender.length, styles: { valign: 'top', ...cellStyles } },
+          { content: partDescription, styles: cellStyles },
+          { content: part.quantidade ?? '', styles: { halign: 'center', ...cellStyles } },
         ]);
       } else {
         tableRows.push([
-          partDescription,
-          { content: part.quantidade ?? '', styles: { halign: 'center' } },
+          { content: partDescription, styles: cellStyles },
+          { content: part.quantidade ?? '', styles: { halign: 'center', ...cellStyles } },
         ]);
       }
     });
@@ -306,7 +422,7 @@ Serviço: ${group.servico_executado}`;
   (doc as any).autoTable({
     head: [tableColumn],
     body: tableRows,
-    startY: 30,
+    startY: nextY,
     theme: 'plain',
     styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak', lineWidth: 0 },
     headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },

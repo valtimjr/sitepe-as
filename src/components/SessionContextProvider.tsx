@@ -1,219 +1,221 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+"use client";
+
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Toaster } from '@/components/ui/sonner';
-import { showError } from '@/utils/toast';
-import { PageAccessRule, UserProfile } from '@/types/supabase';
+import { User, Session } from '@supabase/supabase-js';
+import { UserProfile } from '@/types/supabase';
 
 interface SessionContextType {
   session: Session | null;
   user: User | null;
   profile: UserProfile | null;
-  isLoading: boolean; // Este será true até que a sessão E o perfil sejam carregados
-  pageAccessRules: PageAccessRule[];
+  isLoading: boolean;
+  refreshProfile: () => Promise<void>;
   checkPageAccess: (path: string) => boolean;
 }
 
-const SessionContext = createContext<SessionContextType | undefined>(undefined);
+const SessionContext = createContext<SessionContextType>({
+  session: null,
+  user: null,
+  profile: null,
+  isLoading: true,
+  refreshProfile: async () => {},
+  checkPageAccess: () => false,
+});
 
-// Rotas que devem ser sempre acessíveis a convidados, independentemente das regras do DB
-const PUBLIC_ROUTES = ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/search-parts', '/parts-list', '/service-orders', '/schedule-view', '/custom-list', '/custom-menu-view', '/cookie-policy'];
-// Rotas que exigem autenticação, mas são acessíveis a todos os usuários logados (user, moderator, admin)
-const AUTH_REQUIRED_ROUTES = ['/time-tracking', '/settings', '/my-custom-lists'];
+export const useSession = () => useContext(SessionContext);
+
+// Chaves para cache local robusto e offline-first
+const CACHE_KEYS = {
+  SESSION: 'autoboard_cached_session_v2',
+  USER: 'autoboard_cached_user_v2',
+  PROFILE: 'autoboard_cached_profile_v2',
+};
 
 export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [pageAccessRules, setPageAccessRules] = useState<PageAccessRule[]>([]);
-  const [isLoadingSessionAndProfile, setIsLoadingSessionAndProfile] = useState(true); // Novo estado para carregamento combinado
-  const navigate = useNavigate();
-  const location = useLocation();
+  // Inicialização síncrona a partir do cache local para evitar qualquer piscar de tela ou sumiço de componentes
+  const [session, setSession] = useState<Session | null>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEYS.SESSION);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  // Função para buscar o perfil do usuário
-  const fetchUserProfile = useCallback(async (userId: string): Promise<UserProfile | null> => {
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEYS.USER);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [profile, setProfile] = useState<UserProfile | null>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEYS.PROFILE);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Se já temos dados no cache, não precisamos travar a interface mostrando "carregando"
+  const [isLoading, setIsLoading] = useState(() => {
+    try {
+      return !localStorage.getItem(CACHE_KEYS.SESSION);
+    } catch {
+      return true;
+    }
+  });
+
+  // Função robusta de cache
+  const updateLocalStorage = (newSession: Session | null, newUser: User | null, newProfile: UserProfile | null) => {
+    try {
+      if (newSession) {
+        localStorage.setItem(CACHE_KEYS.SESSION, JSON.stringify(newSession));
+        localStorage.setItem(CACHE_KEYS.USER, JSON.stringify(newUser || newSession.user));
+      } else {
+        localStorage.removeItem(CACHE_KEYS.SESSION);
+        localStorage.removeItem(CACHE_KEYS.USER);
+      }
+
+      if (newProfile) {
+        localStorage.setItem(CACHE_KEYS.PROFILE, JSON.stringify(newProfile));
+      } else if (!newSession) {
+        localStorage.removeItem(CACHE_KEYS.PROFILE);
+      }
+    } catch (e) {
+      console.warn('[SessionContext] Falha ao gravar cache local:', e);
+    }
+  };
+
+  const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, avatar_url, updated_at, role, badge')
+        .select('*')
         .eq('id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 means "no rows found"
-        // console.error('SessionContextProvider: Error fetching user profile from DB:', error);
-        throw error;
-      }
-      return data as UserProfile || null;
-    } catch (error: any) {
-      // console.error('SessionContextProvider: Error fetching user profile (catch block):', error);
-      return null;
-    }
-  }, []);
-
-  // Função para buscar as regras de acesso às páginas
-  const fetchPageAccessRules = useCallback(async (): Promise<PageAccessRule[]> => {
-    try {
-      const { data, error } = await supabase
-        .from('page_access')
-        .select('*');
-
       if (error) {
-        // console.error('SessionContextProvider: Error fetching page access rules from DB:', error);
-        throw error;
-      }
-      return data as PageAccessRule[] || [];
-    } catch (error: any) {
-      // console.error('SessionContextProvider: Error fetching page access rules (catch block):', error);
-      return [];
-    }
-  }, []);
-
-  // Função centralizada para carregar todos os dados
-  const loadAllData = useCallback(async (initialCall: boolean, currentSession?: Session | null) => {
-    if (initialCall) {
-      setIsLoadingSessionAndProfile(true);
-    }
-    let sessionToUse = currentSession;
-    let userToUse: User | null = null;
-
-    try {
-      if (initialCall) {
-        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-          // console.error('SessionContextProvider: Error getting initial session:', sessionError);
-        }
-        sessionToUse = initialSession;
-      }
-
-      setSession(sessionToUse);
-      userToUse = sessionToUse?.user || null;
-      setUser(userToUse);
-
-      let fetchedProfile: UserProfile | null = null;
-      if (userToUse) {
-        fetchedProfile = await fetchUserProfile(userToUse.id);
-      }
-      setProfile(fetchedProfile); // Este setProfile agora é aguardado antes de isLoading ser false
-
-      const fetchedRules = await fetchPageAccessRules();
-      setPageAccessRules(fetchedRules);
-
-    } catch (e) {
-      // console.error('SessionContextProvider: Error during data fetch in loadAllData:', e);
-    } finally {
-      // Define isLoadingSessionAndProfile como false APENAS depois que todos os estados foram atualizados
-      setIsLoadingSessionAndProfile(false);
-    }
-  }, [fetchUserProfile, fetchPageAccessRules]);
-
-
-  // Inicializa sessão, perfil e regras de acesso
-  useEffect(() => {
-    loadAllData(true); // Chamada inicial
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        // Para mudanças de estado de autenticação, re-executamos a lógica de carregamento
-        loadAllData(false, currentSession);
-      }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [loadAllData]); // Dependência de loadAllData
-
-  // Função para verificar o acesso à página
-  const checkPageAccess = useCallback((path: string): boolean => {
-    const normalizedPath = path.split('/')[1] === 'signup' ? '/signup' : path.split('/')[1] === 'custom-list' ? '/custom-list' : path;
-    const isAuthRequiredRoute = AUTH_REQUIRED_ROUTES.includes(normalizedPath);
-
-    // 1. Se a sessão estiver carregando, permite apenas rotas públicas
-    if (isLoadingSessionAndProfile) {
-      return PUBLIC_ROUTES.includes(normalizedPath);
-    }
-
-    // 2. Se o usuário não está logado
-    if (!session) {
-      if (PUBLIC_ROUTES.includes(normalizedPath)) {
-        return true;
-      }
-      // Verifica se há regra de convidado no DB
-      const rule = pageAccessRules.find(r => r.page_path === normalizedPath);
-      return rule?.guest_access || false;
-    }
-
-    // 3. Se o usuário está logado
-    if (isAuthRequiredRoute) {
-      return true; // Todos os usuários logados têm acesso a estas rotas
-    }
-
-    // 4. Verifica acesso baseado em regras do DB (para rotas não públicas/não AUTH_REQUIRED)
-    const rule = pageAccessRules.find(r => r.page_path === normalizedPath);
-
-    if (!rule) {
-      // Se não houver regra no DB, e não for rota pública/AUTH_REQUIRED, nega por padrão
-      return PUBLIC_ROUTES.includes(normalizedPath);
-    }
-
-    // 5. Verifica o acesso baseado na regra e no perfil
-    switch (profile?.role) {
-      case 'admin':
-        return rule.admin_access;
-      case 'moderator':
-        return rule.moderator_access;
-      case 'user':
-        return rule.user_access;
-      default:
-        // Se o perfil não tem role (o que não deveria acontecer se o perfil foi carregado), nega.
-        return false;
-    }
-  }, [pageAccessRules, profile, session, isLoadingSessionAndProfile]);
-
-  // Efeito para redirecionamento baseado no acesso
-  useEffect(() => {
-    if (!isLoadingSessionAndProfile) {
-      const currentPath = location.pathname;
-      const normalizedPath = currentPath.split('/')[1] === 'signup' ? '/signup' : currentPath.split('/')[1] === 'custom-list' ? '/custom-list' : currentPath;
-      const isLoginPage = normalizedPath === '/login';
-      const isSignupPage = normalizedPath === '/signup';
-      const isResetPasswordPage = normalizedPath === '/reset-password';
-      const isForgotPasswordPage = normalizedPath === '/forgot-password';
-      const isAuthPage = isLoginPage || isSignupPage || isResetPasswordPage || isForgotPasswordPage;
-
-      // Se o usuário está logado, redireciona de páginas de autenticação
-      if (session && isAuthPage) {
-        navigate('/');
-        showError('Você já está logado.');
+        console.error('[SessionContext] Erro ao buscar perfil:', error.message);
         return;
       }
 
-      // Verifica o acesso para todas as outras páginas
-      if (!checkPageAccess(currentPath)) {
-        showError('Você não tem permissão para acessar esta página.');
-        if (!session) {
-          navigate('/login');
-        } else {
-          navigate('/');
+      if (data) {
+        const userProfile = data as UserProfile;
+        setProfile(userProfile);
+        // Atualiza o cache local com os dados atualizados do banco
+        updateLocalStorage(session, user, userProfile);
+      }
+    } catch (err) {
+      console.error('[SessionContext] Erro inesperado ao buscar perfil:', err);
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfile(user.id);
+    }
+  };
+
+  const checkPageAccess = (path: string): boolean => {
+    // Admin sempre tem acesso
+    if (profile?.role === 'admin') return true;
+
+    const accessRules: Record<string, string[]> = {
+      '/admin': ['admin', 'moderator'],
+      '/menu-manager': ['admin', 'moderator'],
+      '/time-tracking': ['admin', 'moderator', 'user'],
+      '/custom-menu-view': ['admin', 'moderator', 'user'],
+      '/manage-tags': ['admin', 'moderator']
+    };
+
+    const allowedRoles = accessRules[path];
+    if (!allowedRoles) return true;
+
+    return profile ? allowedRoles.includes(profile.role) : false;
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: serverSession }, error } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
+
+        if (error) {
+          if (error.message?.includes('JWT') || error.message?.includes('token') || error.message?.includes('invalid')) {
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+            updateLocalStorage(null, null, null);
+          }
+        } else if (serverSession) {
+          setSession(serverSession);
+          setUser(serverSession.user);
+          updateLocalStorage(serverSession, serverSession.user, profile);
+          await fetchProfile(serverSession.user.id);
+        }
+      } catch (err) {
+        // Silencioso em produção
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
         }
       }
-    }
-  }, [isLoadingSessionAndProfile, session, location.pathname, navigate, checkPageAccess, profile]);
+    };
 
+    initializeAuth();
+
+    // Escuta mudanças reais de estado de autenticação (Login/Logout ativos)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      if (!isMounted) return;
+
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+        if (currentSession) {
+          setSession(currentSession);
+          setUser(currentSession.user);
+          updateLocalStorage(currentSession, currentSession.user, profile);
+          
+          fetchProfile(currentSession.user.id).finally(() => {
+            if (isMounted) {
+              setIsLoading(false);
+            }
+          });
+        } else {
+          setIsLoading(false);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        updateLocalStorage(null, null, null);
+        
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-') || key.startsWith('supabase.auth')) {
+            localStorage.removeItem(key);
+          }
+        });
+        setIsLoading(false);
+      } else {
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   return (
-    <SessionContext.Provider value={{ session, user, profile, isLoading: isLoadingSessionAndProfile, pageAccessRules, checkPageAccess }}>
+    <SessionContext.Provider value={{ session, user, profile, isLoading, refreshProfile, checkPageAccess }}>
       {children}
-      <Toaster />
     </SessionContext.Provider>
   );
-};
-
-export const useSession = () => {
-  const context = useContext(SessionContext);
-  if (context === undefined) {
-    throw new Error('useSession must be used within a SessionContextProvider');
-  }
-  return context;
 };

@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +17,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { RelatedPart } from '@/types/supabase';
+import { useCompany } from '@/context/CompanyContext';
 
 interface PartItemFormProps {
   onItemAdded: () => void;
@@ -24,8 +27,10 @@ interface PartItemFormProps {
 
 const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, onCloseEdit }) => {
   const { checkPageAccess } = useSession();
+  const { company } = useCompany();
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
-  const [quantidade, setQuantidade] = useState<number>(1);
+  const [quantidade, setQuantidade] = useState<number | "">(1);
+  const [quantidadeError, setQuantidadeError] = useState(false);
   const [af, setAf] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
@@ -36,58 +41,72 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
 
+  // Estados para permitir edição manual
+  const [customCodigo, setCustomCodigo] = useState('');
+  const [customName, setCustomName] = useState('');
+  const [customDescricao, setCustomDescricao] = useState('');
+
   useEffect(() => {
     const initializeForm = async () => {
       if (editingItem) {
         setQuantidade(editingItem.quantidade ?? 1);
+        setQuantidadeError(false);
         setAf(editingItem.af || '');
+        setCustomCodigo(editingItem.codigo_peca || '');
+        setCustomDescricao(editingItem.descricao || '');
         
         if (editingItem.codigo_peca) {
           setIsLoadingParts(true);
-          const results = await searchPartsService(editingItem.codigo_peca);
+          const results = await searchPartsService(editingItem.codigo_peca, company);
           const partFromEdit = results.find(p => p.codigo === editingItem.codigo_peca);
           setSelectedPart(partFromEdit || null);
           setEditedTags(partFromEdit?.tags || '');
+          setCustomName(partFromEdit?.name || '');
           setSearchQuery(editingItem.codigo_peca || ''); 
           setIsLoadingParts(false);
         } else {
           setSelectedPart(null);
           setEditedTags('');
+          setCustomName('');
           setSearchQuery('');
         }
       } else {
         setSelectedPart(null);
         setQuantidade(1);
+        setQuantidadeError(false);
         setAf('');
         setEditedTags('');
         setSearchQuery('');
         setSearchResults([]);
+        setCustomCodigo('');
+        setCustomName('');
+        setCustomDescricao('');
       }
     };
 
     initializeForm();
-  }, [editingItem]);
+  }, [editingItem, company]);
 
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoadingParts(true);
-      const parts = await getParts();
+      const parts = await getParts(company);
       setAllAvailableParts(parts);
       setIsLoadingParts(false);
 
       setIsLoadingAfs(true);
-      const afs = await getAfsFromService();
+      const afs = await getAfsFromService(company);
       setAllAvailableAfs(afs);
       setIsLoadingAfs(false);
     };
     loadInitialData();
-  }, []);
+  }, [company]);
 
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQuery.length > 1) {
         setIsLoadingParts(true);
-        const results = await searchPartsService(searchQuery);
+        const results = await searchPartsService(searchQuery, company);
         setSearchResults(results);
         setIsLoadingParts(false);
       } else {
@@ -98,17 +117,11 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQuery]);
+  }, [searchQuery, company]);
 
   useEffect(() => {
     setEditedTags(selectedPart?.tags || '');
   }, [selectedPart]);
-
-  const formatRelatedPartString = (part: Part): RelatedPart => {
-    const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
-    const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
-    return { codigo: part.codigo, name: mainText, desc: subText };
-  };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -117,6 +130,9 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const handleSelectPart = (part: Part) => {
     setSelectedPart(part);
     setSearchQuery(part.codigo);
+    setCustomCodigo(part.codigo);
+    setCustomName(part.name || '');
+    setCustomDescricao(part.descricao);
     setSearchResults([]);
   };
 
@@ -135,7 +151,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     }
 
     try {
-      await updatePart({ ...selectedPart, tags: editedTags });
+      await updatePart({ ...selectedPart, tags: editedTags }, company);
       showSuccess('Tags da peça atualizadas com sucesso!');
       setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
     } catch (error) {
@@ -145,16 +161,24 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPart || quantidade <= 0) {
-      showError('Por favor, selecione uma peça e insira a quantidade.');
+    
+    const qtyNum = quantidade === "" ? 0 : Number(quantidade);
+    if (quantidade === "" || isNaN(qtyNum) || qtyNum <= 0) {
+      setQuantidadeError(true);
+      showError('O valor da quantidade tem que ser maior que "0"');
+      return;
+    }
+
+    if (!customCodigo && !customDescricao) {
+      showError('Por favor, insira o código ou descrição da peça.');
       return;
     }
 
     try {
       const itemData = {
-        codigo_peca: selectedPart.codigo,
-        descricao: selectedPart.descricao,
-        quantidade,
+        codigo_peca: customCodigo,
+        descricao: customDescricao,
+        quantidade: qtyNum,
         af: af.trim() !== '' ? af : undefined,
       };
 
@@ -166,16 +190,20 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
         showSuccess('Item atualizado com sucesso!');
         onCloseEdit?.();
       } else {
-        await addSimplePartItem(itemData);
+        await addSimplePartItem(itemData, company);
         showSuccess('Item adicionado à lista de Peças!');
       }
       
       setSelectedPart(null);
       setQuantidade(1);
+      setQuantidadeError(false);
       setAf('');
       setEditedTags('');
       setSearchQuery('');
       setSearchResults([]);
+      setCustomCodigo('');
+      setCustomName('');
+      setCustomDescricao('');
       onItemAdded();
     } catch (error) {
       showError('Erro ao salvar item na lista.');
@@ -184,7 +212,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
 
   const canEditTags = checkPageAccess('/manage-tags');
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
-  const isSubmitDisabled = isLoadingParts || !selectedPart;
+  const isSubmitDisabled = isLoadingParts || (!customCodigo && !customDescricao);
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -205,25 +233,23 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2 md:col-span-1">
-              <Label htmlFor="codigo_peca">Cód. Peça</Label> {/* Rótulo encurtado */}
+              <Label htmlFor="codigo_peca">Cód. Peça</Label>
               <Input
                 id="codigo_peca"
                 type="text"
-                value={selectedPart?.codigo || ''}
-                placeholder="Código da peça selecionada"
-                readOnly
-                className="bg-muted"
+                value={customCodigo}
+                onChange={(e) => setCustomCodigo(e.target.value)}
+                placeholder="Cód. Peça"
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="name">Nome da Peça</Label> {/* Rótulo encurtado */}
+              <Label htmlFor="name">Nome da Peça</Label>
               <Input
                 id="name"
                 type="text"
-                value={selectedPart?.name || ''}
-                placeholder="Nome da peça selecionada"
-                readOnly
-                className="bg-muted"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="Nome da peça"
               />
             </div>
           </div>
@@ -233,10 +259,9 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               <Input
                 id="descricao"
                 type="text"
-                value={selectedPart?.descricao || ''}
-                placeholder="Descrição da peça selecionada"
-                readOnly
-                className="bg-muted"
+                value={customDescricao}
+                onChange={(e) => setCustomDescricao(e.target.value)}
+                placeholder="Descrição da peça"
               />
             </div>
             <div className="space-y-2 md:col-span-1">
@@ -245,10 +270,21 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
                 id="quantidade"
                 type="number"
                 value={quantidade}
-                onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
-                min="1"
-                required
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    setQuantidade('');
+                  } else {
+                    const parsed = parseInt(val, 10);
+                    setQuantidade(isNaN(parsed) ? '' : parsed);
+                  }
+                  setQuantidadeError(false);
+                }}
+                className={cn(quantidadeError && "border-destructive focus-visible:ring-destructive")}
               />
+              {quantidadeError && (
+                <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
+              )}
             </div>
           </div>
           {selectedPart && (
@@ -284,10 +320,6 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
               <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
                 <div className="flex flex-col gap-2">
                   {selectedPart.itens_relacionados.map(relatedItem => {
-                      const relatedPart = allAvailableParts.find(p => p.codigo === relatedItem.codigo);
-                      if (relatedPart) {
-                        return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
-                      }
                       return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
                   })}
                 </div>

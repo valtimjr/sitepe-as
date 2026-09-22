@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ServiceOrderItem, clearServiceOrderList, deleteServiceOrderItem, addServiceOrderItem, getParts } from '@/services/partListService';
-import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Trash2, Download, Copy, PlusCircle, MoreVertical, Pencil, Clock, GripVertical, ArrowUpNarrowWide, ArrowDownNarrowWide, XCircle, Save, FilePlus, FileDown, Tag } from 'lucide-react';
+import { ServiceOrderData } from '@/types/supabase';
+import { Clock, Pencil, Trash2, PlusCircle, Search, X, Check, GripVertical, Tag, Package, Star } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,842 +18,775 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { localDb } from '@/services/localDbService';
-import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Importar Sheet
-import ServiceOrderForm from './ServiceOrderForm'; // Importar o formulário
-import { cn } from '@/lib/utils'; // Importar cn
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Part, RelatedPart } from '@/types/supabase';
-import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
-
-interface ServiceOrderDetails {
-  af: string;
-  os?: number;
-  hora_inicio?: string;
-  hora_final?: string;
-  servico_executado?: string;
-  createdAt?: Date; // createdAt é opcional aqui, mas será obrigatório no ServiceOrderGroupDetails
-}
-
-interface ServiceOrderGroupDetails {
-  af: string;
-  os?: number;
-  hora_inicio?: string;
-  hora_final?: string;
-  servico_executado?: string;
-  createdAt: Date; // createdAt é obrigatório para agrupar
-}
-
-interface ServiceOrderGroup {
-  id: string; // ID único para o grupo (usado para drag-and-drop)
-  af: string;
-  os?: number;
-  servico_executado?: string;
-  hora_inicio?: string;
-  hora_final?: string;
-  createdAt: Date;
-  parts: { id: string; quantidade?: number; descricao?: string; codigo_peca?: string }[];
-}
-
-type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
-
-type SortOrder = 'manual' | 'asc' | 'desc';
+import { supabase } from "@/integrations/supabase/client";
+import { useCompany } from '@/context/CompanyContext';
+import { cn } from '@/lib/utils';
+import { useSession } from '@/components/SessionContextProvider';
+import { Checkbox } from '@/components/ui/checkbox';
+import { searchParts, getFrequentPartsForProfession, Part, getFavoriteParts, addFavoritePart, removeFavoritePart } from '@/services/partListService';
 
 interface ServiceOrderListDisplayProps {
-  listItems: ServiceOrderItem[];
-  onListChanged: () => void;
-  isLoading: boolean;
-  onEditServiceOrder: (details: ServiceOrderDetails & { mode: FormMode }) => void; // Atualizado para incluir 'mode'
-  editingServiceOrder: (ServiceOrderDetails & { mode?: FormMode }) | null;
-  sortOrder: SortOrder;
-  onSortOrderChange: (order: SortOrder) => void;
+  group: ServiceOrderData;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onSave?: (updatedOs: ServiceOrderData) => void;
+  onAddPart?: () => void;
+  readOnly?: boolean;
+  additionalHeader?: React.ReactNode;
+  isSelected?: boolean;
+  onSelectChange?: (checked: boolean) => void;
 }
 
-const timeToEffectiveMinutes = (timeString: string | undefined): number | null => {
-  if (!timeString) return null;
-  const [hours, minutes] = timeString.split(':').map(Number);
-  if (isNaN(hours) || isNaN(minutes)) return null;
+interface RelatedItem {
+  code: string;
+  description: string;
+}
 
-  let totalMinutes = hours * 60 + minutes;
-  // Se o horário for entre 00:00 (inclusive) e 07:00 (exclusive),
-  // adiciona 24 horas (1440 minutos) para que seja ordenado efetivamente no "dia seguinte".
-  // Isso faz com que os turnos noturnos que cruzam a meia-noite sejam ordenados corretamente após os turnos da noite.
-  if (hours >= 0 && hours < 7) { // Horários de 00:00 a 06:59
-    totalMinutes += 24 * 60;
-  }
-  return totalMinutes;
-};
-
-const compareTimeStrings = (t1: string | undefined, t2: string | undefined): number => {
-  const effectiveMinutes1 = timeToEffectiveMinutes(t1);
-  const effectiveMinutes2 = timeToEffectiveMinutes(t2);
-
-  // Lida com horários indefinidos/nulos: indefinido vem por último
-  if (effectiveMinutes1 === null && effectiveMinutes2 === null) return 0;
-  if (effectiveMinutes1 === null) return 1; // t1 é indefinido, então é "depois"
-  if (effectiveMinutes2 === null) return -1; // t2 é indefinido, então é "depois"
-
-  return effectiveMinutes1 - effectiveMinutes2;
-};
-
-const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({ listItems, onListChanged, isLoading, onEditServiceOrder, editingServiceOrder, sortOrder, onSortOrderChange }) => {
-  const [groupedServiceOrders, setGroupedServiceOrders] = useState<ServiceOrderGroup[]>([]);
-  const [draggedGroup, setDraggedGroup] = useState<ServiceOrderGroup | null>(null);
-  const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, RelatedPart[]>>(new Map());
-
-  const isMobile = useIsMobile(); // Hook para detectar mobile
-
-  // Estados para o formulário de adição/edição de peças (via Sheet/Dialog)
-  const [isPartFormOpen, setIsPartFormOpen] = useState(false);
-  const [partToEdit, setPartToEdit] = useState<ServiceOrderItem | null>(null);
-  const [soGroupForPartForm, setSoGroupForPartForm] = useState<ServiceOrderGroupDetails | null>(null); // Usar ServiceOrderGroupDetails
-  const [partFormMode, setPartFormMode] = useState<'add-part-to-existing-so' | 'edit-part'>('add-part-to-existing-so');
-
-  // Função para carregar o cache de itens relacionados
-  const loadRelatedPartsCache = useCallback(async () => {
-    try {
-      const allParts = await getParts();
-      const newCache = new Map<string, RelatedPart[]>();
-      allParts.forEach(part => {
-        if (part.codigo && part.itens_relacionados && part.itens_relacionados.length > 0) {
-          newCache.set(part.codigo, part.itens_relacionados);
-        }
-      });
-      setRelatedPartsCache(newCache);
-    } catch (e) {
-      console.error("Erro ao carregar cache de peças relacionadas:", e);
-    }
-  }, []);
+const ServiceOrderPartRow: React.FC<{
+  part: { codigo_peca: string; descricao: string; quantidade: number };
+  index: number;
+  onDelete?: (index: number) => void;
+  onUpdate?: (index: number, updatedPart: { codigo_peca: string; descricao: string; quantidade: number }) => void;
+  company: string;
+  readOnly?: boolean;
+}> = ({ part, index, onDelete, onUpdate, company, readOnly }) => {
+  const [relatedItems, setRelatedItems] = useState<RelatedItem[]>([]);
+  
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editCode, setEditCode] = useState(part.codigo_peca);
+  const [editDesc, setEditDesc] = useState(part.descricao);
+  const [editQty, setEditQty] = useState<number | "">(part.quantidade);
+  const [editQtyError, setEditQtyError] = useState(false);
 
   useEffect(() => {
-    loadRelatedPartsCache();
-  }, [loadRelatedPartsCache]);
-
-  // Função para agrupar e ordenar os itens brutos
-  const processListItems = useCallback((items: ServiceOrderItem[], currentSortOrder: SortOrder): ServiceOrderGroup[] => {
-    const grouped: { [key: string]: ServiceOrderGroup } = {};
-
-    items.forEach(item => {
-      // Usar created_at para garantir unicidade do grupo se outros campos forem iguais
-      const groupKey = `${item.af}-${item.os || 'no_os'}-${item.hora_inicio || 'no_start'}-${item.hora_final || 'no_end'}-${item.servico_executado || 'no_service'}-${item.created_at?.getTime() || 'no_created_at'}`;
-      
-      if (!grouped[groupKey]) {
-        grouped[groupKey] = {
-          id: groupKey, // Usar a chave como ID para drag-and-drop
-          af: item.af,
-          os: item.os,
-          servico_executado: item.servico_executado,
-          hora_inicio: item.hora_inicio,
-          hora_final: item.hora_final,
-          createdAt: item.created_at || new Date(),
-          parts: [],
-        };
-      }
-      // Adiciona apenas itens que representam peças reais (com código ou descrição)
-      if (item.codigo_peca || item.descricao) {
-        grouped[groupKey].parts.push({
-          id: item.id,
-          quantidade: item.quantidade,
-          descricao: item.descricao,
-          codigo_peca: item.codigo_peca,
-        });
-      }
-    });
-
-    let result = Object.values(grouped);
-
-    if (currentSortOrder === 'asc') {
-      result.sort((a, b) => {
-        const startComparison = compareTimeStrings(a.hora_inicio, b.hora_inicio);
-        if (startComparison !== 0) return startComparison;
-        const endComparison = compareTimeStrings(a.hora_final, b.hora_final);
-        if (endComparison !== 0) return endComparison;
-        return a.createdAt.getTime() - b.createdAt.getTime();
-      });
-    } else if (currentSortOrder === 'desc') {
-      result.sort((a, b) => {
-        const startComparison = compareTimeStrings(b.hora_inicio, a.hora_inicio);
-        if (startComparison !== 0) return startComparison;
-        const endComparison = compareTimeStrings(b.hora_final, a.hora_final);
-        if (endComparison !== 0) return endComparison;
-        return b.createdAt.getTime() - a.createdAt.getTime();
-      });
-    } else { // 'manual' or initial load, default to createdAt ascending
-      result.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    if (!isEditing) {
+      setEditCode(part.codigo_peca);
+      setEditDesc(part.descricao);
+      setEditQty(part.quantidade);
+      setEditQtyError(false);
     }
-
-    return result;
-  }, []); // Dependencies: none, as it's a pure function of its arguments.
-
-  // Efeito para processar os itens da lista e aplicar a ordenação
+  }, [part, isEditing]);
+  
   useEffect(() => {
-    const newGroupedOrders = processListItems(listItems, sortOrder);
+    const fetchRelatedItems = async () => {
+      const tableName = company === 'citrosuco' ? 'parts_citrosuco' : 'parts';
+      try {
+        const { data } = await supabase
+          .from(tableName)
+          .select('itens_relacionados')
+          .eq('codigo', part.codigo_peca)
+          .single();
 
-    if (sortOrder === 'manual') {
-      // When in manual mode, and listItems change, we need to merge new/updated groups
-      // into the existing manual order, preserving the manual order of existing groups.
-      const existingGroupMap = new Map(groupedServiceOrders.map(g => [g.id, g]));
-      const newGroupMap = new Map(newGroupedOrders.map(g => [g.id, g]));
+        if (data?.itens_relacionados) {
+          const rawItems = Array.isArray(data.itens_relacionados) 
+            ? data.itens_relacionados 
+            : [];
+            
+          const codes = rawItems.map((item: any) => 
+            typeof item === 'string' ? item : (item.codigo || item.code)
+          ).filter((c: any) => typeof c === 'string');
 
-      const updatedAndExistingInOrder: ServiceOrderGroup[] = [];
-      const newGroupsToAdd: ServiceOrderGroup[] = [];
-
-      // Iterate through the current manual order to update existing groups and collect new ones
-      groupedServiceOrders.forEach(existingGroup => {
-        if (newGroupMap.has(existingGroup.id)) {
-          // If the group still exists, use its updated content from newGroupMap
-          updatedAndExistingInOrder.push(newGroupMap.get(existingGroup.id)!);
-        }
-        // If it doesn't exist in newGroupMap, it was deleted, so we don't add it.
-      });
-
-      // Add any entirely new groups (not present in the old groupedServiceOrders)
-      newGroupedOrders.forEach(newGroup => {
-        if (!existingGroupMap.has(newGroup.id)) {
-          newGroupsToAdd.push(newGroup);
-        }
-      });
-
-      // Combine, new groups are added at the end.
-      setGroupedServiceOrders([...updatedAndExistingInOrder, ...newGroupsToAdd]);
-
-    } else {
-      // If not manual, just apply the sorted list directly
-      setGroupedServiceOrders(newGroupedOrders);
-    }
-  }, [listItems, sortOrder, processListItems]); // Dependencies: listItems, sortOrder, processListItems
-
-  const formatServiceOrderTextForClipboard = useCallback(() => {
-    if (groupedServiceOrders.length === 0) return '';
-
-    let textToCopy = '';
-    
-    groupedServiceOrders.forEach(group => {
-      textToCopy += `AF: ${group.af}`;
-      if (group.os) {
-        textToCopy += ` OS: ${group.os}`;
-      }
-      textToCopy += '\n';
-
-      if (group.servico_executado) {
-        textToCopy += `${group.servico_executado}\n`;
-      }
-
-      if (group.hora_inicio && group.hora_final) {
-        textToCopy += `${group.hora_inicio}-${group.hora_final}\n`;
-      } else if (group.hora_inicio) {
-        textToCopy += `${group.hora_inicio}\n`;
-      } else if (group.hora_final) {
-        textToCopy += `${group.hora_final}\n`;
-      }
-
-      if (group.parts.length > 0) {
-        textToCopy += 'Peças:\n';
-        group.parts.forEach(part => {
-          if (part.codigo_peca || part.descricao) {
-            let partString = '';
-            const quantity = part.quantidade ?? 1;
-            partString += `${quantity} - `;
-
-            if (part.descricao) {
-              partString += `${part.descricao} `;
+          if (codes.length > 0) {
+            const { data: partsData } = await supabase
+              .from(tableName)
+              .select('codigo, descricao')
+              .in('codigo', codes);
+              
+            if (partsData) {
+               const partsMap = new Map(partsData.map(p => [p.codigo, p.descricao]));
+               const formattedItems: RelatedItem[] = codes.map((code: string) => ({
+                 code,
+                 description: partsMap.get(code) || 'Descrição não encontrada'
+               }));
+               setRelatedItems(formattedItems);
+            } else {
+               setRelatedItems(codes.map((c: string) => ({ code: c, description: '' })));
             }
-            if (part.codigo_peca) {
-              partString += `Cód: ${part.codigo_peca}`;
-            }
-            textToCopy += `${partString.trim()}\n`;
           }
-        });
+        }
+      } catch (err) {
+        console.error("Error fetching related items:", err);
       }
-      textToCopy += '\n';
-    });
+    };
+    
+    fetchRelatedItems();
+  }, [part.codigo_peca, company]);
 
-    return textToCopy.trim();
-  }, [groupedServiceOrders]);
-
-  const handleExportPdf = async () => { // Alterado para async
-    if (groupedServiceOrders.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de exportar.');
-      return;
-    }
-    // Passa os itens JÁ AGRUPADOS E ORDENADOS para a função de PDF
-    await lazyGenerateServiceOrderPdf(groupedServiceOrders, 'Lista de Ordens de Serviço'); // Usa a função lazy
-    showSuccess('PDF gerado com sucesso!');
-  };
-
-  const handleCopyList = async () => {
-    if (groupedServiceOrders.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de copiar.');
+  const handleSaveEdit = () => {
+    const qtyNum = editQty === "" ? 0 : Number(editQty);
+    if (editQty === "" || isNaN(qtyNum) || qtyNum <= 0) {
+      setEditQtyError(true);
       return;
     }
 
-    const textToCopy = formatServiceOrderTextForClipboard();
-
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-      showSuccess('Lista de ordens de serviço copiada para a área de transferência!');
-    } catch (err) {
-      showError('Erro ao copiar a lista. Por favor, tente novamente.');
+    if (onUpdate) {
+      onUpdate(index, {
+        codigo_peca: editCode,
+        descricao: editDesc,
+        quantidade: qtyNum
+      });
     }
+    setIsEditing(false);
   };
 
-  const handleShareOnWhatsApp = () => {
-    if (groupedServiceOrders.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de compartilhar.');
-      return;
-    }
-
-    const textToShare = formatServiceOrderTextForClipboard();
-    const encodedText = encodeURIComponent(textToShare);
-    const whatsappUrl = `https://wa.me/?text=${encodedText}`;
-
-    window.open(whatsappUrl, '_blank');
-    showSuccess('Lista de ordens de serviço pronta para compartilhar no WhatsApp!');
+  const handleCancelEdit = () => {
+    setEditCode(part.codigo_peca);
+    setEditDesc(part.descricao);
+    setEditQty(part.quantidade);
+    setEditQtyError(false);
+    setIsEditing(false);
   };
 
-  const handleClearList = async () => {
-    try {
-      await clearServiceOrderList();
-      onListChanged();
-      showSuccess('Lista limpa com sucesso!');
-    } catch (error) {
-      showError('Erro ao limpar a lista.');
-    }
-  };
+  if (isEditing && !readOnly) {
+    return (
+      <div className="p-4 pl-8 md:pl-14 bg-blue-50/50 border-b border-blue-100 animate-in fade-in duration-200">
+         <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3 items-center">
+           <div className="space-y-1">
+             <span className="text-xs font-medium text-muted-foreground md:hidden">Código</span>
+             <Input 
+                value={editCode} 
+                onChange={(e) => setEditCode(e.target.value)} 
+                placeholder="Código" 
+                className="h-9 text-sm font-mono"
+                autoFocus
+             />
+           </div>
+           <div className="space-y-1">
+             <span className="text-xs font-medium text-muted-foreground md:hidden">Descrição</span>
+             <Input 
+                value={editDesc} 
+                onChange={(e) => setEditDesc(e.target.value)} 
+                placeholder="Descrição" 
+                className="h-9 text-sm" 
+             />
+           </div>
+           <div className="space-y-1">
+             <span className="text-xs font-medium text-muted-foreground md:hidden">Qtd</span>
+             <Input
+                type="number"
+                value={editQty}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    setEditQty('');
+                  } else {
+                    const parsed = parseInt(val, 10);
+                    setEditQty(isNaN(parsed) ? '' : parsed);
+                  }
+                  setEditQtyError(false);
+                }}
+                className={cn("w-full md:w-20 h-9 text-sm text-center", editQtyError && "border-destructive focus-visible:ring-destructive")}
+              />
+              {editQtyError && (
+                <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
+              )}
+           </div>
+           <div className="flex items-end justify-end gap-1 pt-1 md:pt-0">
+              <Button size="sm" onClick={handleSaveEdit} className="h-9 w-9 p-0 bg-green-600 hover:bg-green-700">
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </Button>
+           </div>
+         </div>
+      </div>
+    );
+  }
 
-  const handleDeleteItem = async (id: string) => {
-    try {
-      const itemToDelete = listItems.find(item => item.id === id);
-      if (!itemToDelete) {
-        showError('Item não encontrado para exclusão.');
+  return (
+    <div className="p-4 pl-8 md:pl-14 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-4 items-center hover:bg-muted/20 transition-colors">
+      <div className="space-y-1">
+        <div className="font-semibold text-blue-600 hover:underline cursor-pointer text-sm">
+          {part.codigo_peca}
+        </div>
+        <div className="text-sm text-foreground uppercase leading-tight">
+          {part.descricao}
+        </div>
+        
+        {relatedItems.length > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <div 
+                className="flex items-center text-xs text-blue-500 font-medium cursor-pointer hover:text-blue-700 w-fit transition-colors mt-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                 <Tag className="h-3 w-3 mr-1" />
+                 <span>{relatedItems.length} item(s) relacionado(s)</span>
+              </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto max-w-[450px] p-4 bg-white shadow-lg border" align="start">
+               <h4 className="font-bold text-sm mb-2 text-foreground flex items-center gap-2">
+                  <Package className="h-4 w-4" /> Itens Relacionados:
+               </h4>
+               <ul className="space-y-2 list-none pl-1">
+                  {relatedItems.map((item, idx) => (
+                     <li key={idx} className="text-xs text-muted-foreground leading-snug border-b last:border-0 pb-1 last:pb-0 border-dashed border-gray-200">
+                        <span className="font-bold text-blue-600 mr-1">{item.code}</span>
+                        <span className="text-gray-600">- {item.description}</span>
+                     </li>
+                  ))}
+               </ul>
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between md:contents">
+         <span className="md:hidden text-sm font-medium text-muted-foreground">Qtd:</span>
+         <div className="text-center w-16 font-medium text-sm">{part.quantidade}</div>
+         
+         {!readOnly && (
+           <div className="flex items-center justify-end gap-1 w-20">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsEditing(true)}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <AlertDialog>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Excluir item</TooltipContent>
+                </Tooltip>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação não pode ser desfeita. Isso excluirá permanentemente este item da lista.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => onDelete?.(index)}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Excluir
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+           </div>
+         )}
+      </div>
+    </div>
+  );
+};
+
+const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
+  group,
+  onEdit,
+  onDelete,
+  onSave,
+  onAddPart,
+  readOnly = false,
+  additionalHeader,
+  isSelected = false,
+  onSelectChange
+}) => {
+  const { company } = useCompany();
+  const { profile, user } = useSession();
+  const [isAddingPart, setIsAddingPart] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Part[]>([]);
+  const [selectedPart, setSelectedPart] = useState<Part | null>(null);
+  const [quantity, setQuantity] = useState<number | "">(1);
+  const [quantityError, setQuantityError] = useState(false);
+  const [manualDescription, setManualDescription] = useState('');
+  const [manualCode, setManualCode] = useState('');
+
+  const [frequentParts, setFrequentParts] = useState<Part[]>([]);
+  const [favoriteParts, setFavoriteParts] = useState<Part[]>([]);
+
+  // Load frequent parts for the user's profession
+  useEffect(() => {
+    const fetchFrequent = async () => {
+      // Respect user preference. If disabled, do not show suggestions
+      if (profile?.suggest_parts === false) {
+        setFrequentParts([]);
         return;
       }
 
-      const currentSOIdentifier: ServiceOrderDetails = {
-        af: itemToDelete.af,
-        os: itemToDelete.os,
-        hora_inicio: itemToDelete.hora_inicio,
-        hora_final: itemToDelete.hora_final,
-        servico_executado: itemToDelete.servico_executado,
-        createdAt: itemToDelete.created_at || new Date(),
-      };
-
-      const originalCreatedAt = itemToDelete.created_at;
-
-      await deleteServiceOrderItem(id);
-      showSuccess('Item removido da lista.');
-
-      const remainingItemsForThisSO = listItems.filter(item =>
-        item.id !== id &&
-        item.af === currentSOIdentifier.af &&
-        (item.os === currentSOIdentifier.os || (item.os === undefined && currentSOIdentifier.os === undefined)) &&
-        (item.hora_inicio === currentSOIdentifier.hora_inicio || (item.hora_inicio === undefined && currentSOIdentifier.hora_inicio === undefined)) &&
-        (item.hora_final === currentSOIdentifier.hora_final || (currentSOIdentifier.hora_final === undefined && item.hora_final === undefined)) &&
-        (item.servico_executado === currentSOIdentifier.servico_executado || (currentSOIdentifier.servico_executado === undefined && item.servico_executado === undefined))
-      );
-
-      const hasRealPartsRemaining = remainingItemsForThisSO.some(item => item.codigo_peca || item.descricao || (item.quantidade !== undefined && item.quantidade > 0));
-
-      if (!hasRealPartsRemaining) {
-        const blankItemExists = remainingItemsForThisSO.some(item =>
-          !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
-        );
-
-        if (!blankItemExists) {
-          await addServiceOrderItem({
-            af: currentSOIdentifier.af,
-            os: currentSOIdentifier.os,
-            hora_inicio: currentSOIdentifier.hora_inicio,
-            hora_final: currentSOIdentifier.hora_final,
-            servico_executado: currentSOIdentifier.servico_executado,
-            codigo_peca: undefined,
-            descricao: undefined,
-            quantidade: undefined,
-          }, originalCreatedAt);
-          showSuccess('Ordem de Serviço agora está sem peças, mas mantida para edição.');
+      if (profile?.profession_code && company) {
+        try {
+          const parts = await getFrequentPartsForProfession(profile.profession_code, company);
+          setFrequentParts(parts);
+        } catch (e) {
+          console.error("Error loading frequent parts for ServiceOrderListDisplay:", e);
         }
       }
+    };
+    fetchFrequent();
+  }, [profile?.profession_code, profile?.suggest_parts, company]);
 
-      onEditServiceOrder({ ...currentSOIdentifier, mode: 'add-part-to-existing-so' }); // Passa o modo correto
-      onListChanged();
-
-    } catch (error) {
-      showError('Erro ao remover item da lista.');
-    }
-  };
-
-  // --- Drag and Drop Handlers ---
-  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, group: ServiceOrderGroup) => {
-    // Drag-and-drop sempre ativo
-    setDraggedGroup(group);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', group.id);
-    e.currentTarget.classList.add('opacity-50');
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    e.currentTarget.classList.add('border-t-2', 'border-primary');
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.currentTarget.classList.remove('border-t-2', 'border-primary');
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLTableRowElement>, targetGroup: ServiceOrderGroup) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('opacity-50');
-
-    if (draggedGroup && draggedGroup.id !== targetGroup.id) {
-      const newOrderedGroups = [...groupedServiceOrders];
-      const draggedIndex = newOrderedGroups.findIndex(group => group.id === draggedGroup.id);
-      const targetIndex = newOrderedGroups.findIndex(group => group.id === targetGroup.id);
-
-      if (draggedIndex !== -1 && targetIndex !== -1) {
-        const [removed] = newOrderedGroups.splice(draggedIndex, 1);
-        newOrderedGroups.splice(targetIndex, 0, removed);
-        setGroupedServiceOrders(newOrderedGroups);
-        onSortOrderChange('manual'); // Define a ordem como manual após o drag-and-drop
-      }
-    }
-    setDraggedGroup(null);
-  };
-
-  const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.currentTarget.classList.remove('opacity-50');
-    setDraggedGroup(null);
-  };
-  // --- End Drag and Drop Handlers ---
-
-  const handleTimeSortClick = () => {
-    if (sortOrder === 'asc') {
-      onSortOrderChange('desc');
-    } else if (sortOrder === 'desc') {
-      onSortOrderChange('manual'); // Volta para manual
-    } else { // Se for manual, vai para asc
-      onSortOrderChange('asc');
-    }
-  };
-
-  // --- Funções para o formulário de peças (inline/sheet) ---
-  const handleOpenAddPartForm = (group: ServiceOrderGroup) => {
-    setSoGroupForPartForm({
-      af: group.af,
-      os: group.os,
-      hora_inicio: group.hora_inicio,
-      hora_final: group.hora_final,
-      servico_executado: group.servico_executado,
-      createdAt: group.createdAt,
-    });
-    setPartToEdit(null); // Garante que é modo de adição
-    setPartFormMode('add-part-to-existing-so');
-    setIsPartFormOpen(true);
-  };
-
-  const handleOpenEditPartForm = (part: ServiceOrderItem, group: ServiceOrderGroup) => {
-    setPartToEdit(part);
-    setSoGroupForPartForm({
-      af: group.af,
-      os: group.os,
-      hora_inicio: group.hora_inicio,
-      hora_final: group.hora_final,
-      servico_executado: group.servico_executado,
-      createdAt: group.createdAt,
-    }); // Passa o grupo para o formulário saber a qual OS a peça pertence
-    setPartFormMode('edit-part');
-    setIsPartFormOpen(true);
-  };
-
-  const handlePartFormClose = () => {
-    setIsPartFormOpen(false);
-    setPartToEdit(null);
-    setSoGroupForPartForm(null);
-    onListChanged(); // Recarrega a lista após salvar/cancelar
-    loadRelatedPartsCache(); // Recarrega o cache de relacionados
-  };
-
-  const handleDeleteServiceOrder = async (group: ServiceOrderGroup) => {
-    const loadingToastId = showLoading('Excluindo Ordem de Serviço...');
+  // Load favorite parts
+  const fetchFavorites = async () => {
     try {
-      const itemsToDelete = listItems.filter(item =>
-        item.af === group.af &&
-        (item.os === group.os || (item.os === undefined && group.os === undefined)) &&
-        (item.hora_inicio === group.hora_inicio || (item.hora_inicio === undefined && group.hora_inicio === undefined)) &&
-        (item.hora_final === group.hora_final || (group.hora_final === undefined && item.hora_final === undefined)) &&
-        (item.servico_executado === group.servico_executado || (item.servico_executado === undefined && group.servico_executado === undefined))
-      );
-
-      await Promise.all(itemsToDelete.map(item => deleteServiceOrderItem(item.id)));
-      showSuccess(`Ordem de Serviço AF: ${group.af} excluída com sucesso!`);
-      onListChanged();
-    } catch (error) {
-      showError('Erro ao excluir Ordem de Serviço.');
-    } finally {
-      dismissToast(loadingToastId);
+      const favs = await getFavoriteParts(user?.id, company);
+      setFavoriteParts(favs);
+    } catch (e) {
+      console.error("Error loading favorite parts for ServiceOrderListDisplay:", e);
     }
   };
+
+  useEffect(() => {
+    fetchFavorites();
+  }, [user?.id, company]);
+
+  const handleToggleFavorite = async (e: React.MouseEvent, part: Part) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const isFav = favoriteParts.some(fp => fp.codigo.toLowerCase() === part.codigo.toLowerCase());
+    if (isFav) {
+      await removeFavoritePart(user?.id, company, part.codigo);
+      setFavoriteParts(prev => prev.filter(p => p.codigo.toLowerCase() !== part.codigo.toLowerCase()));
+    } else {
+      await addFavoritePart(user?.id, company, part.codigo);
+      setFavoriteParts(prev => [...prev, part]);
+    }
+  };
+
+  const displayedSearchResults = React.useMemo(() => {
+    if (searchQuery.length === 0) {
+      const list: any[] = [];
+      if (favoriteParts.length > 0) {
+        favoriteParts.forEach(p => list.push({ ...p, itemType: 'favorite' }));
+      }
+      if (frequentParts.length > 0) {
+        frequentParts.forEach(p => {
+          if (!favoriteParts.some(fp => fp.codigo.toLowerCase() === p.codigo.toLowerCase())) {
+            list.push({ ...p, itemType: 'frequent' });
+          }
+        });
+      }
+      return list;
+    }
+    
+    const queryLower = searchQuery.toLowerCase().trim();
+    
+    // 1. Filter matching favorites
+    const matchingFavorites = favoriteParts.filter(part => {
+      return part.codigo.toLowerCase().includes(queryLower) ||
+             (part.descricao && part.descricao.toLowerCase().includes(queryLower)) ||
+             (part.name && part.name.toLowerCase().includes(queryLower));
+    }).map(p => ({ ...p, itemType: 'favorite' }));
+    
+    // 2. Filter matching frequent parts
+    const matchingFrequent = frequentParts.filter(part => {
+      return part.codigo.toLowerCase().includes(queryLower) ||
+             (part.descricao && part.descricao.toLowerCase().includes(queryLower)) ||
+             (part.name && part.name.toLowerCase().includes(queryLower));
+    }).filter(p => !matchingFavorites.some(mf => mf.codigo.toLowerCase() === p.codigo.toLowerCase()))
+      .map(p => ({ ...p, itemType: 'frequent' }));
+    
+    // 3. Normal search results
+    const normalResults: any[] = [];
+    searchResults.forEach(part => {
+      const isFav = matchingFavorites.some(mf => mf.codigo.toLowerCase() === part.codigo.toLowerCase());
+      const isFreq = matchingFrequent.some(mf => mf.codigo.toLowerCase() === part.codigo.toLowerCase());
+      if (!isFav && !isFreq) {
+        normalResults.push({ ...part, itemType: 'normal' });
+      }
+    });
+    
+    return [...matchingFavorites, ...matchingFrequent, ...normalResults];
+  }, [searchQuery, searchResults, frequentParts, favoriteParts]);
+
+  useEffect(() => {
+    if (!searchQuery.trim() || selectedPart) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchParts(searchQuery, company);
+        setSearchResults(results || []);
+      } catch (error) {
+        console.error("Error searching parts", error);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, selectedPart, company]);
+
+  const handleSelectPart = (part: Part) => {
+    setSelectedPart(part);
+    setSearchQuery(part.descricao);
+    setManualDescription(part.descricao);
+    setManualCode(part.codigo);
+    setSearchResults([]);
+  };
+
+  const handleAddPartConfirm = () => {
+    if (!onSave) return;
+    if (!manualDescription) return;
+
+    const qtyNum = quantity === "" ? 0 : Number(quantity);
+    if (quantity === "" || isNaN(qtyNum) || qtyNum <= 0) {
+      setQuantityError(true);
+      return;
+    }
+
+    const newPart = {
+      codigo_peca: manualCode,
+      descricao: manualDescription,
+      quantidade: qtyNum
+    };
+
+    const updatedGroup = {
+      ...group,
+      parts: [...(group.parts || []), newPart]
+    };
+
+    onSave(updatedGroup);
+    setIsAddingPart(false);
+    setSelectedPart(null);
+    setSearchQuery('');
+    setManualDescription('');
+    setManualCode('');
+    setQuantity(1);
+    setQuantityError(false);
+  };
+
+  const handleDeletePart = (index: number) => {
+    if (!onSave) return;
+    const updatedParts = [...(group.parts || [])];
+    updatedParts.splice(index, 1);
+    onSave({ ...group, parts: updatedParts });
+  };
+
+  const handleUpdatePart = (index: number, updatedPart: { codigo_peca: string; descricao: string; quantidade: number }) => {
+    if (!onSave) return;
+    const updatedParts = [...(group.parts || [])];
+    updatedParts[index] = updatedPart;
+    onSave({ ...group, parts: updatedParts });
+  };
+
+  const toggleAddPart = () => {
+    if (onSave) {
+      setIsAddingPart(!isAddingPart);
+      if (!isAddingPart) {
+        setSelectedPart(null);
+        setSearchQuery('');
+        setManualDescription('');
+        setManualCode('');
+        setQuantity(1);
+        setQuantityError(false);
+      }
+    } else if (onAddPart) {
+      onAddPart();
+    }
+  };
+
+  const isPercurso = !!group.is_percurso;
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader className="pb-2">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
-          <CardTitle className="text-2xl font-bold mb-2 sm:mb-0">Lista de Ordens de Serviço</CardTitle>
-        </div>
-      </CardHeader>
-      <div className="flex flex-col sm:flex-row flex-wrap items-center justify-end gap-2 p-4 pt-0">
-          <Button 
-            onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })} 
-            className="flex items-center gap-2 w-full sm:flex-grow"
-          >
-            <FilePlus className="h-4 w-4" /> Iniciar Nova OS
-          </Button>
-          <div className="flex flex-row flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
-            <Button 
-              onClick={handleCopyList} 
-              disabled={groupedServiceOrders.length === 0 || isLoading} 
-              className="flex-1 sm:w-auto sm:px-4 bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground"
-            >
-              <Copy className="h-4 w-4" /> 
-              <span className="hidden sm:inline ml-2">Copiar Lista</span>
-            </Button>
-            <Button 
-              onClick={handleShareOnWhatsApp} 
-              disabled={groupedServiceOrders.length === 0 || isLoading} 
-              variant="ghost" 
-              className="h-10 w-10 p-0 rounded-full" 
-              aria-label="Compartilhar no WhatsApp" 
-            >
-              <img src="/icons/whatsapp.png" alt="WhatsApp Icon" className="h-10 w-10" />
-            </Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  onClick={handleExportPdf} 
-                  disabled={groupedServiceOrders.length === 0 || isLoading} 
-                  variant={isMobile ? "ghost" : "default"}
-                  size={isMobile ? "icon" : undefined}
+    <div className="bg-card shadow-sm rounded-sm overflow-hidden overflow-visible">
+      <div className={cn("h-1 w-full", isPercurso ? "bg-red-500" : "bg-blue-600")}></div>
+      
+      {additionalHeader}
+      
+      <div className={cn("p-4 border-b", isPercurso ? "bg-red-50/20 border-red-100/30" : "bg-blue-50/30 border-blue-100/50")}>
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            {!readOnly && (
+              <div className="hidden md:flex pt-1 text-muted-foreground/40 cursor-grab active:cursor-grabbing">
+                <GripVertical className="h-5 w-5" />
+              </div>
+            )}
+            
+            {onSelectChange && (
+              <div className="pt-1 flex items-center" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={(checked) => onSelectChange(!!checked)}
+                  aria-label={`Selecionar AF ${group.af}`}
                   className={cn(
-                    "flex items-center gap-2",
-                    isMobile ? "h-10 w-10 p-0" : ""
+                    "h-5 w-5 rounded cursor-pointer transition-colors",
+                    isPercurso
+                      ? "border-red-200 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
+                      : "border-blue-200 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                   )}
-                >
-                  {isMobile ? (
-                    <img src="/icons/download-pdf.png" alt="Exportar PDF" className="h-10 w-10" />
-                  ) : (
+                />
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <h3 className={cn("text-lg font-bold flex items-center gap-2", isPercurso ? "text-red-600" : "text-blue-600")}>
+                  {isPercurso ? (
                     <>
-                      <FileDown className="h-4 w-4" /> 
-                      {"Exportar PDF"}
+                      {group.af ? `AF: ${group.af}` : 'Percurso sem AF'}
+                      <span className="text-[10px] bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 font-extrabold px-1.5 py-0.5 rounded border border-red-200 uppercase tracking-wide">
+                        Percurso
+                      </span>
                     </>
+                  ) : (
+                    <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                      <span>AF: {group.af}</span>
+                      {group.os && <span className="text-blue-600/80 text-base font-semibold">(OS: {group.os})</span>}
+                      {!isPercurso && group.agregado && group.numero_agregado && (
+                        <span className="text-blue-600/80 text-base font-semibold">
+                          • Agregado: {group.numero_agregado}
+                        </span>
+                      )}
+                    </span>
                   )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Exportar PDF</TooltipContent>
-            </Tooltip>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button 
-                  variant="destructive" 
-                  disabled={groupedServiceOrders.length === 0 || isLoading} 
-                  size="icon"
-                  className="flex-1 sm:w-auto sm:px-4"
-                >
-                  <Trash2 className="h-4 w-4" /> 
-                  <span className="hidden sm:inline ml-2">Limpar Lista</span>
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta ação irá remover todos os itens da sua lista de ordens de serviço. Esta ação não pode ser desfeita.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleClearList}>Limpar</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                </h3>
+              </div>
+              
+              {(group.hora_inicio || group.hora_final) && (
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5 mr-2" />
+                  <span>{group.hora_inicio || '--:--'} - {group.hora_final || '--:--'}</span>
+                </div>
+              )}
+              
+              <div className="text-foreground font-medium">
+                {isPercurso ? (
+                  <span className="text-red-600/80 font-semibold text-sm">Tempo de Deslocamento</span>
+                ) : (
+                  <>Serviço: {group.servico_executado || <span className="text-muted-foreground italic font-normal">Sem descrição</span>}</>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      <CardContent>
-        {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Carregando sua lista de ordens de serviço...</p>
-        ) : groupedServiceOrders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <FilePlus className="h-16 w-16 mb-4 text-primary" />
-            <p className="text-lg mb-4">Nenhuma ordem de serviço adicionada ainda.</p>
-            <Button 
-              onClick={() => onEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' })}
-              className="flex items-center gap-2"
-            >
-              <PlusCircle className="h-4 w-4" /> Iniciar a Primeira Ordem de Serviço
-            </Button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[30px] px-1 py-2">
-                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                  </TableHead>
-                  <TableHead className="w-[50px] px-1 py-2 text-center">
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={handleTimeSortClick} 
-                      className="flex items-center justify-center w-full"
-                    >
-                      <Clock className="h-4 w-4" />
-                      {sortOrder === 'asc' && <ArrowDownNarrowWide className="h-4 w-4 ml-1" />}
-                      {sortOrder === 'desc' && <ArrowUpNarrowWide className="h-4 w-4 ml-1" />}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="w-auto whitespace-normal break-words px-1 py-2">Peça</TableHead>
-                  <TableHead className="w-[3rem] px-1 py-2 text-center">Qtd</TableHead>
-                  <TableHead className="w-[70px] px-1 py-2 text-right">Opções</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {groupedServiceOrders.map((group, groupIndex) => {
-                  const isEditingThisServiceOrder = editingServiceOrder &&
-                    editingServiceOrder.af === group.af &&
-                    (editingServiceOrder.os === group.os || (editingServiceOrder.os === undefined && group.os === undefined)) &&
-                    (editingServiceOrder.hora_inicio === group.hora_inicio || (editingServiceOrder.hora_inicio === undefined && group.hora_inicio === undefined)) &&
-                    (editingServiceOrder.hora_final === group.hora_final || (editingServiceOrder.hora_final === undefined && group.hora_final === undefined)) &&
-                    (editingServiceOrder.servico_executado === group.servico_executado || (editingServiceOrder.servico_executado === undefined && group.servico_executado === undefined));
 
-                  const timeDisplay = (group.hora_inicio || group.hora_final) 
-                    ? (group.hora_inicio || '??') + ' - ' + (group.hora_final || '??')
-                    : '';
-
-                  return (
-                    <React.Fragment key={group.id}>
-                      <TableRow 
-                        className="border-t-4 border-primary dark:border-primary bg-muted/50 hover:bg-muted/80"
-                        draggable={sortOrder === 'manual'}
-                        onDragStart={(e) => sortOrder === 'manual' && handleDragStart(e, group)}
-                        onDragOver={sortOrder === 'manual' ? handleDragOver : undefined}
-                        onDrop={(e) => sortOrder === 'manual' ? handleDrop(e, group) : undefined}
-                        onDragLeave={sortOrder === 'manual' ? handleDragLeave : undefined}
-                        onDragEnd={sortOrder === 'manual' ? handleDragEnd : undefined}
-                        data-id={group.id}
+          {!readOnly && (
+            <div className="flex items-center gap-1 self-end md:self-start">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={onEdit} className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Editar OS</TooltipContent>
+              </Tooltip>
+              <AlertDialog>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
                       >
-                        <TableCell className={cn("w-[30px] px-1 py-2", sortOrder === 'manual' ? 'cursor-grab' : 'cursor-default')}>
-                          <GripVertical className="h-4 w-4 text-muted-foreground" />
-                        </TableCell>
-                        <TableCell colSpan={4} className="font-semibold py-2 align-top">
-                          <div className="flex justify-between items-start">
-                            <div className="flex flex-col space-y-1 flex-grow">
-                              <div className="flex items-center space-x-2">
-                                <span className="text-lg font-bold text-primary">AF: {group.af}</span>
-                                {group.os && <span className="text-lg font-bold text-primary"> (OS: {group.os})</span>}
-                              </div>
-                              {timeDisplay && (
-                                <span className="text-sm text-muted-foreground flex items-center gap-1">
-                                  <Clock className="h-3 w-3" /> {timeDisplay}
-                                </span>
-                              )}
-                              {group.servico_executado && (
-                                <p className="text-sm text-foreground/70 whitespace-normal break-words pt-1">
-                                  Serviço: {group.servico_executado}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => onEditServiceOrder({ 
-                                      af: group.af, 
-                                      os: group.os, 
-                                      hora_inicio: group.hora_inicio, 
-                                      hora_final: group.hora_final, 
-                                      servico_executado: group.servico_executado,
-                                      createdAt: group.createdAt,
-                                      mode: 'edit-so-details'
-                                    })}
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Editar Detalhes da OS</TooltipContent>
-                              </Tooltip>
-                              <AlertDialog>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <AlertDialogTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="text-destructive">
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Excluir Ordem de Serviço</TooltipContent>
-                                </Tooltip>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Esta ação irá remover TODOS os itens da Ordem de Serviço AF: {group.af}{group.os ? `, OS: ${group.os}` : ''}. Esta ação não pode ser desfeita.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteServiceOrder(group)}>Excluir OS</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                      {group.parts.map((part, partIndex) => {
-                        const relatedItems = relatedPartsCache.get(part.codigo_peca || '') || [];
-                        return (
-                          <TableRow key={part.id} className={isEditingThisServiceOrder ? 'bg-accent/10' : ''}>
-                            <TableCell className="w-[30px] px-1 py-2"></TableCell>
-                            <TableCell className="w-[50px] px-1 py-2"></TableCell>
-                            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-                              <div className="flex flex-col items-start">
-                                {part.codigo_peca && (
-                                  <span className="font-medium text-sm text-primary whitespace-normal break-words">{part.codigo_peca}</span>
-                                )}
-                                <span className={cn("text-sm whitespace-normal break-words", !part.codigo_peca && 'font-medium')}>
-                                  {part.descricao || 'Item sem descrição'}
-                                </span>
-                                {relatedItems.length > 0 && (
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
-                                      >
-                                        <Tag className="h-3 w-3" /> {relatedItems.length} item(s) relacionado(s)
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto max-w-xs p-2">
-                                      <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                                      <ScrollArea className="h-24">
-                                        <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
-                                          {relatedItems.map(rel => (
-                                            <li key={rel.codigo} className="list-none ml-0">
-                                              <RelatedPartDisplay item={rel} />
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </ScrollArea>
-                                    </PopoverContent>
-                                  </Popover>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="w-[3rem] px-1 py-2 text-center">{part.quantidade ?? ''}</TableCell>
-                            <TableCell className="w-[70px] px-1 py-2 text-right">
-                              <div className="flex justify-end items-center gap-1">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" onClick={() => handleOpenEditPartForm(part as ServiceOrderItem, group)} className="h-8 w-8">
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Editar item</TooltipContent>
-                                </Tooltip>
-                                <AlertDialog>
-                                  <Tooltip> {/* Tooltip envolve o AlertDialogTrigger */}
-                                    <TooltipTrigger asChild>
-                                      <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </AlertDialogTrigger>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Remover Item</TooltipContent>
-                                  </Tooltip>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Esta ação irá remover o item "{part.codigo_peca || part.descricao}" da lista. Esta ação não pode ser desfeita.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDeleteItem(part.id)}>Remover</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => onEditServiceOrder({ 
-                              af: group.af, 
-                              os: group.os, 
-                              hora_inicio: group.hora_inicio, 
-                              hora_final: group.hora_final, 
-                              servico_executado: group.servico_executado,
-                              createdAt: group.createdAt,
-                              mode: 'add-part-to-existing-so'
-                            })}
-                            className="flex items-center gap-2 mx-auto"
-                          >
-                            <PlusCircle className="h-4 w-4" /> Adicionar Peça
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    </React.Fragment>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Excluir OS</TooltipContent>
+                </Tooltip>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação não pode ser desfeita. Isso excluirá permanentemente esta Ordem de Serviço e todos os seus itens.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={onDelete}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Excluir
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="p-0">
+        {group.parts && group.parts.length > 0 && (
+          <div className="divide-y divide-border/40">
+            {group.parts.map((part, index) => (
+              <ServiceOrderPartRow 
+                key={index}
+                part={part}
+                index={index}
+                onDelete={handleDeletePart}
+                onUpdate={handleUpdatePart}
+                company={company}
+                readOnly={readOnly}
+              />
+            ))}
           </div>
         )}
-      </CardContent>
 
-      {isPartFormOpen && (
-        <Sheet open={isPartFormOpen} onOpenChange={setIsPartFormOpen}>
-          <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle>
-                {partFormMode === 'add-part-to-existing-so' ? 'Adicionar Peça' : 'Editar Peça'} à OS {soGroupForPartForm?.af}
-                {soGroupForPartForm?.os && ` (OS: ${soGroupForPartForm.os})`}
-              </SheetTitle>
-            </SheetHeader>
-            <div className="py-4">
-              <ServiceOrderForm
-                mode={partFormMode}
-                onItemAdded={handlePartFormClose}
-                onNewServiceOrder={() => {}}
-                listItems={listItems}
-                initialPartData={partToEdit}
-                initialSoData={soGroupForPartForm}
-                onClose={handlePartFormClose}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
-      )}
-    </Card>
+        {!readOnly && (
+          <div className="p-4 border-t border-border/40">
+            {!isAddingPart ? (
+              <div className="flex justify-center">
+                <Button variant="outline" onClick={toggleAddPart} className="gap-2 text-foreground/80 hover:text-foreground">
+                  <PlusCircle className="h-4 w-4" /> Adicionar Peça
+                </Button>
+              </div>
+            ) : (
+              <div className="bg-muted/30 p-4 rounded-md border animate-in fade-in zoom-in-95 duration-200">
+                 <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                       <PlusCircle className="h-4 w-4" /> Nova Peça
+                    </h4>
+                    <Button variant="ghost" size="sm" onClick={toggleAddPart} className="h-6 w-6 p-0 rounded-full">
+                       <X className="h-3 w-3" />
+                    </Button>
+                 </div>
+
+                 <div className="grid gap-3 relative">
+                    <div className="relative z-50">
+                       <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                       <Input
+                          placeholder="Buscar peça..."
+                          value={searchQuery}
+                          onChange={(e) => {
+                             if (selectedPart) {
+                                setSelectedPart(null);
+                                setManualCode('');
+                                setManualDescription(e.target.value);
+                             }
+                             setSearchQuery(e.target.value);
+                          }}
+                          onFocus={() => setIsSearchFocused(true)}
+                          onBlur={() => {
+                             // Delay to allow item click
+                             setTimeout(() => setIsSearchFocused(false), 150);
+                          }}
+                          className="pl-9"
+                          autoFocus
+                          autoComplete="off"
+                       />
+                       {isSearchFocused && !selectedPart && (searchQuery.length > 0 || frequentParts.length > 0 || favoriteParts.length > 0) && (
+                          <div className="absolute z-[60] w-full mt-1 bg-popover rounded-md border shadow-2xl max-h-60 overflow-y-auto">
+                             {displayedSearchResults.length > 0 ? (
+                                displayedSearchResults.map((part, index) => {
+                                   const isFrequent = frequentParts.some(fp => fp.codigo.toLowerCase() === part.codigo.toLowerCase());
+                                   const isFav = favoriteParts.some(fp => fp.codigo.toLowerCase() === part.codigo.toLowerCase());
+
+                                   const showFavoriteHeader = searchQuery.length === 0 && index === 0 && part.itemType === 'favorite';
+                                   const showFrequentHeader = searchQuery.length === 0 &&
+                                     (part.itemType === 'frequent' && (index === 0 || displayedSearchResults[index - 1].itemType === 'favorite'));
+
+                                   return (
+                                      <React.Fragment key={part.id || `disp-${index}`}>
+                                         {showFavoriteHeader && (
+                                            <div className="px-3 py-2 text-xs font-bold text-amber-600 bg-amber-500/5 border-b flex items-center gap-1.5 sticky top-0 z-10">
+                                               <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" /> MEUS FAVORITOS
+                                            </div>
+                                         )}
+                                         {showFrequentHeader && (
+                                            <div className="px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 border-b flex items-center gap-1.5 sticky top-0 z-10">
+                                               <span>⭐</span> SUGESTÕES PARA SUA PROFISSÃO
+                                            </div>
+                                         )}
+                                         <div
+                                            className="px-3 py-2 text-sm hover:bg-muted cursor-pointer border-b last:border-0 flex items-center justify-between group/item"
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => {
+                                               handleSelectPart(part);
+                                               setIsSearchFocused(false);
+                                            }}
+                                         >
+                                            <div className="flex flex-col flex-grow pr-4">
+                                               <div className="flex items-center gap-2">
+                                                  <div className="font-bold text-blue-600">{part.codigo}</div>
+                                                  {isFrequent && (
+                                                     <span className="text-blue-500 font-bold text-sm animate-pulse" title="Peça recomendada para sua profissão">
+                                                        ★
+                                                     </span>
+                                                  )}
+                                               </div>
+                                               <div className="text-xs text-muted-foreground">{part.name || part.descricao}</div>
+                                            </div>
+                                            
+                                            <button
+                                               type="button"
+                                               onMouseDown={(e) => e.preventDefault()}
+                                               onClick={(e) => handleToggleFavorite(e, part)}
+                                               className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shrink-0"
+                                               title={isFav ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                                            >
+                                               <Star
+                                                  className={cn(
+                                                     "h-4 w-4 transition-all duration-200",
+                                                     isFav ? "fill-amber-500 text-amber-500 scale-110" : "text-gray-300 dark:text-gray-600 hover:text-amber-400"
+                                                  )}
+                                               />
+                                            </button>
+                                         </div>
+                                      </React.Fragment>
+                                   );
+                                })
+                             ) : (
+                                <div className="px-3 py-2 text-sm text-muted-foreground">Nenhuma peça encontrada.</div>
+                             )}
+                          </div>
+                       )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3 relative z-40 items-start">
+                       <Input
+                          placeholder="Código"
+                          value={manualCode}
+                          onChange={(e) => setManualCode(e.target.value)}
+                          className="font-mono text-sm"
+                       />
+                       <Input
+                          placeholder="Descrição"
+                          value={manualDescription}
+                          onChange={(e) => setManualDescription(e.target.value)}
+                          className="text-sm"
+                       />
+                       <div className="flex flex-col gap-1 w-full md:w-20">
+                         <Input
+                            type="number"
+                            value={quantity}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                setQuantity('');
+                              } else {
+                                const parsed = parseInt(val, 10);
+                                setQuantity(isNaN(parsed) ? '' : parsed);
+                              }
+                              setQuantityError(false);
+                            }}
+                            className={cn("w-full text-center", quantityError && "border-destructive focus-visible:ring-destructive")}
+                         />
+                         {quantityError && (
+                           <p className="text-[10px] text-destructive text-center mt-1">O valor tem que ser maior que "0"</p>
+                         )}
+                       </div>
+                       <Button onClick={handleAddPartConfirm} disabled={!manualDescription}>
+                          <Check className="h-4 w-4 mr-2" /> Salvar
+                       </Button>
+                    </div>
+                 </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 

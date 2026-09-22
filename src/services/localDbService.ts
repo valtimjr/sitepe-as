@@ -1,38 +1,42 @@
 import Dexie, { Table } from 'dexie';
 import { v4 as uuidv4 } from 'uuid';
-import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, Af as SupabaseAf } from '@/types/supabase'; // Importar novos tipos
-import { supabase } from '@/integrations/supabase/client';
+import { DailyApontamento, MonthlyApontamento, DailyServiceOrder, Part as SupabasePart, Af as SupabaseAf } from '@/types/supabase';
 import { Network } from '@capacitor/network';
-import Papa from 'papaparse';
+import { CompanyType } from '@/types/company';
 
 // Use the strict types from supabase.ts for local storage interfaces
-export interface Part extends SupabasePart {}
-export interface Af extends SupabaseAf {}
+export interface Part extends SupabasePart {
+  company?: CompanyType;
+}
+export interface Af extends SupabaseAf {
+  company?: CompanyType;
+}
 
 export interface SimplePartItem {
   id: string;
   codigo_peca: string;
   descricao: string;
   quantidade: number;
-  af?: string; // AF agora é opcional para SimplePartItem
+  af?: string; 
   created_at?: Date;
+  company?: CompanyType;
 }
 
 export interface ServiceOrderItem {
   id: string;
-  codigo_peca?: string;
-  descricao?: string;
-  quantidade?: number;
-  af: string; // AF é obrigatório para ServiceOrderItem
-  os?: number;
+  af: string;
+  os?: string;
   hora_inicio?: string;
   hora_final?: string;
   servico_executado?: string;
+  parts: { codigo_peca: string; descricao: string; quantidade: number }[];
   created_at?: Date;
+  company?: CompanyType;
+  is_percurso?: boolean;
+  agregado?: boolean;
+  numero_agregado?: string | null;
 }
 
-// A interface Apontamento agora é DailyApontamento, mas para compatibilidade
-// com o resto do código que ainda pode usar 'Apontamento', vamos re-exportá-la.
 export type Apontamento = DailyApontamento;
 
 // Helper function to check network status
@@ -41,15 +45,8 @@ export const isOnline = async () => {
         const status = await Network.getStatus();
         return status.connected;
     } catch (e) {
-        // Fallback for browser environment without Capacitor plugin
         return navigator.onLine;
     }
-};
-
-// Helper para garantir que DailyApontamento objetos não contenham um campo 'id' ou 'user_id'
-const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
-  const { id, user_id, ...rest } = ap as any; // Converte para any para desestruturar 'id' e 'user_id' com segurança, se existirem
-  return rest;
 };
 
 class LocalDexieDb extends Dexie {
@@ -57,251 +54,110 @@ class LocalDexieDb extends Dexie {
   serviceOrderItems!: Table<ServiceOrderItem>;
   parts!: Table<Part>;
   afs!: Table<Af>;
-  monthlyApontamentos!: Table<MonthlyApontamento>; // Nova tabela para apontamentos mensais
+  monthlyApontamentos!: Table<MonthlyApontamento>;
+  dailyServiceOrders!: Table<DailyServiceOrder>;
 
   constructor() {
     super('PartsListDatabase');
-    this.version(1).stores({
-      listItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
-      parts: '++id, codigo, descricao, tags',
-      afs: '++id, af_number',
-    });
-    this.version(2).stores({
-      listItems: null, // Explicitamente deleta a tabela antiga
-      simplePartsList: 'id, codigo_peca, descricao, created_at', // Nova tabela com 'id' como chave primária
-      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
-      parts: '++id, codigo, descricao, tags',
-      afs: '++id, af_number',
-    }).upgrade(async tx => {
-      // Migração de dados da versão 1 para a versão 2
-      const oldListItems = await tx.table('listItems').toArray();
-      const simpleItems: SimplePartItem[] = [];
-      const serviceItems: ServiceOrderItem[] = [];
-
-      oldListItems.forEach((item: any) => {
-        if (item.af && item.af.trim() !== '') {
-          serviceItems.push({
-            id: item.id, // Usa o ID existente da tabela antiga
-            codigo_peca: item.codigo_peca,
-            descricao: item.descricao,
-            quantidade: item.quantidade,
-            af: item.af,
-            os: item.os,
-            hora_inicio: item.hora_inicio,
-            hora_final: item.hora_final,
-            servico_executado: item.servico_executado,
-            created_at: item.created_at,
-          });
-        } else {
-          if (item.codigo_peca && item.descricao && item.quantidade !== undefined) {
-            simpleItems.push({
-              id: item.id, // Usa o ID existente da tabela antiga
-              codigo_peca: item.codigo_peca,
-              descricao: item.descricao,
-              quantidade: item.quantidade,
-              created_at: item.created_at,
-            });
-          }
-        }
-      });
-
-      await tx.table('simplePartsList').bulkAdd(simpleItems);
-      await tx.table('serviceOrderItems').bulkAdd(serviceItems);
-    });
-    this.version(3).stores({
-      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
-      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
-      parts: '++id, codigo, descricao, tags',
-      afs: '++id, af_number',
-    }).upgrade(async tx => {
-      // Migração de dados da versão 2 para a versão 3 (mantida)
-    });
-    this.version(4).stores({
-      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
-      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
-      parts: '++id, codigo, descricao, tags',
-      afs: '++id, af_number, descricao', // Atualizado para incluir 'descricao'
-      apontamentos: 'id, user_id, date, synced_at', // Esquema antigo para apontamentos
-    });
-    this.version(5).stores({
-      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
-      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
-      parts: '++id, codigo, descricao, tags, name', // Adicionado 'name'
-      afs: '++id, af_number, descricao',
-      apontamentos: 'id, user_id, date, synced_at',
-    });
-    this.version(6).stores({
-      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
-      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
-      parts: '++id, codigo, descricao, tags, name',
-      afs: '++id, af_number, descricao',
-      apontamentos: null, // Remove a tabela antiga de apontamentos
-      monthlyApontamentos: 'id, user_id, month_year, [user_id+month_year]', // Nova tabela para apontamentos mensais com índice composto
-    }).upgrade(async tx => {
-      // Lógica de migração de apontamentos antigos para o novo formato mensal
-      const oldApontamentos = await tx.table('apontamentos').toArray();
-      const monthlyDataMap: { [key: string]: MonthlyApontamento } = {};
-
-      oldApontamentos.forEach((oldAp: any) => {
-        const date = new Date(oldAp.date);
-        const monthYear = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-        const userId = oldAp.user_id;
-        const key = `${userId}-${monthYear}`;
-
-        if (!monthlyDataMap[key]) {
-          monthlyDataMap[key] = {
-            id: uuidv4(), // ID para o registro mensal
-            user_id: userId,
-            month_year: monthYear,
-            data: [],
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-        }
-        // Explicitamente constrói DailyApontamento para garantir que 'id' não seja incluído
-        const dailyEntry: DailyApontamento = {
-          date: oldAp.date,
-          entry_time: oldAp.entry_time,
-          exit_time: oldAp.exit_time,
-          status: oldAp.status,
-          created_at: oldAp.created_at?.toISOString(),
-          updated_at: oldAp.synced_at?.toISOString(),
-        };
-        monthlyDataMap[key].data.push(dailyEntry);
-      });
-
-      await tx.table('monthlyApontamentos').bulkAdd(Object.values(monthlyDataMap));
-    });
-    this.version(7).stores({ // NOVA VERSÃO
-      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at',
-      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at',
-      parts: '++id, codigo, descricao, tags, name, itens_relacionados', // Removido * de itens_relacionados
-      afs: '++id, af_number, descricao',
-      monthlyApontamentos: 'id, user_id, month_year, [user_id+month_year]',
-    }).upgrade(async tx => {
-      // Não é necessária migração de dados, apenas atualização do esquema.
+    // Version incremented to 9 to include 'company' column in indexes where useful
+    this.version(9).stores({
+      simplePartsList: 'id, codigo_peca, descricao, quantidade, af, created_at, company',
+      serviceOrderItems: '++id, af, os, hora_inicio, hora_final, servico_executado, created_at, company',
+      parts: '++id, codigo, descricao, tags, name, itens_relacionados, company',
+      afs: '++id, af_number, descricao, company',
+      monthlyApontamentos: 'id, user_id, month_year, company, [user_id+month_year+company]',
+      dailyServiceOrders: 'id, user_id, date, company, [user_id+date+company]',
     });
   }
 }
 
 export const localDb = new LocalDexieDb();
 
-// --- Parts Management (IndexedDB) ---
+// --- Monthly Apontamentos Management ---
+
+export const getLocalMonthlyApontamento = async (userId: string, monthYear: string, company: CompanyType): Promise<MonthlyApontamento | undefined> => {
+  return localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear, company }).first();
+};
+
+export const putLocalMonthlyApontamento = async (ap: MonthlyApontamento): Promise<void> => {
+  await localDb.monthlyApontamentos.put(ap);
+};
+
+export const bulkPutLocalMonthlyApontamentos = async (items: MonthlyApontamento[]): Promise<void> => {
+  await localDb.monthlyApontamentos.bulkPut(items);
+};
+
+export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: string, company: CompanyType): Promise<void> => {
+  await localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear, company }).delete();
+};
+
+// --- Daily Service Orders Management ---
+
+export const getLocalDailyServiceOrder = async (userId: string, date: string, company: CompanyType): Promise<DailyServiceOrder | undefined> => {
+  return localDb.dailyServiceOrders.where({ user_id: userId, date: date, company }).first();
+};
+
+export const putLocalDailyServiceOrder = async (order: DailyServiceOrder): Promise<void> => {
+  await localDb.dailyServiceOrders.put(order);
+};
+
+export const deleteLocalDailyServiceOrder = async (userId: string, date: string, company: CompanyType): Promise<void> => {
+  await localDb.dailyServiceOrders.where({ user_id: userId, date: date, company }).delete();
+};
+
+// --- Parts Management ---
 
 export const addLocalPart = async (part: Omit<Part, 'id'>): Promise<string> => {
   const newPart = { ...part, id: uuidv4() };
-  await localDb.parts.add(newPart);
+  await localDb.parts.add(newPart as Part);
   return newPart.id;
 };
 
 export const bulkPutLocalParts = async (parts: Part[]): Promise<void> => {
-  await localDb.parts.bulkPut(parts); // Alterado para bulkPut
+  await localDb.parts.bulkPut(parts);
 };
 
-export const getLocalParts = async (): Promise<Part[]> => {
-  return localDb.parts.toArray();
+export const getLocalParts = async (company: CompanyType): Promise<Part[]> => {
+  return localDb.parts.where('company').equals(company).toArray();
 };
 
-export const searchLocalParts = async (query: string): Promise<Part[]> => {
+export const searchLocalParts = async (query: string, company: CompanyType): Promise<Part[]> => {
   const lowerCaseQuery = query.toLowerCase().trim();
-
-  const allParts = await localDb.parts.toArray();
-
-  if (!lowerCaseQuery) {
-    return allParts;
-  }
-
-  // Cria um padrão de regex para buscar palavras em sequência
-  // Escapa caracteres especiais de regex nas palavras da query
+  const allParts = await localDb.parts.where('company').equals(company).toArray();
+  if (!lowerCaseQuery) return allParts;
   const escapedWords = lowerCaseQuery.split(/\s+/).filter(Boolean).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const regexPattern = new RegExp(escapedWords.join('.*'), 'i'); // 'i' para case-insensitive
-
-  let results = allParts.filter(part => {
+  const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
+  return allParts.filter(part => {
     const nameMatch = part.name && part.name.toLowerCase().match(regexPattern);
     const codigoMatch = part.codigo.toLowerCase().match(regexPattern);
     const descricaoMatch = part.descricao.toLowerCase().match(regexPattern);
     const tagsMatch = part.tags && part.tags.toLowerCase().match(regexPattern);
-    // Não busca em itens_relacionados aqui, pois é um array de códigos.
-    // A busca em itens_relacionados será feita separadamente se necessário.
-
     return nameMatch || codigoMatch || descricaoMatch || tagsMatch;
   });
-
-  // Helper para determinar a qualidade da correspondência em um campo
-  const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
-    if (!fieldValue) return 0;
-    const lowerFieldValue = fieldValue.toLowerCase();
-
-    if (isMultiWord) {
-      return regex.test(lowerFieldValue) ? 1 : 0; // Apenas verifica se a sequência existe
-    } else { // Query de palavra única
-      if (lowerFieldValue === query) return 3; // Correspondência exata
-      if (lowerFieldValue.startsWith(query)) return 2; // Começa com
-      if (lowerFieldValue.includes(query)) return 1; // Inclui
-    }
-    return 0;
-  };
-
-  results.sort((a, b) => {
-    const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
-    const isMultiWordQuery = queryWords.length > 1;
-    // Usa o mesmo regexPattern do filtro para a pontuação
-    const sortRegexPattern = new RegExp(escapedWords.join('.*'), 'i');
-
-    const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
-    const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
-    const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
-    const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
-
-    const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
-    const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
-    const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
-    const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, sortRegexPattern, isMultiWordQuery);
-
-    // Prioriza nome
-    if (aNameScore !== bNameScore) return bNameScore - aNameScore;
-    // Depois tags
-    if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
-    // Depois código
-    if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
-    // Por último descrição
-    if (aDescricaoScore !== bDescricaoScore) return bDescricaoScore - aDescricaoScore;
-
-    return 0; // Mantém a ordem original se todas as pontuações forem iguais
-  });
-
-  return results;
 };
 
 export const updateLocalPart = async (updatedPart: Part): Promise<void> => {
   await localDb.parts.put(updatedPart);
 };
 
-export const clearLocalParts = async (): Promise<void> => {
-  await localDb.parts.clear();
-};
+// --- AFs Management ---
 
-// --- AFs Management (IndexedDB) ---
 export const bulkPutLocalAfs = async (afs: Af[]): Promise<void> => {
-  await localDb.afs.bulkPut(afs); // Alterado para bulkPut
+  await localDb.afs.bulkPut(afs);
 };
 
-export const getLocalAfs = async (): Promise<Af[]> => {
-  return localDb.afs.toArray();
+export const getLocalAfs = async (company: CompanyType): Promise<Af[]> => {
+  return localDb.afs.where('company').equals(company).toArray();
 };
 
-export const clearLocalAfs = async (): Promise<void> => {
-  await localDb.afs.clear();
+// --- Simple Parts List ---
+
+export const getLocalSimplePartsListItems = async (company: CompanyType): Promise<SimplePartItem[]> => {
+  return localDb.simplePartsList.where('company').equals(company).toArray();
 };
 
-// --- Simple Parts List Management (IndexedDB) ---
-
-export const getLocalSimplePartsListItems = async (): Promise<SimplePartItem[]> => {
-  return localDb.simplePartsList.toArray();
-};
-
-export const addLocalSimplePartItem = async (item: Omit<SimplePartItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
-  const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
+export const addLocalSimplePartItem = async (item: Omit<SimplePartItem, 'id'>, company: CompanyType, customCreatedAt?: Date): Promise<string> => {
+  const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date(), company };
   await localDb.simplePartsList.add(newItem);
   return newItem.id;
 };
@@ -311,62 +167,33 @@ export const updateLocalSimplePartItem = async (updatedItem: SimplePartItem): Pr
 };
 
 export const deleteLocalSimplePartItem = async (id: string): Promise<void> => {
-  try {
-    await localDb.simplePartsList.delete(id);
-  } catch (error) {
-    console.error('localDbService: Error deleting item with ID:', id, error);
-    throw error; // Re-lança o erro para que o chamador possa tratá-lo
-  }
+  await localDb.simplePartsList.delete(id);
 };
 
-export const clearLocalSimplePartsList = async (): Promise<void> => {
-  await localDb.simplePartsList.clear();
+export const clearLocalSimplePartsList = async (company: CompanyType): Promise<void> => {
+  await localDb.simplePartsList.where('company').equals(company).delete();
 };
 
-// --- Service Order Items Management (IndexedDB) ---
+// --- Service Order Items (Legacy) ---
 
-export const getLocalServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
-  return localDb.serviceOrderItems.toArray();
+export const getLocalServiceOrderItems = async (company: CompanyType): Promise<ServiceOrderItem[]> => {
+  return localDb.serviceOrderItems.where('company').equals(company).toArray();
 };
 
-export const addLocalServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
-  const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date() };
+export const addLocalServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, company: CompanyType, customCreatedAt?: Date): Promise<string> => {
+  const newItem = { ...item, id: uuidv4(), created_at: customCreatedAt || new Date(), company };
   await localDb.serviceOrderItems.add(newItem);
   return newItem.id;
 };
 
 export const updateLocalServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
-  await localDb.serviceOrderItems.update(updatedItem.id, updatedItem);
+  await localDb.serviceOrderItems.update(updatedItem.id, updatedItem as any);
 };
 
 export const deleteLocalServiceOrderItem = async (id: string): Promise<void> => {
   await localDb.serviceOrderItems.delete(id);
 };
 
-export const clearLocalServiceOrderItems = async (): Promise<void> => {
-  await localDb.serviceOrderItems.clear();
-};
-
-export const getLocalUniqueAfs = async (): Promise<string[]> => {
-  const afs = await localDb.afs.toArray();
-  return afs.map(af => af.af_number).sort();
-};
-
-// --- Monthly Apontamentos Management (IndexedDB) ---
-
-export const getLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<MonthlyApontamento | undefined> => {
-  return localDb.monthlyApontamentos.where({ user_id: userId, month_year: monthYear }).first();
-};
-
-export const putLocalMonthlyApontamento = async (monthlyApontamento: MonthlyApontamento): Promise<void> => {
-  await localDb.monthlyApontamentos.put(monthlyApontamento);
-};
-
-export const bulkPutLocalMonthlyApontamentos = async (monthlyApontamentos: MonthlyApontamento[]): Promise<void> => {
-  await localDb.monthlyApontamentos.bulkPut(monthlyApontamentos);
-};
-
-export const deleteLocalMonthlyApontamento = async (userId: string, monthYear: string): Promise<void> => {
-  const key = `${userId}-${monthYear}`;
-  await localDb.monthlyApontamentos.where('[user_id+month_year]').equals(key).delete();
+export const clearLocalServiceOrderItems = async (company: CompanyType): Promise<void> => {
+  await localDb.serviceOrderItems.where('company').equals(company).delete();
 };

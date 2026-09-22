@@ -1,10 +1,13 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+"use client";
+
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Save, User as UserIcon, Loader2, Settings } from 'lucide-react';
+import { Save, Loader2, ChevronLeft, User as UserIcon } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
@@ -12,39 +15,61 @@ import { useSession } from '@/components/SessionContextProvider';
 import ChangePasswordForm from '@/components/ChangePasswordForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserProfile } from '@/types/supabase';
+import { useCompany } from '@/context/CompanyContext';
+import { Checkbox } from '@/components/ui/checkbox';
+
+type AttributeItem = { name: string; ref_code: number | null };
 
 const UserSettingsPage: React.FC = () => {
-  const { user, isLoading: isSessionLoading, profile: sessionProfile } = useSession();
-  const navigate = useNavigate();
+  const { user, isLoading: isSessionLoading, profile: sessionProfile, refreshProfile } = useSession();
+  const { company, branding } = useCompany();
   
-  // States for form fields, initialized from sessionProfile or empty
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [badge, setBadge] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [suggestParts, setSuggestParts] = useState(true);
   
+  const [professionCode, setProfessionCode] = useState('');
+  const [shiftCode, setShiftCode] = useState('');
+  
+  const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
+  const [availableShifts, setAvailableShifts] = useState<AttributeItem[]>([]);
+
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
-    document.title = "Configurações do Usuário - AutoBoard";
-  }, []);
+    document.title = `Configurações do Usuário - AutoBoard (${branding.name})`;
+  }, [branding.name]);
 
-  // Populate form fields when sessionProfile changes or becomes available
   useEffect(() => {
     if (!isSessionLoading && sessionProfile) {
       setFirstName(sessionProfile.first_name || '');
       setLastName(sessionProfile.last_name || '');
       setBadge(sessionProfile.badge || '');
       setAvatarUrl(sessionProfile.avatar_url || '');
-    } else if (!isSessionLoading && !sessionProfile && user) {
-      // If user is logged in but no profile found, initialize with empty values
-      setFirstName('');
-      setLastName('');
-      setBadge('');
-      setAvatarUrl('');
+      setSuggestParts(sessionProfile.suggest_parts !== false);
+      setProfessionCode(sessionProfile.profession_code ? sessionProfile.profession_code.toString() : '');
+      setShiftCode(sessionProfile.shift_code ? sessionProfile.shift_code.toString() : '');
     }
-  }, [sessionProfile, isSessionLoading, user]);
+  }, [sessionProfile, isSessionLoading]);
+
+  useEffect(() => {
+    const fetchAttributes = async () => {
+      try {
+        const [profRes, shiftRes] = await Promise.all([
+          supabase.from('professions').select('name, ref_code').eq('company', company).order('name'),
+          supabase.from('shifts').select('name, ref_code').eq('company', company).order('name')
+        ]);
+        
+        if (profRes.data && profRes.data.length > 0) setAvailableProfessions(profRes.data);
+        if (shiftRes.data && shiftRes.data.length > 0) setAvailableShifts(shiftRes.data);
+      } catch (e) {
+        console.error('Error fetching attributes:', e);
+      }
+    };
+    if (user) fetchAttributes();
+  }, [company, user]);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +87,9 @@ const UserSettingsPage: React.FC = () => {
           last_name: lastName,
           badge: badge,
           avatar_url: avatarUrl,
+          suggest_parts: suggestParts,
+          profession_code: professionCode ? parseInt(professionCode) : null,
+          shift_code: shiftCode ? parseInt(shiftCode) : null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -70,6 +98,7 @@ const UserSettingsPage: React.FC = () => {
         throw error;
       }
 
+      await refreshProfile();
       showSuccess('Perfil atualizado com sucesso!');
     } catch (error: any) {
       showError(`Erro ao atualizar perfil: ${error.message}`);
@@ -78,11 +107,6 @@ const UserSettingsPage: React.FC = () => {
     }
   };
 
-  const handlePasswordChanged = () => {
-    // console.log('UserSettingsPage: Password changed callback triggered.');
-  };
-
-  // The main loading state for the page
   if (isSessionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
@@ -91,10 +115,7 @@ const UserSettingsPage: React.FC = () => {
     );
   }
 
-  // If not loading and no user, redirect to login (handled by SessionContextProvider, but good to have a fallback)
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   const getInitials = (fName: string | null, lName: string | null) => {
     const first = fName ? fName.charAt(0) : '';
@@ -103,10 +124,13 @@ const UserSettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <Settings className="h-8 w-8 text-primary" />
-        Configurações do Usuário
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
+        <div className="flex items-center gap-3">
+          <img src="/icons/tela_inicial/2.png" alt="" className="h-16 w-auto object-contain" />
+          Configurações do Usuário
+        </div>
+        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
       </h1>
 
       <Tabs defaultValue="profile" className="w-full max-w-2xl">
@@ -122,7 +146,7 @@ const UserSettingsPage: React.FC = () => {
             <CardContent>
               <form onSubmit={handleProfileSubmit} className="space-y-4">
                 <div className="flex flex-col items-center gap-4 mb-4">
-                  <Avatar className="h-24 w-24 rounded-full"> {/* Adicionado rounded-full */}
+                  <Avatar className="h-24 w-24 rounded-full">
                     <AvatarImage src={avatarUrl || undefined} alt="Avatar do Usuário" />
                     <AvatarFallback>{getInitials(firstName, lastName)}</AvatarFallback>
                   </Avatar>
@@ -138,29 +162,67 @@ const UserSettingsPage: React.FC = () => {
                     />
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="first-name">Nome</Label>
-                  <Input
-                    id="first-name"
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Seu nome"
-                    required
-                    disabled={isSavingProfile}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="first-name">Nome</Label>
+                    <Input
+                      id="first-name"
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                      disabled={isSavingProfile}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="last-name">Sobrenome</Label>
+                    <Input
+                      id="last-name"
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                      disabled={isSavingProfile}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="last-name">Sobrenome</Label>
-                  <Input
-                    id="last-name"
-                    type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Seu sobrenome"
-                    required
-                    disabled={isSavingProfile}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="profession">Profissão</Label>
+                    <Select 
+                      key={`prof-${professionCode}`} 
+                      value={professionCode || undefined} 
+                      onValueChange={setProfessionCode} 
+                      disabled={isSavingProfile}
+                    >
+                      <SelectTrigger id="profession">
+                        <SelectValue placeholder="Selecione sua profissão" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableProfessions.map(p => (
+                          <SelectItem key={p.ref_code} value={p.ref_code!.toString()}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="shift">Turno</Label>
+                    <Select 
+                      key={`shift-${shiftCode}`}
+                      value={shiftCode || undefined} 
+                      onValueChange={setShiftCode} 
+                      disabled={isSavingProfile}
+                    >
+                      <SelectTrigger id="shift">
+                        <SelectValue placeholder="Selecione seu turno" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableShifts.map(s => (
+                          <SelectItem key={s.ref_code} value={s.ref_code!.toString()}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="badge">Crachá (Opcional)</Label>
@@ -169,20 +231,35 @@ const UserSettingsPage: React.FC = () => {
                     type="text"
                     value={badge}
                     onChange={(e) => setBadge(e.target.value)}
-                    placeholder="Número do crachá"
                     disabled={isSavingProfile}
                   />
                 </div>
+                
+                <div className="flex items-start space-x-2.5 p-3.5 bg-muted/40 rounded-lg border">
+                  <Checkbox
+                    id="suggest-parts"
+                    checked={suggestParts}
+                    onCheckedChange={(checked) => setSuggestParts(checked === true)}
+                    disabled={isSavingProfile}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <Label
+                      htmlFor="suggest-parts"
+                      className="text-sm font-bold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      Habilitar Sugestões de Peças
+                    </Label>
+                    <p className="text-xs text-muted-foreground leading-normal">
+                      Mostra sugestões automáticas das peças mais utilizadas pela sua profissão ao focar ou realizar pesquisas nos campos de busca.
+                    </p>
+                  </div>
+                </div>
+                
                 <Button type="submit" className="w-full" disabled={isSavingProfile}>
                   {isSavingProfile ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Salvando...
-                    </>
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</>
                   ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" /> Salvar Alterações
-                    </>
+                    <><Save className="mr-2 h-4 w-4" /> Salvar Alterações</>
                   )}
                 </Button>
               </form>
@@ -195,11 +272,20 @@ const UserSettingsPage: React.FC = () => {
               <CardTitle className="text-xl">Alterar Senha</CardTitle>
             </CardHeader>
             <CardContent>
-              <ChangePasswordForm onPasswordChanged={handlePasswordChanged} />
+              <ChangePasswordForm onPasswordChanged={() => {}} />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <div className="flex justify-center mt-8 mb-8">
+        <Link to={`/${company}`}>
+          <Button variant="outline" className="flex items-center gap-2">
+            <ChevronLeft className="h-4 w-4" /> Voltar ao Início
+          </Button>
+        </Link>
+      </div>
+
       <MadeWithDyad />
     </div>
   );

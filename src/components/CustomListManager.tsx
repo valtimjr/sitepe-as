@@ -26,9 +26,11 @@ import CustomListEditor from './CustomListEditor';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { getParts } from '@/services/partListService';
 import { Part } from '@/types/supabase';
+import { useCompany } from '@/context/CompanyContext';
 
 const CustomListManager: React.FC = () => {
   const { user } = useSession();
+  const { company } = useCompany();
   const [lists, setLists] = useState<CustomList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -43,23 +45,23 @@ const CustomListManager: React.FC = () => {
     if (!user) return;
     setIsLoading(true);
     try {
-      const fetchedLists = await getCustomLists(user.id);
+      const fetchedLists = await getCustomLists(user.id, company);
       setLists(fetchedLists);
     } catch (error) {
       showError('Erro ao carregar listas personalizadas.');
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, company]);
 
   const loadAllParts = useCallback(async () => {
     try {
-      const parts = await getParts();
+      const parts = await getParts(company);
       setAllAvailableParts(parts);
     } catch (error) {
       console.error("Erro ao carregar todas as peças para o editor:", error);
     }
-  }, []);
+  }, [company]);
 
   useEffect(() => {
     loadLists();
@@ -105,7 +107,7 @@ const CustomListManager: React.FC = () => {
         await updateCustomList({ ...currentList, title: formTitle.trim() });
         showSuccess('Título da lista atualizado com sucesso!');
       } else {
-        await createCustomList(formTitle.trim(), user.id);
+        await createCustomList(formTitle.trim(), user.id, company);
         showSuccess('Lista criada com sucesso!');
       }
       
@@ -136,7 +138,7 @@ const CustomListManager: React.FC = () => {
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando listas...</p>
         ) : lists.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhuma lista personalizada criada.</p>
+          <p className="text-center text-muted-foreground py-8">Nenhuma lista personalizada criada para esta empresa.</p>
         ) : (
           <div className="overflow-x-auto">
             <Table>

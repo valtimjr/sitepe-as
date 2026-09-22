@@ -37,6 +37,7 @@ import CustomListItemForm from './CustomListItemForm';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useCompany } from '@/context/CompanyContext';
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -45,6 +46,7 @@ interface CustomListEditorProps {
 }
 
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allAvailableParts }) => {
+  const { company } = useCompany();
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormSheetOpen, setIsFormSheetOpen] = useState(false);
@@ -57,7 +59,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
     if (!list.id) return;
     setIsLoading(true);
     try {
-      const fetchedItems = await getCustomListItems(list.id);
+      const fetchedItems = await getCustomListItems(list.id, company);
       setItems(fetchedItems);
     } catch (error) {
       console.error('Erro ao carregar itens da lista:', error);
@@ -65,7 +67,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
     } finally {
       setIsLoading(false);
     }
-  }, [list.id]);
+  }, [list.id, company]);
 
   useEffect(() => {
     loadItems();
@@ -89,7 +91,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
 
   const handleDelete = async (itemId: string) => {
     try {
-      await deleteCustomListItem(list.id, itemId);
+      await deleteCustomListItem(list.id, itemId, company);
       showSuccess('Item excluído com sucesso!');
       loadItems();
     } catch (error) {
@@ -118,7 +120,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
     const loadingToastId = showLoading('Reordenando itens...');
 
     try {
-      await updateAllCustomListItems(list.id, updatedItemsWithNewOrder);
+      await updateAllCustomListItems(list.id, updatedItemsWithNewOrder, company);
       showSuccess('Ordem atualizada!');
       await loadItems();
     } catch (error) {
@@ -169,7 +171,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
 
         const loadingToastId = showLoading('Reordenando itens...');
         try {
-          await updateAllCustomListItems(list.id, updatedItemsWithNewOrder);
+          await updateAllCustomListItems(list.id, updatedItemsWithNewOrder, company);
           showSuccess('Ordem atualizada com sucesso!');
           await loadItems();
         } catch (error) {

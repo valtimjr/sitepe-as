@@ -1,41 +1,49 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogOut, Database, Menu, List as ListIcon } from 'lucide-react';
+import { Database, Menu, ChevronLeft, Tags, FileChartLine } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PartManagementTable from '@/components/PartManagementTable';
 import AfManagementTable from '@/components/AfManagementTable';
 import InviteManager from '@/components/InviteManager';
 import MenuManagerPage from '@/pages/MenuManagerPage';
-import { supabase } from '@/integrations/supabase/client';
-import { showSuccess, showError } from '@/utils/toast';
+import UserAttributesManager from '@/components/UserAttributesManager';
 import { useSession } from '@/components/SessionContextProvider';
-import { cn } from '@/lib/utils';
+import { useCompany } from '@/context/CompanyContext';
 
 const DATABASE_MANAGER_ACTIVE_TAB_KEY = 'database_manager_active_tab';
 
 const DatabaseManagerPage: React.FC = () => {
   const { isLoading, checkPageAccess, profile } = useSession();
-  const navigate = useNavigate();
+  const { company, branding } = useCompany();
   const [activeTab, setActiveTab] = useState<string>('');
 
+  const isAdmin = profile?.role === 'admin';
+
   useEffect(() => {
-    document.title = "Gerenciador de Banco de Dados - Gerenciador de Peças";
-  }, []);
+    document.title = `Painel Administração - AutoBoard (${branding.name})`;
+  }, [branding.name]);
 
   const { visibleTabs, defaultTab } = useMemo(() => {
     if (isLoading) {
       return { visibleTabs: [], defaultTab: '' };
     }
-    const isAdmin = profile?.role === 'admin';
+    const isModerator = profile?.role === 'moderator';
     const canAccessMenuManager = checkPageAccess('/menu-manager');
-    const tabs = [
-      ...(isAdmin ? ['parts', 'afs', 'invites'] : []),
-      ...(canAccessMenuManager ? ['menu'] : []),
-    ];
+    
+    let tabs: string[] = [];
+    
+    if (isAdmin) {
+      tabs = ['parts', 'afs', 'invites', 'attributes'];
+      if (canAccessMenuManager) tabs.push('menu');
+    } else if (isModerator) {
+      // O moderador tem acesso APENAS aos convites na página admin
+      tabs = ['invites'];
+    }
+    
     return { visibleTabs: tabs, defaultTab: tabs[0] || '' };
-  }, [isLoading, profile, checkPageAccess]);
+  }, [isLoading, isAdmin, profile?.role, checkPageAccess]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -55,27 +63,35 @@ const DatabaseManagerPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p>Carregando gerenciador de banco de dados...</p>
+        <p>Carregando painel de administração...</p>
       </div>
     );
   }
   
   if (visibleTabs.length === 0) {
-    return null; // Redirection is handled by SessionContextProvider
+    return null;
   }
 
-  const totalVisibleTabs = visibleTabs.length;
-  const gridColsClass = totalVisibleTabs === 4 ? 'grid-cols-2 md:grid-cols-4' : 
-                        totalVisibleTabs === 3 ? 'grid-cols-3' : 
-                        totalVisibleTabs === 2 ? 'grid-cols-2' : 
-                        'grid-cols-1';
-
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <Database className="h-8 w-8 text-primary" />
-        Gerenciador de Banco de Dados
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
+        <div className="flex items-center gap-3">
+          <img src="/icons/tela_inicial/7.png" alt="" className="h-16 w-auto object-contain" />
+          Painel Administração
+        </div>
+        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
       </h1>
+
+      <div className="w-full max-w-6xl flex justify-end mb-4">
+        {isAdmin && (
+          <Link to={`/${company}/admin-report`}>
+            <Button variant="outline" className="flex items-center gap-2 text-primary border-primary/20 hover:bg-primary/5">
+              <FileChartLine className="h-4 w-4" />
+              Relatório Geral
+            </Button>
+          </Link>
+        )}
+      </div>
 
       <Tabs 
         value={activeTab} 
@@ -85,13 +101,20 @@ const DatabaseManagerPage: React.FC = () => {
         }} 
         className="w-full max-w-6xl"
       >
-        <TabsList className={cn("grid w-full h-auto mb-4", gridColsClass)}>
-          {visibleTabs.includes('parts') && <TabsTrigger value="parts">Gerenciar Peças</TabsTrigger>}
-          {visibleTabs.includes('afs') && <TabsTrigger value="afs">Gerenciar AFs</TabsTrigger>}
-          {visibleTabs.includes('invites') && <TabsTrigger value="invites">Gerenciar Convites</TabsTrigger>}
+        <TabsList className="flex flex-wrap justify-center h-auto gap-2 mb-4">
+          {visibleTabs.includes('parts') && <TabsTrigger value="parts">Peças</TabsTrigger>}
+          {visibleTabs.includes('afs') && <TabsTrigger value="afs">AFs</TabsTrigger>}
+          {visibleTabs.includes('invites') && <TabsTrigger value="invites">Convites</TabsTrigger>}
+          {visibleTabs.includes('attributes') && (
+            <TabsTrigger value="attributes">
+              <div className="flex items-center gap-2">
+                <Tags className="h-4 w-4" /> Atributos de Usuário
+              </div>
+            </TabsTrigger>
+          )}
           {visibleTabs.includes('menu') && (
             <TabsTrigger value="menu">
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center gap-2">
                 <Menu className="h-4 w-4" /> Menus & Listas
               </div>
             </TabsTrigger>
@@ -113,12 +136,26 @@ const DatabaseManagerPage: React.FC = () => {
             <InviteManager />
           </TabsContent>
         )}
+        {visibleTabs.includes('attributes') && (
+          <TabsContent value="attributes">
+            <UserAttributesManager />
+          </TabsContent>
+        )}
         {visibleTabs.includes('menu') && (
           <TabsContent value="menu">
             <MenuManagerPage isEmbedded={true} />
           </TabsContent>
         )}
       </Tabs>
+
+      <div className="flex justify-center mt-8 mb-8">
+        <Link to={`/${company}`}>
+          <Button variant="outline" className="flex items-center gap-2">
+            <ChevronLeft className="h-4 w-4" /> Voltar ao Início
+          </Button>
+        </Link>
+      </div>
+
       <MadeWithDyad />
     </div>
   );

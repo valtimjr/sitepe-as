@@ -75,6 +75,24 @@
 
   body {
     @apply bg-background text-foreground font-sans;
+    background-image: url('/background.webp');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+
+  .dark body {
+    background-image: linear-gradient(rgba(10, 10, 12, 0.9), rgba(10, 10, 12, 0.9)), url('/background.webp');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+
+  div.min-h-screen {
+    background-color: transparent !important;
+    background-image: none !important;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -87,4 +105,165 @@
 @layer components {
   /* Classe utilitária para centralização vertical perfeita em elementos de 24px (h-6) */
   /* Removida a classe day-center que não funcionou */
+  
+  .animated-card {
+    transition: transform 0.4s ease;
+  }
+  .animated-card:hover {
+    cursor: pointer;
+    transform: scale(0.97);
+  }
+  .animated-card:active {
+    transform: scale(0.9);
+  }
+  .animated-card .card-content-wrapper {
+    transition: transform 0.4s ease;
+  }
+  .animated-card:hover .card-content-wrapper {
+    transform: scale(0.96);
+  }
+
+  /* From Uiverse.io by krlozCJ */
+  .uiverse-search-container {
+    position: relative;
+    --size-button: 32px;
+    color: white;
+  }
+
+  .uiverse-search-input {
+    padding-left: var(--size-button);
+    height: var(--size-button);
+    font-size: 13px;
+    border: none;
+    color: #000;
+    outline: none;
+    width: 32px; /* Fallback fix for Firefox */
+    width: var(--size-button);
+    transition: width 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+    background-color: #eff6ff; /* Soft blue (blue-50) */
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    border-radius: 50px;
+    cursor: pointer;
+  }
+
+  .uiverse-search-input:focus,
+  .uiverse-search-input.expanded {
+    width: 135px;
+    cursor: text;
+    background-color: #dbeafe; /* Slightly deeper soft blue on focus (blue-100) */
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.1);
+  }
+
+  @media (min-width: 640px) {
+    .uiverse-search-input:focus,
+    .uiverse-search-input.expanded {
+      width: 220px;
+    }
+  }
+
+  .uiverse-search-input::placeholder {
+    color: #64748b;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .uiverse-search-input:focus::placeholder,
+  .uiverse-search-input.expanded::placeholder {
+    opacity: 1;
+  }
+
+  .uiverse-search-input:focus + .uiverse-search-icon,
+  .uiverse-search-input.expanded + .uiverse-search-icon {
+    pointer-events: all;
+    cursor: pointer;
+  }
+
+  .uiverse-search-container .uiverse-search-icon {
+    position: absolute;
+    width: var(--size-button);
+    height: var(--size-button);
+    top: 0;
+    left: 0;
+    padding: 8px;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .uiverse-search-container .uiverse-search-icon svg {
+    width: 100%;
+    height: 100%;
+    color: #000;
+  }
+
+  /* From Uiverse.io by krlozCJ - Login Button Animation */
+  .login-btn-container {
+    position: relative;
+    --size-button: 32px;
+    color: white;
+  }
+
+  .login-btn-input {
+    padding: 0;
+    height: var(--size-button);
+    font-size: 14px;
+    border: none;
+    color: white;
+    outline: none;
+    width: var(--size-button);
+    transition: all 0.4s ease;
+    background-color: #157EE8; /* Tailwind blue-600 */
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+    border-radius: 0px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    white-space: nowrap;
+    border: none;
+  }
+
+  .login-btn-input:focus,
+  .login-btn-input:hover {
+    width: 100px;
+    padding-left: var(--size-button);
+    padding-right: 12px;
+    background-color: #1d4ed8; /* Tailwind blue-700 */
+  }
+
+  .login-btn-text {
+    margin-left: 4px;
+    color: white;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    font-weight: none;
+  }
+
+  .login-btn-input:hover .login-btn-text,
+  .login-btn-input:focus .login-btn-text {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  .login-btn-container .login-btn-icon {
+    position: absolute;
+    width: var(--size-button);
+    height: var(--size-button);
+    top: 0;
+    left: 0;
+    padding: 8px;
+    pointer-events: none;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .login-btn-container .login-btn-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: white;
+  }
 }

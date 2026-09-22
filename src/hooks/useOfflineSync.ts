@@ -18,6 +18,7 @@ import {
 } from '@/services/partListService';
 import { format } from 'date-fns';
 import { MonthlyApontamento } from '@/types/supabase';
+import { CompanyType } from '@/types/company';
 
 const SYNC_INTERVAL_MS = 60000; // Tenta sincronizar a cada 60 segundos se estiver online
 
@@ -40,10 +41,10 @@ export function useOfflineSync() {
       const userId = user.id;
       const localMonthlyApontamentos = await localDb.monthlyApontamentos.where('user_id').equals(userId).toArray();
       
-      // Busca apenas os metadados (id, month_year, updated_at) dos apontamentos remotos
+      // Busca apenas os metadados (id, month_year, updated_at, company) dos apontamentos remotos
       const { data: remoteMonthlyApontamentosMeta, error: remoteError } = await supabase
         .from('monthly_apontamentos')
-        .select('id, month_year, updated_at')
+        .select('id, month_year, updated_at, company')
         .eq('user_id', userId);
 
       if (remoteError) {
@@ -51,15 +52,18 @@ export function useOfflineSync() {
         throw remoteError;
       }
 
-      const localMap = new Map<string, MonthlyApontamento>(localMonthlyApontamentos.map(ap => [ap.month_year, ap]));
-      const remoteMap = new Map<string, { id: string; month_year: string; updated_at: string }>(remoteMonthlyApontamentosMeta.map(ap => [ap.month_year, ap]));
+      // We need to sync per company now
+      const getMapKey = (monthYear: string, company: string | undefined) => `${monthYear}_${company || 'usina_vale'}`;
+
+      const localMap = new Map<string, MonthlyApontamento>(localMonthlyApontamentos.map(ap => [getMapKey(ap.month_year, ap.company), ap]));
+      const remoteMap = new Map<string, { id: string; month_year: string; updated_at: string; company?: string }>(remoteMonthlyApontamentosMeta.map(ap => [getMapKey(ap.month_year, ap.company), ap]));
 
       const toPush: MonthlyApontamento[] = [];
-      const toPull: { id: string; month_year: string; updated_at: string }[] = [];
+      const toPull: { id: string; month_year: string; updated_at: string; company?: string }[] = [];
 
       // Compara local com remoto
-      for (const [monthYear, localAp] of localMap.entries()) {
-        const remoteApMeta = remoteMap.get(monthYear);
+      for (const [key, localAp] of localMap.entries()) {
+        const remoteApMeta = remoteMap.get(key);
 
         if (remoteApMeta) {
           // Ambos existem, compara timestamps
@@ -67,25 +71,25 @@ export function useOfflineSync() {
           const remoteUpdatedAt = new Date(remoteApMeta.updated_at || 0);
 
           if (localUpdatedAt > remoteUpdatedAt) {
-            // console.log(`OfflineSync: Local mais recente para ${monthYear}. Adicionando à fila de push.`);
+            // console.log(`OfflineSync: Local mais recente para ${key}. Adicionando à fila de push.`);
             toPush.push(localAp);
           } else if (remoteUpdatedAt > localUpdatedAt) {
-            // console.log(`OfflineSync: Remoto mais recente para ${monthYear}. Adicionando à fila de pull.`);
+            // console.log(`OfflineSync: Remoto mais recente para ${key}. Adicionando à fila de pull.`);
             toPull.push(remoteApMeta);
           } else {
-            // console.log(`OfflineSync: Local e remoto em sync para ${monthYear}.`);
+            // console.log(`OfflineSync: Local e remoto em sync para ${key}.`);
           }
         } else {
           // Existe localmente, mas não remotamente (novo registro offline)
-          // console.log(`OfflineSync: Novo registro local para ${monthYear}. Adicionando à fila de push.`);
+          // console.log(`OfflineSync: Novo registro local para ${key}. Adicionando à fila de push.`);
           toPush.push(localAp);
         }
       }
 
       // Identifica registros remotos que não existem localmente
-      for (const [monthYear, remoteApMeta] of remoteMap.entries()) {
-        if (!localMap.has(monthYear)) {
-          // console.log(`OfflineSync: Novo registro remoto para ${monthYear}. Adicionando à fila de pull.`);
+      for (const [key, remoteApMeta] of remoteMap.entries()) {
+        if (!localMap.has(key)) {
+          // console.log(`OfflineSync: Novo registro remoto para ${key}. Adicionando à fila de pull.`);
           toPull.push(remoteApMeta);
         }
       }
@@ -106,7 +110,7 @@ export function useOfflineSync() {
       for (const apMeta of toPull) {
         try {
           // Para pull, precisamos buscar o objeto completo
-          await syncMonthlyApontamentosFromSupabase(userId, apMeta.month_year, forceSync);
+          await syncMonthlyApontamentosFromSupabase(userId, apMeta.month_year, (apMeta.company as CompanyType) || 'usina_vale', forceSync);
           syncCount++;
         } catch (e) {
           console.error(`OfflineSync: Falha ao puxar ${apMeta.month_year} do Supabase:`, e);

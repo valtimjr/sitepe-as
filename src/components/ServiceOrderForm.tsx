@@ -1,626 +1,590 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addServiceOrderItem, getParts, searchParts as searchPartsService, updatePart, getAfsFromService, Af, updateServiceOrderItem, deleteServiceOrderItem, ServiceOrderItem } from '@/services/partListService';
+import { Part, searchParts as searchPartsService, getAfsFromService, Af } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
-import { Save, Plus, FilePlus, XCircle, Loader2, Tag } from 'lucide-react';
+import { Save, XCircle, PlusCircle, Trash2, Car, Truck } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
+import { ServiceOrderData } from '@/types/supabase';
+import { v4 as uuidv4 } from 'uuid';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useCompany } from '@/context/CompanyContext';
 import { cn } from '@/lib/utils';
-import { useSession } from '@/components/SessionContextProvider'; // Importar useSession
-import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
-import RelatedPartDisplay from './RelatedPartDisplay';
-import { ScrollArea } from './ui/scroll-area';
-import { RelatedPart } from '@/types/supabase';
-
-interface ServiceOrderDetails {
-  af: string;
-  os?: number;
-  hora_inicio?: string;
-  hora_final?: string;
-  servico_executado?: string;
-  createdAt?: Date;
-}
-
-type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useSession } from '@/components/SessionContextProvider';
+import { supabase } from '@/integrations/supabase/client';
+import { validateTimesAgainstShift } from '@/services/shiftService';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ServiceOrderFormProps {
-  onItemAdded: () => void;
-  onNewServiceOrder: () => void;
-  listItems: ServiceOrderItem[]; // Ainda necessário para a lógica de item em branco
-  onClose?: () => void; // Para fechar o Sheet/Dialog
-  
-  mode: FormMode; // Modo explícito do formulário
-  initialSoData?: ServiceOrderDetails | null; // Dados da OS (para criar nova, editar detalhes, adicionar peça)
-  initialPartData?: ServiceOrderItem | null; // Dados da peça (apenas para editar peça)
+  initialData: ServiceOrderData | null;
+  onSave: (data: ServiceOrderData) => void;
+  onCancel: () => void;
+  existingOsList?: ServiceOrderData[];
+  selectedDate: Date;
 }
 
-const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({ 
-  onItemAdded, 
-  onNewServiceOrder, 
-  listItems, 
-  onClose, 
-  mode, 
-  initialSoData, 
-  initialPartData, 
+const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
+  initialData,
+  onSave,
+  onCancel,
+  existingOsList,
+  selectedDate
 }) => {
-  const { checkPageAccess } = useSession();
-  const isMobile = useIsMobile();
-  const [selectedPart, setSelectedPart] = useState<Part | null>(null);
-  const [quantidade, setQuantidade] = useState<number>(1);
+  const { company } = useCompany();
+  const { user, profile } = useSession();
+  
+  const [userShift, setUserShift] = useState<any>(null);
+  const [isLoadingShift, setIsLoadingShift] = useState(false);
+
+  useEffect(() => {
+    const fetchUserShift = async () => {
+      if (!profile?.shift_code || !company) return;
+      setIsLoadingShift(true);
+      try {
+        const { data, error } = await supabase
+          .from('shifts')
+          .select('id, name, ref_code, entry_time, exit_time')
+          .eq('ref_code', profile.shift_code)
+          .eq('company', company)
+          .maybeSingle();
+        if (!error && data) {
+          setUserShift(data);
+        }
+      } catch (err) {
+        console.error('Error fetching user shift in ServiceOrderForm:', err);
+      } finally {
+        setIsLoadingShift(false);
+      }
+    };
+    fetchUserShift();
+  }, [profile?.shift_code, company]);
+
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [validationInfo, setValidationInfo] = useState<{ shiftRangeStr: string; offTime: string } | null>(null);
+
   const [af, setAf] = useState('');
-  const [os, setOs] = useState<number | undefined>(undefined);
-  const [horaInicio, setHoraInicio] = useState<string>('');
-  const [horaFinal, setHoraFinal] = useState<string>('');
-  const [servicoExecutado, setServicoExecutado] = useState<string>('');
+  const [os, setOs] = useState('');
+  const [horaInicio, setHoraInicio] = useState('');
+  const [horaFinal, setHoraFinal] = useState('');
+  const [servicoExecutado, setServicoExecutado] = useState('');
+  const [parts, setParts] = useState<{codigo_peca: string, descricao: string, quantidade: number}[]>([]);
+  const [isPercurso, setIsPercurso] = useState(false);
+  const [isAgregado, setIsAgregado] = useState(false);
+  const [numeroAgregado, setNumeroAgregado] = useState('');
+  const [agregadoError, setAgregadoError] = useState(false);
+  
+  // Estados para busca e edição de peças
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(true);
-  const [editedTags, setEditedTags] = useState<string>('');
-  const [isOsInvalid, setIsOsInvalid] = useState(false);
-  const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
-  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
-
-  const allAvailablePartsMap = useMemo(() => {
-    const map = new Map<string, Part>();
-    allAvailableParts.forEach(part => {
-      map.set(part.codigo, part);
-    });
-    return map;
-  }, [allAvailableParts]);
+  const [isLoadingParts, setIsLoadingParts] = useState(false);
+  
+  // Novos estados para edição manual da peça antes de adicionar
+  const [partCode, setPartCode] = useState('');
+  const [partDescription, setPartDescription] = useState('');
+  const [partQuantity, setPartQuantity] = useState<number | "">(1);
+  const [partQuantityError, setPartQuantityError] = useState(false);
+  
+  const [availableAfs, setAvailableAfs] = useState<Af[]>([]);
 
   useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoadingParts(true);
-      const parts = await getParts();
-      setAllAvailableParts(parts);
-      setIsLoadingParts(false);
-
-      setIsLoadingAfs(true);
-      const afs = await getAfsFromService();
-      setAllAvailableAfs(afs);
-      setIsLoadingAfs(false);
+    const loadAfs = async () => {
+      const data = await getAfsFromService(company);
+      setAvailableAfs(data);
     };
-    loadInitialData();
-  }, []);
-
-  const resetPartFields = useCallback(() => {
-    setSelectedPart(null);
-    setQuantidade(1);
-    setSearchQuery('');
-    setSearchResults([]);
-    setEditedTags('');
-  }, []);
-
-  const resetAllFieldsInternal = useCallback(() => {
-    resetPartFields();
-    setAf('');
-    setOs(undefined);
-    setHoraInicio('');
-    setHoraFinal('');
-    setServicoExecutado('');
-    setIsOsInvalid(false);
-  }, [resetPartFields]);
-
-  // Efeito para inicializar o formulário com base no `mode` e `initial` props
-  useEffect(() => {
-    resetAllFieldsInternal(); // Sempre reseta tudo primeiro
-
-    if (initialSoData) {
-      setAf(initialSoData.af);
-      setOs(initialSoData.os);
-      setHoraInicio(initialSoData.hora_inicio || '');
-      setHoraFinal(initialSoData.hora_final || '');
-      setServicoExecutado(initialSoData.servico_executado || '');
+    loadAfs();
+    
+    if (initialData) {
+      setAf(initialData.af);
+      setOs(initialData.os || '');
+      setHoraInicio(initialData.hora_inicio || '');
+      setHoraFinal(initialData.hora_final || '');
+      setServicoExecutado(initialData.servico_executado || '');
+      setParts(initialData.parts || []);
+      setIsPercurso(!!initialData.is_percurso);
+      setIsAgregado(!initialData.is_percurso && !!initialData.agregado);
+      setNumeroAgregado(!initialData.is_percurso ? (initialData.numero_agregado || '') : '');
+    } else {
+      setIsPercurso(false);
+      setIsAgregado(false);
+      setNumeroAgregado('');
     }
-
-    if (mode === 'edit-part' && initialPartData) {
-      setQuantidade(initialPartData.quantidade ?? 1);
-      const partFromInitial = initialPartData.codigo_peca ? allAvailablePartsMap.get(initialPartData.codigo_peca) : null;
-      setSelectedPart(partFromInitial || null);
-      setEditedTags(partFromInitial?.tags || '');
-      setSearchQuery(initialPartData.codigo_peca || ''); 
-    } else if (mode === 'add-part-to-existing-so') {
-      setQuantidade(1); // Quantidade padrão para nova peça
-      resetPartFields(); // Limpa campos de peça para nova adição
-    } else if (mode === 'create-new-so' || mode === 'edit-so-details') {
-      resetPartFields(); // Não há peça sendo adicionada/editada nestes modos inicialmente
-    }
-
-    setIsOsInvalid(false);
-  }, [mode, initialSoData, initialPartData, allAvailablePartsMap, resetAllFieldsInternal, resetPartFields]);
-
+  }, [initialData, company]);
 
   useEffect(() => {
-    const fetchSearchResults = async () => {
+    if (isPercurso) {
+      setIsAgregado(false);
+      setNumeroAgregado('');
+      setAgregadoError(false);
+    }
+  }, [isPercurso]);
+
+  useEffect(() => {
+    const handler = setTimeout(async () => {
       if (searchQuery.length > 1) {
         setIsLoadingParts(true);
-        const results = await searchPartsService(searchQuery);
+        const results = await searchPartsService(searchQuery, company);
         setSearchResults(results);
         setIsLoadingParts(false);
       } else {
         setSearchResults([]);
       }
-    };
-    const handler = setTimeout(() => {
-      fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQuery]);
+  }, [searchQuery, company]);
 
-  useEffect(() => {
-    setEditedTags(selectedPart?.tags || '');
-  }, [selectedPart]);
-
-  const formatRelatedPartString = (part: Part): RelatedPart => {
-    const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
-    const subText = part.name && part.name.trim() !== '' && part.descricao !== mainText ? part.descricao : '';
-    return { codigo: part.codigo, name: mainText, desc: subText };
-  };
-
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
-
-  const handleSelectPart = (part: Part) => {
-    setSelectedPart(part);
+  const handleSelectPartFromSearch = (part: Part) => {
+    setPartCode(part.codigo);
+    setPartDescription(part.descricao);
     setSearchQuery('');
     setSearchResults([]);
   };
 
-  const handleSelectAf = (selectedAfNumber: string) => {
-    setAf(selectedAfNumber);
-  };
-
-  const handleUpdateTags = async () => {
-    if (!selectedPart) {
-      showError('Nenhuma peça selecionada para atualizar as tags.');
-      return;
-    }
-    if (selectedPart.tags === editedTags) {
-      showError('As tags não foram alteradas.');
+  const handleAddPartToList = () => {
+    if (!partCode.trim() && !partDescription.trim()) {
+      showError('Informe ao menos o código ou a descrição da peça.');
       return;
     }
 
-    try {
-      await updatePart({ ...selectedPart, tags: editedTags });
-      showSuccess('Tags da peça atualizadas com sucesso!');
-      setSelectedPart(prev => prev ? { ...prev, tags: editedTags } : null);
-    } catch (error) {
-      showError('Erro ao atualizar as tags da peça.');
+    const qtyNum = partQuantity === "" ? 0 : Number(partQuantity);
+    if (partQuantity === "" || isNaN(qtyNum) || qtyNum <= 0) {
+      setPartQuantityError(true);
+      showError('O valor da quantidade tem que ser maior que "0"');
+      return;
     }
+
+    setParts(prev => [...prev, {
+      codigo_peca: partCode.trim(),
+      descricao: partDescription.trim(),
+      quantidade: qtyNum
+    }]);
+
+    // Limpa os campos após adicionar
+    setPartCode('');
+    setPartDescription('');
+    setPartQuantity(1);
+    setPartQuantityError(false);
+    showSuccess('Peça adicionada à lista.');
   };
 
-  const handleOsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const parsedValue = value === '' ? undefined : parseInt(value);
-
-    if (parsedValue !== undefined && (parsedValue < 0 || parsedValue > 99999)) {
-      setIsOsInvalid(true);
-    } else {
-      setIsOsInvalid(false);
-    }
-    setOs(parsedValue);
+  const handleRemovePart = (index: number) => {
+    setParts(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const checkTimeOverlap = (
+    horaInicioA: string,
+    horaFinalA: string,
+    horaInicioB: string,
+    horaFinalB: string
+  ): boolean => {
+    if (!horaInicioA || !horaFinalA || !horaInicioB || !horaFinalB) return false;
+
+    const toMinutes = (time: string) => {
+      const [h, m] = time.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    let startA = toMinutes(horaInicioA);
+    let endA = toMinutes(horaFinalA);
+    let startB = toMinutes(horaInicioB);
+    let endB = toMinutes(horaFinalB);
+
+    if (endA < startA) endA += 24 * 60;
+    if (endB < startB) endB += 24 * 60;
+
+    const overlaps = (s1: number, e1: number, s2: number, e2: number) => {
+      return Math.max(s1, s2) < Math.min(e1, e2);
+    };
+
+    if (overlaps(startA, endA, startB, endB)) return true;
+    if (overlaps(startA, endA, startB + 24 * 60, endB + 24 * 60)) return true;
+    if (overlaps(startA + 24 * 60, endA + 24 * 60, startB, endB)) return true;
+
+    return false;
+  };
+
+  const buildServiceOrderObject = (): ServiceOrderData => {
+    // Se já tinha um crachá no registro existente, preserva.
+    // Caso contrário (registro antigo ou novo), usa o crachá do profile.
+    const crachaToSave = initialData?.cracha || profile?.badge || "";
+
+    return {
+      id: initialData?.id || uuidv4(),
+      cracha: crachaToSave,
+      af: af || "",
+      os: isPercurso ? "" : os,
+      hora_inicio: horaInicio,
+      hora_final: horaFinal,
+      servico_executado: isPercurso ? "Percurso" : servicoExecutado,
+      parts: isPercurso ? [] : parts,
+      is_percurso: isPercurso,
+      agregado: !isPercurso && isAgregado,
+      numero_agregado: (!isPercurso && isAgregado) ? numeroAgregado.trim() : null
+    };
+  };
+
+  const handleConfirmSave = () => {
+    setIsConfirmDialogOpen(false);
+    onSave(buildServiceOrderObject());
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isOsInvalid) {
-      showError('Por favor, corrija o valor da OS antes de continuar.');
+    // 1. Validar campos obrigatórios e compatibilidade com Agregado
+    if (isPercurso && isAgregado) {
+      showError('OS de percurso não pode possuir agregado.');
       return;
     }
 
-    if (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) {
-      showError('Por favor, insira o AF (Número de Frota).');
+    if (!isPercurso && isAgregado && !numeroAgregado.trim()) {
+      setAgregadoError(true);
+      showError('Informe o Nº Agregado para continuar.');
       return;
     }
 
-    // Lógica para EDITAR DETALHES DA OS
-    if (mode === 'edit-so-details' && initialSoData) {
-      const originalAf = initialSoData.af;
-      const originalOs = initialSoData.os;
-      const originalHoraInicio = initialSoData.hora_inicio;
-      const originalHoraFinal = initialSoData.hora_final;
-      const originalServicoExecutado = initialSoData.servico_executado;
-      const originalCreatedAt = initialSoData.createdAt;
-
-      const itemsToUpdate = listItems.filter(item =>
-        item.af === originalAf &&
-        (item.os === originalOs || (item.os === undefined && originalOs === undefined)) &&
-        (item.hora_inicio === originalHoraInicio || (item.hora_inicio === undefined && originalHoraInicio === undefined)) &&
-        (item.hora_final === originalHoraFinal || (originalHoraFinal === undefined && item.hora_final === undefined)) &&
-        (item.servico_executado === originalServicoExecutado || (item.servico_executado === undefined && item.servico_executado === undefined))
-      );
-
-      if (itemsToUpdate.length > 0) {
-        try {
-          for (const item of itemsToUpdate) {
-            await updateServiceOrderItem({
-              ...item,
-              af,
-              os,
-              hora_inicio: horaInicio || undefined,
-              hora_final: horaFinal || undefined,
-              servico_executado: servicoExecutado,
-            });
-          }
-          showSuccess('Detalhes da Ordem de Serviço atualizados!');
-        } catch (error) {
-          showError('Erro ao atualizar os detalhes da Ordem de Serviço.');
-        }
-      } else {
-        // Se não houver itens, cria um item "em branco" para representar a OS
-        try {
-          await addServiceOrderItem({
-            af,
-            os,
-            hora_inicio: horaInicio || undefined,
-            hora_final: horaFinal || undefined,
-            servico_executado: servicoExecutado,
-            codigo_peca: undefined,
-            descricao: undefined,
-            quantidade: undefined,
-          }, originalCreatedAt);
-          showSuccess('Ordem de Serviço recriada com novos detalhes!');
-        } catch (error) {
-          showError('Erro ao recriar a Ordem de Serviço.');
-        }
-      }
-      onItemAdded();
-      onNewServiceOrder(); // Notifica o pai para resetar o estado de edição
-      onClose?.(); // Fecha o modal/sheet
+    if (!isPercurso && !af) {
+      showError('O número do AF é obrigatório.');
       return;
     }
 
-    // Lógica para ADICIONAR PEÇA A UMA OS EXISTENTE ou EDITAR PEÇA
-    if (mode === 'add-part-to-existing-so' || mode === 'edit-part') {
-      if (!selectedPart) {
-        showError('Por favor, selecione uma peça.');
+
+    // 2. Validar formato das horas
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (horaInicio && !timeRegex.test(horaInicio)) {
+      showError('O horário de início deve estar no formato de horas válido (HH:MM).');
+      return;
+    }
+    if (horaFinal && !timeRegex.test(horaFinal)) {
+      showError('O horário de término deve estar no formato de horas válido (HH:MM).');
+      return;
+    }
+
+    // 3. Validar conflitos já existentes no sistema (sobreposição de horário)
+    if (horaInicio && horaFinal && existingOsList) {
+      const hasConflict = existingOsList.some(item => {
+        if (initialData && item.id === initialData.id) return false;
+        return checkTimeOverlap(horaInicio, horaFinal, item.hora_inicio, item.hora_final);
+      });
+      if (hasConflict) {
+        showError('Há uma sobreposição de horários com outra Ordem de Serviço ou Percurso já existente nesta data.');
         return;
       }
-      if (quantidade <= 0) {
-        showError('A quantidade da peça deve ser maior que zero.');
+    }
+
+    // 4. Validar horário do turno
+    // Se o usuário não informou horário de início nem término, não há o que validar contra o turno.
+    if (horaInicio || horaFinal) {
+      // Usando a data operacional (selectedDate) para verificar folgas e turnos rotativos
+      const validation = validateTimesAgainstShift(horaInicio, horaFinal, selectedDate, userShift);
+      if (!validation.isValid) {
+        setValidationInfo({
+          shiftRangeStr: validation.shiftRangeStr || 'Folga',
+          offTime: validation.offTime || ''
+        });
+        setIsConfirmDialogOpen(true);
         return;
       }
-
-      try {
-        if (mode === 'edit-part' && initialPartData) {
-          // Atualiza a peça existente
-          await updateServiceOrderItem({
-            ...initialPartData,
-            codigo_peca: selectedPart.codigo,
-            descricao: selectedPart.descricao,
-            quantidade: quantidade,
-            af: af, // AF já vem do initialSoData
-            os: os, // OS já vem do initialSoData
-            hora_inicio: horaInicio || undefined,
-            hora_final: horaFinal || undefined,
-            servico_executado: servicoExecutado,
-          });
-          showSuccess('Peça atualizada com sucesso!');
-        } else if (mode === 'add-part-to-existing-so' && initialSoData) {
-          // Adiciona nova peça à OS existente
-          // Verifica se existe um item "em branco" para esta OS e o remove
-          const blankItem = listItems.find(item =>
-            item.af === initialSoData.af &&
-            (item.os === initialSoData.os || (item.os === undefined && initialSoData.os === undefined)) &&
-            (item.hora_inicio === initialSoData.hora_inicio || (item.hora_inicio === undefined && initialSoData.hora_inicio === undefined)) &&
-            (item.hora_final === initialSoData.hora_final || (initialSoData.hora_final === undefined && item.hora_final === undefined)) &&
-            (item.servico_executado === initialSoData.servico_executado || (initialSoData.servico_executado === undefined && item.servico_executado === undefined)) &&
-            !item.codigo_peca && !item.descricao && (item.quantidade === undefined || item.quantidade === 0)
-          );
-          if (blankItem) {
-            await deleteServiceOrderItem(blankItem.id);
-          }
-
-          await addServiceOrderItem({
-            codigo_peca: selectedPart.codigo,
-            descricao: selectedPart.descricao,
-            quantidade: quantidade,
-            af: initialSoData.af,
-            os: initialSoData.os,
-            hora_inicio: initialSoData.hora_inicio || undefined,
-            hora_final: initialSoData.hora_final || undefined,
-            servico_executado: servicoExecutado,
-          }, initialSoData.createdAt);
-          showSuccess('Peça adicionada à Ordem de Serviço!');
-        }
-        onItemAdded(); // Recarrega a lista no componente pai
-        onClose?.(); // Fecha o modal/sheet
-      } catch (error) {
-        showError('Erro ao salvar peça.');
-      }
-      return;
     }
 
-    // Lógica para CRIAR NOVA OS (mode === 'create-new-so')
-    if (mode === 'create-new-so') {
-      try {
-        // Se houver uma peça selecionada, adiciona-a diretamente
-        if (selectedPart) {
-          if (quantidade <= 0) {
-            showError('A quantidade da peça deve ser maior que zero.');
-            return;
-          }
-          await addServiceOrderItem({
-            codigo_peca: selectedPart.codigo,
-            descricao: selectedPart.descricao,
-            quantidade: quantidade,
-            af,
-            os: os,
-            hora_inicio: horaInicio || undefined,
-            hora_final: horaFinal || undefined,
-            servico_executado: servicoExecutado,
-          });
-          showSuccess('Ordem de Serviço e peça adicionadas!');
-        } else {
-          // Se não houver peça, cria uma OS "em branco"
-          await addServiceOrderItem({
-            af,
-            os: os,
-            hora_inicio: horaInicio || undefined,
-            hora_final: horaFinal || undefined,
-            servico_executado: servicoExecutado,
-            codigo_peca: undefined,
-            descricao: undefined,
-            quantidade: undefined,
-          });
-          showSuccess('Ordem de Serviço criada sem peças. Adicione peças agora!');
-        }
-        onItemAdded();
-        onNewServiceOrder(); // Notifica o pai para resetar o estado de edição
-        onClose?.(); // Fecha o modal/sheet
-        // setIsCreatingNewOrder(false); // Esta linha não é mais necessária aqui
-      } catch (error) {
-        showError('Erro ao criar ordem de serviço.');
-      }
-      return;
-    }
+    // 5. Caso esteja tudo correto, prosseguir com o salvamento direto
+    onSave(buildServiceOrderObject());
   };
 
-  // Lógica para desabilitar a edição de tags
-  const canEditTags = checkPageAccess('/manage-tags');
-  const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
-  
-  // Desabilita o botão de submit se AF for vazio ou OS inválida
-  const isSubmitDisabled = isLoadingParts || (!af && (mode === 'create-new-so' || mode === 'edit-so-details')) || isOsInvalid;
-
-  // Determina quais seções mostrar
-  const showOsDetails = mode === 'create-new-so' || mode === 'edit-so-details'; // Alterado para ocultar em modos de peça
-  const showPartDetails = mode === 'create-new-so' || mode === 'add-part-to-existing-so' || mode === 'edit-part';
-  const isOsDetailsReadOnly = mode === 'add-part-to-existing-so' || mode === 'edit-part';
-
   return (
-    <Card className="w-full max-w-md mx-auto shadow-none border-none">
-      <CardHeader className="p-0 pb-4">
-        <CardTitle className="text-xl font-bold">
-          {mode === 'create-new-so' && "Criar Nova Ordem de Serviço"}
-          {mode === 'edit-so-details' && (
-            <>
-              Editar OS: <span className="text-primary dark:text-primary">{initialSoData?.af}</span>
-              {initialSoData?.os && <span className="text-primary dark:text-primary"> (OS: {initialSoData.os})</span>}
-            </>
-          )}
-          {mode === 'add-part-to-existing-so' && (
-            <>
-              Adicionar Peça à OS: <span className="text-primary dark:text-primary">{initialSoData?.af}</span>
-              {initialSoData?.os && <span className="text-primary dark:text-primary"> (OS: {initialSoData.os})</span>}
-            </>
-          )}
-          {mode === 'edit-part' && (
-            <>
-              Editar Peça: <span className="text-primary dark:text-primary">{initialPartData?.codigo_peca || initialPartData?.descricao}</span>
-            </>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Campos da Ordem de Serviço */}
-          {showOsDetails && (
-            <>
-              <div>
-                <Label htmlFor="af">AF (Número de Frota)</Label>
-                <AfSearchInput
-                  value={af}
-                  onChange={setAf}
-                  onSelectAf={handleSelectAf}
-                  readOnly={isOsDetailsReadOnly}
-                  availableAfs={allAvailableAfs}
-                />
-              </div>
-              <div>
-                <Label htmlFor="os" className={cn(isOsInvalid && 'text-destructive')}>OS (Opcional)</Label>
-                <Input
-                  id="os"
-                  type="number"
-                  value={os === undefined ? '' : os}
-                  onChange={handleOsChange}
-                  placeholder="Número da Ordem de Serviço"
-                  min="0"
-                  max="99999"
-                  readOnly={isOsDetailsReadOnly}
-                  className={cn(isOsInvalid && 'border-destructive focus-visible:ring-destructive')}
-                />
-                {isOsInvalid && (
-                  <p className="text-sm text-destructive mt-1">
-                    Valor inválido. A OS só pode ser de 0 a 99999.
-                  </p>
-                )}
-              </div>
-              {/* Horários: Lado a lado no mobile, com label "Hora" acima */}
-              <div className="space-y-2">
-                {isMobile && <Label className="text-base font-semibold">Hora (Opcional)</Label>}
-                <div className="flex flex-col md:flex-row md:space-x-2 space-y-2 md:space-y-0"> {/* Adicionado md:flex-row e md:space-x-2 */}
-                  <div className="flex-1">
-                    <Label htmlFor="hora_inicio" className="min-h-[2.5rem] flex items-center">
-                      {isMobile ? 'Inicial' : 'Hora de Início (Opcional)'}
-                    </Label>
-                    <Input
-                      id="hora_inicio"
-                      type="time"
-                      value={horaInicio}
-                      onChange={(e) => setHoraInicio(e.target.value)}
-                      readOnly={isOsDetailsReadOnly}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <Label htmlFor="hora_final" className="min-h-[2.5rem] flex items-center">
-                      {isMobile ? 'Final' : 'Hora Final (Opcional)'}
-                    </Label>
-                    <Input
-                      id="hora_final"
-                      type="time"
-                      value={horaFinal}
-                      onChange={(e) => setHoraFinal(e.target.value)}
-                      readOnly={isOsDetailsReadOnly}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="servico_executado">Serviço Executado (Opcional)</Label>
-                <Textarea
-                  id="servico_executado"
-                  value={servicoExecutado}
-                  onChange={(e) => setServicoExecutado(e.target.value)}
-                  placeholder="Descreva o serviço executado"
-                  rows={3}
-                  readOnly={isOsDetailsReadOnly}
-                />
-              </div>
-            </>
-          )}
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Checkbox Percurso */}
+      <div className="flex items-center space-x-2 p-3 bg-red-50/50 dark:bg-red-950/10 border border-red-100 dark:border-red-900/30 rounded-md">
+        <Checkbox
+          id="is-percurso"
+          checked={isPercurso}
+          onCheckedChange={(checked) => setIsPercurso(!!checked)}
+          className="h-5 w-5 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600 border-red-200 cursor-pointer"
+        />
+        <Car className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
+        <label
+          htmlFor="is-percurso"
+          className="text-sm font-semibold text-red-700 dark:text-red-400 cursor-pointer select-none"
+        >
+          Percurso (Deslocamento)
+        </label>
+      </div>
 
-          {showPartDetails && (
-            <>
-              {showOsDetails && <Separator className="my-6" />}
-              <h3 className="text-lg font-semibold">Detalhes da Peça</h3>
-              <div>
-                <Label htmlFor="search-part">Buscar Peça</Label>
+      {/* Checkbox Agregado */}
+      <div className={cn(
+        "p-3 border rounded-md transition-colors",
+        isPercurso
+          ? "bg-muted/40 border-muted opacity-70"
+          : "bg-blue-50/50 dark:bg-blue-950/10 border-blue-100 dark:border-blue-900/30"
+      )}>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="is-agregado"
+            checked={isAgregado}
+            disabled={isPercurso}
+            onCheckedChange={(checked) => {
+              setIsAgregado(!!checked);
+              setAgregadoError(false);
+            }}
+            className="h-5 w-5 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 border-blue-200 cursor-pointer disabled:cursor-not-allowed"
+          />
+          <Truck className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+          <label
+            htmlFor="is-agregado"
+            className={cn(
+              "text-sm font-semibold select-none",
+              isPercurso
+                ? "text-muted-foreground cursor-not-allowed"
+                : "text-blue-700 dark:text-blue-400 cursor-pointer"
+            )}
+          >
+            Agregado
+          </label>
+        </div>
+
+        {isPercurso && (
+          <p className="text-xs text-muted-foreground mt-1 ml-7">
+            Indisponível em OS de percurso
+          </p>
+        )}
+
+        {!isPercurso && isAgregado && (
+          <div className="mt-3 ml-7 space-y-1 animate-in fade-in duration-200">
+            <Label htmlFor="numero-agregado" className="text-xs font-medium">
+              Nº Agregado <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="numero-agregado"
+              value={numeroAgregado}
+              onChange={(e) => {
+                setNumeroAgregado(e.target.value);
+                setAgregadoError(false);
+              }}
+              placeholder="Ex: 123456"
+              className={cn(
+                "h-9 max-w-xs",
+                agregadoError && "border-destructive focus-visible:ring-destructive"
+              )}
+            />
+            {agregadoError && (
+              <p className="text-xs text-destructive">
+                Informe o Nº Agregado para continuar.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>
+            AF (Número de Frota) {!isPercurso && <span className="text-destructive">*</span>}
+          </Label>
+          <AfSearchInput
+            value={af}
+            onChange={setAf}
+            onSelectAf={setAf}
+            availableAfs={availableAfs}
+          />
+        </div>
+        {!isPercurso && (
+          <div className="space-y-2 animate-in fade-in duration-200">
+            <Label>Número da OS</Label>
+            <Input
+              value={os}
+              onChange={e => setOs(e.target.value)}
+              placeholder="Ex: 45001"
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Hora Início</Label>
+          <Input type="time" value={horaInicio} onChange={e => setHoraInicio(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Hora Final</Label>
+          <Input type="time" value={horaFinal} onChange={e => setHoraFinal(e.target.value)} />
+        </div>
+      </div>
+
+      {!isPercurso && (
+        <>
+          <div className="space-y-2 animate-in fade-in duration-200">
+            <Label>Serviço Executado</Label>
+            <Textarea
+              value={servicoExecutado}
+              onChange={e => setServicoExecutado(e.target.value)}
+              placeholder="Descreva o trabalho realizado..."
+              rows={3}
+            />
+          </div>
+
+          <div className="border-t pt-4 space-y-4 animate-in fade-in duration-200">
+            <h3 className="font-bold text-lg">Peças Utilizadas</h3>
+            
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label>Buscar Peça no Banco</Label>
                 <PartSearchInput
-                  onSearch={handleSearch}
+                  onSearch={setSearchQuery}
                   searchResults={searchResults}
-                  onSelectPart={handleSelectPart}
+                  onSelectPart={handleSelectPartFromSearch}
                   searchQuery={searchQuery}
                   isLoading={isLoadingParts}
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start"> {/* Adicionado items-start aqui */}
-                <div className="space-y-2 md:col-span-1"> {/* Código da Peça: menor */}
-                  <Label htmlFor="codigo_peca">Cód. Peça</Label> {/* Rótulo encurtado */}
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                <div className="sm:col-span-4 space-y-1">
+                  <Label className="text-xs">Código</Label>
                   <Input
-                    id="codigo_peca"
-                    type="text"
-                    value={selectedPart?.codigo || ''}
-                    placeholder="Código da peça selecionada"
-                    readOnly
-                    className="bg-muted"
+                    value={partCode}
+                    onChange={e => setPartCode(e.target.value)}
+                    placeholder="Cód. Peça"
                   />
                 </div>
-                <div className="space-y-2 md:col-span-2"> {/* Nome da Peça: maior */}
-                  <Label htmlFor="name">Nome da Peça</Label> {/* Rótulo encurtado */}
+                <div className="sm:col-span-5 space-y-1">
+                  <Label className="text-xs">Descrição</Label>
                   <Input
-                    id="name"
-                    type="text"
-                    value={selectedPart?.name || ''}
-                    placeholder="Nome da peça selecionada"
-                    readOnly
-                    className="bg-muted"
+                    value={partDescription}
+                    onChange={e => setPartDescription(e.target.value)}
+                    placeholder="Descrição"
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start"> {/* Adicionado items-start aqui */}
-                <div className="space-y-2 md:col-span-2"> {/* Descrição: maior */}
-                  <Label htmlFor="descricao">Descrição (Opcional)</Label>
+                <div className="sm:col-span-2 space-y-1">
+                  <Label className="text-xs">Qtd</Label>
                   <Input
-                    id="descricao"
-                    type="text"
-                    value={selectedPart?.descricao || ''}
-                    placeholder="Descrição da peça selecionada"
-                    readOnly
-                    className="bg-muted"
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-1"> {/* Quantidade: menor */}
-                  <Label htmlFor="quantidade">Quantidade</Label>
-                  <Input
-                    id="quantidade"
                     type="number"
-                    value={quantidade}
-                    onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
-                    min="1"
-                    required={!!selectedPart}
+                    value={partQuantity}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setPartQuantity('');
+                      } else {
+                        const parsed = parseInt(val, 10);
+                        setPartQuantity(isNaN(parsed) ? '' : parsed);
+                      }
+                      setPartQuantityError(false);
+                    }}
+                    className={cn(partQuantityError && "border-destructive focus-visible:ring-destructive")}
                   />
+                  {partQuantityError && (
+                    <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
+                  )}
+                </div>
+                <div className="sm:col-span-1">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    onClick={handleAddPartToList}
+                    className="w-full"
+                  >
+                    <PlusCircle className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
-              {selectedPart && (
-                <div>
-                  <Label htmlFor="tags">Tags (separadas por ';')</Label>
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      id="tags"
-                      type="text"
-                      value={editedTags}
-                      onChange={(e) => setEditedTags(e.target.value)}
-                      placeholder="Adicione tags separadas por ';'"
-                      disabled={!canEditTags}
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleUpdateTags}
-                      disabled={isUpdateTagsDisabled}
-                      variant="outline"
-                      size="icon"
-                      aria-label="Atualizar Tags"
-                    >
-                      <Save className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-              {selectedPart && selectedPart.itens_relacionados && selectedPart.itens_relacionados.length > 0 && (
-                <div className="space-y-2 border-t pt-4">
-                  <Label className="flex items-center gap-2">
-                    <Tag className="h-4 w-4" /> Itens Relacionados da Peça
-                  </Label>
-                  <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
-                    <div className="flex flex-col gap-2">
-                      {selectedPart.itens_relacionados.map(relatedItem => {
-                          const relatedPart = allAvailableParts.find(p => p.codigo === relatedItem.codigo);
-                          if (relatedPart) {
-                            return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
-                          }
-                          return <RelatedPartDisplay key={relatedItem.codigo} item={relatedItem} />;
-                      })}
-                    </div>
-                  </ScrollArea>
-                </div>
-              )}
-            </>
-          )}
-          <div className="flex gap-2 pt-4">
-            {onClose && (
-              <Button type="button" variant="outline" onClick={onClose} className="w-full">
-                <XCircle className="mr-2 h-4 w-4" /> Cancelar
-              </Button>
+            </div>
+
+            {parts.length > 0 && (
+              <div className="border rounded-md overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Peça</TableHead>
+                      <TableHead className="w-16 text-center">Qtd</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parts.map((p, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-sm break-all md:break-normal whitespace-normal">
+                          <div className="font-medium text-xs md:text-sm">{p.codigo_peca || 'S/ Cód'}</div>
+                          <div className="text-xs text-muted-foreground break-words whitespace-normal">{p.descricao || 'S/ Desc'}</div>
+                        </TableCell>
+                        <TableCell className="text-center">{p.quantidade}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemovePart(i)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
-            <Button type="submit" className="w-full" disabled={isSubmitDisabled}>
-              {mode === 'edit-so-details' ? "Salvar Detalhes da Ordem" : 
-               mode === 'add-part-to-existing-so' ? "Adicionar Peça" : 
-               mode === 'edit-part' ? "Salvar Peça" : 
-               "Criar Ordem e Adicionar Peça"}
-            </Button>
           </div>
-        </form>
-      </CardContent>
-    </Card>
+        </>
+      )}
+
+      <div className="flex gap-3 pt-4">
+        <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>
+          <XCircle className="h-4 w-4 mr-2" /> Cancelar
+        </Button>
+        <Button type="submit" className="flex-1">
+          <Save className="h-4 w-4 mr-2" /> Salvar OS
+        </Button>
+      </div>
+    </form>
+
+    <AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-destructive flex items-center gap-2">
+            Horário fora do turno
+          </AlertDialogTitle>
+          <AlertDialogDescription className="space-y-4 pt-2 text-foreground">
+            <p>O horário informado está fora do horário previsto para o seu turno.</p>
+            
+            <div className="bg-muted p-3 rounded-md space-y-2 border text-left">
+              <div>
+                <span className="font-semibold block text-xs uppercase text-muted-foreground">Turno do funcionário:</span>
+                <span className="text-sm font-medium">{validationInfo?.shiftRangeStr || 'Folga'}</span>
+              </div>
+              <div>
+                <span className="font-semibold block text-xs uppercase text-muted-foreground">Horário informado:</span>
+                <span className="text-sm font-medium text-destructive">{validationInfo?.offTime || '--:--'}</span>
+              </div>
+            </div>
+            
+            <p className="font-semibold text-sm">Deseja salvar mesmo assim?</p>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="flex gap-2 sm:gap-0 sm:flex-row justify-end">
+          <AlertDialogCancel asChild>
+            <Button variant="outline" className="mt-0" onClick={() => setIsConfirmDialogOpen(false)}>
+              Cancelar
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button variant="destructive" onClick={handleConfirmSave}>
+              Salvar mesmo assim
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>
   );
 };
 

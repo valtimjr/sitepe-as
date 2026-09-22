@@ -1,143 +1,644 @@
-import React, { useState, useEffect, useCallback } from 'react';
+"use client";
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import ServiceOrderForm from '@/components/ServiceOrderForm';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
-import { getServiceOrderItems, ServiceOrderItem } from '@/services/partListService'; // Usar getServiceOrderItems e ServiceOrderItem
-import { Link } from 'react-router-dom';
+import { getDailyServiceOrders, ServiceOrderData, saveDailyServiceOrder } from '@/services/partListService';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, FilePlus, ClipboardList, Clock, ArrowUpNarrowWide, ArrowDownNarrowWide } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent } from '@/components/ui/card';
+import { ClipboardList, ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, Trash2, Copy, Share2, FileDown, ArrowUpNarrowWide, ArrowDownWideNarrow, PlusCircle, GripVertical, Clock } from 'lucide-react';
+import { format, addDays, subDays } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { showSuccess, showError } from '@/utils/toast';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useSession } from '@/components/SessionContextProvider';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Importar Sheet
-// Dialog não será mais usado para o formulário principal
-// import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; 
-import { useIsMobile } from '@/hooks/use-mobile'; // Importar useIsMobile
+import { cn, getOperationalDate, formatDuration, calculateOsAndPercursoTimes } from '@/lib/utils';
+import { calculateDailyTimesAndGaps } from '@/services/shiftService';
+import {
+  ExportEntry,
+  validateExportTimes,
+  calculateExportIntervals,
+  buildInvalidTimesMessage,
+} from '@/lib/serviceOrderExport';
+import { supabase } from '@/integrations/supabase/client';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-type FormMode = 'create-new-so' | 'add-part-to-existing-so' | 'edit-part' | 'edit-so-details';
-
-interface ServiceOrderDetails {
-  af: string;
-  os?: number;
-  hora_inicio?: string;
-  hora_final?: string;
-  servico_executado?: string;
-  createdAt?: Date; // createdAt é opcional aqui, mas será obrigatório no ServiceOrderGroupDetails
-  mode?: FormMode;
-}
-
-type SortOrder = 'manual' | 'asc' | 'desc';
-
-interface ServiceOrderListProps {
-  onItemAdded: () => void;
-  onNewServiceOrder: () => void;
-  listItems: ServiceOrderItem[]; // Ainda necessário para a lógica de item em branco
-  onClose?: () => void; // Para fechar o Sheet/Dialog
-  
-  mode: FormMode; // Modo explícito do formulário
-  initialSoData?: ServiceOrderDetails | null; // Dados da OS (para criar nova, editar detalhes, adicionar peça)
-  initialPartData?: ServiceOrderItem | null; // Dados da peça (apenas para editar peça)
-}
+import { ServiceOrderCharts } from '@/components/ServiceOrderCharts';
+import { useCompany } from '@/context/CompanyContext';
+import { FileChartLine } from 'lucide-react';
 
 const ServiceOrderList: React.FC = () => {
-  const [listItems, setListItems] = useState<ServiceOrderItem[]>([]); // Agora usa ServiceOrderItem
+  const { user, session, profile } = useSession();
+  const isMobile = useIsMobile();
+  const { company, branding } = useCompany();
+  
+  const [selectedDate, setSelectedDate] = useState<Date>(getOperationalDate(new Date()));
+  const [osList, setOsList] = useState<ServiceOrderData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [editingServiceOrder, setEditingServiceOrder] = useState<ServiceOrderDetails | null>(null);
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc'); // Alterado para 'asc' como padrão
-  const [isFormOpen, setIsFormOpen] = useState(false); // Novo estado para controlar a abertura do formulário principal
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingOs, setEditingOs] = useState<ServiceOrderData | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  const [selectedOsIds, setSelectedOsIds] = useState<string[]>([]);
+  const [userShift, setUserShift] = useState<any>(null);
+  const [invalidTimesDialog, setInvalidTimesDialog] = useState<{ title: string; lines: string[] } | null>(null);
 
-  const isMobile = useIsMobile(); // Hook para detectar mobile
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
+
+  const dateStr = useMemo(() => {
+    if (!session) return 'visitor';
+    return format(selectedDate, 'yyyy-MM-dd');
+  }, [selectedDate, session]);
+
+  // Limpa as seleções se o dia mudar
+  useEffect(() => {
+    setSelectedOsIds([]);
+  }, [dateStr]);
 
   useEffect(() => {
-    document.title = "Ordens de Serviço - AutoBoard";
+    document.title = `Ordens de Serviço - AutoBoard (${branding.name})`;
+  }, [branding.name]);
+
+  // Atualização automática do dia operacional caso mude no relógio do sistema (ex: ao bater 07:00 AM)
+  useEffect(() => {
+    let prevNowOp = getOperationalDate(new Date());
+
+    const interval = setInterval(() => {
+      const currentNowOp = getOperationalDate(new Date());
+      if (currentNowOp.toDateString() !== prevNowOp.toDateString()) {
+        setSelectedDate(prevSelected => {
+          if (prevSelected.toDateString() === prevNowOp.toDateString()) {
+            return currentNowOp;
+          }
+          return prevSelected;
+        });
+        prevNowOp = currentNowOp;
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const loadListItems = useCallback(async () => {
+  const loadDailyOrders = useCallback(async () => {
     setIsLoading(true);
     try {
-      const items = await getServiceOrderItems(); // Chama a nova função
-      setListItems(items);
+      const data = await getDailyServiceOrders(user?.id, dateStr, company);
+      setOsList(data);
     } catch (error) {
-      showError('Erro ao carregar a lista de ordens de serviço.');
+      showError('Erro ao carregar ordens do dia.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.id, dateStr, company]);
 
   useEffect(() => {
-    loadListItems();
-  }, [loadListItems]);
+    loadDailyOrders();
+  }, [loadDailyOrders]);
 
-  const handleEditServiceOrder = useCallback((details: ServiceOrderDetails) => {
-    setEditingServiceOrder(details);
-    setIsFormOpen(true); // Abre o formulário
-  }, [setEditingServiceOrder, setIsFormOpen]);
+  useEffect(() => {
+    const fetchUserShift = async () => {
+      if (!profile?.shift_code) return;
+      try {
+        const { data } = await supabase
+          .from('shifts')
+          .select('id, name, ref_code, entry_time, exit_time')
+          .eq('ref_code', profile.shift_code)
+          .eq('company', company)
+          .maybeSingle();
+        if (data) setUserShift(data);
+      } catch (err) {
+        console.error('Error fetching user shift:', err);
+      }
+    };
+    fetchUserShift();
+  }, [profile?.shift_code, company]);
 
-  const handleNewServiceOrder = useCallback(() => {
-    setEditingServiceOrder(null); // Garante que é uma nova OS
-    setIsFormOpen(true); // Abre o formulário
-    handleEditServiceOrder({ af: '', createdAt: new Date(), mode: 'create-new-so' });
-  }, [handleEditServiceOrder, setIsFormOpen]);
+  const sortedOsList = useMemo(() => {
+    const getSortValue = (time?: string) => {
+      if (!time) return sortDirection === 'asc' ? Infinity : -Infinity;
+      
+      const [h, m] = time.split(':').map(Number);
+      let adjustedH = h - 7;
+      if (adjustedH < 0) adjustedH += 24;
+      
+      return adjustedH * 60 + m;
+    };
 
-  const handleFormClose = useCallback(() => {
-    setIsFormOpen(false);
-    setEditingServiceOrder(null); // Limpa o item de edição ao fechar
-    loadListItems(); // Recarrega a lista para refletir as alterações
-  }, [setIsFormOpen, setEditingServiceOrder, loadListItems]);
+    return [...osList].sort((a, b) => {
+      const valA = getSortValue(a.hora_inicio);
+      const valB = getSortValue(b.hora_inicio);
+      return sortDirection === 'asc' ? valA - valB : valB - valA;
+    });
+  }, [osList, sortDirection]);
 
-  const handleSortChange = useCallback((order: SortOrder) => {
-    setSortOrder(order);
-  }, []);
+  const dailyTimes = useMemo(() => {
+    const shiftRef = userShift || profile?.shift_code;
+    return calculateDailyTimesAndGaps(osList, selectedDate, shiftRef);
+  }, [osList, selectedDate, userShift, profile?.shift_code]);
 
-  // Usar Sheet para ambos mobile e desktop
-  const ModalComponent = Sheet;
-  const ModalContentComponent = SheetContent;
-  const ModalHeaderComponent = SheetHeader;
-  const ModalTitleComponent = SheetTitle;
+  const handleToggleSelect = (id: string) => {
+    setSelectedOsIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedOsIds(sortedOsList.map(os => os.id));
+    } else {
+      setSelectedOsIds([]);
+    }
+  };
+
+  // Função reutilizável para recuperar todas as OS ou apenas as selecionadas se houver alguma
+  const getTargetOsList = useCallback((onlySelectedIfAny = true) => {
+    const selected = sortedOsList.filter(os => selectedOsIds.includes(os.id));
+    if (onlySelectedIfAny && selected.length > 0) {
+      return selected;
+    }
+    return sortedOsList;
+  }, [sortedOsList, selectedOsIds]);
+
+  const handleDateChange = (date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
+
+  const handleOpenForm = (os?: ServiceOrderData) => {
+    setEditingOs(os || null);
+    setIsFormOpen(true);
+  };
+
+  const handleSaveOS = async (updatedOs: ServiceOrderData) => {
+    // 1. Garantir que a OS atualizada tenha crachá se estiver sem
+    const osWithBadge = {
+      ...updatedOs,
+      cracha: updatedOs.cracha || profile?.badge || ""
+    };
+
+    // 2. Construir a nova lista, garantindo a migração lazy para outros itens da lista salvos
+    const newList = osList.some(o => o.id === osWithBadge.id)
+      ? osList.map(o => o.id === osWithBadge.id ? osWithBadge : o)
+      : [...osList, osWithBadge];
+    
+    // Lazy migration de crachá para outros itens da mesma lista que estão sendo salvos de novo
+    const migratedList = newList.map(o => ({
+      ...o,
+      cracha: o.cracha || profile?.badge || ""
+    }));
+
+    try {
+      await saveDailyServiceOrder(user?.id, dateStr, migratedList, company);
+      setOsList(migratedList);
+      if (isFormOpen) {
+        setIsFormOpen(false);
+        showSuccess(editingOs ? 'OS atualizada!' : 'OS adicionada!');
+      } else {
+        // Silent success for inline updates
+        showSuccess('OS atualizada!');
+      }
+    } catch (error) {
+      showError('Erro ao salvar as ordens.');
+    }
+  };
+
+  const handleDeleteOS = async (id: string) => {
+    const newList = osList.filter(o => o.id !== id);
+    // Lazy migration para o restante da lista de OS
+    const migratedList = newList.map(o => ({
+      ...o,
+      cracha: o.cracha || profile?.badge || ""
+    }));
+    try {
+      await saveDailyServiceOrder(user?.id, dateStr, migratedList, company);
+      setOsList(migratedList);
+      setSelectedOsIds(prev => prev.filter(item => item !== id));
+      showSuccess('OS removida.');
+    } catch (error) {
+      showError('Erro ao remover OS.');
+    }
+  };
+
+  const formatListText = (items: ExportEntry[]) => {
+    if (items.length === 0) return '';
+
+    let text = `Ordens de Serviço (${branding.name}) - ${format(selectedDate, 'dd/MM/yyyy')}\n\n`;
+
+    items.forEach((entry, idx) => {
+      if (entry.kind === 'waiting') {
+        text += `Aguardando Serviço\n${entry.start}-${entry.end}\n`;
+        if (idx < items.length - 1) text += `\n`;
+        return;
+      }
+
+      const group = entry.os;
+      const isPercurso = !!group.is_percurso;
+      if (isPercurso) {
+        text += `Percurso${group.af ? ` (AF: ${group.af})` : ''}\n`;
+      } else {
+        text += `AF: ${group.af}${group.os ? ` OS: ${group.os}` : ''}\n`;
+        if (group.agregado && group.numero_agregado) {
+          text += `Agregado: ${group.numero_agregado}\n`;
+        }
+      }
+      if (group.hora_inicio || group.hora_final) {
+        text += `${group.hora_inicio || '??'}-${group.hora_final || '??'}\n`;
+      }
+      if (group.servico_executado && !isPercurso) {
+        text += `${group.servico_executado}\n`;
+      }
+      if (group.parts && group.parts.length > 0) {
+        text += `Peças:\n`;
+        group.parts.forEach(p => {
+          text += `${p.quantidade} - ${p.descricao}\n`;
+          if (p.codigo_peca) {
+            text += `Cód: ${p.codigo_peca}\n`;
+          }
+        });
+      }
+      if (idx < items.length - 1) text += `\n`;
+    });
+
+    return text.trim();
+  };
+
+  // Gera o texto de exportação (Copiar / WhatsApp). Retorna null se a exportação deve ser bloqueada.
+  const buildExportText = (): string | null => {
+    try {
+      let entries: ExportEntry[];
+
+      if (selectedOsIds.length > 0) {
+        entries = getTargetOsList().map(os => ({ kind: 'activity' as const, os }));
+      } else {
+        const problems = validateExportTimes(osList);
+        if (problems.length > 0) {
+          setInvalidTimesDialog(buildInvalidTimesMessage(problems));
+          return null;
+        }
+        entries = calculateExportIntervals(
+          osList,
+          sortDirection,
+          selectedDate,
+          userShift || profile?.shift_code
+        );
+      }
+
+      return formatListText(entries);
+    } catch (err) {
+      console.error('Erro ao gerar exportação de OS:', err);
+      showError('Não foi possível gerar a exportação.');
+      return null;
+    }
+  };
+
+  const handleCopyList = async () => {
+    const textToCopy = buildExportText();
+    if (!textToCopy) return;
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      showSuccess(selectedOsIds.length > 0
+        ? 'Ordens selecionadas copiadas para a área de transferência!'
+        : 'Ordens copiadas para a área de transferência!'
+      );
+    } catch (err) {
+      showError('Falha ao copiar.');
+    }
+  };
+
+  const handleShareOnWhatsApp = () => {
+    const textToShare = buildExportText();
+    if (!textToShare) return;
+
+    const encodedText = encodeURIComponent(textToShare);
+    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+    showSuccess('Pronto para compartilhar no WhatsApp!');
+  };
+
+  const handleExportPdf = async () => {
+    const targetItems = getTargetOsList();
+    if (targetItems.length === 0) {
+      showError('Nenhuma OS para exportar neste dia.');
+      return;
+    }
+    const isSelectedMode = selectedOsIds.length > 0;
+    const title = isSelectedMode
+      ? `Ordens de Serviço Selecionadas (${branding.name}) - ${format(selectedDate, 'dd/MM/yyyy')}`
+      : `Ordens de Serviço (${branding.name}) - ${format(selectedDate, 'dd/MM/yyyy')}`;
+
+    await lazyGenerateServiceOrderPdf(targetItems.map(os => ({
+      ...os,
+      createdAt: selectedDate,
+      parts: os.parts
+    })), title);
+    showSuccess(isSelectedMode ? 'PDF com as OS selecionadas gerado com sucesso!' : 'PDF gerado com sucesso!');
+  };
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
-      <h1 className="text-4xl font-extrabold mb-4 mt-8 text-center text-primary dark:text-primary flex items-center justify-center gap-3">
-        <ClipboardList className="h-8 w-8 text-primary" />
-        Lista de Ordens de Serviço
-      </h1>
+    <div className="min-h-screen p-4 bg-background text-foreground max-w-5xl mx-auto w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
       
-      {/* O formulário principal agora é um modal/sheet */}
-      <ModalComponent open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <ModalContentComponent 
-          side="right" // Sempre da direita para a esquerda
-          className={isMobile ? "w-full sm:max-w-lg overflow-y-auto" : "sm:max-w-lg md:max-w-xl overflow-y-auto"} // Ajuste de largura para desktop
+      {/* Title */}
+      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center justify-center gap-2">
+        <div className="flex items-center gap-3">
+          <img src="/icons/tela_inicial/12.png" alt="" className="h-16 w-auto object-contain" />
+          Lista de Ordens de Serviço
+        </div>
+        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
+      </h1>
+
+      {/* Date Navigation */}
+      {session && (
+        <div className="flex items-center justify-center gap-4 mb-8">
+          <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="min-w-[200px] justify-center">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                <span className="font-semibold">
+                  {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="center">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleDateChange}
+                locale={ptBR}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="flex justify-center mb-6">
+          <Link to={`/${company}/admin-report`} className="w-full">
+            <Button
+              variant="outline"
+              className="w-full text-primary border-primary/20 hover:bg-primary/5"
+            >
+              <FileChartLine className="mr-2 h-4 w-4" />
+              Relatório Geral
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {!session && (
+
+        <Alert variant="default" className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 mb-6">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertTitle>Modo Visitante</AlertTitle>
+          <AlertDescription>
+            Você não está logado. Suas ordens serão salvas apenas neste dispositivo. 
+            <Link to="/login" className="font-bold underline ml-1 text-primary">Faça login</Link> para salvar na nuvem.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Main Header & Actions */}
+      <div className="space-y-4">
+        
+        <Button
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11 text-base font-medium"
+          onClick={() => handleOpenForm()}
         >
-          <ModalHeaderComponent>
-            <ModalTitleComponent>
-              {editingServiceOrder?.mode === 'edit-so-details' ? 'Editar Detalhes da Ordem de Serviço' :
-               editingServiceOrder?.mode === 'add-part-to-existing-so' ? 'Adicionar Peça à Ordem de Serviço' :
-               'Criar Nova Ordem de Serviço'}
-            </ModalTitleComponent>
-          </ModalHeaderComponent>
-          <div className="py-4">
-            <ServiceOrderForm 
-              onItemAdded={handleFormClose} 
-              onNewServiceOrder={handleNewServiceOrder} // Passa para o formulário poder iniciar uma nova OS
-              listItems={listItems}
-              mode={editingServiceOrder?.mode || 'create-new-so'} // Garante um modo padrão
-              initialSoData={editingServiceOrder} // Passa o objeto ServiceOrderDetails completo
-              initialPartData={null} // Não há peça inicial para este formulário principal
-              onClose={handleFormClose}
+          <PlusCircle className="mr-2 h-5 w-5" /> Iniciar Nova OS
+        </Button>
+
+        <div className="flex flex-wrap items-center justify-end gap-2">
+           <ServiceOrderCharts osList={osList} currentDate={selectedDate} />
+
+           <Button
+             variant="outline"
+             className="text-primary border-primary/20 hover:bg-primary/5 w-10 h-10 p-0 md:w-auto md:h-10 md:px-4 relative"
+             onClick={handleCopyList}
+             disabled={osList.length === 0}
+           >
+             <Copy className="h-4 w-4 md:mr-2" />
+             <span className="hidden md:inline">
+               {selectedOsIds.length > 0 ? `Copiar Selecionadas (${selectedOsIds.length})` : 'Copiar Lista'}
+             </span>
+             {selectedOsIds.length > 0 && (
+               <span className="md:hidden text-[10px] font-bold absolute top-0 right-0 bg-primary text-primary-foreground rounded-full px-1 min-w-[16px] h-[16px] flex items-center justify-center translate-x-1/3 -translate-y-1/3 shadow">
+                 {selectedOsIds.length}
+               </span>
+             )}
+           </Button>
+
+           <div className="relative">
+             <Button
+               className="bg-white hover:bg-gray-50 rounded-full w-10 h-10 p-0 border shadow-sm"
+               onClick={handleShareOnWhatsApp}
+               disabled={osList.length === 0}
+               title={selectedOsIds.length > 0 ? "Compartilhar selecionadas no WhatsApp" : "Compartilhar lista no WhatsApp"}
+             >
+                <img src="/icons/whatsapp.png" alt="WhatsApp" className="h-10 w-10" />
+             </Button>
+             {selectedOsIds.length > 0 && (
+               <span className="text-[10px] font-bold absolute top-0 right-0 bg-green-500 text-white rounded-full px-1 min-w-[16px] h-[16px] flex items-center justify-center translate-x-1/3 -translate-y-1/3 shadow">
+                 {selectedOsIds.length}
+               </span>
+             )}
+           </div>
+
+           <Button
+             className="bg-primary hover:bg-primary/90 text-primary-foreground w-10 h-10 p-0 md:w-auto md:h-10 md:px-4 relative"
+             aria-label="Exportar PDF"
+             onClick={handleExportPdf}
+             disabled={osList.length === 0}
+           >
+             <FileDown className="h-4 w-4 md:mr-2" />
+             <span className="hidden md:inline">
+               {selectedOsIds.length > 0 ? `Exportar Selecionadas (${selectedOsIds.length})` : 'Exportar PDF'}
+             </span>
+             {selectedOsIds.length > 0 && (
+               <span className="md:hidden text-[10px] font-bold absolute top-0 right-0 bg-primary-foreground text-primary rounded-full px-1 min-w-[16px] h-[16px] flex items-center justify-center translate-x-1/3 -translate-y-1/3 shadow">
+                 {selectedOsIds.length}
+               </span>
+             )}
+           </Button>
+        </div>
+      </div>
+
+      {/* Resumo Diário Cards */}
+      {(osList.length > 0 || dailyTimes.waitingMinutes > 0) && (
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 rounded-xl p-3 text-center shadow-sm">
+            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Horas em OS</span>
+            <p className="text-lg sm:text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
+              {formatDuration(dailyTimes.osMinutes)}
+            </p>
+          </div>
+          <div className="bg-red-50/50 dark:bg-red-950/10 border border-red-100/50 rounded-xl p-3 text-center shadow-sm">
+            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Tempo de Percurso</span>
+            <p className="text-lg sm:text-2xl font-extrabold text-red-600 dark:text-red-400 mt-1">
+              {formatDuration(dailyTimes.percursoMinutes)}
+            </p>
+          </div>
+          <div className="bg-green-50/50 dark:bg-green-950/10 border border-green-100/50 rounded-xl p-3 text-center shadow-sm">
+            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Aguardando Serviço</span>
+            <p className="text-lg sm:text-2xl font-extrabold text-green-600 dark:text-green-400 mt-1">
+              {formatDuration(dailyTimes.waitingMinutes)}
+            </p>
+          </div>
+          <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-center shadow-sm">
+            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-bold">Total do dia</span>
+            <p className="text-lg sm:text-2xl font-extrabold text-slate-800 dark:text-slate-200 mt-1">
+              {formatDuration(dailyTimes.totalMinutes)}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* List Header Row (Desktop visible) */}
+      <div className="mt-8 mb-2 px-4 hidden md:grid grid-cols-[auto_1fr_auto_auto] gap-4 text-sm text-muted-foreground font-medium items-center">
+         <div className="flex items-center gap-4">
+            <GripVertical className="h-4 w-4 opacity-50 text-transparent" />
+            {sortedOsList.length > 0 && (
+              <Checkbox
+                checked={sortedOsList.length > 0 && sortedOsList.every(os => selectedOsIds.includes(os.id))}
+                onCheckedChange={handleToggleSelectAll}
+                className="h-5 w-5 rounded border-blue-200"
+                aria-label="Selecionar todas as OS"
+              />
+            )}
+            <div
+              className="flex items-center gap-2 cursor-pointer hover:text-foreground transition-colors group"
+              onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+              title="Ordenar por horário"
+            >
+               <Clock className="h-4 w-4 group-hover:text-primary transition-colors" />
+               {sortDirection === 'asc' ? (
+                 <ArrowUpNarrowWide className="h-4 w-4 text-primary" />
+               ) : (
+                 <ArrowDownWideNarrow className="h-4 w-4 text-primary" />
+               )}
+            </div>
+         </div>
+         <div>
+           {selectedOsIds.length > 0 && (
+             <span className="text-xs font-semibold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-100">
+               {selectedOsIds.length} selecionada(s) para exportação
+             </span>
+           )}
+         </div>
+         <div className="text-center w-16">Qtd</div>
+         <div className="text-right w-20">Opções</div>
+      </div>
+
+      <div className="border-t border-border/50 md:hidden mb-4"></div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      ) : sortedOsList.length === 0 ? (
+        <Card className="border-dashed py-16 mt-4">
+          <CardContent className="flex flex-col items-center text-muted-foreground">
+            <ClipboardList className="h-12 w-12 mb-4 opacity-20" />
+            <p>Nenhuma ordem de serviço para esta data.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-6 mt-2">
+          {/* Mobile Select All Bar */}
+          {sortedOsList.length > 0 && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-blue-50/40 border border-blue-100/50 rounded-sm md:hidden mb-4">
+              <Checkbox
+                checked={sortedOsList.every(os => selectedOsIds.includes(os.id))}
+                onCheckedChange={handleToggleSelectAll}
+                id="mobile-select-all"
+                className="h-5 w-5 rounded border-blue-200"
+              />
+              <label htmlFor="mobile-select-all" className="text-xs font-semibold text-blue-700 cursor-pointer select-none">
+                Selecionar todas as OS ({selectedOsIds.length} selecionadas)
+              </label>
+            </div>
+          )}
+
+          {sortedOsList.map(os => (
+            <ServiceOrderListDisplay
+              key={os.id}
+              group={os}
+              onEdit={() => handleOpenForm(os)}
+              onDelete={() => handleDeleteOS(os.id)}
+              onSave={handleSaveOS}
+              isSelected={selectedOsIds.includes(os.id)}
+              onSelectChange={() => handleToggleSelect(os.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{editingOs ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}</SheetTitle>
+          </SheetHeader>
+          <div className="py-6">
+            <ServiceOrderForm
+              initialData={editingOs}
+              onSave={handleSaveOS}
+              onCancel={() => setIsFormOpen(false)}
+              existingOsList={osList}
+              selectedDate={selectedDate}
             />
           </div>
-        </ModalContentComponent>
-      </ModalComponent>
+        </SheetContent>
+      </Sheet>
 
-      {/* ServiceOrderListDisplay - Agora é um filho direto do container principal */}
-      <ServiceOrderListDisplay 
-        listItems={listItems} 
-        onListChanged={loadListItems} 
-        onEditServiceOrder={handleEditServiceOrder}
-        editingServiceOrder={editingServiceOrder}
-        isLoading={isLoading} 
-        sortOrder={sortOrder}
-        onSortOrderChange={handleSortChange}
-      />
+      <AlertDialog open={!!invalidTimesDialog} onOpenChange={(open) => { if (!open) setInvalidTimesDialog(null); }}>
+        <AlertDialogContent data-testid="invalid-times-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{invalidTimesDialog?.title}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="whitespace-pre-line text-sm text-muted-foreground">
+                {invalidTimesDialog?.lines.join('\n')}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setInvalidTimesDialog(null)}>Entendi</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <div className="flex justify-center mt-8 mb-8">
+        <Link to={`/${company}`}>
+          <Button variant="outline" className="flex items-center gap-2">
+            <ChevronLeft className="h-4 w-4" /> Voltar ao Início
+          </Button>
+        </Link>
+      </div>
       <MadeWithDyad />
     </div>
   );

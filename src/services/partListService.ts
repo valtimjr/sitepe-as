@@ -8,996 +8,432 @@ import {
   updateLocalPart,
   bulkPutLocalAfs,
   getLocalAfs,
-  Part as LocalPart,
-  SimplePartItem as LocalSimplePartItem,
-  ServiceOrderItem as LocalServiceOrderItem,
-  Af as LocalAf,
-  addLocalSimplePartItem,
+  isOnline,
+  getLocalMonthlyApontamento,
+  putLocalMonthlyApontamento,
+  deleteLocalMonthlyApontamento,
+  getLocalDailyServiceOrder,
+  putLocalDailyServiceOrder,
+  deleteLocalDailyServiceOrder,
   getLocalSimplePartsListItems,
+  addLocalSimplePartItem,
   updateLocalSimplePartItem,
   deleteLocalSimplePartItem,
   clearLocalSimplePartsList,
-  addLocalServiceOrderItem,
   getLocalServiceOrderItems,
+  addLocalServiceOrderItem,
   updateLocalServiceOrderItem,
   deleteLocalServiceOrderItem,
   clearLocalServiceOrderItems,
-  isOnline,
-  getLocalMonthlyApontamento, // Importa diretamente
-  putLocalMonthlyApontamento, 
-  deleteLocalMonthlyApontamento 
+  Part as LocalPart,
+  Af as LocalAf
 } from '@/services/localDbService';
 import { supabase } from '@/integrations/supabase/client';
-import { Network } from '@capacitor/network'; // Importar Network
-import { format, parseISO } from 'date-fns';
-import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart } from '@/types/supabase'; // Removido PartImage
+import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, DailyServiceOrder, ServiceOrderData, Af as SupabaseAf, ServiceOrderPart } from '@/types/supabase';
+import { CompanyType } from '@/types/company';
+import {
+  getListsData,
+  getActiveList,
+  addItemToActiveList,
+  updateItemInActiveList,
+  deleteItemFromActiveList,
+  clearActiveList
+} from '@/services/localListStorage';
+
+// Export types used in other files
+export type { SimplePartItem, ServiceOrderItem } from '@/services/localDbService';
+export type { ServiceOrderData, DailyApontamento as Apontamento, MonthlyApontamento } from '@/types/supabase';
 
 export interface Part extends SupabasePart {}
-export interface SimplePartItem extends LocalSimplePartItem {}
-export interface ServiceOrderItem extends LocalServiceOrderItem {}
-export interface Af extends LocalAf {}
-export type Apontamento = DailyApontamento; // Apontamento agora é o DailyApontamento
+export interface Af extends SupabaseAf {}
 
-// Re-exportar getLocalMonthlyApontamento para que outros módulos possam importá-lo de partListService
-export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;
+// Helper to get table name based on company
+const getPartsTable = (company: CompanyType) => company === 'citrosuco' ? 'parts_citrosuco' : 'parts';
+const getAfsTable = (company: CompanyType) => company === 'citrosuco' ? 'afs_citrosuco' : 'afs';
 
-// Helper para garantir que DailyApontamento objetos não contenham um campo 'id' ou 'user_id'
-const cleanDailyApontamento = (ap: DailyApontamento): DailyApontamento => {
-  const { id, user_id, ...rest } = ap as any; // Converte para any para desestruturar 'id' e 'user_id' com segurança, se existirem
-  return rest;
+// --- Visitor Mode Service Orders (Flat List) ---
+
+export const getVisitorServiceOrders = async (company: CompanyType): Promise<ServiceOrderData[]> => {
+  const items = await getLocalServiceOrderItems(company);
+  // Map internal ServiceOrderItem to ServiceOrderData for UI consistency
+  return items.map(item => ({
+    id: item.id,
+    af: item.af,
+    os: item.os || '',
+    hora_inicio: item.hora_inicio || '',
+    hora_final: item.hora_final || '',
+    servico_executado: item.servico_executado || '',
+    parts: item.parts || [],
+    is_percurso: item.is_percurso,
+    agregado: item.agregado,
+    numero_agregado: item.numero_agregado
+  }));
 };
 
-const seedPartsFromFile = async (): Promise<Part[]> => {
-  try {
-    const response = await fetch('/data/parts.json');
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.error("[seedPartsFromFile] Failed to fetch or parse parts.json:", error);
-    return [];
-  }
-};
-
-const seedAfsFromFile = async (): Promise<Af[]> => {
-  let parsedAfs: Af[] = [];
-  try {
-    const response = await fetch('/data/afs.json');
-    if (response.ok) {
-      parsedAfs = await response.json();
-    }
-  } catch (jsonError) {
-    // console.warn('[seedAfsFromFile] Erro ao buscar afs.json, tentando CSV:', jsonError);
-  }
-
-  if (parsedAfs.length === 0) {
-    try {
-      const response = await fetch('/afs.csv');
-      if (response.ok) {
-        const csvText = await response.text();
-        await new Promise<void>((resolve, reject) => {
-          Papa.parse(csvText, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (results: any) => {
-              parsedAfs = results.data.map((row: any) => ({
-                id: row.id || uuidv4(),
-                af_number: row.af_number || row.codigo || row.AF,
-                descricao: row.descricao || row.description || '',
-              })).filter((af: any) => af.af_number);
-              resolve();
-            },
-            error: (error: Error) => {
-              reject(error);
-            }
-          });
-        });
-      }
-    } catch (csvError) {
-      console.error("[seedAfsFromFile] Falha ao buscar ou analisar afs.csv:", csvError);
-    }
-  }
-  return parsedAfs;
-};
-
-/**
- * Função para buscar peças com paginação e contagem total (usada apenas na PartManagementTable).
- * @param query Query de busca.
- * @param page Número da página (base 1).
- * @param pageSize Tamanho da página.
- * @returns Um objeto contendo as peças e a contagem total.
- */
-export const searchPartsPaginated = async (query: string, page: number = 1, pageSize: number = 50): Promise<{ parts: Part[], totalCount: number }> => {
-  const lowerCaseQuery = query.toLowerCase().trim();
-  const offset = (page - 1) * pageSize;
-
-  // 1. Busca remota (Supabase)
-  let queryBuilder = supabase
-    .from('parts')
-    .select('*', { count: 'exact' });
-
-  if (lowerCaseQuery) {
-    const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
-    queryBuilder = queryBuilder.or(
-      `codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},tags.ilike.${searchPattern},name.ilike.${searchPattern}`
-    );
-  }
-
-  // Adiciona uma ordenação no servidor para agrupar códigos.
-  // Isso aumenta a chance de uma busca por código trazer o resultado correto na primeira página.
-  // A ordenação final de prioridade é feita no cliente.
-  queryBuilder = queryBuilder.order('codigo', { ascending: true });
-
-  // Aplica paginação
-  queryBuilder = queryBuilder.range(offset, offset + pageSize - 1);
-
-  const { data, error, count } = await queryBuilder;
-
-  if (error) {
-    console.error('[searchPartsPaginated] Erro ao buscar peças no Supabase:', error);
-    // Fallback para IndexedDB se Supabase falhar
-    const localResults = await searchLocalParts(query);
-    const totalCount = localResults.length;
-    const paginatedLocalResults = localResults.slice(offset, offset + pageSize);
-    return { parts: paginatedLocalResults as Part[], totalCount };
-  }
-
-  let results = data as Part[];
-  const totalCount = count || 0;
-
-  // 2. Ordenação no cliente (para garantir consistência com a busca local)
-  const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
-    if (!fieldValue) return 0;
-    const lowerFieldValue = fieldValue.toLowerCase();
-
-    if (isMultiWord) {
-      // For multi-word, we just check if the sequence exists.
-      // A more complex scoring could be implemented here if needed.
-      return regex.test(lowerFieldValue) ? 1 : 0;
-    } else {
-      // For single-word, we can have more granular scoring.
-      if (lowerFieldValue === query) return 4; // Exact match
-      if (lowerFieldValue.startsWith(query)) return 3; // Starts with
-      if (lowerFieldValue.includes(query)) return 2; // Includes
-    }
-    return 0;
-  };
-
-  if (lowerCaseQuery) {
-    const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
-    const isMultiWordQuery = queryWords.length > 1;
-    const escapedWords = queryWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
-
-    results.sort((a, b) => {
-      const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
-
-      const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
-
-      const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-      
-      const combinedAScore = Math.max(aDescricaoScore, aNameScore);
-      const combinedBScore = Math.max(bDescricaoScore, bNameScore);
-
-      if (combinedAScore !== combinedBScore) return combinedBScore - combinedAScore;
-
-      return 0;
-    });
-  }
-
-  return { parts: results, totalCount };
-};
-
-/**
- * Função para buscar peças (sem paginação) para uso em inputs de busca interativa.
- * Retorna apenas o array de Part[].
- * @param query Query de busca.
- * @returns Array de Part[].
- */
-export const searchParts = async (query: string): Promise<Part[]> => {
-  const lowerCaseQuery = query.toLowerCase().trim();
-  if (!lowerCaseQuery) return [];
-
-  // Fetch from all fields to get a candidate pool
-  const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
-  const { data, error } = await supabase
-    .from('parts')
-    .select('*')
-    .or(`codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},name.ilike.${searchPattern},tags.ilike.${searchPattern}`)
-    .limit(250); // Fetch a decent pool to sort from
-
-  if (error) {
-    console.error('[searchParts] Erro ao buscar no Supabase:', error);
-    return searchLocalParts(query) as Promise<Part[]>; // Fallback
-  }
-
-  let results = data || [];
-
-  // Now apply the user's priority sorting
-  const getFieldMatchScore = (fieldValue: string | undefined, query: string, regex: RegExp, isMultiWord: boolean): number => {
-    if (!fieldValue) return 0;
-    const lowerFieldValue = fieldValue.toLowerCase();
-
-    if (isMultiWord) {
-      // For multi-word, we just check if the sequence exists.
-      // A more complex scoring could be implemented here if needed.
-      return regex.test(lowerFieldValue) ? 1 : 0;
-    } else {
-      // For single-word, we can have more granular scoring.
-      if (lowerFieldValue === query) return 4; // Exact match
-      if (lowerFieldValue.startsWith(query)) return 3; // Starts with
-      if (lowerFieldValue.includes(query)) return 2; // Includes
-    }
-    return 0;
-  };
-
-  const queryWords = lowerCaseQuery.split(/\s+/).filter(Boolean);
-  const isMultiWordQuery = queryWords.length > 1;
-  const escapedWords = queryWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
-
-  results.sort((a, b) => {
-    const aTagsScore = getFieldMatchScore(a.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-    const bTagsScore = getFieldMatchScore(b.tags, lowerCaseQuery, regexPattern, isMultiWordQuery);
-    if (aTagsScore !== bTagsScore) return bTagsScore - aTagsScore;
-
-    const aCodigoScore = getFieldMatchScore(a.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-    const bCodigoScore = getFieldMatchScore(b.codigo, lowerCaseQuery, regexPattern, isMultiWordQuery);
-    if (aCodigoScore !== bCodigoScore) return bCodigoScore - aCodigoScore;
-
-    const aDescricaoScore = getFieldMatchScore(a.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-    const bDescricaoScore = getFieldMatchScore(b.descricao, lowerCaseQuery, regexPattern, isMultiWordQuery);
-    const aNameScore = getFieldMatchScore(a.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-    const bNameScore = getFieldMatchScore(b.name, lowerCaseQuery, regexPattern, isMultiWordQuery);
-    
-    const combinedAScore = Math.max(aDescricaoScore, aNameScore);
-    const combinedBScore = Math.max(bDescricaoScore, bNameScore);
-
-    if (combinedAScore !== combinedBScore) return combinedBScore - combinedAScore;
-
-    return 0;
-  });
-
-  return results.slice(0, 100) as Part[];
-};
-
-/**
- * Função de conveniência para obter todas as peças (sem paginação) para cache/exportação.
- */
-export const getParts = async (): Promise<Part[]> => {
-  const localParts = await getLocalParts();
-  if (localParts.length > 0) {
-    (async () => {
-      try {
-        const allRemoteParts = await getAllPartsForExport();
-        if (allRemoteParts.length !== localParts.length) {
-          await localDb.parts.clear();
-          await bulkPutLocalParts(allRemoteParts);
-        }
-      } catch (e) {
-        console.warn('Background parts sync failed:', e);
-      }
-    })();
-    return localParts as Part[];
-  }
-
-  try {
-    const allRemoteParts = await getAllPartsForExport();
-    if (allRemoteParts.length > 0) {
-      await bulkPutLocalParts(allRemoteParts);
-      return allRemoteParts;
-    }
-
-    const partsFromFile = await seedPartsFromFile();
-    if (partsFromFile.length > 0) {
-      const { error: upsertError } = await supabase.from('parts').upsert(partsFromFile, { onConflict: 'id' });
-      if (upsertError) throw upsertError;
-      await bulkPutLocalParts(partsFromFile);
-      return partsFromFile;
-    }
-    return [];
-  } catch (error) {
-    console.error('[getParts] Erro ao buscar peças:', error);
-    return [];
-  }
-};
-
-
-export const getAllPartsForExport = async (): Promise<Part[]> => {
-  let allData: Part[] = [];
-  const pageSize = 1000; // Define o tamanho da página
-  let offset = 0;
-  let hasMore = true;
-
-  while (hasMore) {
-    const { data, error } = await supabase
-      .from('parts')
-      .select('*')
-      .range(offset, offset + pageSize - 1); // Busca um intervalo de registros
-
-    if (error) {
-      console.error('[getAllPartsForExport] Erro ao buscar todas as peças para exportação do Supabase (paginado):', error);
-      throw new Error(`Erro ao buscar todas as peças para exportação: ${error.message}`);
-    }
-
-    if (data && data.length > 0) {
-      allData = allData.concat(data as Part[]);
-      offset += pageSize;
-    } else {
-      hasMore = false; // Não há mais dados para buscar
-    }
-    // Adicionado: Pequeno atraso para evitar sobrecarga da API em loops grandes
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-  return allData;
-};
-
-export const addPart = async (part: Omit<Part, 'id'>): Promise<string> => {
-  const newPart = { ...part, id: uuidv4() }; // Gera um ID para o Supabase
-  const { data, error } = await supabase
-    .from('parts')
-    .insert(newPart)
-    .select();
-
-  if (error) {
-    console.error('[addPart] Erro ao adicionar peça no Supabase:', error);
-    throw new Error(`Erro ao adicionar peça no Supabase: ${error.message}`);
-  }
-
-  // Adiciona ao IndexedDB também
-  await localDb.parts.add(newPart);
-  return data[0].id;
-};
-
-export const updatePart = async (updatedPart: Part): Promise<void> => {
-  // Atualiza no Supabase
-  const { error: supabaseError } = await supabase
-    .from('parts')
-    .update({ 
-      codigo: updatedPart.codigo, 
-      descricao: updatedPart.descricao, 
-      tags: updatedPart.tags, 
-      name: updatedPart.name,
-      itens_relacionados: updatedPart.itens_relacionados || [], // Inclui o novo campo
-    })
-    .eq('id', updatedPart.id);
-
-  if (supabaseError) {
-    console.error('[updatePart] Erro ao atualizar peça no Supabase:', supabaseError);
-    throw new Error(`Erro ao atualizar a peça no Supabase: ${supabaseError.message}`);
-  }
-
-  // Atualiza no IndexedDB
-  await updateLocalPart(updatedPart);
-};
-
-export const deletePart = async (id: string): Promise<void> => {
-  // Deleta no Supabase
-  const { error: supabaseError } = await supabase
-    .from('parts')
-    .delete()
-    .eq('id', id);
-
-  if (supabaseError) {
-    console.error('[deletePart] Erro ao deletar peça do Supabase:', supabaseError);
-    throw new Error(`Erro ao excluir peça do Supabase: ${supabaseError.message}`);
-  }
-
-  // Deleta no IndexedDB
-  await localDb.parts.delete(id);
-};
-
-// --- Funções para AFs ---
-export const getAfsFromService = async (): Promise<Af[]> => {
-  const localAfs = await getLocalAfs();
-  if (localAfs.length > 0) {
-    (async () => {
-      try {
-        const { data, error } = await supabase.from('afs').select('*').order('af_number', { ascending: true });
-        if (error) throw error;
-        if (data.length !== localAfs.length) {
-          await localDb.afs.clear();
-          await bulkPutLocalAfs(data as Af[]);
-        }
-      } catch (e) {
-        console.warn('Background AF sync failed:', e);
-      }
-    })();
-    return localAfs;
-  }
-
-  try {
-    const { data, error } = await supabase.from('afs').select('*').order('af_number', { ascending: true });
-    if (error) throw error;
-
-    if (data && data.length > 0) {
-      await bulkPutLocalAfs(data as Af[]);
-      return data as Af[];
-    }
-
-    const afsFromFile = await seedAfsFromFile();
-    if (afsFromFile.length > 0) {
-      const { error: upsertError } = await supabase.from('afs').upsert(afsFromFile, { onConflict: 'af_number' });
-      if (upsertError) throw upsertError;
-      await bulkPutLocalAfs(afsFromFile);
-      return afsFromFile;
-    }
-
-    return [];
-  } catch (error) {
-    console.error('[getAfsFromService] Erro ao buscar AFs:', error);
-    return [];
-  }
-};
-
-export const searchAfs = async (query: string): Promise<Af[]> => {
-  const lowerCaseQuery = query.toLowerCase().trim();
-  if (lowerCaseQuery.length < 1) return [];
-
-  try {
-    const searchPattern = `%${lowerCaseQuery}%`;
-    const { data, error } = await supabase
-      .from('afs')
-      .select('*')
-      .or(`af_number.ilike.${searchPattern},descricao.ilike.${searchPattern}`)
-      .order('af_number', { ascending: true })
-      .limit(50);
-
-    if (error) {
-      throw error;
-    }
-    return data as Af[];
-  } catch (error) {
-    console.error('[searchAfs] Erro ao buscar AFs:', error);
-    // Fallback para busca local
-    const allAfs = await getLocalAfs();
-    return allAfs.filter(af => 
-      af.af_number.toLowerCase().includes(lowerCaseQuery) ||
-      (af.descricao && af.descricao.toLowerCase().includes(lowerCaseQuery))
-    ).slice(0, 50);
-  }
-};
-
-export const getAllAfsForExport = async (): Promise<Af[]> => {
-  let allData: Af[] = [];
-  const pageSize = 1000; // Define o tamanho da página
-  let offset = 0;
-  let hasMore = true;
-
-  while (hasMore) {
-    const { data, error } = await supabase
-      .from('afs')
-      .select('*')
-      .range(offset, offset + pageSize - 1); // Busca um intervalo de registros
-
-    if (error) {
-      console.error('[getAllAfsForExport] Erro ao buscar todos os AFs para exportação do Supabase (paginado):', error);
-      throw new Error(`Erro ao buscar todos os AFs para exportação: ${error.message}`);
-    }
-
-    if (data && data.length > 0) {
-      allData = allData.concat(data as Af[]);
-      offset += pageSize;
-    } else {
-      hasMore = false; // Não há mais dados para buscar
-    }
-    // Adicionado: Pequeno atraso para evitar sobrecarga da API em loops grandes
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-  return allData;
-};
-
-export const addAf = async (af: Omit<Af, 'id'>): Promise<string> => {
-  const newAf = { ...af, id: uuidv4() }; // Gera um ID para o Supabase
-  const { data, error } = await supabase
-    .from('afs')
-    .insert(newAf)
-    .select();
-
-  if (error) {
-    console.error('[addAf] Erro ao adicionar AF no Supabase:', error);
-    throw new Error(`Erro ao adicionar AF no Supabase: ${error.message}`);
-  }
-
-  // Adiciona ao IndexedDB também
-  await localDb.afs.add(newAf);
-  return data[0].id;
-};
-
-export const updateAf = async (updatedAf: Af): Promise<void> => {
-  // Atualiza no Supabase
-  const { error: supabaseError } = await supabase
-    .from('afs')
-    .update({ af_number: updatedAf.af_number, descricao: updatedAf.descricao }) // Inclui descricao
-    .eq('id', updatedAf.id);
-
-  if (supabaseError) {
-    console.error('[updateAf] Erro ao atualizar AF no Supabase:', supabaseError);
-    throw new Error(`Erro ao atualizar AF no Supabase: ${supabaseError.message}`);
-  }
-
-  // Atualiza no IndexedDB
-  await localDb.afs.update(updatedAf.id, updatedAf);
-};
-
-export const deleteAf = async (id: string): Promise<void> => {
-  // Deleta no Supabase
-  const { error: supabaseError } = await supabase
-    .from('afs')
-    .delete()
-    .eq('id', id);
-
-  if (supabaseError) {
-    console.error('[deleteAf] Erro ao deletar AF do Supabase:', supabaseError);
-    throw new Error(`Erro ao excluir AF do Supabase: ${supabaseError.message}`);
-  }
-
-  // Deleta no IndexedDB
-  await localDb.afs.delete(id);
-};
-
-// --- Funções para SimplePartItem (Lista de Peças Simples) ---
-export const getSimplePartsListItems = async (): Promise<SimplePartItem[]> => {
-  const items = await getLocalSimplePartsListItems();
-  return items;
-};
-
-export const addSimplePartItem = async (item: Omit<SimplePartItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
-  const id = await addLocalSimplePartItem(item, customCreatedAt);
-  return id;
-};
-
-export const updateSimplePartItem = async (updatedItem: SimplePartItem): Promise<void> => {
-  await updateLocalSimplePartItem(updatedItem);
-};
-
-export const deleteSimplePartItem = async (id: string): Promise<void> => {
-  try {
-    await deleteLocalSimplePartItem(id);
-  } catch (error) {
-    console.error('localDbService: Error deleting item with ID:', id, error);
-    throw error; // Re-lança o erro para que o chamador possa tratá-lo
-  }
-};
-
-export const clearSimplePartsList = async (): Promise<void> => {
-  await clearLocalSimplePartsList();
-};
-
-// --- Funções para ServiceOrderItem (Lista de Ordens de Serviço) ---
-
-// Helper para sincronizar OS para o Supabase (Date based)
-const syncServiceOrdersForDate = async (date: Date, userId: string) => {
-  const dateStr = format(date, 'yyyy-MM-dd');
+export const saveVisitorServiceOrder = async (os: ServiceOrderData, company: CompanyType): Promise<void> => {
+  const all = await getLocalServiceOrderItems(company);
+  const exists = all.find(item => item.id === os.id);
   
-  // Pega todos os itens locais
-  const allItems = await localDb.serviceOrderItems.toArray();
-  // Filtra itens que correspondem à data (ignorando hora para o agrupamento diário)
-  const itemsForDate = allItems.filter(i => {
-    const itemDate = i.created_at ? new Date(i.created_at) : new Date();
-    return format(itemDate, 'yyyy-MM-dd') === dateStr;
-  });
-
-  const payload = {
-    user_id: userId,
-    date: dateStr,
-    os_list: itemsForDate, // Salva o array de itens diretamente no JSONB
-    updated_at: new Date().toISOString()
-  };
-
-  const { error } = await supabase
-    .from('daily_service_orders')
-    .upsert(payload, { onConflict: 'user_id,date' });
-
-  if (error) {
-    console.error(`[syncServiceOrdersForDate] Erro ao sincronizar OS para ${dateStr}:`, error);
+  if (exists) {
+    await updateLocalServiceOrderItem({
+      ...os,
+      created_at: exists.created_at,
+      company
+    });
+  } else {
+    await addLocalServiceOrderItem({
+      ...os,
+      created_at: new Date()
+    }, company);
   }
 };
 
-// Helper para baixar OS do Supabase e atualizar local
-const syncServiceOrdersFromSupabase = async (userId: string) => {
-  try {
-    // Busca todas as ordens de serviço do usuário
+export const deleteVisitorServiceOrder = async (id: string): Promise<void> => {
+  await deleteLocalServiceOrderItem(id);
+};
+
+export const clearVisitorServiceOrders = async (company: CompanyType): Promise<void> => {
+  await clearLocalServiceOrderItems(company);
+};
+
+// --- Service Order Functions (Daily JSON based - Logged Mode) ---
+
+export const getDailyServiceOrders = async (userId: string | undefined, date: string, company: CompanyType): Promise<ServiceOrderData[]> => {
+  if (userId) {
     const { data, error } = await supabase
       .from('daily_service_orders')
       .select('os_list')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('date', date)
+      .eq('company', company)
+      .maybeSingle();
 
     if (error) {
-      console.error('[syncServiceOrdersFromSupabase] Erro ao buscar OS do Supabase:', error);
-      return;
+      console.error('Error fetching SO from Supabase:', error);
+      const local = await getLocalDailyServiceOrder(userId, date, company);
+      return local?.os_list || [];
     }
+    
+    return data?.os_list || [];
+  } else {
+    const local = await getLocalDailyServiceOrder('guest', date, company);
+    return local?.os_list || [];
+  }
+};
 
-    if (data) {
-      let allRemoteItems: ServiceOrderItem[] = [];
-      data.forEach(row => {
-        if (Array.isArray(row.os_list)) {
-          // Garante que created_at seja Date objeto
-          const parsedItems = row.os_list.map((item: any) => ({
-            ...item,
-            created_at: item.created_at ? new Date(item.created_at) : new Date()
-          }));
-          allRemoteItems = [...allRemoteItems, ...parsedItems];
-        }
-      });
+export const saveDailyServiceOrder = async (userId: string | undefined, date: string, osList: ServiceOrderData[], company: CompanyType): Promise<void> => {
+  const payload: Partial<DailyServiceOrder> = {
+    user_id: userId || 'guest',
+    date: date,
+    os_list: osList,
+    updated_at: new Date().toISOString(),
+    company: company
+  };
 
-      // Limpa tabela local e insere os dados do remoto (estratégia de substituição total para simplificar sync)
-      // Nota: Isso substitui dados locais não sincronizados se houver conflito, mas assume que 'get' é chamado ao carregar.
-      await clearLocalServiceOrderItems();
-      // Dexie bulkAdd pode falhar se chaves primárias colidirem, mas aqui estamos substituindo tudo.
-      // Se quisermos ser mais gentis, poderíamos fazer merge, mas para este app simples, substituir garante consistência.
-      if (allRemoteItems.length > 0) {
-        await localDb.serviceOrderItems.bulkAdd(allRemoteItems);
+  if (userId) {
+    const { error } = await supabase
+      .from('daily_service_orders')
+      .upsert(payload, { onConflict: 'user_id,date,company' });
+
+    if (error) throw error;
+  }
+  
+  await putLocalDailyServiceOrder({
+    id: uuidv4(),
+    user_id: userId || 'guest',
+    date: date,
+    os_list: osList,
+    updated_at: payload.updated_at!,
+    user_badge: null,
+    user_name: null,
+    company: company
+  });
+};
+
+export const clearDailyServiceOrders = async (userId: string | undefined, date: string, company: CompanyType): Promise<void> => {
+  if (userId) {
+    const { error } = await supabase
+      .from('daily_service_orders')
+      .delete()
+      .eq('user_id', userId)
+      .eq('date', date)
+      .eq('company', company);
+    
+    if (error) throw error;
+  }
+  
+  await deleteLocalDailyServiceOrder(userId || 'guest', date, company);
+};
+
+// --- Simple Parts List (Local Only) ---
+
+export const getSimplePartsListItems = async (company: CompanyType) => {
+  const activeList = await getActiveList(company);
+  return activeList.items;
+};
+
+export const addSimplePartItem = async (item: { codigo_peca: string; descricao: string; quantidade: number; af?: string }, company: CompanyType) => {
+  return addItemToActiveList(company, item);
+};
+
+export const updateSimplePartItem = async (item: any) => {
+  const company = item.company || 'usina_vale';
+  return updateItemInActiveList(company, item);
+};
+
+export const deleteSimplePartItem = async (id: string) => {
+  const companies: CompanyType[] = ['usina_vale', 'citrosuco'];
+  for (const company of companies) {
+    const data = await getListsData(company);
+    const activeList = data.lists.find(l => l.id === data.activeListId);
+    if (activeList) {
+      const index = activeList.items.findIndex(item => item.id === id);
+      if (index !== -1) {
+        await deleteItemFromActiveList(company, id);
+        return;
       }
     }
-  } catch (e) {
-    console.error('[syncServiceOrdersFromSupabase] Falha geral:', e);
   }
 };
 
-export const getServiceOrderItems = async (): Promise<ServiceOrderItem[]> => {
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (session?.user && await isOnline()) {
-    await syncServiceOrdersFromSupabase(session.user.id);
-  }
-  
-  const items = await getLocalServiceOrderItems();
-  return items;
+export const clearSimplePartsList = async (company: CompanyType) => {
+  return clearActiveList(company);
 };
 
-export const addServiceOrderItem = async (item: Omit<ServiceOrderItem, 'id'>, customCreatedAt?: Date): Promise<string> => {
-  const newItemId = await addLocalServiceOrderItem(item, customCreatedAt);
-  
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.user && await isOnline()) {
-    const dateToSync = customCreatedAt || new Date();
-    await syncServiceOrdersForDate(dateToSync, session.user.id);
-  }
-  
-  return newItemId;
-};
+// --- Parts Management ---
 
-export const updateServiceOrderItem = async (updatedItem: ServiceOrderItem): Promise<void> => {
-  await updateLocalServiceOrderItem(updatedItem);
+const sortPartsByPriority = (parts: Part[], query: string): Part[] => {
+  if (!query) return parts;
   
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.user && await isOnline()) {
-    const dateToSync = updatedItem.created_at ? new Date(updatedItem.created_at) : new Date();
-    await syncServiceOrdersForDate(dateToSync, session.user.id);
-  }
-};
+  const getScore = (part: Part): number => {
+    const lowerQuery = query.toLowerCase().trim();
+    const partTags = (part.tags || '').toLowerCase();
+    const partCode = (part.codigo || '').toLowerCase().trim();
+    const partName = (part.name || '').toLowerCase();
+    const partDesc = (part.descricao || '').toLowerCase();
 
-export const deleteServiceOrderItem = async (id: string): Promise<void> => {
-  // Precisamos pegar o item antes de deletar para saber a data
-  const itemToDelete = await localDb.serviceOrderItems.get(id);
-  await deleteLocalServiceOrderItem(id);
-  
-  if (itemToDelete) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user && await isOnline()) {
-      const dateToSync = itemToDelete.created_at ? new Date(itemToDelete.created_at) : new Date();
-      await syncServiceOrdersForDate(dateToSync, session.user.id);
+    // 1- tag
+    if (partTags && partTags.includes(lowerQuery)) {
+      return 1;
     }
+
+    // 2- código (somente se o número do código for exatamente igual)
+    if (partCode === lowerQuery) {
+      return 2;
+    }
+
+    // 3- Nome
+    if (partName && partName.includes(lowerQuery)) {
+      return 3;
+    }
+
+    // 4- Descrição
+    if (partDesc && partDesc.includes(lowerQuery)) {
+      return 4;
+    }
+
+    // 5- Código (caso o número não seja exatamente igual, mas contém o termo)
+    if (partCode && partCode.includes(lowerQuery)) {
+      return 5;
+    }
+
+    return 10;
+  };
+
+  return [...parts].sort((a, b) => {
+    const scoreA = getScore(a);
+    const scoreB = getScore(b);
+    
+    if (scoreA !== scoreB) {
+      return scoreA - scoreB;
+    }
+    
+    return a.codigo.localeCompare(b.codigo);
+  });
+};
+
+export const searchPartsPaginated = async (query: string, company: CompanyType, page: number = 1, pageSize: number = 50): Promise<{ parts: Part[], totalCount: number }> => {
+  const lowerCaseQuery = query.toLowerCase().trim();
+  const offset = (page - 1) * pageSize;
+  const tableName = getPartsTable(company);
+  let queryBuilder = supabase.from(tableName).select('*', { count: 'exact' });
+  if (lowerCaseQuery) {
+    const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
+    queryBuilder = queryBuilder.or(`codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},tags.ilike.${searchPattern},name.ilike.${searchPattern}`);
+  }
+  queryBuilder = queryBuilder.order('codigo', { ascending: true }).range(offset, offset + pageSize - 1);
+  const { data, error, count } = await queryBuilder;
+  if (error) {
+    const localResults = await searchLocalParts(query, company);
+    const sortedLocal = sortPartsByPriority(localResults as Part[], query);
+    return { parts: sortedLocal.slice(offset, offset + pageSize) as Part[], totalCount: sortedLocal.length };
+  }
+  const sortedData = sortPartsByPriority(data as Part[], query);
+  return { parts: sortedData, totalCount: count || 0 };
+};
+
+export const searchParts = async (query: string, company: CompanyType): Promise<Part[]> => {
+  const lowerCaseQuery = query.toLowerCase().trim();
+  if (!lowerCaseQuery) return [];
+  const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
+  const tableName = getPartsTable(company);
+  const { data, error } = await supabase.from(tableName).select('*').or(`codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},name.ilike.${searchPattern},tags.ilike.${searchPattern}`).limit(100);
+  if (error) {
+    const localResults = await searchLocalParts(query, company);
+    return sortPartsByPriority(localResults as Part[], query);
+  }
+  return sortPartsByPriority(data as Part[], query);
+};
+
+export const getFrequentPartsForProfession = async (professionCode: number, company: CompanyType): Promise<Part[]> => {
+  try {
+    const { data: freqData, error: freqError } = await supabase
+      .from('profession_frequent_parts')
+      .select('part_code')
+      .eq('profession_code', professionCode)
+      .eq('company', company);
+      
+    if (freqError || !freqData || freqData.length === 0) return [];
+    const codes = freqData.map(item => item.part_code);
+    
+    const tableName = getPartsTable(company);
+    const { data: partsData, error: partsError } = await supabase
+      .from(tableName)
+      .select('*')
+      .in('codigo', codes);
+      
+    if (partsError || !partsData) return [];
+    
+    return partsData as Part[];
+  } catch (err) {
+    console.error('Error in getFrequentPartsForProfession:', err);
+    return [];
   }
 };
 
-export const clearServiceOrderList = async (): Promise<void> => {
-  // Para limpar, precisamos saber quais datas foram afetadas para sincronizar "vazio" ou deletar
-  // Simplificação: Pega todas as datas únicas locais, limpa local, e então atualiza essas datas no servidor
-  const allItems = await localDb.serviceOrderItems.toArray();
-  const datesToUpdate = new Set<string>();
-  allItems.forEach(item => {
-    if (item.created_at) {
-      datesToUpdate.add(format(new Date(item.created_at), 'yyyy-MM-dd'));
-    }
+export const getParts = async (company: CompanyType): Promise<Part[]> => {
+  const localParts = await getLocalParts(company);
+  if (localParts.length > 0) return localParts as Part[];
+  const tableName = getPartsTable(company);
+  const { data } = await supabase.from(tableName).select('*');
+  if (data) {
+    const partsWithCompany = data.map(p => ({ ...p, company }));
+    await bulkPutLocalParts(partsWithCompany);
+  }
+  return (data || []) as Part[];
+};
+
+export const addPart = async (part: Omit<Part, 'id'>, company: CompanyType): Promise<void> => {
+  const tableName = getPartsTable(company);
+  const { data, error } = await supabase.from(tableName).insert([part]).select().single();
+  if (error) throw error;
+  if (data) await localDb.parts.add({ ...data, company });
+};
+
+export const updatePart = async (updatedPart: Part, company: CompanyType): Promise<void> => {
+  const tableName = getPartsTable(company);
+  await supabase.from(tableName).update({ codigo: updatedPart.codigo, descricao: updatedPart.descricao, tags: updatedPart.tags, name: updatedPart.name, itens_relacionados: updatedPart.itens_relacionados || [] }).eq('id', updatedPart.id);
+  await updateLocalPart({ ...updatedPart, company });
+};
+
+export const deletePart = async (id: string, company: CompanyType): Promise<void> => {
+  const tableName = getPartsTable(company);
+  await supabase.from(tableName).delete().eq('id', id);
+  await localDb.parts.delete(id);
+};
+
+export const getAllPartsForExport = async (company: CompanyType): Promise<Part[]> => {
+  const tableName = getPartsTable(company);
+  const { data, error } = await supabase.from(tableName).select('*').order('codigo', { ascending: true });
+  if (error) throw error;
+  return data as Part[];
+};
+
+export const batchUpdateRelations = async (codes: string[], company: CompanyType): Promise<{ updatedCount: number, notFoundCodes: string[] }> => {
+  const tableName = getPartsTable(company);
+  const { data: foundParts, error } = await supabase.from(tableName).select('*').in('codigo', codes);
+  if (error) throw error;
+  
+  const foundCodes = foundParts.map(p => p.codigo);
+  const notFoundCodes = codes.filter(c => !foundCodes.includes(c));
+
+  const updates = foundParts.map(part => {
+    const others = foundParts
+      .filter(p => p.codigo !== part.codigo)
+      .map(p => ({
+        codigo: p.codigo,
+        name: p.name || p.descricao,
+        desc: p.descricao
+      }));
+    
+    const existing = part.itens_relacionados || [];
+    const combined = [...existing];
+    others.forEach(o => {
+      if (!combined.some(e => e.codigo === o.codigo)) combined.push(o);
+    });
+
+    return { ...part, itens_relacionados: combined };
   });
 
-  await clearLocalServiceOrderItems();
-
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.user && await isOnline()) {
-    // Para cada data que tinha itens, enviamos uma lista vazia (ou deletamos a row)
-    for (const dateStr of datesToUpdate) {
-      const payload = {
-        user_id: session.user.id,
-        date: dateStr,
-        os_list: [], // Lista vazia
-        updated_at: new Date().toISOString()
-      };
-      await supabase.from('daily_service_orders').upsert(payload, { onConflict: 'user_id,date' });
-    }
-  }
+  await Promise.all(updates.map(u => updatePart(u, company)));
+  return { updatedCount: updates.length, notFoundCodes };
 };
 
-export const getLocalUniqueAfs = async (): Promise<string[]> => {
-  const afs = await localDb.afs.toArray();
-  return afs.map(af => af.af_number).sort();
-};
+// --- AFs Management ---
 
-// --- Monthly Apontamentos Management (IndexedDB) ---
-
-//export const getLocalMonthlyApontamentoService = getLocalMonthlyApontamento;
-
-// Sincroniza dados do Supabase para o IndexedDB
-export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
-  
-  const localMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
-
-  const { data, error } = await supabase
-    .from('monthly_apontamentos')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('month_year', monthYear)
-    .single();
-
-  if (error && error.code !== 'PGRST116') { // PGRST116 means "no rows found"
-    console.error(`[syncMonthlyApontamentosFromSupabase] Error fetching monthly apontamentos from Supabase for ${monthYear}:`, error);
-    return undefined;
-  }
-
+export const getAfsFromService = async (company: CompanyType): Promise<Af[]> => {
+  const localAfs = await getLocalAfs(company);
+  if (localAfs.length > 0) return localAfs as Af[];
+  const tableName = getAfsTable(company);
+  const { data } = await supabase.from(tableName).select('*').order('af_number', { ascending: true });
   if (data) {
-    const remoteMonthlyApontamento: MonthlyApontamento = {
-      ...data,
-      data: (data.data as DailyApontamento[]).map(cleanDailyApontamento),
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-    };
-
-    if (localMonthlyApontamento) {
-      // Se forcePull é true, ou se o remoto é mais recente que o local, atualiza o local
-      if (forcePull || (remoteMonthlyApontamento.updated_at && localMonthlyApontamento.updated_at && new Date(remoteMonthlyApontamento.updated_at) > new Date(localMonthlyApontamento.updated_at))) {
-        await putLocalMonthlyApontamento(remoteMonthlyApontamento);
-        return remoteMonthlyApontamento;
-      } else {
-        return localMonthlyApontamento; // Retorna a versão local, que é a mais recente ou igual
-      }
-    } else {
-      // Se não há local, apenas adiciona o remoto
-      await putLocalMonthlyApontamento(remoteMonthlyApontamento);
-      return remoteMonthlyApontamento;
-    }
+    const afsWithCompany = data.map(a => ({ ...a, company }));
+    await bulkPutLocalAfs(afsWithCompany as LocalAf[]);
   }
-  return undefined;
+  return (data || []) as Af[];
 };
 
-// Sincroniza um único objeto MonthlyApontamento para o Supabase
-export const syncMonthlyApontamentoToSupabase = async (monthlyApontamento: MonthlyApontamento, forcePush: boolean = false): Promise<MonthlyApontamento> => {
-  const { id, user_id, month_year, data, created_at, updated_at } = monthlyApontamento;
-  
-  // Limpa cada entrada diária antes de enviar para o Supabase
-  const cleanedData = data.map(cleanDailyApontamento);
-
-  const payload = {
-    id,
-    user_id,
-    month_year,
-    data: cleanedData, // Usa os dados limpos
-    created_at: created_at || new Date().toISOString(),
-    updated_at: updated_at || new Date().toISOString(), // Garante que updated_at esteja presente
-  };
-
-  if (!forcePush) {
-    // Verifica a versão remota antes de enviar
-    const { data: remoteData, error: remoteError } = await supabase
-      .from('monthly_apontamentos')
-      .select('updated_at')
-      .eq('user_id', user_id)
-      .eq('month_year', month_year)
-      .single();
-
-    if (remoteError && remoteError.code !== 'PGRST116') {
-      console.error(`[syncMonthlyApontamentoToSupabase] Error fetching remote updated_at for ${month_year}:`, remoteError);
-      // Em caso de erro ao buscar o remoto, assume que precisa enviar para evitar perda de dados
-    } else if (remoteData && remoteData.updated_at && new Date(remoteData.updated_at) >= new Date(payload.updated_at)) {
-      // Se o remoto é mais recente ou igual, não envia (a menos que forcePush)
-      // Retorna o monthlyApontamento original, pois não houve alteração no Supabase
-      return monthlyApontamento; 
-    }
-  }
-
-  const { data: upsertedData, error } = await supabase
-    .from('monthly_apontamentos')
-    .upsert(payload, { onConflict: 'user_id,month_year' }) // Conflito em user_id e month_year
-    .select()
-    .single();
-
-  if (error) {
-    console.error(`[syncMonthlyApontamentoToSupabase] Error upserting monthly apontamento to Supabase for ${month_year}:`, error);
-    throw new Error(`Erro ao sincronizar apontamento mensal: ${error.message}`);
-  }
-
-  const syncedMonthlyApontamento: MonthlyApontamento = {
-    ...upsertedData,
-    data: (upsertedData.data as DailyApontamento[]).map(cleanDailyApontamento), // Limpa IDs e user_id ao receber de volta
-  };
-
-  await putLocalMonthlyApontamento(syncedMonthlyApontamento);
-  
-  return syncedMonthlyApontamento;
+export const addAf = async (af: Omit<Af, 'id'>, company: CompanyType): Promise<void> => {
+  const tableName = getAfsTable(company);
+  const { data, error } = await supabase.from(tableName).insert([af]).select().single();
+  if (error) throw error;
+  if (data) await localDb.afs.add({ ...data, company });
 };
 
-// Obtém apontamentos diários para um mês específico
-export const getApontamentos = async (userId: string, monthYear: string): Promise<DailyApontamento[]> => {
-  const online = await isOnline();
-  let monthlyApontamento: MonthlyApontamento | undefined;
-
-  if (online) {
-    // Tenta sincronizar do Supabase primeiro (com lógica de comparação)
-    monthlyApontamento = await syncMonthlyApontamentosFromSupabase(userId, monthYear);
-  } else {
-    // Se offline, tenta do cache local
-    monthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
-  }
-
-  return monthlyApontamento?.data || [];
+export const updateAf = async (af: Af, company: CompanyType): Promise<void> => {
+  const tableName = getAfsTable(company);
+  const { error } = await supabase.from(tableName).update({ af_number: af.af_number, descricao: af.descricao }).eq('id', af.id);
+  if (error) throw error;
+  await localDb.afs.put({ ...af, company });
 };
 
-// Atualiza um apontamento diário dentro do blob JSON mensal
-export const updateApontamento = async (userId: string, monthYear: string, dailyApontamento: DailyApontamento): Promise<DailyApontamento> => {
-  const online = await isOnline();
-  let currentMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
-
-  if (!currentMonthlyApontamento) {
-    // Se não existe localmente, tenta buscar do Supabase (se online)
-    if (online) {
-      currentMonthlyApontamento = await syncMonthlyApontamentosFromSupabase(userId, monthYear);
-    }
-    if (!currentMonthlyApontamento) {
-      // Se ainda não existe, cria um novo registro mensal
-      currentMonthlyApontamento = {
-        id: uuidv4(), // ID para o registro mensal
-        user_id: userId,
-        month_year: monthYear,
-        data: [],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-    }
-  }
-
-  let updatedDailyApontamentos = [...currentMonthlyApontamento.data];
-  let newDailyApontamentoToReturn: DailyApontamento;
-
-  // Encontra o apontamento pela data, que agora é o identificador único
-  const existingIndexByDate = updatedDailyApontamentos.findIndex(a => a.date === dailyApontamento.date);
-
-  // Garante que o dailyApontamento recebido esteja limpo (sem 'id' e 'user_id')
-  const cleanedDailyApontamento = cleanDailyApontamento(dailyApontamento);
-
-  if (existingIndexByDate !== -1) {
-    // Se um apontamento para a mesma data existe, atualiza-o
-    newDailyApontamentoToReturn = { ...cleanedDailyApontamento, updated_at: new Date().toISOString() };
-    updatedDailyApontamentos[existingIndexByDate] = newDailyApontamentoToReturn;
-  } else {
-    // Caso contrário, adiciona como uma nova entrada.
-    newDailyApontamentoToReturn = { ...cleanedDailyApontamento, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    updatedDailyApontamentos.push(newDailyApontamentoToReturn);
-  }
-
-  const updatedMonthlyApontamento: MonthlyApontamento = {
-    ...currentMonthlyApontamento,
-    data: updatedDailyApontamentos,
-    updated_at: new Date().toISOString(), // Atualiza o timestamp do MonthlyApontamento
-  };
-
-  await putLocalMonthlyApontamento(updatedMonthlyApontamento);
-
-  if (online) {
-    try {
-      // Chama syncMonthlyApontamentoToSupabase com a lógica de comparação
-      await syncMonthlyApontamentoToSupabase(updatedMonthlyApontamento);
-    } catch (e) {
-      console.warn(`[updateApontamento] Immediate Supabase sync of monthly apontamento for ${monthYear} failed, data remains local.`, e);
-      // Não relança o erro, pois o dado já está salvo localmente.
-    }
-  }
-  
-  return newDailyApontamentoToReturn;
+export const deleteAf = async (id: string, company: CompanyType): Promise<void> => {
+  const tableName = getAfsTable(company);
+  await supabase.from(tableName).delete().eq('id', id);
+  await localDb.afs.delete(id);
 };
 
-// Deleta um apontamento diário dentro do blob JSON mensal
-export const deleteApontamento = async (userId: string, monthYear: string, dailyApontamentoDate: string): Promise<void> => {
-  const online = await isOnline();
-  let currentMonthlyApontamento = await getLocalMonthlyApontamentoService(userId, monthYear);
-
-  if (!currentMonthlyApontamento) {
-    // Se não existe localmente, não há o que deletar
-    return;
-  }
-
-  // Filtra o apontamento pela data
-  const updatedDailyApontamentos = currentMonthlyApontamento.data.filter(a => a.date !== dailyApontamentoDate);
-
-  const updatedMonthlyApontamento: MonthlyApontamento = {
-    ...currentMonthlyApontamento,
-    data: updatedDailyApontamentos,
-    updated_at: new Date().toISOString(), // Atualiza o timestamp do MonthlyApontamento
-  };
-
-  await putLocalMonthlyApontamento(updatedMonthlyApontamento);
-
-  if (online) {
-    try {
-      // Chama syncMonthlyApontamentoToSupabase com a lógica de comparação
-      await syncMonthlyApontamentoToSupabase(updatedMonthlyApontamento);
-    } catch (e) {
-      console.warn(`[deleteApontamento] Immediate Supabase sync of monthly apontamento deletion for ${monthYear} failed, data remains local.`, e);
-      // Não relança o erro, pois a exclusão já está salva localmente.
-    }
-  }
+export const getAllAfsForExport = async (company: CompanyType): Promise<Af[]> => {
+  const tableName = getAfsTable(company);
+  const { data, error } = await supabase.from(tableName).select('*').order('af_number', { ascending: true });
+  if (error) throw error;
+  return data as Af[];
 };
 
-// Deleta o registro mensal completo
-export const deleteApontamentosByMonth = async (userId: string, monthYear: string): Promise<number> => {
-  const online = await isOnline();
-  
-  // Deleta no IndexedDB
-  await deleteLocalMonthlyApontamento(userId, monthYear);
+// --- Sync & Utility ---
 
-  if (online) {
-    // Deleta no Supabase
-    const { error: supabaseError, count } = await supabase
-      .from('monthly_apontamentos')
-      .delete({ count: 'exact' })
-      .eq('user_id', userId)
-      .eq('month_year', monthYear);
-
-    if (supabaseError) {
-      console.error(`[deleteApontamentosByMonth] Error deleting monthly apontamentos from Supabase for ${monthYear}:`, supabaseError);
-      throw new Error(`Erro ao excluir apontamentos mensais do Supabase: ${supabaseError.message}`);
-    }
-    return count || 0;
-  }
-
-  return 0; // Se offline, apenas a exclusão local é feita.
+export const importParts = async (parts: Part[], company: CompanyType): Promise<void> => {
+  const tableName = getPartsTable(company);
+  await supabase.from(tableName).upsert(parts, { onConflict: 'id' });
+  const partsWithCompany = parts.map(p => ({ ...p, company }));
+  await bulkPutLocalParts(partsWithCompany);
 };
 
-// A função syncPendingApontamentos não é mais necessária no mesmo formato,
-// pois a unidade de sincronização agora é o MonthlyApontamento.
-// A lógica de `useOfflineSync` precisará ser ajustada para lidar com isso.
-export const syncPendingApontamentos = async (userId: string): Promise<number> => {
-  // Esta função precisaria ser reescrita para iterar sobre todos os monthlyApontamentos
-  // locais que não foram sincronizados (e.g., `updated_at` local > `updated_at` remoto)
-  // Por enquanto, vamos simplificar e apenas retornar 0.
-  // Uma implementação completa exigiria um mecanismo mais robusto de detecção de mudanças.
-  return 0;
-};
-
-
-// --- Funções de Importação e Exportação (mantidas) ---
-
-export const importParts = async (parts: Part[]): Promise<void> => {
-  const { error: supabaseError } = await supabase
-    .from('parts')
-    .upsert(parts, { onConflict: 'id' });
-
-  if (supabaseError) {
-    console.error('Error importing parts to Supabase:', supabaseError);
-    throw new Error(`Erro ao importar peças para o Supabase: ${supabaseError.message}`);
-  }
-  await bulkPutLocalParts(parts);
-};
-
-export const importAfs = async (afs: Af[]): Promise<void> => {
-  // CHAVE DE CONFLITO ALTERADA PARA 'af_number'
-  const { error: supabaseError } = await supabase
-    .from('afs')
-    .upsert(afs, { onConflict: 'af_number' });
-
-  if (supabaseError) {
-    console.error('Error importing AFs to Supabase:', supabaseError);
-    throw new Error(`Erro ao importar AFs para o Supabase: ${supabaseError.message}`);
-  }
-  await bulkPutLocalAfs(afs);
+export const importAfs = async (afs: Af[], company: CompanyType): Promise<void> => {
+  const tableName = getAfsTable(company);
+  await supabase.from(tableName).upsert(afs, { onConflict: 'af_number' });
+  const afsWithCompany = afs.map(a => ({ ...a, company }));
+  await bulkPutLocalAfs(afsWithCompany as LocalAf[]);
 };
 
 export const exportDataAsCsv = (data: any[], filename: string): void => {
@@ -1008,10 +444,7 @@ export const exportDataAsCsv = (data: any[], filename: string): void => {
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
     link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
   }
 };
 
@@ -1023,134 +456,205 @@ export const exportDataAsJson = (data: any[], filename: string): void => {
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
     link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
   }
 };
 
-export const cleanupEmptyParts = async (): Promise<number> => {
-  let deletedCount = 0;
-  const fetchPageSize = 1000; // Quantas peças buscar de uma vez
-  const deleteBatchSize = 500; // Quantos IDs excluir em uma chamada do Supabase
-  let offset = 0;
-  let hasMoreToFetch = true;
-  let allIdsToDelete: string[] = [];
-
-  while (hasMoreToFetch) {
-    const { data, error } = await supabase
-      .from('parts')
-      .select('id, codigo, descricao, name')
-      .range(offset, offset + fetchPageSize - 1);
-
-    if (error) {
-      console.error('Error fetching parts for cleanup from Supabase (paginated):', error);
-      throw new Error(`Erro ao buscar peças para limpeza: ${error.message}`);
-    }
-
-    if (data && data.length > 0) {
-      const emptyPartsIds = data
-        .filter(part =>
-          (!part.codigo || part.codigo.trim() === '') &&
-          (!part.descricao || part.descricao.trim() === '') &&
-          (!part.name || part.name.trim() === '') // Inclui o novo campo 'name' na verificação
-        )
-        .map(part => part.id);
-      allIdsToDelete = allIdsToDelete.concat(emptyPartsIds);
-      offset += fetchPageSize;
-    } else {
-      hasMoreToFetch = false;
-    }
-    // Adicionado: Pequeno atraso para evitar sobrecarga da API em loops grandes
-    await new Promise(resolve => setTimeout(resolve, 50));
+export const cleanupEmptyParts = async (company: CompanyType): Promise<number> => {
+  const tableName = getPartsTable(company);
+  const { data } = await supabase.from(tableName).select('id').or('codigo.eq.,descricao.eq.');
+  if (data && data.length > 0) {
+    const ids = data.map(p => p.id);
+    await supabase.from(tableName).delete().in('id', ids);
+    await localDb.parts.bulkDelete(ids);
+    return ids.length;
   }
+  return 0;
+};
 
-  if (allIdsToDelete.length > 0) {
-    // Realiza as exclusões em lotes
-    for (let i = 0; i < allIdsToDelete.length; i += deleteBatchSize) {
-      const batchIds = allIdsToDelete.slice(i, i + deleteBatchSize);
-      const { error: deleteError } = await supabase
-        .from('parts')
-        .delete()
-        .in('id', batchIds);
+// --- Time Tracking ---
 
-      if (deleteError) {
-        console.error('Error deleting empty parts batch from Supabase:', deleteError);
-        throw new Error(`Erro ao excluir peças vazias do Supabase (lote): ${deleteError.message}`);
+export const syncMonthlyApontamentosFromSupabase = async (userId: string, monthYear: string, company: CompanyType, forcePull: boolean = false): Promise<MonthlyApontamento | undefined> => {
+  const local = await getLocalMonthlyApontamento(userId, monthYear, company);
+  const { data } = await supabase.from('monthly_apontamentos').select('*').eq('user_id', userId).eq('month_year', monthYear).eq('company', company).single();
+  if (data) {
+    const remote = { ...data, data: data.data as DailyApontamento[] };
+    await putLocalMonthlyApontamento(remote);
+    return remote;
+  }
+  return local;
+};
+
+export const syncMonthlyApontamentoToSupabase = async (apontamento: MonthlyApontamento, forceSync: boolean = false): Promise<MonthlyApontamento> => {
+  await supabase.from('monthly_apontamentos').upsert(apontamento, { onConflict: 'user_id,month_year,company' });
+  await putLocalMonthlyApontamento(apontamento);
+  return apontamento;
+};
+
+export const getApontamentos = async (userId: string, monthYear: string, company: CompanyType): Promise<DailyApontamento[]> => {
+  const monthly = await syncMonthlyApontamentosFromSupabase(userId, monthYear, company);
+  return monthly?.data || [];
+};
+
+export const updateApontamento = async (userId: string, monthYear: string, daily: DailyApontamento, company: CompanyType): Promise<DailyApontamento> => {
+  let current = await getLocalMonthlyApontamento(userId, monthYear, company) || { id: uuidv4(), user_id: userId, month_year: monthYear, data: [], company };
+  const updatedData = [...current.data.filter(a => a.date !== daily.date), daily];
+  const updatedMonthly = { ...current, data: updatedData, updated_at: new Date().toISOString(), company };
+  await syncMonthlyApontamentoToSupabase(updatedMonthly);
+  return daily;
+};
+
+export const deleteApontamento = async (userId: string, monthYear: string, date: string, company: CompanyType): Promise<void> => {
+  let current = await getLocalMonthlyApontamento(userId, monthYear, company);
+  if (!current) return;
+  const updatedData = current.data.filter(a => a.date !== date);
+  await syncMonthlyApontamentoToSupabase({ ...current, data: updatedData, updated_at: new Date().toISOString(), company });
+};
+
+export const deleteApontamentosByMonth = async (userId: string, monthYear: string, company: CompanyType): Promise<number> => {
+  await deleteLocalMonthlyApontamento(userId, monthYear, company);
+  const { count } = await supabase.from('monthly_apontamentos').delete({ count: 'exact' }).eq('user_id', userId).eq('month_year', monthYear).eq('company', company);
+  return count || 0;
+};
+
+export const getLocalMonthlyApontamentoService = async (userId: string, monthYear: string, company: CompanyType) => {
+  return getLocalMonthlyApontamento(userId, monthYear, company);
+};
+
+// --- Favorite Parts ---
+
+export const getFavoriteParts = async (userId: string | undefined, company: CompanyType): Promise<Part[]> => {
+  try {
+    let codes: string[] = [];
+    if (userId) {
+      const { data, error } = await supabase
+        .from('user_favorite_parts')
+        .select('part_codes')
+        .eq('user_id', userId)
+        .eq('company', company)
+        .maybeSingle();
+        
+      if (error) {
+        console.error('Error fetching favorites from database, falling back to localStorage:', error);
+        const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_${userId}`);
+        codes = cached ? JSON.parse(cached) : [];
+      } else {
+        codes = data?.part_codes ? (data.part_codes as string[]) : [];
+        // cache in localStorage
+        localStorage.setItem(`autoboard_favorite_parts_${company}_${userId}`, JSON.stringify(codes));
       }
-      deletedCount += batchIds.length;
+    } else {
+      const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_guest`);
+      codes = cached ? JSON.parse(cached) : [];
     }
-
-    // Deleta do IndexedDB em massa após todas as exclusões do Supabase
-    await localDb.parts.bulkDelete(allIdsToDelete);
-  }
-
-  return deletedCount;
-};
-
-// NOVO: Função para criar relações em lote
-export const batchUpdateRelations = async (codesToRelate: string[]): Promise<{ updatedCount: number, notFoundCodes: string[] }> => {
-  // 1. Buscar todas as peças envolvidas
-  const { data: foundParts, error: fetchError } = await supabase
-    .from('parts')
-    .select('*')
-    .in('codigo', codesToRelate);
-
-  if (fetchError) {
-    throw new Error(`Erro ao buscar peças: ${fetchError.message}`);
-  }
-
-  const foundCodes = new Set(foundParts.map(p => p.codigo));
-  const notFoundCodes = codesToRelate.filter(code => !foundCodes.has(code));
-
-  // 2. Preparar as atualizações
-  const updatedParts = foundParts.map(part => {
-    const otherCodes = codesToRelate.filter(code => code !== part.codigo);
-    const existingRelatedCodes = (part.itens_relacionados || []).map(r => r.codigo);
-    const allRelatedCodes = Array.from(new Set([...existingRelatedCodes, ...otherCodes]));
-
-    const newRelations = allRelatedCodes
-      .map(code => {
-        const relatedPart = foundParts.find(p => p.codigo === code);
-        if (relatedPart) {
-          return {
-            codigo: relatedPart.codigo,
-            name: relatedPart.name || relatedPart.descricao,
-            desc: (relatedPart.name && relatedPart.name.trim() !== '' && relatedPart.descricao !== (relatedPart.name || '')) ? relatedPart.descricao : ''
-          };
-        }
-        // Se uma relação existente não estiver no lote atual, busca-a na lista original da peça
-        const existingRelationObject = (part.itens_relacionados || []).find(r => r.codigo === code);
-        if (existingRelationObject) {
-          return existingRelationObject;
-        }
-        return null;
-      })
-      .filter((p): p is RelatedPart => p !== null)
-      .sort((a, b) => a.codigo.localeCompare(b.codigo));
     
-    return {
-      ...part,
-      itens_relacionados: newRelations,
-    };
-  });
-
-  if (updatedParts.length === 0) {
-    return { updatedCount: 0, notFoundCodes };
+    if (codes.length === 0) return [];
+    
+    const tableName = getPartsTable(company);
+    const { data: partsData, error: partsError } = await supabase
+      .from(tableName)
+      .select('*')
+      .in('codigo', codes);
+      
+    if (partsError || !partsData) {
+      const localParts = await getParts(company);
+      return localParts.filter(p => codes.includes(p.codigo));
+    }
+    
+    return partsData as Part[];
+  } catch (err) {
+    console.error('Error in getFavoriteParts:', err);
+    return [];
   }
-
-  // 3. Atualizar no Supabase
-  const { error: upsertError } = await supabase
-    .from('parts')
-    .upsert(updatedParts, { onConflict: 'id' });
-
-  if (upsertError) {
-    throw new Error(`Erro ao atualizar relações: ${upsertError.message}`);
-  }
-
-  // 4. Atualizar no IndexedDB
-  await bulkPutLocalParts(updatedParts);
-
-  return { updatedCount: updatedParts.length, notFoundCodes };
 };
+
+export const addFavoritePart = async (userId: string | undefined, company: CompanyType, partCode: string): Promise<void> => {
+  try {
+    if (userId) {
+      const { data, error: fetchError } = await supabase
+        .from('user_favorite_parts')
+        .select('part_codes')
+        .eq('user_id', userId)
+        .eq('company', company)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      let currentCodes: string[] = data?.part_codes ? (data.part_codes as string[]) : [];
+      if (!currentCodes.includes(partCode)) {
+        currentCodes.push(partCode);
+        
+        const { error: upsertError } = await supabase
+          .from('user_favorite_parts')
+          .upsert({
+            user_id: userId,
+            company,
+            part_codes: currentCodes,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id,company' });
+
+        if (upsertError) throw upsertError;
+      }
+      
+      const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_${userId}`);
+      const codes = cached ? JSON.parse(cached) : [];
+      if (!codes.includes(partCode)) {
+        codes.push(partCode);
+        localStorage.setItem(`autoboard_favorite_parts_${company}_${userId}`, JSON.stringify(codes));
+      }
+    } else {
+      const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_guest`);
+      const codes = cached ? JSON.parse(cached) : [];
+      if (!codes.includes(partCode)) {
+        codes.push(partCode);
+        localStorage.setItem(`autoboard_favorite_parts_${company}_guest`, JSON.stringify(codes));
+      }
+    }
+  } catch (err) {
+    console.error('Error in addFavoritePart:', err);
+  }
+};
+
+export const removeFavoritePart = async (userId: string | undefined, company: CompanyType, partCode: string): Promise<void> => {
+  try {
+    if (userId) {
+      const { data, error: fetchError } = await supabase
+        .from('user_favorite_parts')
+        .select('part_codes')
+        .eq('user_id', userId)
+        .eq('company', company)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      let currentCodes: string[] = data?.part_codes ? (data.part_codes as string[]) : [];
+      if (currentCodes.includes(partCode)) {
+        currentCodes = currentCodes.filter((c: string) => c !== partCode);
+        
+        const { error: upsertError } = await supabase
+          .from('user_favorite_parts')
+          .upsert({
+            user_id: userId,
+            company,
+            part_codes: currentCodes,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id,company' });
+
+        if (upsertError) throw upsertError;
+      }
+      
+      const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_${userId}`);
+      let codes = cached ? JSON.parse(cached) : [];
+      codes = codes.filter((c: string) => c !== partCode);
+      localStorage.setItem(`autoboard_favorite_parts_${company}_${userId}`, JSON.stringify(codes));
+    } else {
+      const cached = localStorage.getItem(`autoboard_favorite_parts_${company}_guest`);
+      let codes = cached ? JSON.parse(cached) : [];
+      codes = codes.filter((c: string) => c !== partCode);
+      localStorage.setItem(`autoboard_favorite_parts_${company}_guest`, JSON.stringify(codes));
+    }
+  } catch (err) {
+    console.error('Error in removeFavoritePart:', err);
+  }
+};
+

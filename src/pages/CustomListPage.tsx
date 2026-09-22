@@ -5,12 +5,14 @@ import { useParams, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Tag, Info, Loader2, FileDown, Check, PlusCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Tag, Info, Loader2, FileDown, Check, PlusCircle, XCircle, ChevronLeft } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts } from '@/services/partListService';
+import { getListsData, addItemToList, LocalList } from '@/services/localListStorage';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
@@ -24,9 +26,11 @@ import { Separator } from '@/components/ui/separator';
 import RelatedPartDisplay from '@/components/RelatedPartDisplay';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { useCompany } from '@/context/CompanyContext';
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
+  const { company, branding } = useCompany();
   const location = useLocation();
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [listTitle, setListTitle] = useState('Carregando Lista...');
@@ -38,16 +42,31 @@ const CustomListPage: React.FC = () => {
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
+  const [lists, setLists] = useState<LocalList[]>([]);
+  const [selectedListId, setSelectedListId] = useState<string>('');
+
+  // Estados temporários para a edição de quantidades durante a exportação
+  const [exportQuantities, setExportQuantities] = useState<Record<string, number | "">>({});
+  const [exportQuantityErrors, setExportQuantityErrors] = useState<Record<string, boolean>>({});
 
   const [openRelatedItemsPopoverId, setOpenRelatedItemsPopoverId] = useState<string | null>(null);
 
   const isMobile = useIsMobile();
 
+  useEffect(() => {
+    if (isExportSheetOpen) {
+      getListsData(company).then(data => {
+        setLists(data.lists);
+        setSelectedListId(data.activeListId);
+      });
+    }
+  }, [isExportSheetOpen, company]);
+
   const loadList = useCallback(async () => {
     if (!listId) return;
     setIsLoading(true);
     try {
-      const listData = await getCustomListById(listId);
+      const listData = await getCustomListById(listId, company);
       if (listData) {
         setListTitle(listData.title);
       } else {
@@ -56,7 +75,7 @@ const CustomListPage: React.FC = () => {
         setIsLoading(false);
         return;
       }
-      const fetchedItems = await getCustomListItems(listId);
+      const fetchedItems = await getCustomListItems(listId, company);
       setItems(fetchedItems);
     } catch (error) {
       console.error('Erro ao carregar a lista personalizada:', error);
@@ -65,12 +84,12 @@ const CustomListPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [listId]);
+  }, [listId, company]);
 
   const loadAfsAndParts = useCallback(async () => {
     setIsLoadingAfs(true);
     try {
-      const [afs, parts] = await Promise.all([getAfsFromService(), getParts()]);
+      const [afs, parts] = await Promise.all([getAfsFromService(company), getParts(company)]);
       setAllAvailableAfs(afs);
       setAllAvailableParts(parts);
     } catch (error) {
@@ -78,7 +97,7 @@ const CustomListPage: React.FC = () => {
     } finally {
       setIsLoadingAfs(false);
     }
-  }, []);
+  }, [company]);
 
   useEffect(() => {
     loadList();
@@ -86,8 +105,8 @@ const CustomListPage: React.FC = () => {
   }, [loadList, loadAfsAndParts]);
 
   useEffect(() => {
-    document.title = `${listTitle} - AutoBoard`;
-  }, [listTitle]);
+    document.title = `${listTitle} - AutoBoard (${branding.name})`;
+  }, [listTitle, branding.name]);
 
   useEffect(() => {
     if (!isLoading && location.hash) {
@@ -136,7 +155,7 @@ const CustomListPage: React.FC = () => {
 
   const formatListText = (itemsToFormat: CustomListItem[]) => {
     if (itemsToFormat.length === 0) return '';
-    let formattedText = `${listTitle}\n\n`;
+    let formattedText = `${listTitle} (${branding.name})\n\n`;
     itemsToFormat.forEach(item => {
       if (item.type === 'separator') {
         formattedText += '--------------------\n';
@@ -191,7 +210,8 @@ const CustomListPage: React.FC = () => {
       showError('Nenhum item para exportar.');
       return;
     }
-    await lazyGenerateCustomListPdf(itemsToProcess, listTitle);
+    const fullTitle = `${listTitle} (${branding.name})`;
+    await lazyGenerateCustomListPdf(itemsToProcess, fullTitle);
     showSuccess('PDF gerado com sucesso!');
   };
 
@@ -242,11 +262,33 @@ const CustomListPage: React.FC = () => {
     });
   };
 
+  const getTargetExportItems = useCallback(() => {
+    if (selectedItemIds.size > 0) {
+      return items.filter(item => selectedItemIds.has(item.id) && (item.type === 'item' || item.type === 'mangueira'));
+    }
+    return items.filter(item => item.type === 'item' || item.type === 'mangueira');
+  }, [items, selectedItemIds]);
+
   const handleExportSelectedToMyList = () => {
-    if (selectedItemIds.size === 0) {
-      showError('Nenhum item selecionado para exportar.');
+    const targetItems = getTargetExportItems();
+    if (targetItems.length === 0) {
+      showError('Nenhum item disponível para exportar.');
       return;
     }
+
+    const initialQuantities: Record<string, number | ""> = {};
+    targetItems.forEach(item => {
+      if (item.type === 'mangueira' && item.mangueira_data) {
+        initialQuantities[`${item.id}_mangueira`] = 1;
+        initialQuantities[`${item.id}_conexao1`] = 1;
+        initialQuantities[`${item.id}_conexao2`] = 1;
+      } else {
+        initialQuantities[item.id] = item.quantity || 1;
+      }
+    });
+
+    setExportQuantities(initialQuantities);
+    setExportQuantityErrors({});
     setAfForExport('');
     setIsExportSheetOpen(true);
   };
@@ -256,54 +298,105 @@ const CustomListPage: React.FC = () => {
       showError('Por favor, selecione um AF para os itens exportados.');
       return;
     }
-    const itemsToExport = items.filter(item => selectedItemIds.has(item.id));
-    if (itemsToExport.length === 0) {
+    if (!selectedListId) {
+      showError('Por favor, selecione uma lista de destino.');
+      return;
+    }
+    const targetItems = getTargetExportItems();
+    if (targetItems.length === 0) {
       showError('Nenhum item selecionado para exportar.');
       return;
     }
-    const loadingToastId = showLoading(`Exportando ${itemsToExport.length} itens...`);
+
+    // Validação de quantidades
+    const errors: Record<string, boolean> = {};
+    let hasValidationError = false;
+    let firstErrorItemName = '';
+
+    for (const item of targetItems) {
+      if (item.type === 'mangueira' && item.mangueira_data) {
+        const keys = [
+          { key: `${item.id}_mangueira`, name: `Mangueira (${item.mangueira_data.mangueira.name || item.mangueira_data.mangueira.codigo})` },
+          { key: `${item.id}_conexao1`, name: `Conexão 1 (${item.mangueira_data.conexao1.name || item.mangueira_data.conexao1.codigo})` },
+          { key: `${item.id}_conexao2`, name: `Conexão 2 (${item.mangueira_data.conexao2.name || item.mangueira_data.conexao2.codigo})` }
+        ];
+
+        for (const k of keys) {
+          const val = exportQuantities[k.key];
+          const num = val === '' ? 0 : Number(val);
+          if (val === '' || isNaN(num) || num <= 0) {
+            errors[k.key] = true;
+            if (!hasValidationError) {
+              hasValidationError = true;
+              firstErrorItemName = k.name;
+            }
+          }
+        }
+      } else {
+        const val = exportQuantities[item.id];
+        const num = val === '' ? 0 : Number(val);
+        if (val === '' || isNaN(num) || num <= 0) {
+          errors[item.id] = true;
+          if (!hasValidationError) {
+            hasValidationError = true;
+            firstErrorItemName = item.item_name || item.part_code || 'Peça';
+          }
+        }
+      }
+    }
+
+    if (hasValidationError) {
+      setExportQuantityErrors(errors);
+      showError(`Informe uma quantidade válida (maior que 0) para "${firstErrorItemName}".`);
+      return;
+    }
+
+    const loadingToastId = showLoading(`Exportando ${targetItems.length} itens...`);
     try {
-      for (const item of itemsToExport) {
+      for (const item of targetItems) {
         if (item.type === 'mangueira' && item.mangueira_data) {
           const data = item.mangueira_data;
-          
-          // Exporta a Mangueira como item simples (1 unidade)
-          await addSimplePartItem({
+          const mQty = Number(exportQuantities[`${item.id}_mangueira`]);
+          const c1Qty = Number(exportQuantities[`${item.id}_conexao1`]);
+          const c2Qty = Number(exportQuantities[`${item.id}_conexao2`]);
+
+          await addItemToList(company, selectedListId, {
             codigo_peca: data.mangueira.codigo || '',
             descricao: `Mangueira: ${data.mangueira.name || data.mangueira.codigo} - Corte: ${data.corte_cm} cm`,
-            quantidade: 1,
+            quantidade: mQty,
             af: afForExport.trim(),
           });
 
-          // Exporta Conexão 1
-          await addSimplePartItem({
+          await addItemToList(company, selectedListId, {
             codigo_peca: data.conexao1.codigo || '',
             descricao: `Conexão 1: ${data.conexao1.name || data.conexao1.codigo}`,
-            quantidade: 1,
+            quantidade: c1Qty,
             af: afForExport.trim(),
           });
 
-          // Exporta Conexão 2
-          await addSimplePartItem({
+          await addItemToList(company, selectedListId, {
             codigo_peca: data.conexao2.codigo || '',
             descricao: `Conexão 2: ${data.conexao2.name || data.conexao2.codigo}`,
-            quantidade: 1,
+            quantidade: c2Qty,
             af: afForExport.trim(),
           });
 
         } else if (item.type === 'item') {
-          await addSimplePartItem({
+          const qty = Number(exportQuantities[item.id]);
+          await addItemToList(company, selectedListId, {
             codigo_peca: item.part_code || '',
             descricao: item.description || item.item_name,
-            quantidade: item.quantity,
+            quantidade: qty,
             af: afForExport.trim(),
           });
         }
       }
-      showSuccess(`${itemsToExport.length} item(s) exportado(s) para 'Minha Lista de Peças' com sucesso!`);
+      showSuccess(`${targetItems.length} item(s) exportado(s) com sucesso!`);
       setSelectedItemIds(new Set());
       setIsExportSheetOpen(false);
       setAfForExport('');
+      setExportQuantities({});
+      setExportQuantityErrors({});
     } catch (error) {
       console.error('Erro ao exportar itens:', error);
       showError(`Erro ao exportar itens para 'Minha Lista de Peças'.`);
@@ -512,47 +605,27 @@ const CustomListPage: React.FC = () => {
     </TableRow>
   );
 
-  const MangueiraHeader = () => (
-    <TableRow className="bg-muted/50 border-y border-primary/50">
-      <TableHead className="w-[40px] p-2">
-        <Checkbox
-          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-          onCheckedChange={handleToggleSelectAll}
-          aria-label="Selecionar todos os itens"
-        />
-      </TableHead>
-      <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
-      <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
-      <TableHead className="w-[6rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
-      {isMobile ? (
-        <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm" colSpan={2}>Conexões</TableHead>
-      ) : (
-        <>
-          <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 1</TableHead>
-          <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 2</TableHead>
-        </>
-      )}
-    </TableRow>
-  );
-
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground">
+    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
       <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
-        <Link to="/custom-menu-view">
+        <Link to={`/${company}/custom-menu-view`}>
           <Button variant="outline" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Voltar ao Catálogo
+            <ChevronLeft className="h-4 w-4" /> Voltar ao Catálogo
           </Button>
         </Link>
-        <Link to="/parts-list">
+        <Link to={`/${company}/parts-list`}>
           <Button variant="outline" className="flex items-center gap-2">
             <ListIcon className="h-4 w-4" /> Minha Lista de Peças
           </Button>
         </Link>
       </div>
       
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex items-center gap-3">
-        <ListIcon className="h-8 w-8 text-primary" />
-        {listTitle}
+      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
+        <div className="flex items-center gap-3">
+          <ListIcon className="h-8 w-8 text-primary" />
+          {listTitle}
+        </div>
+        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
       </h1>
 
       <Card className="w-full max-w-4xl mx-auto mb-8">
@@ -561,15 +634,16 @@ const CustomListPage: React.FC = () => {
             Itens da Lista
           </CardTitle>
           <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2">
-            {selectedItemIds.size > 0 && (
-              <Button 
-                onClick={handleExportSelectedToMyList} 
-                className="flex-1 sm:w-auto"
-                disabled={isLoadingAfs}
-              >
-                <PlusCircle className="h-4 w-4" /> Exportar Selecionados ({selectedItemIds.size})
-              </Button>
-            )}
+            <Button 
+              onClick={handleExportSelectedToMyList} 
+              className="flex-1 sm:w-auto"
+              disabled={isLoadingAfs || items.length === 0}
+            >
+              <PlusCircle className="h-4 w-4 mr-2" /> 
+              {selectedItemIds.size > 0 
+                ? `Exportar Selecionados (${selectedItemIds.size})` 
+                : 'Exportar para Minha Lista'}
+            </Button>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
@@ -655,14 +729,29 @@ const CustomListPage: React.FC = () => {
       <MadeWithDyad />
 
       <Sheet open={isExportSheetOpen} onOpenChange={setIsExportSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md">
+        <SheetContent side="right" className="sm:max-w-md flex flex-col h-full max-h-screen">
           <SheetHeader>
             <SheetTitle>Exportar Itens para Minha Lista</SheetTitle>
             <SheetDescription>
-              Selecione um AF (Número de Frota) para aplicar a todos os {selectedItemIds.size} itens selecionados antes de exportar para "Minha Lista de Peças".
+              Selecione a lista de destino, o AF (Número de Frota) e ajuste as quantidades que deseja exportar.
             </SheetDescription>
           </SheetHeader>
-          <div className="grid gap-4 py-4">
+          <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+            <div className="space-y-2">
+              <Label htmlFor="list-for-export">Lista de Destino</Label>
+              <Select value={selectedListId} onValueChange={setSelectedListId}>
+                <SelectTrigger id="list-for-export">
+                  <SelectValue placeholder="Selecione a lista" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lists.map(list => (
+                    <SelectItem key={list.id} value={list.id}>
+                      {list.name} ({list.items?.length || 0} peças)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="af-for-export">AF (Número de Frota)</Label>
               {isLoadingAfs ? (
@@ -676,12 +765,91 @@ const CustomListPage: React.FC = () => {
                 />
               )}
             </div>
+
+            <Separator className="my-2" />
+
+            <div className="space-y-3">
+              <Label className="font-bold text-sm text-foreground block">
+                Peças para exportação ({getTargetExportItems().length})
+              </Label>
+              <div className="border rounded-md p-3 bg-muted/20 max-h-[280px] overflow-y-auto space-y-3">
+                {getTargetExportItems().map((item) => {
+                  if (item.type === 'mangueira' && item.mangueira_data) {
+                    const mData = item.mangueira_data;
+                    const subEntries = [
+                      { key: `${item.id}_mangueira`, code: mData.mangueira.codigo, name: `Mangueira: ${mData.mangueira.name || mData.mangueira.codigo} (${mData.corte_cm}cm)` },
+                      { key: `${item.id}_conexao1`, code: mData.conexao1.codigo, name: `Conexão 1: ${mData.conexao1.name || mData.conexao1.codigo}` },
+                      { key: `${item.id}_conexao2`, code: mData.conexao2.codigo, name: `Conexão 2: ${mData.conexao2.name || mData.conexao2.codigo}` },
+                    ];
+
+                    return (
+                      <div key={item.id} className="space-y-2 pb-2 border-b last:border-b-0 last:pb-0">
+                        {subEntries.map((sub) => (
+                          <div key={sub.key} className="flex items-center justify-between gap-2 text-xs">
+                            <div className="flex-1 min-w-0">
+                              <span className="font-bold text-primary block truncate">{sub.code ? `Cód: ${sub.code}` : ''}</span>
+                              <span className="text-foreground truncate block">{sub.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Label className="text-[10px] text-muted-foreground">Qtd:</Label>
+                              <Input
+                                type="number"
+                                value={exportQuantities[sub.key] ?? ''}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setExportQuantities(prev => ({
+                                    ...prev,
+                                    [sub.key]: val === '' ? '' : parseInt(val, 10)
+                                  }));
+                                  setExportQuantityErrors(prev => ({ ...prev, [sub.key]: false }));
+                                }}
+                                className={cn("w-16 h-8 text-center text-xs", exportQuantityErrors[sub.key] && "border-destructive focus-visible:ring-destructive")}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={item.id} className="flex items-center justify-between gap-2 border-b last:border-b-0 pb-2 last:pb-0 text-xs">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-bold text-primary block truncate">{item.part_code ? `Cód: ${item.part_code}` : ''}</span>
+                        <span className="text-foreground font-medium truncate block">{item.item_name}</span>
+                        {item.description && (
+                          <span className="text-[10px] text-muted-foreground truncate block">{item.description}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Label className="text-[10px] text-muted-foreground">Qtd:</Label>
+                        <Input
+                          type="number"
+                          value={exportQuantities[item.id] ?? ''}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setExportQuantities(prev => ({
+                              ...prev,
+                              [item.id]: val === '' ? '' : parseInt(val, 10)
+                            }));
+                            setExportQuantityErrors(prev => ({ ...prev, [item.id]: false }));
+                          }}
+                          className={cn("w-16 h-8 text-center text-xs", exportQuantityErrors[item.id] && "border-destructive focus-visible:ring-destructive")}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-          <SheetFooter>
+          <SheetFooter className="pt-2 border-t">
             <Button type="button" variant="outline" onClick={() => setIsExportSheetOpen(false)}>
               <XCircle className="h-4 w-4 mr-2" /> Cancelar
             </Button>
-            <Button type="button" onClick={handleConfirmExport} disabled={!afForExport.trim() || isLoadingAfs}>
+            <Button type="button" onClick={handleConfirmExport} disabled={!afForExport.trim() || !selectedListId || isLoadingAfs}>
               <Check className="h-4 w-4 mr-2" /> Confirmar Exportação
             </Button>
           </SheetFooter>

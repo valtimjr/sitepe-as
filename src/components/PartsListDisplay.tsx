@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +36,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 import { RelatedPart } from '@/types/supabase';
+import { useCompany } from '@/context/CompanyContext';
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
@@ -44,16 +47,25 @@ interface PartsListDisplayProps {
   onOpenEditForm: (item: SimplePartItem) => void; // Nova prop para abrir o formulário de edição
 }
 
+type SortField = 'codigo' | 'descricao' | 'af' | 'quantidade' | null;
+type SortDirection = 'asc' | 'desc';
+
 const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged, onListReordered, listTitle, onTitleChange, onOpenEditForm }) => {
+  const { company, branding } = useCompany();
   const [orderedItems, setOrderedItems] = useState<SimplePartItem[]>(listItems);
   const [draggedItem, setDraggedItem] = useState<SimplePartItem | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [isAddingInline, setIsAddingInline] = useState(false);
 
+  // Estados de ordenação
+  const [sortField, setSortField] = useState<SortField>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
   const isMobile = useIsMobile(); // Usar o hook useIsMobile
 
   // Form states for the currently edited item (used only for desktop inline editing)
-  const [formQuantity, setFormQuantity] = useState<number>(1);
+  const [formQuantity, setFormQuantity] = useState<number | "">(1);
+  const [formQuantityError, setFormQuantityError] = useState(false);
   const [formAf, setFormAf] = useState('');
   const [formPartCode, setFormPartCode] = useState(''); // Código da peça selecionada/confirmada
   const [formDescription, setFormDescription] = useState(''); // Descrição da peça selecionada/confirmada
@@ -61,7 +73,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   const [searchResultsForEdit, setSearchResultsForEdit] = useState<Part[]>([]);
 
   // Form states for inline add item
-  const [inlineFormQuantity, setInlineFormQuantity] = useState<number>(1);
+  const [inlineFormQuantity, setInlineFormQuantity] = useState<number | "">(1);
+  const [inlineFormQuantityError, setInlineFormQuantityError] = useState(false);
   const [inlineFormAf, setInlineFormAf] = useState('');
   const [inlineFormPartCode, setInlineFormPartCode] = useState(''); // Código da peça selecionada/confirmada
   const [inlineFormDescription, setInlineFormDescription] = useState(''); // Descrição da peça selecionada/confirmada
@@ -73,31 +86,91 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(true);
   const [isLoadingAfs, setIsLoadingAfs] = useState(true);
-  const [editedTags, setEditedTags] = useState<string>('');
   
   // Cache para itens relacionados
   const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, RelatedPart[]>>(new Map());
 
-  // Sincroniza o estado interno com a prop listItems quando ela muda
+  // Sincroniza o estado interno com a prop listItems quando ela muda e reaplica a ordenação
   useEffect(() => {
-    setOrderedItems(listItems);
+    if (sortField) {
+      applySort(listItems, sortField, sortDirection);
+    } else {
+      setOrderedItems(listItems);
+    }
   }, [listItems]);
+
+  const applySort = (items: SimplePartItem[], field: SortField, direction: SortDirection) => {
+    if (!field) {
+      setOrderedItems(items);
+      return;
+    }
+
+    const sorted = [...items].sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      if (field === 'codigo') {
+        valA = a.codigo_peca || '';
+        valB = b.codigo_peca || '';
+      } else if (field === 'descricao') {
+        valA = a.descricao || '';
+        valB = b.descricao || '';
+      } else if (field === 'af') {
+        valA = a.af || '';
+        valB = b.af || '';
+      } else if (field === 'quantidade') {
+        valA = a.quantidade ?? 0;
+        valB = b.quantidade ?? 0;
+      }
+
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        // Ordenação alfabética sem diferenciar maiúsculas/minúsculas
+        return direction === 'asc'
+          ? valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' })
+          : valB.localeCompare(valA, undefined, { numeric: true, sensitivity: 'base' });
+      } else {
+        // Ordenação numérica
+        return direction === 'asc' ? valA - valB : valB - valA;
+      }
+    });
+
+    setOrderedItems(sorted);
+    onListReordered(sorted);
+  };
+
+  const handleSort = (field: SortField) => {
+    if (!field) return;
+
+    let newDirection: SortDirection = 'asc';
+    if (sortField === field) {
+      newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    }
+
+    setSortField(field);
+    setSortDirection(newDirection);
+    applySort(listItems, field, newDirection);
+  };
+
+  const getSortIndicator = (field: SortField) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? ' ▲' : ' ▼';
+  };
 
   // Load all parts and AFs for search inputs
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoadingParts(true);
-      const parts = await getParts();
+      const parts = await getParts(company);
       setAllAvailableParts(parts);
       setIsLoadingParts(false);
 
       setIsLoadingAfs(true);
-      const afs = await getAfsFromService();
+      const afs = await getAfsFromService(company);
       setAllAvailableAfs(afs);
       setIsLoadingAfs(false);
     };
     loadInitialData();
-  }, []);
+  }, [company]);
 
   // Effect to populate related parts cache
   useEffect(() => {
@@ -114,7 +187,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (searchQueryForEdit.length > 1) {
-        const results = await searchPartsService(searchQueryForEdit);
+        const results = await searchPartsService(searchQueryForEdit, company);
         setSearchResultsForEdit(results);
       } else {
         setSearchResultsForEdit([]);
@@ -124,13 +197,13 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       fetchSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQueryForEdit]);
+  }, [searchQueryForEdit, company]);
 
   // Effect for inline part search (add mode)
   useEffect(() => {
     const fetchInlineSearchResults = async () => {
       if (inlineSearchQuery.length > 1) {
-        const results = await searchPartsService(inlineSearchQuery);
+        const results = await searchPartsService(inlineSearchQuery, company);
         setInlineSearchResults(results);
       } else {
         setInlineSearchResults([]);
@@ -140,7 +213,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       fetchInlineSearchResults();
     }, 300);
     return () => clearTimeout(handler);
-  }, [inlineSearchQuery]);
+  }, [inlineSearchQuery, company]);
 
 
   const handleExportPdf = async () => { // Alterado para async
@@ -148,14 +221,15 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    await lazyGeneratePartsListPdf(orderedItems, listTitle); // Usa a função lazy
+    const fullTitle = `${listTitle} (${branding.name})`;
+    await lazyGeneratePartsListPdf(orderedItems, fullTitle); // Usa a função lazy
     showSuccess('PDF gerado com sucesso!');
   };
 
   const formatListText = () => {
     if (orderedItems.length === 0) return '';
 
-    let formattedText = `${listTitle}\n\n`; // Adiciona o título da lista aqui
+    let formattedText = `${listTitle} (${branding.name})\n\n`; // Adiciona o título da lista aqui
 
     orderedItems.forEach(item => {
       const quantidade = item.quantidade ?? 1;
@@ -201,7 +275,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
 
   const handleClearList = async () => {
     try {
-      await clearSimplePartsList();
+      await clearSimplePartsList(company);
       onListChanged();
       showSuccess('Lista de peças simples limpa com sucesso!');
     } catch (error) {
@@ -272,6 +346,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     // Lógica de edição inline para desktop
     setEditingItemId(item.id);
     setFormQuantity(item.quantidade ?? 1);
+    setFormQuantityError(false);
     setFormAf(item.af || '');
     setFormPartCode(item.codigo_peca || ''); // Define o código da peça confirmada
     setFormDescription(item.descricao || ''); // Define a descrição da peça confirmada
@@ -283,14 +358,16 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showError('O Código da Peça ou a Descrição são obrigatórios.');
       return;
     }
-    if (formQuantity <= 0) {
-      showError('A quantidade deve ser maior que zero.');
+    const qtyNum = formQuantity === "" ? 0 : Number(formQuantity);
+    if (formQuantity === "" || isNaN(qtyNum) || qtyNum <= 0) {
+      setFormQuantityError(true);
+      showError('O valor da quantidade tem que ser maior que "0"');
       return;
     }
 
     const updatedItem: SimplePartItem = {
       ...originalItem,
-      quantidade: formQuantity,
+      quantidade: qtyNum,
       af: formAf.trim() || undefined,
       codigo_peca: formPartCode.trim(),
       descricao: formDescription.trim(),
@@ -338,6 +415,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     setIsAddingInline(prev => !prev);
     if (!isAddingInline) { // Se está abrindo o formulário
       setInlineFormQuantity(1);
+      setInlineFormQuantityError(false);
       setInlineFormAf('');
       setInlineFormPartCode('');
       setInlineFormDescription('');
@@ -351,20 +429,22 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showError('O Código da Peça ou a Descrição são obrigatórios.');
       return;
     }
-    if (inlineFormQuantity <= 0) {
-      showError('A quantidade deve ser maior que zero.');
+    const qtyNum = inlineFormQuantity === "" ? 0 : Number(inlineFormQuantity);
+    if (inlineFormQuantity === "" || isNaN(qtyNum) || qtyNum <= 0) {
+      setInlineFormQuantityError(true);
+      showError('O valor da quantidade tem que ser maior que "0"');
       return;
     }
 
     const newItem: Omit<SimplePartItem, 'id'> = {
-      quantidade: inlineFormQuantity,
+      quantidade: qtyNum,
       af: inlineFormAf.trim() || undefined,
       codigo_peca: inlineFormPartCode.trim(),
       descricao: inlineFormDescription.trim(),
     };
 
     try {
-      await addSimplePartItem(newItem);
+      await addSimplePartItem(newItem, company);
       showSuccess('Novo item adicionado com sucesso!');
       setIsAddingInline(false);
       onListChanged();
@@ -401,7 +481,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader className="pb-2">
-        <CardTitle className="text-2xl font-bold">Lista de Peças</CardTitle>
+        <CardTitle className="text-2xl font-bold">Lista de Peças ({branding.name})</CardTitle>
       </CardHeader>
       <CardContent className="p-4 pt-0">
         <div className="mb-4">
@@ -415,14 +495,14 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
             className="w-full"
           />
         </div>
-        <div className="flex flex-row flex-wrap items-center justify-end gap-2"> {/* Alterado para flex-row e items-center */}
+        <div className="flex flex-row flex-wrap items-center justify-end gap-2">
             <Button 
               onClick={handleCopyList} 
               disabled={orderedItems.length === 0} 
-              className="flex-1 sm:w-auto sm:px-4 bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground" // Adicionado flex-1 e estilos
+              className="bg-white text-primary border border-primary hover:bg-primary hover:text-primary-foreground w-10 h-10 p-0 md:w-auto md:px-4"
             >
-              <Copy className="h-4 w-4" /> 
-              <span className="hidden sm:inline ml-2">Copiar Lista</span>
+              <Copy className="h-4 w-4 md:mr-2" /> 
+              <span className="hidden md:inline">Copiar Lista</span>
             </Button>
             <Button 
               onClick={handleShareOnWhatsApp} 
@@ -438,11 +518,11 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                 <Button 
                   onClick={handleExportPdf} 
                   disabled={orderedItems.length === 0} 
-                  variant={isMobile ? "ghost" : "default"} // Ghost para mobile, default para desktop
-                  size={isMobile ? "icon" : undefined} // Icon size para mobile, undefined para desktop
+                  variant={isMobile ? "ghost" : "default"}
+                  size={isMobile ? "icon" : undefined}
                   className={cn(
                     "flex items-center gap-2",
-                    isMobile ? "h-10 w-10 p-0" : "" // Tamanho para mobile
+                    isMobile ? "h-10 w-10 p-0" : "md:px-4"
                   )}
                 >
                   {isMobile ? (
@@ -462,11 +542,10 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                 <Button 
                   variant="destructive" 
                   disabled={orderedItems.length === 0} 
-                  size="icon"
-                  className="flex-1 sm:w-auto sm:px-4" // Adicionado flex-1
+                  className="w-10 h-10 p-0 md:w-auto md:px-4"
                 >
-                  <Trash2 className="h-4 w-4" /> 
-                  <span className="hidden sm:inline ml-2">Limpar Lista</span>
+                  <Trash2 className="h-4 w-4 md:mr-2" /> 
+                  <span className="hidden md:inline">Limpar Lista</span>
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -495,8 +574,54 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                   <TableHead className="w-[40px] p-2">
                     <GripVertical className="h-4 w-4 text-muted-foreground" /> {/* Drag handle header */}
                   </TableHead>
-                  <TableHead className="w-auto whitespace-normal break-words p-2">Peça (Cód. / Descrição / AF)</TableHead>
-                  <TableHead className="w-[3rem] p-2">Qtd</TableHead> {/* Largura ajustada */}
+                  <TableHead className="w-auto p-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('codigo')}
+                        className={cn(
+                          "font-bold hover:text-primary transition-colors cursor-pointer select-none focus:outline-none flex items-center gap-0.5",
+                          sortField === 'codigo' && "text-primary"
+                        )}
+                      >
+                        Código{getSortIndicator('codigo')}
+                      </button>
+                      <span className="text-muted-foreground">/</span>
+                      <button
+                        type="button"
+                        onClick={() => handleSort('descricao')}
+                        className={cn(
+                          "font-bold hover:text-primary transition-colors cursor-pointer select-none focus:outline-none flex items-center gap-0.5",
+                          sortField === 'descricao' && "text-primary"
+                        )}
+                      >
+                        Descrição{getSortIndicator('descricao')}
+                      </button>
+                      <span className="text-muted-foreground">/</span>
+                      <button
+                        type="button"
+                        onClick={() => handleSort('af')}
+                        className={cn(
+                          "font-bold hover:text-primary transition-colors cursor-pointer select-none focus:outline-none flex items-center gap-0.5",
+                          sortField === 'af' && "text-primary"
+                        )}
+                      >
+                        AF{getSortIndicator('af')}
+                      </button>
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-[4rem] p-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('quantidade')}
+                      className={cn(
+                        "font-bold hover:text-primary transition-colors cursor-pointer select-none focus:outline-none w-full text-center flex items-center justify-center gap-0.5",
+                        sortField === 'quantidade' && "text-primary"
+                      )}
+                    >
+                      Qtd{getSortIndicator('quantidade')}
+                    </button>
+                  </TableHead>
                   <TableHead className="w-[80px] p-2 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -563,16 +688,27 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                               />
                             </div>
                           </TableCell>
-                          <TableCell className="w-[3rem] p-2 text-center"> {/* Largura ajustada */}
+                          <TableCell className="w-[4rem] p-2 text-center"> {/* Largura ajustada */}
                             <Label htmlFor={`edit-quantity-${item.id}`} className="sr-only">Quantidade</Label>
                             <Input
                               id={`edit-quantity-${item.id}`}
                               type="number"
                               value={formQuantity}
-                              onChange={(e) => setFormQuantity(parseInt(e.target.value) || 1)}
-                              min="1"
-                              className="w-full text-center"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '') {
+                                  setFormQuantity('');
+                                } else {
+                                  const parsed = parseInt(val, 10);
+                                  setFormQuantity(isNaN(parsed) ? '' : parsed);
+                                }
+                                setFormQuantityError(false);
+                              }}
+                              className={cn("w-full text-center", formQuantityError && "border-destructive focus-visible:ring-destructive")}
                             />
+                            {formQuantityError && (
+                              <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
+                            )}
                           </TableCell>
                           <TableCell className="w-[80px] p-2 text-right">
                             <div className="flex justify-end items-center gap-1">
@@ -632,7 +768,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                             </div>
                           </TableCell>
                           
-                          <TableCell className="w-[3rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell> {/* Largura ajustada */}
+                          <TableCell className="w-[4rem] p-2 text-center font-medium">{item.quantidade ?? 'N/A'}</TableCell> {/* Largura ajustada */}
                           
                           <TableCell className="w-[80px] p-2 text-right">
                             <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1"> {/* Alterado para flex-col em mobile */}
@@ -722,16 +858,27 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                         />
                       </div>
                     </TableCell>
-                    <TableCell className="w-[3rem] p-2 text-center"> {/* Largura ajustada */}
+                    <TableCell className="w-[4rem] p-2 text-center"> {/* Largura ajustada */}
                       <Label htmlFor="inline-quantity" className="sr-only">Quantidade</Label>
                       <Input
                         id="inline-quantity"
                         type="number"
                         value={inlineFormQuantity}
-                        onChange={(e) => setInlineFormQuantity(parseInt(e.target.value) || 1)}
-                        min="1"
-                        className="w-full text-center"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setInlineFormQuantity('');
+                          } else {
+                            const parsed = parseInt(val, 10);
+                            setInlineFormQuantity(isNaN(parsed) ? '' : parsed);
+                          }
+                          setInlineFormQuantityError(false);
+                        }}
+                        className={cn("w-full text-center", inlineFormQuantityError && "border-destructive focus-visible:ring-destructive")}
                       />
+                      {inlineFormQuantityError && (
+                        <p className="text-[10px] text-destructive mt-1">O valor tem que ser maior que "0"</p>
+                      )}
                     </TableCell>
                     <TableCell className="w-[80px] p-2 text-right">
                       <div className="flex justify-end items-center gap-1">

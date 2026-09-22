@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import { CustomList, CustomListItem, MenuItem, RelatedPart, RelatedItem, MangueiraItemData } from '@/types/supabase';
 import { updatePart as updatePartService } from '@/services/partListService'; // Importa a função de update de peça
+import { CompanyType } from '@/types/company';
 
 // Re-exporta updatePart para uso no formulário de item de lista
 export const updatePart = updatePartService;
@@ -84,14 +85,20 @@ const flattenMenuHierarchy = (hierarchy: MenuItem[]): MenuItem[] => {
 /**
  * Salva a estrutura completa do menu no Supabase (uma única linha JSONB).
  * @param flatItems A flat array of all menu items.
+ * @param company The current company.
  */
-export const saveAllMenuItems = async (flatItems: MenuItem[]): Promise<void> => {
+export const saveAllMenuItems = async (flatItems: MenuItem[], company: CompanyType): Promise<void> => {
   // Filtra itens dinâmicos antes de salvar para evitar duplicação na próxima carga.
   const itemsToSave = flatItems.filter(item => !item.isDynamic);
 
   const { error } = await supabase
     .from(APP_CONFIG_TABLE)
-    .upsert({ key: MENU_STRUCTURE_KEY, value: itemsToSave, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    .upsert({ 
+      key: MENU_STRUCTURE_KEY, 
+      value: itemsToSave, 
+      updated_at: new Date().toISOString(),
+      company: company
+    }, { onConflict: 'key,company' });
 
   if (error) {
     throw new Error(`Erro ao salvar estrutura do menu: ${error.message}`);
@@ -101,15 +108,17 @@ export const saveAllMenuItems = async (flatItems: MenuItem[]): Promise<void> => 
 /**
  * Busca a estrutura completa do menu do Supabase (uma única linha JSONB).
  * Se não existir, tenta migrar de uma estrutura antiga ou retorna um array vazio.
+ * @param company The current company.
  */
-export const getMenuStructure = async (): Promise<MenuItem[]> => {
+export const getMenuStructure = async (company: CompanyType): Promise<MenuItem[]> => {
   const { data, error } = await supabase
     .from(APP_CONFIG_TABLE)
     .select('value')
     .eq('key', MENU_STRUCTURE_KEY)
-    .single();
+    .eq('company', company)
+    .maybeSingle();
 
-  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+  if (error) {
     throw new Error(`Error fetching menu structure from app_config: ${error.message}`);
   }
 
@@ -122,7 +131,8 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
     const { data: lists, error: listsError } = await supabase
       .from('custom_lists')
       .select('id, items_data')
-      .in('id', listIds);
+      .in('id', listIds)
+      .eq('company', company);
 
     if (listsError) {
       console.error('Error fetching custom lists for menu subtitles:', listsError);
@@ -160,13 +170,13 @@ export const getMenuStructure = async (): Promise<MenuItem[]> => {
  * Retorna todos os itens de menu em uma lista plana.
  * Garante que 'itens_relacionados' esteja presente e no formato de objeto.
  */
-export const getAllMenuItemsFlat = async (): Promise<MenuItem[]> => {
-  const hierarchy = await getMenuStructure();
+export const getAllMenuItemsFlat = async (company: CompanyType): Promise<MenuItem[]> => {
+  const hierarchy = await getMenuStructure(company);
   return flattenMenuHierarchy(hierarchy);
 };
 
-export const createMenuItem = async (item: Omit<MenuItem, 'id' | 'created_at'>): Promise<MenuItem> => {
-  const currentFlatItems = await getAllMenuItemsFlat();
+export const createMenuItem = async (item: Omit<MenuItem, 'id' | 'created_at'>, company: CompanyType): Promise<MenuItem> => {
+  const currentFlatItems = await getAllMenuItemsFlat(company);
   const newItem: MenuItem = { 
     ...item, 
     id: uuidv4(), 
@@ -174,20 +184,20 @@ export const createMenuItem = async (item: Omit<MenuItem, 'id' | 'created_at'>):
     itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem), // Garante o formato
   };
   const updatedFlatItems = [...currentFlatItems, newItem];
-  await saveAllMenuItems(updatedFlatItems);
+  await saveAllMenuItems(updatedFlatItems, company);
   return newItem;
 };
 
-export const updateMenuItem = async (item: MenuItem): Promise<void> => {
-  const currentFlatItems = await getAllMenuItemsFlat();
+export const updateMenuItem = async (item: MenuItem, company: CompanyType): Promise<void> => {
+  const currentFlatItems = await getAllMenuItemsFlat(company);
   const updatedFlatItems = currentFlatItems.map(existingItem =>
     existingItem.id === item.id ? { ...item, itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem) } : existingItem
   );
-  await saveAllMenuItems(updatedFlatItems);
+  await saveAllMenuItems(updatedFlatItems, company);
 };
 
-export const deleteMenuItem = async (itemId: string): Promise<void> => {
-  const currentFlatItems = await getAllMenuItemsFlat();
+export const deleteMenuItem = async (itemId: string, company: CompanyType): Promise<void> => {
+  const currentFlatItems = await getAllMenuItemsFlat(company);
   const itemsToDelete = new Set<string>();
   itemsToDelete.add(itemId);
 
@@ -201,16 +211,17 @@ export const deleteMenuItem = async (itemId: string): Promise<void> => {
   findChildrenToDelete(itemId);
 
   const updatedFlatItems = currentFlatItems.filter(item => !itemsToDelete.has(item.id));
-  await saveAllMenuItems(updatedFlatItems);
+  await saveAllMenuItems(updatedFlatItems, company);
 };
 
 // --- Custom Lists Management ---
 
-export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
+export const getCustomLists = async (userId: string, company: CompanyType): Promise<CustomList[]> => {
   const { data, error } = await supabase
     .from('custom_lists')
     .select('*')
     .eq('user_id', userId)
+    .eq('company', company)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -231,11 +242,12 @@ export const getCustomLists = async (userId: string): Promise<CustomList[]> => {
   });
 };
 
-export const getCustomListById = async (listId: string): Promise<CustomList | null> => {
+export const getCustomListById = async (listId: string, company: CompanyType): Promise<CustomList | null> => {
   const { data, error } = await supabase
     .from('custom_lists')
     .select('*')
     .eq('id', listId)
+    .eq('company', company)
     .single();
 
   if (error && error.code !== 'PGRST116') {
@@ -253,24 +265,24 @@ export const getCustomListById = async (listId: string): Promise<CustomList | nu
   return list;
 };
 
-export const getCustomListItems = async (listId: string): Promise<CustomListItem[]> => {
-  const list = await getCustomListById(listId);
+export const getCustomListItems = async (listId: string, company: CompanyType): Promise<CustomListItem[]> => {
+  const list = await getCustomListById(listId, company);
   if (!list || !list.items_data) {
     return [];
   }
   // Garante que 'itens_relacionados' e 'type' estejam presentes em cada item
-  return list.items_data.map(item => ({ 
-      ...item, 
+  return list.items_data.map(item => ({
+      ...item,
       type: item.type || 'item', // Adiciona 'item' como tipo padrão se ausente
       itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem)
     }))
     .sort((a, b) => a.order_index - b.order_index);
 };
 
-export const createCustomList = async (title: string, userId: string): Promise<CustomList> => {
+export const createCustomList = async (title: string, userId: string, company: CompanyType): Promise<CustomList> => {
   const { data, error } = await supabase
     .from('custom_lists')
-    .insert({ title, user_id: userId, items_data: [] }) // Inicializa items_data vazio
+    .insert({ title, user_id: userId, items_data: [], company: company }) // Inicializa items_data vazio
     .select()
     .single();
 
@@ -288,7 +300,12 @@ export const createCustomList = async (title: string, userId: string): Promise<C
 export const updateCustomList = async (list: CustomList): Promise<void> => {
   const { error } = await supabase
     .from('custom_lists')
-    .update({ title: list.title, items_data: list.items_data, updated_at: new Date().toISOString() }) // Inclui updated_at
+    .update({ 
+      title: list.title, 
+      items_data: list.items_data, 
+      updated_at: new Date().toISOString(),
+      company: list.company
+    })
     .eq('id', list.id);
 
   if (error) {
@@ -302,8 +319,8 @@ export const updateCustomList = async (list: CustomList): Promise<void> => {
  * @param listId O ID da lista.
  * @param item O item CustomListItem completo com os dados atualizados.
  */
-export const updateCustomListItem = async (listId: string, item: CustomListItem): Promise<void> => {
-  const currentList = await getCustomListById(listId);
+export const updateCustomListItem = async (listId: string, item: CustomListItem, company: CompanyType): Promise<void> => {
+  const currentList = await getCustomListById(listId, company);
   if (!currentList) throw new Error('Lista personalizada não encontrada.');
 
   // Normaliza campos baseados no tipo
@@ -330,9 +347,10 @@ export const updateCustomListItem = async (listId: string, item: CustomListItem)
  * Esta é a função que será usada para reordenação.
  * @param listId O ID da lista.
  * @param updatedItems O array completo de CustomListItem[] com a nova ordem e order_index.
+ * @param company The current company.
  */
-export const updateAllCustomListItems = async (listId: string, updatedItems: CustomListItem[]): Promise<void> => {
-  const currentList = await getCustomListById(listId);
+export const updateAllCustomListItems = async (listId: string, updatedItems: CustomListItem[], company: CompanyType): Promise<void> => {
+  const currentList = await getCustomListById(listId, company);
   if (!currentList) throw new Error('Lista personalizada não encontrada.');
 
   // Garante que todos os itens no array recebido tenham list_id e itens_relacionados
@@ -356,8 +374,8 @@ export const deleteCustomList = async (listId: string): Promise<void> => {
   }
 };
 
-export const addCustomListItem = async (listId: string, item: Omit<CustomListItem, 'id'>): Promise<CustomListItem> => {
-  const currentList = await getCustomListById(listId);
+export const addCustomListItem = async (listId: string, item: Omit<CustomListItem, 'id'>, company: CompanyType): Promise<CustomListItem> => {
+  const currentList = await getCustomListById(listId, company);
   if (!currentList) throw new Error('Lista personalizada não encontrada.');
 
   const currentItems = currentList.items_data || [];
@@ -375,9 +393,9 @@ export const addCustomListItem = async (listId: string, item: Omit<CustomListIte
     mangueira_data: item.type === 'mangueira' ? item.mangueira_data : undefined,
   };
 
-  const newItem: CustomListItem = { 
-    ...normalizedItem, 
-    id: uuidv4(), 
+  const newItem: CustomListItem = {
+    ...normalizedItem,
+    id: uuidv4(),
   };
   const updatedItems = [...currentItems, newItem];
   
@@ -385,8 +403,8 @@ export const addCustomListItem = async (listId: string, item: Omit<CustomListIte
   return newItem;
 };
 
-export const deleteCustomListItem = async (listId: string, itemId: string): Promise<void> => {
-  const currentList = await getCustomListById(listId);
+export const deleteCustomListItem = async (listId: string, itemId: string, company: CompanyType): Promise<void> => {
+  const currentList = await getCustomListById(listId, company);
   if (!currentList) throw new Error('Lista personalizada não encontrada.');
 
   const updatedItems = (currentList.items_data || []).filter(item => item.id !== itemId);
@@ -395,9 +413,3 @@ export const deleteCustomListItem = async (listId: string, itemId: string): Prom
 
   await updateCustomList({ ...currentList, items_data: reindexedItems });
 };
-
-// REMOVIDO: Funções de Custom List Item Relations não são mais necessárias
-// getCustomListItemRelations, addCustomListItemRelation, deleteCustomListItemRelation
-
-// --- Menu Structure Management (Funções já atualizadas acima) ---
-// getMenuStructure, getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem
