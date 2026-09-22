@@ -1,0 +1,197 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\Valter Jr\\dyad-apps\\sleepy-shiba-skip-2\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "--config",
+      "playwright-dyad.config.ts",
+      "e2e-tests/service-order-export-waiting\\.spec\\.ts",
+      "--reporter=list,json",
+      "--headed"
+    ],
+    "configFile": "C:\\Users\\Valter Jr\\dyad-apps\\sleepy-shiba-skip-2\\playwright-dyad.config.ts",
+    "rootDir": "C:/Users/Valter Jr/dyad-apps/sleepy-shiba-skip-2/e2e-tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/Valter Jr/dyad-apps/sleepy-shiba-skip-2/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "C:/Users/Valter Jr/dyad-apps/sleepy-shiba-skip-2/e2e-tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list"
+      ],
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "service-order-export-waiting.spec.ts",
+      "file": "service-order-export-waiting.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Exportação de OS com Aguardando Serviço",
+          "file": "service-order-export-waiting.spec.ts",
+          "line": 44,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Copiar Lista inclui blocos de Aguardando Serviço em ordem cronológica",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3296,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-22T22:15:33.125Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9c7ba2aa50e7ee881b6f-13d7abb6835bc44add65",
+              "file": "service-order-export-waiting.spec.ts",
+              "line": 45,
+              "column": 3
+            },
+            {
+              "title": "bloqueia a exportação e avisa quando uma OS está sem horário",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3674,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-22T22:15:36.645Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9c7ba2aa50e7ee881b6f-cc8f573c6eaa6c9d1e14",
+              "file": "service-order-export-waiting.spec.ts",
+              "line": 69,
+              "column": 3
+            },
+            {
+              "title": "permite salvar OS só com hora inicial e bloqueia apenas na exportação",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3124,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-09-22T22:15:40.332Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9c7ba2aa50e7ee881b6f-5fba91f27bde488ffe4b",
+              "file": "service-order-export-waiting.spec.ts",
+              "line": 89,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-22T22:15:32.649Z",
+    "duration": 11112.66,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
