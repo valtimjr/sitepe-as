@@ -262,10 +262,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       return;
     }
 
-    if ((horaInicio && !horaFinal) || (!horaInicio && horaFinal)) {
-      showError('Por favor, informe ambos os horários (início e término).');
-      return;
-    }
 
     // 2. Validar formato das horas
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;

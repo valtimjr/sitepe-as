@@ -85,4 +85,25 @@ test.describe('Exportação de OS com Aguardando Serviço', () => {
     await dialog.getByRole('button', { name: 'Entendi' }).click();
     await expect(dialog).toBeHidden();
   });
+
+  test('permite salvar OS só com hora inicial e bloqueia apenas na exportação', async ({ page }) => {
+    await stubClipboard(page);
+    await openServiceOrders(page);
+
+    await page.getByRole('button', { name: /Iniciar Nova OS/i }).click();
+    await page.getByPlaceholder(/Digite o número do AF/i).fill('7777');
+    await page.locator('input[type="time"]').nth(0).fill('09:00');
+    await page.getByRole('button', { name: /Salvar OS/i }).click();
+
+    await expect(page.getByText('AF: 7777').first()).toBeVisible();
+
+    await page.getByRole('button', { name: /Copiar Lista/i }).click();
+
+    const dialog = page.getByTestId('invalid-times-dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('AF: 7777');
+
+    const copiedCount = await page.evaluate(() => ((window as any).__copiedTexts as string[]).length);
+    expect(copiedCount).toBe(0);
+  });
 });
