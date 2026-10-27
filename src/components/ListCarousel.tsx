@@ -8,7 +8,10 @@ import {
   Plus, 
   Package, 
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  CloudUpload,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -35,6 +38,8 @@ import type { ListIcon as ListIconData } from '@/types/listIcon';
 import ListIcon from '@/components/list-icon/ListIcon';
 import ListIconEditor from '@/components/list-icon/ListIconEditor';
 import ListSaveMenu from '@/components/ListSaveMenu';
+import LoginModal from '@/components/LoginModal';
+import { useCloudListActions } from '@/hooks/use-cloud-list-actions';
 
 interface ListCarouselProps {
   lists: LocalList[];
@@ -62,6 +67,8 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
   onDeleteList,
   onListChanged,
 }) => {
+  const { requestCloudAction, savingListId, loginModalProps } = useCloudListActions(company, onListChanged);
+
   // Dialog states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newListName, setNewListName] = useState('');
@@ -457,7 +464,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
                     <div onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-none hover:bg-muted">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-none hover:bg-muted" aria-label="Opções da lista">
                             <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -470,6 +477,23 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
                           }}>
                             <Pencil className="mr-2 h-4 w-4" />
                             <span>Renomear / Ícone</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={savingListId === list.id}
+                            onClick={() => requestCloudAction('save', list.id)}
+                          >
+                            {savingListId === list.id
+                              ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              : <CloudUpload className="mr-2 h-4 w-4" />}
+                            <span>Salvar na nuvem</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={!list.cloudId || savingListId === list.id}
+                            onClick={() => requestCloudAction('update', list.id)}
+                            title={list.cloudId ? undefined : 'Esta lista ainda não foi salva na nuvem'}
+                          >
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            <span>Atualizar na nuvem</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onDuplicateList(list.id)}>
                             <Copy className="mr-2 h-4 w-4" />
@@ -581,6 +605,8 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
           </form>
         </DialogContent>
       </Dialog>
+
+      <LoginModal {...loginModalProps} />
 
       {/* Delete List Dialog */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
