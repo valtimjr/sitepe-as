@@ -7,13 +7,6 @@ import {
   Trash2, 
   Plus, 
   Package, 
-  Truck, 
-  Zap, 
-  Droplet, 
-  Wrench, 
-  Archive, 
-  ShoppingCart, 
-  Calendar,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -38,6 +31,9 @@ import { LocalList, formatListText } from '@/services/localListStorage';
 import { CompanyType } from '@/types/company';
 import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
+import type { ListIcon as ListIconData } from '@/types/listIcon';
+import ListIcon from '@/components/list-icon/ListIcon';
+import ListIconEditor from '@/components/list-icon/ListIconEditor';
 
 interface ListCarouselProps {
   lists: LocalList[];
@@ -45,8 +41,8 @@ interface ListCarouselProps {
   company: CompanyType;
   companyName: string;
   onSelectList: (id: string) => void;
-  onCreateList: (name: string) => void;
-  onRenameList: (id: string, newName: string) => void;
+  onCreateList: (name: string, icon?: ListIconData | null) => void;
+  onRenameList: (id: string, newName: string, icon?: ListIconData | null) => void;
   onDuplicateList: (id: string) => void;
   onDeleteList: (id: string) => void;
   onReorderLists: (orderedIds: string[]) => void;
@@ -66,10 +62,12 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
   // Dialog states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newListName, setNewListName] = useState('');
+  const [newListIcon, setNewListIcon] = useState<ListIconData | null>(null);
   
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [renameListId, setRenameListId] = useState('');
   const [renameListName, setRenameListName] = useState('');
+  const [renameListIcon, setRenameListIcon] = useState<ListIconData | null>(null);
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteListId, setDeleteListId] = useState('');
@@ -115,33 +113,6 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
     }
     
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-  };
-
-  // Helper to get icon based on list name
-  const getListIcon = (name: string) => {
-    const lower = name.toLowerCase();
-    if (lower.includes('caminhão') || lower.includes('caminhao') || lower.includes('truck') || lower.includes('veículo') || lower.includes('veiculo')) {
-      return <Truck className="h-4 w-4 text-amber-500" />;
-    }
-    if (lower.includes('elétrica') || lower.includes('eletrica') || lower.includes('zap') || lower.includes('energia')) {
-      return <Zap className="h-4 w-4 text-yellow-500" />;
-    }
-    if (lower.includes('hidráulica') || lower.includes('hidraulica') || lower.includes('água') || lower.includes('agua') || lower.includes('óleo') || lower.includes('oleo')) {
-      return <Droplet className="h-4 w-4 text-blue-500" />;
-    }
-    if (lower.includes('oficina') || lower.includes('ferramenta') || lower.includes('tool') || lower.includes('manutenção') || lower.includes('manutencao')) {
-      return <Wrench className="h-4 w-4 text-orange-500" />;
-    }
-    if (lower.includes('estoque') || lower.includes('almoxarifado') || lower.includes('box') || lower.includes('armário') || lower.includes('armario')) {
-      return <Archive className="h-4 w-4 text-emerald-500" />;
-    }
-    if (lower.includes('compra') || lower.includes('mercado') || lower.includes('cart') || lower.includes('adquirir')) {
-      return <ShoppingCart className="h-4 w-4 text-purple-500" />;
-    }
-    if (lower.includes('preventiva') || lower.includes('revisão') || lower.includes('revisao') || lower.includes('calendário') || lower.includes('calendario')) {
-      return <Calendar className="h-4 w-4 text-rose-500" />;
-    }
-    return <Package className="h-4 w-4 text-slate-500" />;
   };
 
   // Measure container and card widths
@@ -307,8 +278,9 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
       showError('O nome da lista não pode ser vazio.');
       return;
     }
-    onCreateList(newListName.trim());
+    onCreateList(newListName.trim(), newListIcon);
     setNewListName('');
+    setNewListIcon(null);
     setIsCreateOpen(false);
   };
 
@@ -318,7 +290,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
       showError('O nome da lista não pode ser vazio.');
       return;
     }
-    onRenameList(renameListId, renameListName.trim());
+    onRenameList(renameListId, renameListName.trim(), renameListIcon);
     setIsRenameOpen(false);
   };
 
@@ -462,9 +434,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
                   {/* Top Row: Icon, Title & Options */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="p-1 bg-muted/80 shrink-0">
-                        {getListIcon(list.name)}
-                      </div>
+                      <ListIcon name={list.name} icon={list.icon} size="sm" />
                       <span className={cn(
                         "text-sm truncate tracking-tight",
                         isActive ? "font-extrabold text-foreground" : "font-bold text-muted-foreground"
@@ -485,10 +455,11 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
                           <DropdownMenuItem onClick={() => {
                             setRenameListId(list.id);
                             setRenameListName(list.name);
+                            setRenameListIcon(list.icon ?? null);
                             setIsRenameOpen(true);
                           }}>
                             <Pencil className="mr-2 h-4 w-4" />
-                            <span>Renomear</span>
+                            <span>Renomear / Ícone</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onDuplicateList(list.id)}>
                             <Copy className="mr-2 h-4 w-4" />
@@ -533,8 +504,14 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
       </div>
 
       {/* Create List Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-md rounded-none">
+      <Dialog
+        open={isCreateOpen}
+        onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          if (!open) setNewListIcon(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md rounded-none max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-extrabold text-lg">Criar Nova Lista</DialogTitle>
             <DialogDescription className="text-xs">
@@ -542,6 +519,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateSubmit} className="space-y-4">
+            <ListIconEditor name={newListName} icon={newListIcon} onChange={setNewListIcon} />
             <div className="space-y-2">
               <Label htmlFor="new-list-name" className="text-xs font-bold uppercase">Nome da Lista</Label>
               <Input
@@ -565,14 +543,15 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
 
       {/* Rename List Dialog */}
       <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
-        <DialogContent className="sm:max-w-md rounded-none">
+        <DialogContent className="sm:max-w-md rounded-none max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-extrabold text-lg">Renomear Lista</DialogTitle>
+            <DialogTitle className="font-extrabold text-lg">Editar Lista</DialogTitle>
             <DialogDescription className="text-xs">
-              Digite o novo nome para esta lista de peças.
+              Altere o nome e o ícone desta lista de peças.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleRenameSubmit} className="space-y-4">
+            <ListIconEditor name={renameListName} icon={renameListIcon} onChange={setRenameListIcon} />
             <div className="space-y-2">
               <Label htmlFor="rename-list-name" className="text-xs font-bold uppercase">Novo Nome</Label>
               <Input

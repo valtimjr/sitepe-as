@@ -9,6 +9,7 @@ import {
   saveListsData,
 } from '@/services/localListStorage';
 import { v4 as uuidv4 } from 'uuid';
+import { sanitizeListIcon } from '@/types/listIcon';
 
 const OFFLINE_MESSAGE = 'Sem conexão com a internet. Tente novamente quando estiver online.';
 
@@ -46,6 +47,7 @@ export const saveListToCloud = async (userId: string, company: CompanyType, list
       name: list.name,
       local_list_id: list.id,
       items: toCloudItems(list),
+      icon: list.icon ?? null,
     })
     .select()
     .single();
@@ -57,7 +59,7 @@ export const updateCloudList = async (cloudId: string, list: LocalList): Promise
   await ensureOnline();
   const { data, error } = await supabase
     .from('saved_part_lists')
-    .update({ name: list.name, local_list_id: list.id, items: toCloudItems(list) })
+    .update({ name: list.name, local_list_id: list.id, items: toCloudItems(list), icon: list.icon ?? null })
     .eq('id', cloudId)
     .select()
     .maybeSingle();
@@ -87,6 +89,9 @@ export const loadCloudListToLocal = async (company: CompanyType, cloudList: Save
 
   target.name = cloudList.name;
   target.cloudId = cloudList.id;
+  const icon = sanitizeListIcon(cloudList.icon);
+  if (icon) target.icon = icon;
+  else delete target.icon;
   target.items = (cloudList.items || []).map(item => ({
     id: uuidv4(),
     codigo_peca: item.codigo_peca || '',

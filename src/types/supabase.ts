@@ -1,3 +1,5 @@
+import type { ListIcon } from './listIcon';
+
 export interface PageAccessRule {
   page_path: string;
   admin_access: boolean;
@@ -144,6 +146,7 @@ export interface SavedPartList {
   local_list_id: string | null;
   items: SavedPartListItem[];
   item_count: number;
+  icon?: ListIcon | null;
   created_at?: string;
   updated_at?: string;
 }

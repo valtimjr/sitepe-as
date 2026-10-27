@@ -19,6 +19,8 @@ import {
 } from '@/services/localListStorage';
 import { CompanyType } from '@/types/company';
 import { showSuccess, showError } from '@/utils/toast';
+import ListIcon from '@/components/list-icon/ListIcon';
+import type { ListIcon as ListIconData } from '@/types/listIcon';
 
 // LocalStorage key to persist the last selected list per company
 const LAST_SELECTED_KEY_PREFIX = 'autoboard_last_selected_list_';
@@ -40,7 +42,7 @@ export const ListSelectorDropdown = forwardRef<HTMLDivElement, ListSelectorDropd
   part,
   onCreatedAndAdded,
 }, ref) => {
-  const [lists, setLists] = useState<{ id: string; name: string }[]>([]);
+  const [lists, setLists] = useState<{ id: string; name: string; icon?: ListIconData }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Inline creation states
@@ -54,8 +56,8 @@ export const ListSelectorDropdown = forwardRef<HTMLDivElement, ListSelectorDropd
       setIsLoading(true);
       try {
         const data = await getListsData(company);
-        // Only keep id and name for performance and memory efficiency
-        const simplifiedLists = data.lists.map(l => ({ id: l.id, name: l.name }));
+        // Only keep id, name and icon for performance and memory efficiency
+        const simplifiedLists = data.lists.map(l => ({ id: l.id, name: l.name, icon: l.icon }));
         setLists(simplifiedLists);
 
         // Check for last selected list in localStorage
@@ -164,6 +166,7 @@ export const ListSelectorDropdown = forwardRef<HTMLDivElement, ListSelectorDropd
               {lists.map((list) => (
                 <SelectItem key={list.id} value={list.id} className="text-xs">
                   <span className="flex items-center gap-1.5 font-medium">
+                    <ListIcon name={list.name} icon={list.icon} size="xs" />
                     {list.name}
                   </span>
                 </SelectItem>

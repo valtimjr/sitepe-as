@@ -1,6 +1,7 @@
 import Papa from 'papaparse';
 import { CompanyType } from '@/types/company';
 import type { SimplePartItem, Part, Af } from '@/services/partListService';
+import type { ListIcon } from '@/types/listIcon';
 
 // ---------- Types ----------
 
@@ -45,6 +46,7 @@ export interface ListJsonFile {
   company: string;
   name: string;
   exportedAt: string;
+  icon?: ListIcon;
   items: { codigo_peca: string; descricao: string; quantidade: number; af: string }[];
 }
 
@@ -335,13 +337,19 @@ export const listItemsForExport = (items: SimplePartItem[]) =>
     'AF': item.af || '',
   }));
 
-export const buildListJson = (name: string, items: SimplePartItem[], company: CompanyType): ListJsonFile => ({
+export const buildListJson = (
+  name: string,
+  items: SimplePartItem[],
+  company: CompanyType,
+  icon?: ListIcon
+): ListJsonFile => ({
   app: 'autoboard',
   type: 'parts_list',
   version: 1,
   company,
   name,
   exportedAt: new Date().toISOString(),
+  ...(icon ? { icon } : {}),
   items: items.map(item => ({
     codigo_peca: item.codigo_peca || '',
     descricao: item.descricao || '',

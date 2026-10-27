@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { SimplePartItem, localDb } from './localDbService';
 import { CompanyType } from '@/types/company';
 import { itemKey } from '@/lib/listFileIO';
+import { ListIcon } from '@/types/listIcon';
 
 export interface LocalList {
   id: string;
@@ -10,6 +11,7 @@ export interface LocalList {
   updatedAt: string;
   items: SimplePartItem[];
   cloudId?: string;
+  icon?: ListIcon;
 }
 
 export interface LocalListsData {
@@ -134,14 +136,15 @@ export const setActiveListId = async (company: CompanyType, id: string): Promise
 /**
  * Creates a new list and returns it.
  */
-export const createList = async (company: CompanyType, name: string): Promise<LocalList> => {
+export const createList = async (company: CompanyType, name: string, icon?: ListIcon | null): Promise<LocalList> => {
   const data = await getListsData(company);
   const newList: LocalList = {
     id: uuidv4(),
     name: name.trim() || `Lista ${data.lists.length + 1}`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    items: []
+    items: [],
+    ...(icon ? { icon } : {})
   };
   
   data.lists.push(newList);
@@ -150,13 +153,20 @@ export const createList = async (company: CompanyType, name: string): Promise<Lo
 };
 
 /**
- * Renames a list.
+ * Renames a list. `icon` undefined keeps the current icon; `null` clears it (automatic icon).
  */
-export const renameList = async (company: CompanyType, id: string, newName: string): Promise<void> => {
+export const renameList = async (
+  company: CompanyType,
+  id: string,
+  newName: string,
+  icon?: ListIcon | null
+): Promise<void> => {
   const data = await getListsData(company);
   const list = data.lists.find(l => l.id === id);
   if (list) {
     list.name = newName.trim() || list.name;
+    if (icon === null) delete list.icon;
+    else if (icon) list.icon = icon;
     list.updatedAt = new Date().toISOString();
     saveListsData(company, data);
   }
@@ -174,6 +184,7 @@ export const duplicateList = async (company: CompanyType, id: string): Promise<v
       name: `${list.name} (Cópia)`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      ...(list.icon ? { icon: { ...list.icon } } : {}),
       items: list.items.map(item => ({
         ...item,
         id: uuidv4() // New ID for each item

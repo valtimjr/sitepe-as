@@ -11,6 +11,7 @@ import {
   parseSpreadsheetFile, rowsFromListJson, tableFromMatrix, validateImportRows,
 } from '@/lib/listFileIO';
 import { showError, showSuccess } from '@/utils/toast';
+import { sanitizeListIcon } from '@/types/listIcon';
 import ImportStepper from './ImportStepper';
 import FileDropStep from './FileDropStep';
 import FieldMappingStep from './FieldMappingStep';
@@ -183,7 +184,7 @@ const ImportWizardDialog: React.FC<ImportWizardDialogProps> = ({ open, onOpenCha
       let listId = activeList.id;
       let listName = activeList.name;
       if (target === 'new') {
-        const created = await createList(company, newListName);
+        const created = await createList(company, newListName, sanitizeListIcon(appJson?.icon));
         listId = created.id;
         listName = created.name;
       }

@@ -15,12 +15,14 @@ import {
 } from '@/services/localListStorage';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Calendar, Clock, Package } from 'lucide-react';
+import { ChevronLeft, Clock } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useCompany } from '@/context/CompanyContext';
 import { ListCarousel } from '@/components/ListCarousel';
+import ListIcon from '@/components/list-icon/ListIcon';
+import type { ListIcon as ListIconData } from '@/types/listIcon';
 
 const PartsList = () => {
   const { company, branding } = useCompany();
@@ -80,17 +82,17 @@ const PartsList = () => {
     await loadListsAndItems();
   };
 
-  const handleCreateList = async (name: string) => {
-    const newList = await createList(company, name);
+  const handleCreateList = async (name: string, icon?: ListIconData | null) => {
+    const newList = await createList(company, name, icon);
     await setActiveListId(company, newList.id);
     await loadListsAndItems();
     showSuccess(`Lista "${newList.name}" criada com sucesso!`);
   };
 
-  const handleRenameList = async (id: string, newName: string) => {
-    await renameList(company, id, newName);
+  const handleRenameList = async (id: string, newName: string, icon?: ListIconData | null) => {
+    await renameList(company, id, newName, icon);
     await loadListsAndItems();
-    showSuccess('Lista renomeada com sucesso!');
+    showSuccess('Lista atualizada com sucesso!');
   };
 
   const handleDuplicateList = async (id: string) => {
@@ -199,9 +201,7 @@ const PartsList = () => {
       {activeList && (
         <div className="w-full max-w-6xl mx-auto mb-6 px-4 py-3 bg-card border border-border/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
-              <Package className="h-5 w-5" />
-            </div>
+            <ListIcon name={activeList.name} icon={activeList.icon} size="md" className="p-2" />
             <div>
               <h2 className="font-bold text-lg text-foreground">Lista: {activeList.name}</h2>
               <p className="text-xs text-muted-foreground">
