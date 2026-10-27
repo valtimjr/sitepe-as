@@ -194,6 +194,7 @@ const PartsList = () => {
           onDuplicateList={handleDuplicateList}
           onDeleteList={handleDeleteList}
           onReorderLists={handleReorderLists}
+          onListChanged={loadListsAndItems}
         />
       )}
 

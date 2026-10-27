@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Save, CloudUpload, CloudDownload, FileUp, FileDown, FileJson, FileText, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { Save, CloudUpload, CloudDownload, FileUp, FileDown, FileJson, FileText, FileSpreadsheet, Loader2, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
@@ -26,9 +26,11 @@ interface ListSaveMenuProps {
   items: SimplePartItem[];
   listTitle: string;
   onListChanged: () => void;
+  /** "compact" renderiza um botão de 3 pontos (usado ao lado de "Nova Lista") */
+  variant?: 'default' | 'compact';
 }
 
-const ListSaveMenu: React.FC<ListSaveMenuProps> = ({ items, listTitle, onListChanged }) => {
+const ListSaveMenu: React.FC<ListSaveMenuProps> = ({ items, listTitle, onListChanged, variant = 'default' }) => {
   const { user } = useSession();
   const { company } = useCompany();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -120,14 +122,27 @@ const ListSaveMenu: React.FC<ListSaveMenuProps> = ({ items, listTitle, onListCha
     <>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button
-            className="bg-background text-primary border border-primary hover:bg-primary hover:text-primary-foreground w-10 h-10 p-0 md:w-auto md:px-4"
-            aria-label="Salvar / Arquivo"
-            data-testid="list-save-menu-trigger"
-          >
-            {isSaving ? <Loader2 className="h-4 w-4 md:mr-2 animate-spin" /> : <Save className="h-4 w-4 md:mr-2" />}
-            <span className="hidden md:inline">Salvar / Arquivo</span>
-          </Button>
+          {variant === 'compact' ? (
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7 rounded-none border-border/80 hover:bg-accent"
+              aria-label="Mais opções da lista"
+              title="Salvar / Arquivo"
+              data-testid="list-carousel-menu-trigger"
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+            </Button>
+          ) : (
+            <Button
+              className="bg-background text-primary border border-primary hover:bg-primary hover:text-primary-foreground w-10 h-10 p-0 md:w-auto md:px-4"
+              aria-label="Salvar / Arquivo"
+              data-testid="list-save-menu-trigger"
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 md:mr-2 animate-spin" /> : <Save className="h-4 w-4 md:mr-2" />}
+              <span className="hidden md:inline">Salvar / Arquivo</span>
+            </Button>
+          )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>Nuvem</DropdownMenuLabel>

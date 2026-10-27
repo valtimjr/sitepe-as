@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import type { ListIcon as ListIconData } from '@/types/listIcon';
 import ListIcon from '@/components/list-icon/ListIcon';
 import ListIconEditor from '@/components/list-icon/ListIconEditor';
+import ListSaveMenu from '@/components/ListSaveMenu';
 
 interface ListCarouselProps {
   lists: LocalList[];
@@ -46,6 +47,7 @@ interface ListCarouselProps {
   onDuplicateList: (id: string) => void;
   onDeleteList: (id: string) => void;
   onReorderLists: (orderedIds: string[]) => void;
+  onListChanged: () => void;
 }
 
 export const ListCarousel: React.FC<ListCarouselProps> = ({
@@ -58,6 +60,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
   onRenameList,
   onDuplicateList,
   onDeleteList,
+  onListChanged,
 }) => {
   // Dialog states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -370,6 +373,13 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
             <Plus className="h-3.5 w-3.5" />
             Nova Lista
           </Button>
+
+          <ListSaveMenu
+            variant="compact"
+            items={lists.find(l => l.id === activeListId)?.items ?? []}
+            listTitle={lists.find(l => l.id === activeListId)?.name ?? ''}
+            onListChanged={onListChanged}
+          />
         </div>
       </div>
 
