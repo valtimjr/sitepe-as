@@ -5,13 +5,14 @@ import { useParams, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Tag, Info, Loader2, FileDown, Check, PlusCircle, XCircle, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Tag, Info, Loader2, FileDown, Check, PlusCircle, XCircle, ChevronLeft, Plus } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
 import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts } from '@/services/partListService';
-import { getListsData, addItemToList, LocalList } from '@/services/localListStorage';
+import { getListsData, addItemToList, createList, LocalList } from '@/services/localListStorage';
+import ListIconView from '@/components/list-icon/ListIcon';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -27,6 +28,8 @@ import RelatedPartDisplay from '@/components/RelatedPartDisplay';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { useCompany } from '@/context/CompanyContext';
+
+const CREATE_NEW_LIST = '__create_new_list__';
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -44,6 +47,9 @@ const CustomListPage: React.FC = () => {
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [lists, setLists] = useState<LocalList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string>('');
+  const [isCreatingList, setIsCreatingList] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [isSubmittingList, setIsSubmittingList] = useState(false);
 
   // Estados temporários para a edição de quantidades durante a exportação
   const [exportQuantities, setExportQuantities] = useState<Record<string, number | "">>({});
@@ -55,12 +61,31 @@ const CustomListPage: React.FC = () => {
 
   useEffect(() => {
     if (isExportSheetOpen) {
+      setIsCreatingList(false);
       getListsData(company).then(data => {
         setLists(data.lists);
         setSelectedListId(data.activeListId);
       });
     }
   }, [isExportSheetOpen, company]);
+
+  const handleCreateExportList = async () => {
+    if (!newListName.trim()) return;
+    setIsSubmittingList(true);
+    try {
+      const created = await createList(company, newListName);
+      const data = await getListsData(company);
+      setLists(data.lists);
+      setSelectedListId(created.id);
+      setIsCreatingList(false);
+      setNewListName('');
+      showSuccess(`Lista "${created.name}" criada!`);
+    } catch {
+      showError('Erro ao criar nova lista.');
+    } finally {
+      setIsSubmittingList(false);
+    }
+  };
 
   const loadList = useCallback(async () => {
     if (!listId) return;
@@ -739,18 +764,65 @@ const CustomListPage: React.FC = () => {
           <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
             <div className="space-y-2">
               <Label htmlFor="list-for-export">Lista de Destino</Label>
-              <Select value={selectedListId} onValueChange={setSelectedListId}>
-                <SelectTrigger id="list-for-export">
-                  <SelectValue placeholder="Selecione a lista" />
-                </SelectTrigger>
-                <SelectContent>
-                  {lists.map(list => (
-                    <SelectItem key={list.id} value={list.id}>
-                      {list.name} ({list.items?.length || 0} peças)
+              {isCreatingList ? (
+                <div className="space-y-2 border p-2.5 rounded-lg bg-primary/5 border-primary/20" data-testid="export-create-list-panel">
+                  <Input
+                    placeholder="Nome da nova lista (ex: Caminhão 42032)"
+                    value={newListName}
+                    onChange={(e) => setNewListName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleCreateExportList();
+                      }
+                    }}
+                    aria-label="Nome da nova lista"
+                    autoFocus
+                    disabled={isSubmittingList}
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreatingList(false)} disabled={isSubmittingList}>
+                      Cancelar
+                    </Button>
+                    <Button type="button" size="sm" onClick={handleCreateExportList} disabled={isSubmittingList || !newListName.trim()}>
+                      {isSubmittingList ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Criar'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Select
+                  value={selectedListId}
+                  onValueChange={(value) => {
+                    if (value === CREATE_NEW_LIST) {
+                      setNewListName('');
+                      setIsCreatingList(true);
+                      return;
+                    }
+                    setSelectedListId(value);
+                  }}
+                >
+                  <SelectTrigger id="list-for-export">
+                    <SelectValue placeholder="Selecione a lista" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {lists.map(list => (
+                      <SelectItem key={list.id} value={list.id}>
+                        <span className="flex items-center gap-1.5">
+                          <ListIconView name={list.name} icon={list.icon} size="xs" />
+                          {list.name} ({list.items?.length || 0} peças)
+                        </span>
+                      </SelectItem>
+                    ))}
+                    <div className="h-px bg-muted my-1" />
+                    <SelectItem value={CREATE_NEW_LIST} className="text-primary font-bold focus:text-primary">
+                      <span className="flex items-center gap-1.5">
+                        <Plus className="h-3.5 w-3.5" />
+                        Criar nova lista
+                      </span>
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="af-for-export">AF (Número de Frota)</Label>
