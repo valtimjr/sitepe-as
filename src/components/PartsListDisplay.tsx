@@ -37,6 +37,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 import { RelatedPart } from '@/types/supabase';
 import { useCompany } from '@/context/CompanyContext';
+import ListSaveMenu from './ListSaveMenu';
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
@@ -537,6 +538,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               </TooltipTrigger>
               <TooltipContent>Exportar PDF</TooltipContent>
             </Tooltip>
+            <ListSaveMenu items={orderedItems} listTitle={listTitle} onListChanged={onListChanged} />
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button 

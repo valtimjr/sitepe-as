@@ -448,7 +448,7 @@ export const exportDataAsCsv = (data: any[], filename: string): void => {
   }
 };
 
-export const exportDataAsJson = (data: any[], filename: string): void => {
+export const exportDataAsJson = (data: unknown, filename: string): void => {
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
   const link = document.createElement('a');

@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "originalName": "pasted-image-2026-10-26T23-50-54-569Z.png",
+    "storedFileName": "590b5f5884f3d92d5017736134e74ebadb82b259b1ba255d3289ef98bab94155.png",
+    "mimeType": "image/png",
+    "sizeBytes": 75027,
+    "createdAt": "2026-10-26T23:54:18.200Z",
+    "logicalName": "pasted-image-2026-10-26T23-50-54-569Z.png"
+  },
+  {
+    "originalName": "pasted-image-2026-10-26T23-51-56-797Z.png",
+    "storedFileName": "69bd8fe021d45f560b7cbf08e17e97fc0d7cc7e49a73a4c9d907bba36ddf6dec.png",
+    "mimeType": "image/png",
+    "sizeBytes": 66825,
+    "createdAt": "2026-10-26T23:54:18.202Z",
+    "logicalName": "pasted-image-2026-10-26T23-51-56-797Z.png"
+  },
+  {
+    "originalName": "pasted-image-2026-10-26T23-52-28-146Z.png",
+    "storedFileName": "2f9c58ab55a93280f1094daf6df4730cbbbdcc6bd1d7bb76b21a21e802875922.png",
+    "mimeType": "image/png",
+    "sizeBytes": 77164,
+    "createdAt": "2026-10-26T23:54:18.203Z",
+    "logicalName": "pasted-image-2026-10-26T23-52-28-146Z.png"
+  }
+]

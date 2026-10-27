@@ -129,6 +129,25 @@ export interface ServiceOrderData {
   numero_agregado?: string | null;
 }
 
+export interface SavedPartListItem {
+  codigo_peca: string;
+  descricao: string;
+  quantidade: number;
+  af?: string;
+}
+
+export interface SavedPartList {
+  id: string;
+  user_id: string;
+  company: string;
+  name: string;
+  local_list_id: string | null;
+  items: SavedPartListItem[];
+  item_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface DailyServiceOrder {
   id: string;
   user_id: string;

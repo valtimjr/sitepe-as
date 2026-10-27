@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { SimplePartItem, localDb } from './localDbService';
 import { CompanyType } from '@/types/company';
+import { itemKey } from '@/lib/listFileIO';
 
 export interface LocalList {
   id: string;
@@ -8,6 +9,7 @@ export interface LocalList {
   createdAt: string;
   updatedAt: string;
   items: SimplePartItem[];
+  cloudId?: string;
 }
 
 export interface LocalListsData {
@@ -253,6 +255,57 @@ export const addItemToList = async (
   list.updatedAt = new Date().toISOString();
   saveListsData(company, data);
   return itemId;
+};
+
+
+/**
+ * Adds many items to a list at once (single save / single change event).
+ */
+export const addItemsToList = async (
+  company: CompanyType,
+  listId: string,
+  items: Omit<SimplePartItem, 'id'>[],
+  options: { replace?: boolean; mergeDuplicates?: boolean } = {}
+): Promise<number> => {
+  const data = await getListsData(company);
+  const list = data.lists.find(l => l.id === listId);
+  if (!list) {
+    throw new Error('Lista não encontrada.');
+  }
+
+  if (options.replace) list.items = [];
+
+  items.forEach(item => {
+    if (options.mergeDuplicates) {
+      const existing = list.items.find(i => itemKey(i) === itemKey(item));
+      if (existing) {
+        existing.quantidade = (existing.quantidade ?? 0) + (item.quantidade ?? 1);
+        return;
+      }
+    }
+    list.items.push({
+      ...item,
+      id: uuidv4(),
+      created_at: new Date(),
+      company
+    });
+  });
+
+  list.updatedAt = new Date().toISOString();
+  saveListsData(company, data);
+  return items.length;
+};
+
+/**
+ * Links a local list to its cloud copy.
+ */
+export const setListCloudId = async (company: CompanyType, listId: string, cloudId: string | undefined): Promise<void> => {
+  const data = await getListsData(company);
+  const list = data.lists.find(l => l.id === listId);
+  if (list) {
+    list.cloudId = cloudId;
+    saveListsData(company, data);
+  }
 };
 
 /**
