@@ -11,6 +11,10 @@ export interface LocalList {
   updatedAt: string;
   items: SimplePartItem[];
   cloudId?: string;
+  /** Momento (relógio local) da última sincronização com a nuvem */
+  syncedAt?: string;
+  /** updated_at da cópia na nuvem na última sincronização */
+  cloudUpdatedAt?: string;
   icon?: ListIcon;
 }
 
@@ -308,13 +312,25 @@ export const addItemsToList = async (
 };
 
 /**
- * Links a local list to its cloud copy.
+ * Links a local list to its cloud copy and records the sync moment (does not change updatedAt).
  */
-export const setListCloudId = async (company: CompanyType, listId: string, cloudId: string | undefined): Promise<void> => {
+export const setListCloudId = async (
+  company: CompanyType,
+  listId: string,
+  cloudId: string | undefined,
+  cloudUpdatedAt?: string
+): Promise<void> => {
   const data = await getListsData(company);
   const list = data.lists.find(l => l.id === listId);
   if (list) {
     list.cloudId = cloudId;
+    if (cloudId) {
+      list.syncedAt = new Date().toISOString();
+      if (cloudUpdatedAt) list.cloudUpdatedAt = cloudUpdatedAt;
+    } else {
+      delete list.syncedAt;
+      delete list.cloudUpdatedAt;
+    }
     saveListsData(company, data);
   }
 };

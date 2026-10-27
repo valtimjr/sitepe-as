@@ -11,9 +11,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { PasswordInput } from './PasswordInput'; // Importar PasswordInput
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import type { User } from '@supabase/supabase-js';
 
 interface CustomLoginFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (user: User) => void;
 }
 
 const CustomLoginForm: React.FC<CustomLoginFormProps> = ({ onSuccess }) => {
@@ -30,7 +31,7 @@ const CustomLoginForm: React.FC<CustomLoginFormProps> = ({ onSuccess }) => {
     setAuthError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -67,7 +68,7 @@ const CustomLoginForm: React.FC<CustomLoginFormProps> = ({ onSuccess }) => {
 
       showSuccess('Login realizado com sucesso!');
       if (onSuccess) {
-        onSuccess();
+        onSuccess(data.user);
       } else {
         navigate('/usina_vale');
       }

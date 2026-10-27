@@ -7,6 +7,7 @@ import {
   createList,
   getListsData,
   saveListsData,
+  setListCloudId,
 } from '@/services/localListStorage';
 import { v4 as uuidv4 } from 'uuid';
 import { sanitizeListIcon } from '@/types/listIcon';
@@ -67,6 +68,73 @@ export const updateCloudList = async (cloudId: string, list: LocalList): Promise
   return (data as SavedPartList) || null;
 };
 
+export const getCloudList = async (cloudId: string): Promise<SavedPartList | null> => {
+  await ensureOnline();
+  const { data, error } = await supabase.from('saved_part_lists').select('*').eq('id', cloudId).maybeSingle();
+  if (error) throw error;
+  return (data as SavedPartList) || null;
+};
+
+const findLocalList = async (company: CompanyType, listId: string): Promise<LocalList> => {
+  const list = (await getListsData(company)).lists.find(l => l.id === listId);
+  if (!list) throw new Error('Lista não encontrada.');
+  return list;
+};
+
+/** Envia a versão local para a nuvem (atualiza a cópia vinculada ou cria uma nova). */
+export const pushListToCloud = async (
+  userId: string,
+  company: CompanyType,
+  listId: string
+): Promise<'updated' | 'created'> => {
+  const list = await findLocalList(company, listId);
+  if (list.cloudId) {
+    const updated = await updateCloudList(list.cloudId, list);
+    if (updated) {
+      await setListCloudId(company, list.id, updated.id, updated.updated_at);
+      return 'updated';
+    }
+  }
+  const saved = await saveListToCloud(userId, company, list);
+  await setListCloudId(company, list.id, saved.id, saved.updated_at);
+  return 'created';
+};
+
+export type SyncResult = 'pushed' | 'pulled' | 'created' | 'in-sync';
+
+/**
+ * Sincroniza uma lista com a nuvem: a versão mais nova (local ou nuvem) prevalece.
+ */
+export const syncListWithCloud = async (userId: string, company: CompanyType, listId: string): Promise<SyncResult> => {
+  const list = await findLocalList(company, listId);
+  const cloud = list.cloudId ? await getCloudList(list.cloudId) : null;
+  if (!cloud) {
+    await pushListToCloud(userId, company, listId);
+    return 'created';
+  }
+
+  const localTime = Date.parse(list.updatedAt) || 0;
+  const cloudTime = Date.parse(cloud.updated_at || cloud.created_at || '') || 0;
+
+  let direction: 'push' | 'pull';
+  if (list.syncedAt && list.cloudUpdatedAt) {
+    const localChanged = localTime > Date.parse(list.syncedAt);
+    const cloudChanged = cloudTime > Date.parse(list.cloudUpdatedAt);
+    if (!localChanged && !cloudChanged) return 'in-sync';
+    if (localChanged !== cloudChanged) direction = localChanged ? 'push' : 'pull';
+    else direction = localTime >= cloudTime ? 'push' : 'pull';
+  } else {
+    direction = localTime >= cloudTime ? 'push' : 'pull';
+  }
+
+  if (direction === 'push') {
+    await pushListToCloud(userId, company, listId);
+    return 'pushed';
+  }
+  await loadCloudListToLocal(company, cloud, { activate: false });
+  return 'pulled';
+};
+
 export const deleteCloudList = async (cloudId: string): Promise<void> => {
   await ensureOnline();
   const { error } = await supabase.from('saved_part_lists').delete().eq('id', cloudId);
@@ -77,7 +145,11 @@ export const deleteCloudList = async (cloudId: string): Promise<void> => {
  * Opens a cloud list locally: updates the linked local list if it exists, otherwise creates a new one.
  * The opened list becomes the active list.
  */
-export const loadCloudListToLocal = async (company: CompanyType, cloudList: SavedPartList): Promise<LocalList> => {
+export const loadCloudListToLocal = async (
+  company: CompanyType,
+  cloudList: SavedPartList,
+  options: { activate?: boolean } = {}
+): Promise<LocalList> => {
   let data = await getListsData(company);
   let target = data.lists.find(l => l.cloudId === cloudList.id);
 
@@ -101,8 +173,11 @@ export const loadCloudListToLocal = async (company: CompanyType, cloudList: Save
     created_at: new Date(),
     company,
   }));
-  target.updatedAt = new Date().toISOString();
-  data.activeListId = target.id;
+  const now = new Date().toISOString();
+  target.updatedAt = now;
+  target.syncedAt = now;
+  if (cloudList.updated_at) target.cloudUpdatedAt = cloudList.updated_at;
+  if (options.activate !== false) data.activeListId = target.id;
   saveListsData(company, data);
   return target;
 };

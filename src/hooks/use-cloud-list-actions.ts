@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { useSession } from '@/components/SessionContextProvider';
-import { getListsData, setListCloudId } from '@/services/localListStorage';
-import { saveListToCloud, updateCloudList } from '@/services/cloudListService';
+import { getListsData } from '@/services/localListStorage';
+import { pushListToCloud, syncListWithCloud, type SyncResult } from '@/services/cloudListService';
 import { CompanyType } from '@/types/company';
 import { showError, showSuccess } from '@/utils/toast';
 
@@ -11,31 +12,29 @@ export type CloudListAction = 'save' | 'update';
 export const useCloudListActions = (company: CompanyType, onDone: () => void) => {
   const { user } = useSession();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [pending, setPending] = useState<{ action: CloudListAction; listId: string } | null>(null);
+  const pendingRef = useRef<{ action: CloudListAction; listId: string } | null>(null);
   const [savingListId, setSavingListId] = useState<string | null>(null);
 
   const run = async (action: CloudListAction, listId: string, userId: string) => {
     setSavingListId(listId);
     try {
-      const list = (await getListsData(company)).lists.find(l => l.id === listId);
-      if (!list) throw new Error('Lista não encontrada.');
-
-      const saveNew = async () => {
-        const saved = await saveListToCloud(userId, company, list);
-        await setListCloudId(company, list.id, saved.id);
-        showSuccess(`Lista "${list.name}" salva na nuvem!`);
-      };
-
-      if (action === 'update' && list.cloudId) {
-        const updated = await updateCloudList(list.cloudId, list);
-        if (updated) showSuccess(`Lista "${list.name}" atualizada na nuvem!`);
-        else await saveNew(); // a cópia na nuvem foi excluída
+      const name = (await getListsData(company)).lists.find(l => l.id === listId)?.name ?? '';
+      if (action === 'save') {
+        await pushListToCloud(userId, company, listId);
+        showSuccess(`Lista "${name}" salva na nuvem!`);
       } else {
-        await saveNew();
+        const result = await syncListWithCloud(userId, company, listId);
+        const messages: Record<SyncResult, string> = {
+          pushed: `A versão local de "${name}" era mais nova e foi enviada para a nuvem.`,
+          pulled: `A versão da nuvem de "${name}" era mais nova e foi baixada.`,
+          created: `Lista "${name}" ainda não estava na nuvem e foi salva.`,
+          'in-sync': `Lista "${name}" já está atualizada.`,
+        };
+        showSuccess(messages[result]);
       }
       onDone();
     } catch (error: any) {
-      showError(error?.message || 'Erro ao salvar na nuvem.');
+      showError(error?.message || 'Erro ao sincronizar com a nuvem.');
     } finally {
       setSavingListId(null);
     }
@@ -45,28 +44,24 @@ export const useCloudListActions = (company: CompanyType, onDone: () => void) =>
     if (user) {
       run(action, listId, user.id);
     } else {
-      setPending({ action, listId });
+      pendingRef.current = { action, listId };
       setIsLoginOpen(true);
     }
   };
 
   // Continua a ação pendente assim que o login for concluído
-  useEffect(() => {
-    if (user && pending && !isLoginOpen) {
-      const { action, listId } = pending;
-      setPending(null);
-      run(action, listId, user.id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, pending, isLoginOpen]);
+  const handleLoginSuccess = (loggedUser: User) => {
+    const next = pendingRef.current;
+    pendingRef.current = null;
+    setIsLoginOpen(false);
+    if (next) run(next.action, next.listId, loggedUser.id);
+  };
 
   const loginModalProps = {
     isOpen: isLoginOpen,
-    onOpenChange: (open: boolean) => {
-      setIsLoginOpen(open);
-      if (!open) setPending(null);
-    },
-    onSuccess: () => setIsLoginOpen(false),
+    // A ação pendente só é consumida pelo onSuccess deste modal (e substituída no próximo pedido)
+    onOpenChange: setIsLoginOpen,
+    onSuccess: handleLoginSuccess,
   };
 
   return { requestCloudAction, savingListId, loginModalProps };

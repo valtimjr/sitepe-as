@@ -490,7 +490,9 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
                           <DropdownMenuItem
                             disabled={!list.cloudId || savingListId === list.id}
                             onClick={() => requestCloudAction('update', list.id)}
-                            title={list.cloudId ? undefined : 'Esta lista ainda não foi salva na nuvem'}
+                            title={list.cloudId
+                              ? 'Compara a versão local com a da nuvem e mantém a mais nova'
+                              : 'Esta lista ainda não foi salva na nuvem'}
                           >
                             <RefreshCw className="mr-2 h-4 w-4" />
                             <span>Atualizar na nuvem</span>

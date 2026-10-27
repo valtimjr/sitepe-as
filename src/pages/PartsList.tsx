@@ -43,8 +43,8 @@ const PartsList = () => {
     document.title = `Minha Lista de Peças - AutoBoard (${branding.name})`;
   }, [branding.name]);
 
+  // Só a primeira carga mostra "carregando"; recargas não desmontam o carrossel nem os modais abertos
   const loadListsAndItems = useCallback(async () => {
-    setIsLoading(true);
     try {
       const data = await getListsData(company);
       setLists(data.lists);

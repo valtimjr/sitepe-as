@@ -4,11 +4,12 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import CustomLoginForm from './CustomLoginForm';
 import { LogIn } from 'lucide-react';
+import type { User } from '@supabase/supabase-js';
 
 interface LoginModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  onSuccess?: (user: User) => void;
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onOpenChange, onSuccess }) => {

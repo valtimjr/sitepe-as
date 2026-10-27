@@ -45,7 +45,7 @@ const ListSaveMenu: React.FC<ListSaveMenuProps> = ({ items, listTitle, onListCha
   const saveAsNew = async (list: LocalList) => {
     if (!user) return;
     const saved = await saveListToCloud(user.id, company, list);
-    await setListCloudId(company, list.id, saved.id);
+    await setListCloudId(company, list.id, saved.id, saved.updated_at);
     showSuccess(`Lista "${list.name}" salva na nuvem!`);
   };
 
@@ -73,6 +73,7 @@ const ListSaveMenu: React.FC<ListSaveMenuProps> = ({ items, listTitle, onListCha
   const handleUpdate = (list: LocalList) =>
     withSaving(async () => {
       const updated = await updateCloudList(list.cloudId!, list);
+      if (updated) await setListCloudId(company, list.id, updated.id, updated.updated_at);
       if (updated) showSuccess(`Lista "${list.name}" atualizada na nuvem!`);
       else await saveAsNew(list); // a cópia na nuvem foi excluída
     });
