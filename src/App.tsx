@@ -3,14 +3,14 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SearchParts from "./pages/SearchParts";
 import PartsList from "./pages/PartsList";
 import ServiceOrderList from "./pages/ServiceOrderList";
 import Login from "./pages/Login";
-import DatabaseManagerPage from "./pages/DatabaseManagerPage";
 import SignupPage from "./pages/SignupPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -27,7 +27,6 @@ import CookieConsentBanner from "./components/CookieConsentBanner";
 import { useOfflineSync } from "./hooks/useOfflineSync";
 import WelcomeModal from "./components/WelcomeModal";
 import { CompanyProvider } from "./context/CompanyContext";
-import AdminReportPage from "./pages/AdminReportPage";
 import { MobileNavProvider, useMobileNav } from "./context/MobileNavContext";
 import { useIsCompact } from "./hooks/use-compact";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
@@ -37,6 +36,16 @@ import MobileSearchOverlay from "./components/mobile/MobileSearchOverlay";
 import PullToRefresh from "./components/mobile/PullToRefresh";
 
 const queryClient = new QueryClient();
+
+// Páginas só de administração: baixadas apenas quando abertas
+const DatabaseManagerPage = lazy(() => import("./pages/DatabaseManagerPage"));
+const AdminReportPage = lazy(() => import("./pages/AdminReportPage"));
+
+const PageLoader = () => (
+  <div className="flex min-h-[50vh] items-center justify-center">
+    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+  </div>
+);
 
 const CompanyLayout = () => {
   const isCompact = useIsCompact();
@@ -55,7 +64,9 @@ const CompanyLayout = () => {
       <AppHeader />
       <div className={isCompact ? "pb-bottom-nav" : undefined}>
         <PullToRefresh enabled={isCompact}>
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </PullToRefresh>
       </div>
       <WelcomeModal />

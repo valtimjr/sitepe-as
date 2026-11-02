@@ -1,162 +1,126 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Database, Menu, ChevronLeft, Tags, FileChartLine } from 'lucide-react';
-import { MadeWithDyad } from '@/components/made-with-dyad';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import PartManagementTable from '@/components/PartManagementTable';
-import AfManagementTable from '@/components/AfManagementTable';
-import InviteManager from '@/components/InviteManager';
-import MenuManagerPage from '@/pages/MenuManagerPage';
-import UserAttributesManager from '@/components/UserAttributesManager';
+import React, { Suspense, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { FileChartLine, Loader2 } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
 import { useCompany } from '@/context/CompanyContext';
+import { useIsCompact } from '@/hooks/use-compact';
+import HomeMenuRow from '@/components/home/HomeMenuRow';
+import AdminSidebar from '@/components/admin/AdminSidebar';
+import AdminSectionHeader from '@/components/admin/AdminSectionHeader';
+import { getVisibleSections, preloadSection } from '@/components/admin/adminSections';
 
-const DATABASE_MANAGER_ACTIVE_TAB_KEY = 'database_manager_active_tab';
+const ACTIVE_SECTION_KEY = 'database_manager_active_tab';
+
+const SectionLoader = () => (
+  <div className="flex justify-center py-16">
+    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+  </div>
+);
 
 const DatabaseManagerPage: React.FC = () => {
   const { isLoading, checkPageAccess, profile } = useSession();
   const { company, branding } = useCompany();
-  const [activeTab, setActiveTab] = useState<string>('');
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isCompact = useIsCompact();
 
   const isAdmin = profile?.role === 'admin';
+  const sections = useMemo(
+    () => (isLoading ? [] : getVisibleSections(profile?.role, checkPageAccess('/menu-manager'))),
+    [isLoading, profile?.role, checkPageAccess],
+  );
 
   useEffect(() => {
     document.title = `Painel Administração - AutoBoard (${branding.name})`;
   }, [branding.name]);
 
-  const { visibleTabs, defaultTab } = useMemo(() => {
-    if (isLoading) {
-      return { visibleTabs: [], defaultTab: '' };
-    }
-    const isModerator = profile?.role === 'moderator';
-    const canAccessMenuManager = checkPageAccess('/menu-manager');
-    
-    let tabs: string[] = [];
-    
-    if (isAdmin) {
-      tabs = ['parts', 'afs', 'invites', 'attributes'];
-      if (canAccessMenuManager) tabs.push('menu');
-    } else if (isModerator) {
-      // O moderador tem acesso APENAS aos convites na página admin
-      tabs = ['invites'];
-    }
-    
-    return { visibleTabs: tabs, defaultTab: tabs[0] || '' };
-  }, [isLoading, isAdmin, profile?.role, checkPageAccess]);
+  // Seção ativa: URL > única seção > (web) última usada ou primeira. No celular, sem URL mostra a lista.
+  const requested = sections.find(s => s.key === searchParams.get('secao'));
+  const active =
+    requested ??
+    (sections.length === 1
+      ? sections[0]
+      : isCompact
+        ? undefined
+        : sections.find(s => s.key === localStorage.getItem(ACTIVE_SECTION_KEY)) ?? sections[0]);
 
   useEffect(() => {
-    if (!isLoading) {
-      if (visibleTabs.length === 0) return;
-
-      const savedTab = localStorage.getItem(DATABASE_MANAGER_ACTIVE_TAB_KEY);
-
-      if (savedTab && visibleTabs.includes(savedTab)) {
-        setActiveTab(savedTab);
-      } else {
-        setActiveTab(defaultTab);
-        localStorage.setItem(DATABASE_MANAGER_ACTIVE_TAB_KEY, defaultTab);
-      }
-    }
-  }, [isLoading, visibleTabs, defaultTab]);
+    if (active) localStorage.setItem(ACTIVE_SECTION_KEY, active.key);
+  }, [active]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+      <div className="min-h-[50vh] flex items-center justify-center text-muted-foreground">
         <p>Carregando painel de administração...</p>
       </div>
     );
   }
-  
-  if (visibleTabs.length === 0) {
-    return null;
+
+  if (sections.length === 0) return null;
+
+  const reportHref = isAdmin ? `/${company}/admin-report` : undefined;
+
+  const backToList = () => {
+    // Volta no histórico quando a lista é a página anterior; senão substitui (link direto)
+    if (location.key !== 'default') navigate(-1);
+    else navigate({ search: '' }, { replace: true });
+  };
+
+  const content = active && (
+    <Suspense fallback={<SectionLoader />}>
+      <active.Component />
+    </Suspense>
+  );
+
+  if (isCompact) {
+    if (active) {
+      return (
+        <div className="min-h-screen bg-background text-foreground" data-testid="admin-section">
+          {sections.length > 1 && <AdminSectionHeader label={active.label} onBack={backToList} />}
+          <div className="p-3">{content}</div>
+        </div>
+      );
+    }
+    return (
+      <div className="min-h-screen bg-background p-3 text-foreground">
+        <div className="mb-3 px-1">
+          <h1 className="text-xl font-extrabold text-primary">Painel Administração</h1>
+          <p className="text-sm text-muted-foreground">{branding.name}</p>
+        </div>
+        <div className="flex flex-col gap-2" data-testid="admin-section-list">
+          {sections.map(s => (
+            <HomeMenuRow
+              key={s.key}
+              to={`?secao=${s.key}`}
+              icon={s.icon}
+              title={s.label}
+              subtitle={s.subtitle}
+              onPointerDown={() => preloadSection(s)}
+            />
+          ))}
+        </div>
+        {reportHref && (
+          <div className="mt-4 flex flex-col">
+            <HomeMenuRow to={reportHref} icon={FileChartLine} title="Relatório Geral" subtitle="Indicadores e exportação em PDF" />
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
-      <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
-        <div className="flex items-center gap-3">
-          <img src="/icons/tela_inicial/7.png" alt="" className="h-16 w-auto object-contain" />
-          Painel Administração
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="mx-auto w-full max-w-7xl px-4 py-6">
+        <div className="mb-5 flex items-baseline gap-3">
+          <h1 className="text-2xl font-extrabold text-primary">Painel Administração</h1>
+          <span className="text-sm font-medium text-muted-foreground">{branding.name}</span>
         </div>
-        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
-      </h1>
-
-      <div className="w-full max-w-6xl flex justify-end mb-4">
-        {isAdmin && (
-          <Link to={`/${company}/admin-report`}>
-            <Button variant="outline" className="flex items-center gap-2 text-primary border-primary/20 hover:bg-primary/5">
-              <FileChartLine className="h-4 w-4" />
-              Relatório Geral
-            </Button>
-          </Link>
-        )}
+        <div className="grid grid-cols-[220px_minmax(0,1fr)] items-start gap-6">
+          <AdminSidebar sections={sections} activeKey={active?.key} reportHref={reportHref} />
+          <main data-testid="admin-section">{content}</main>
+        </div>
       </div>
-
-      <Tabs 
-        value={activeTab} 
-        onValueChange={(tab) => {
-          setActiveTab(tab);
-          localStorage.setItem(DATABASE_MANAGER_ACTIVE_TAB_KEY, tab);
-        }} 
-        className="w-full max-w-6xl"
-      >
-        <TabsList className="flex flex-wrap justify-center h-auto gap-2 mb-4">
-          {visibleTabs.includes('parts') && <TabsTrigger value="parts">Peças</TabsTrigger>}
-          {visibleTabs.includes('afs') && <TabsTrigger value="afs">AFs</TabsTrigger>}
-          {visibleTabs.includes('invites') && <TabsTrigger value="invites">Convites</TabsTrigger>}
-          {visibleTabs.includes('attributes') && (
-            <TabsTrigger value="attributes">
-              <div className="flex items-center gap-2">
-                <Tags className="h-4 w-4" /> Atributos de Usuário
-              </div>
-            </TabsTrigger>
-          )}
-          {visibleTabs.includes('menu') && (
-            <TabsTrigger value="menu">
-              <div className="flex items-center gap-2">
-                <Menu className="h-4 w-4" /> Menus & Listas
-              </div>
-            </TabsTrigger>
-          )}
-        </TabsList>
-        
-        {visibleTabs.includes('parts') && (
-          <TabsContent value="parts">
-            <PartManagementTable />
-          </TabsContent>
-        )}
-        {visibleTabs.includes('afs') && (
-          <TabsContent value="afs">
-            <AfManagementTable />
-          </TabsContent>
-        )}
-        {visibleTabs.includes('invites') && (
-          <TabsContent value="invites">
-            <InviteManager />
-          </TabsContent>
-        )}
-        {visibleTabs.includes('attributes') && (
-          <TabsContent value="attributes">
-            <UserAttributesManager />
-          </TabsContent>
-        )}
-        {visibleTabs.includes('menu') && (
-          <TabsContent value="menu">
-            <MenuManagerPage isEmbedded={true} />
-          </TabsContent>
-        )}
-      </Tabs>
-
-      <div className="flex justify-center mt-8 mb-8">
-        <Link to={`/${company}`}>
-          <Button variant="outline" className="flex items-center gap-2">
-            <ChevronLeft className="h-4 w-4" /> Voltar ao Início
-          </Button>
-        </Link>
-      </div>
-
-      <MadeWithDyad />
     </div>
   );
 };

@@ -1,13 +1,13 @@
 /** @jsxImportSource react */
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Upload, Download, MoreHorizontal, FileText, Loader2 } from 'lucide-react';
+import { Edit, Trash2, Save, XCircle, FileText, Loader2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Af, getAfsFromService, addAf, updateAf, deleteAf, importAfs, exportDataAsCsv, exportDataAsJson, getAllAfsForExport } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -20,26 +20,29 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from "@/components/ui/dropdown-menu";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '@/components/responsive/ResponsiveDialog';
+import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
+import AdminToolbar from '@/components/admin/AdminToolbar';
+import AdminItemCard from '@/components/admin/AdminItemCard';
+import { useIsCompact } from '@/hooks/use-compact';
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { Sheet, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { useCompany } from '@/context/CompanyContext';
 import { supabase } from '@/integrations/supabase/client';
+
+// Quantos AFs desenhar por vez ("Mostrar mais" carrega o próximo bloco)
+const RENDER_STEP = 50;
 
 const AfManagementTable: React.FC = () => {
   const { company, branding } = useCompany();
@@ -49,7 +52,10 @@ const AfManagementTable: React.FC = () => {
   const [currentAf, setCurrentAf] = useState<Af | null>(null);
   const [formAfNumber, setFormAfNumber] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState(RENDER_STEP);
+  const isCompact = useIsCompact();
   const [selectedAfIds, setSelectedAfIds] = useState<Set<string>>(() => new Set());
   
   // Estados para importação
@@ -88,11 +94,23 @@ const AfManagementTable: React.FC = () => {
     loadAfs();
   }, [loadAfs]);
 
-  const filteredAfs = afs.filter(af => {
+  // Busca com debounce para não refiltrar a cada tecla
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearchQuery(searchInput);
+      setVisibleCount(RENDER_STEP);
+    }, 250);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
+
+  const filteredAfs = useMemo(() => {
     const lowerCaseQuery = searchQuery.toLowerCase();
-    return af.af_number.toLowerCase().includes(lowerCaseQuery) || 
-           (af.descricao && af.descricao.toLowerCase().includes(lowerCaseQuery));
-  });
+    return afs.filter(af =>
+      af.af_number.toLowerCase().includes(lowerCaseQuery) ||
+      (af.descricao && af.descricao.toLowerCase().includes(lowerCaseQuery)),
+    );
+  }, [afs, searchQuery]);
+  const visibleAfs = filteredAfs.slice(0, visibleCount);
 
   const handleAddAf = () => {
     setCurrentAf(null);
@@ -414,62 +432,25 @@ const AfManagementTable: React.FC = () => {
   const isIndeterminate = selectedAfIds.size > 0 && selectedAfIds.size < filteredAfs.length;
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-col space-y-2 pb-2">
-        <CardTitle className="text-2xl font-bold">Gerenciar AFs ({branding.name})</CardTitle>
-        <div className="flex flex-wrap gap-2 justify-end">
-          {selectedAfIds.size > 0 && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="flex items-center gap-2">
-                  <Trash2 className="h-4 w-4" /> Excluir ({selectedAfIds.size})
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta ação irá remover {selectedAfIds.size} AFs selecionados. Esta ação não pode ser desfeita.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleBulkDelete}>Excluir</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                <MoreHorizontal className="h-4 w-4" /> Ações
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleImportCsv(); }}>
-                <Upload className="h-4 w-4 mr-2" /> Importar CSV
-              </DropdownMenuItem>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Download className="h-4 w-4 mr-2" /> Exportar
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={handleExportCsv}>
-                    Exportar CSV
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExportJson}>
-                    Exportar JSON
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button onClick={handleAddAf} className="flex items-center gap-2">
-            <PlusCircle className="h-4 w-4" /> Adicionar AF
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
+    <Card className="w-full rounded-none border-0 bg-transparent shadow-none lg:rounded-lg lg:border lg:bg-card lg:shadow-sm">
+      <CardContent className="p-0 lg:p-6">
+        <AdminToolbar
+          title={`Gerenciar AFs (${branding.name})`}
+          search={searchInput}
+          onSearchChange={setSearchInput}
+          searchPlaceholder="Buscar AF por número ou descrição..."
+          addLabel="Adicionar AF"
+          onAdd={handleAddAf}
+          onImport={handleImportCsv}
+          onExportCsv={handleExportCsv}
+          onExportJson={handleExportJson}
+          selectedCount={selectedAfIds.size}
+          selectAllState={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+          onSelectAll={filteredAfs.length > 0 ? handleSelectAll : undefined}
+          onBulkDelete={handleBulkDelete}
+          bulkDeleteDescription={`Esta ação irá remover ${selectedAfIds.size} AFs selecionados. Esta ação não pode ser desfeita.`}
+        />
+
         <input
           type="file"
           ref={fileInputRef}
@@ -477,17 +458,6 @@ const AfManagementTable: React.FC = () => {
           accept=".csv"
           style={{ position: 'absolute', left: '-9999px' }}
         />
-        
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Buscar AF por número ou descrição..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
 
         {isLoading ? (
           <p className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></p>
@@ -495,6 +465,23 @@ const AfManagementTable: React.FC = () => {
           <p className="text-center text-muted-foreground py-8">Nenhum AF encontrado para "{searchQuery}".</p>
         ) : filteredAfs.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhum AF cadastrado para esta empresa.</p>
+        ) : isCompact ? (
+          <div className="flex flex-col gap-2">
+            {visibleAfs.map((af) => (
+              <AdminItemCard
+                key={af.id}
+                title={af.af_number}
+                subtitle={af.descricao || 'Sem descrição'}
+                selected={selectedAfIds.has(af.id)}
+                onSelectedChange={c => handleSelectAf(af.id, c)}
+                onOpen={() => handleEditAf(af)}
+                actions={[
+                  { label: 'Editar', icon: Edit, onSelect: () => handleEditAf(af) },
+                  { label: 'Excluir', icon: Trash2, onSelect: () => handleDeleteAf(af.id), destructive: true },
+                ]}
+              />
+            ))}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -513,7 +500,7 @@ const AfManagementTable: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAfs.map((af) => (
+                {visibleAfs.map((af) => (
                   <TableRow key={af.id}>
                     <TableCell>
                       <Checkbox
@@ -538,17 +525,28 @@ const AfManagementTable: React.FC = () => {
             </Table>
           </div>
         )}
+
+        {visibleCount < filteredAfs.length && (
+          <div className="mt-4 flex flex-col items-center gap-1">
+            <Button variant="outline" onClick={() => setVisibleCount(c => c + RENDER_STEP)}>
+              Mostrar mais
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {visibleAfs.length} de {filteredAfs.length}
+            </span>
+          </div>
+        )}
       </CardContent>
 
       {/* Dialog para Mapeamento CSV */}
-      <Dialog open={isMappingDialogOpen} onOpenChange={setIsMappingDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Mapear Colunas do CSV</DialogTitle>
-            <DialogDescription>
+      <ResponsiveDialog open={isMappingDialogOpen} onOpenChange={setIsMappingDialogOpen}>
+        <ResponsiveDialogContent dialogClassName="sm:max-w-[425px]">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Mapear Colunas do CSV</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
               Selecione as colunas do seu arquivo correspondentes aos campos do sistema.
-            </DialogDescription>
-          </DialogHeader>
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="map-af-number" className="text-right font-bold text-xs">Nº do AF *</Label>
@@ -576,16 +574,16 @@ const AfManagementTable: React.FC = () => {
               </select>
             </div>
           </div>
-          <DialogFooter>
+          <ResponsiveDialogFooter>
             <Button variant="outline" onClick={() => setIsMappingDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleApplyMapping}>Confirmar Mapeamento</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {/* Sheet de Edição/Adição */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md">
+        <ResponsiveSheetContent className="sm:max-w-md">
           <SheetHeader>
             <SheetTitle>{currentAf ? 'Editar AF' : 'Adicionar Novo AF'}</SheetTitle>
           </SheetHeader>
@@ -623,7 +621,7 @@ const AfManagementTable: React.FC = () => {
               </Button>
             </SheetFooter>
           </form>
-        </SheetContent>
+        </ResponsiveSheetContent>
       </Sheet>
 
       {/* AlertDialog de Confirmação de Importação */}

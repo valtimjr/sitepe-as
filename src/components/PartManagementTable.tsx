@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Edit, Trash2, Save, XCircle, Search, Tag, Upload, Download, Eraser, MoreHorizontal, FileText, Loader2, ChevronLeft, ChevronRight, GripVertical, Link2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, XCircle, Tag, Eraser, FileText, Loader2, ChevronLeft, ChevronRight, GripVertical, Link2 } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Part, addPart, updatePart, deletePart, searchPartsPaginated, importParts, exportDataAsCsv, exportDataAsJson, getAllPartsForExport, cleanupEmptyParts, searchParts as searchPartsService, getParts, batchUpdateRelations } from '@/services/partListService';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -23,27 +23,28 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from "@/components/ui/dropdown-menu";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '@/components/responsive/ResponsiveDialog';
+import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import AdminToolbar from '@/components/admin/AdminToolbar';
+import AdminItemCard from '@/components/admin/AdminItemCard';
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
 import { useSession } from '@/components/SessionContextProvider';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { Sheet, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import PartSearchInput from './PartSearchInput';
 import RelatedPartDisplay from './RelatedPartDisplay';
 import { RelatedPart } from '@/types/supabase';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsCompact } from '@/hooks/use-compact';
 import { useCompany } from '@/context/CompanyContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -61,6 +62,7 @@ const PartManagementTable: React.FC = () => {
   const [formTags, setFormTags] = useState('');
   const [formName, setFormName] = useState('');
   const [formItensRelacionados, setFormItensRelacionados] = useState<RelatedPart[]>([]);
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(() => new Set());
   
@@ -102,7 +104,7 @@ const PartManagementTable: React.FC = () => {
   const [batchRelateInput, setBatchRelateInput] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isMobile = useIsMobile();
+  const isCompact = useIsCompact();
 
   const formatRelatedPartObject = (part: Part): RelatedPart => {
     const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
@@ -159,10 +161,14 @@ const PartManagementTable: React.FC = () => {
     }
   };
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1);
-  };
+  // Busca com debounce: evita uma consulta ao servidor a cada tecla
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearchQuery(searchInput);
+      setCurrentPage(1);
+    }, 250);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
 
   const handleAddPart = () => {
     setCurrentPart(null);
@@ -640,29 +646,23 @@ const PartManagementTable: React.FC = () => {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-col space-y-2 pb-2">
-        <CardTitle className="text-2xl font-bold">Gerenciar Peças ({branding.name})</CardTitle>
-        <div className="flex flex-wrap gap-2 justify-end">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                <MoreHorizontal className="h-4 w-4" /> Ações
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleImportCsv(); }}>
-                <Upload className="h-4 w-4 mr-2" /> Importar CSV
+    <Card className="w-full rounded-none border-0 bg-transparent shadow-none lg:rounded-lg lg:border lg:bg-card lg:shadow-sm">
+      <CardContent className="p-0 lg:p-6">
+        <AdminToolbar
+          title={`Gerenciar Peças (${branding.name})`}
+          search={searchInput}
+          onSearchChange={setSearchInput}
+          searchPlaceholder="Buscar peça..."
+          addLabel="Adicionar Peça"
+          onAdd={handleAddPart}
+          onImport={handleImportCsv}
+          onExportCsv={handleExportCsv}
+          onExportJson={handleExportJson}
+          extraActions={
+            <>
+              <DropdownMenuItem onSelect={() => setIsBatchRelateOpen(prev => !prev)}>
+                <Link2 className="h-4 w-4 mr-2" /> Criar Relação em Lotes
               </DropdownMenuItem>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Download className="h-4 w-4 mr-2" /> Exportar
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={handleExportCsv}>Exportar CSV</DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExportJson}>Exportar JSON</DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
               <DropdownMenuSeparator />
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -683,17 +683,16 @@ const PartManagementTable: React.FC = () => {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button onClick={() => setIsBatchRelateOpen(prev => !prev)} variant="outline" className="flex items-center gap-2">
-            <Link2 className="h-4 w-4" /> Criar Relação em Lotes
-          </Button>
-          <Button onClick={handleAddPart} className="flex items-center gap-2">
-            <PlusCircle className="h-4 w-4" /> Adicionar Peça
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
+            </>
+          }
+          selectedCount={selectedPartIds.size}
+          selectAllState={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+          onSelectAll={parts.length > 0 ? handleSelectAll : undefined}
+          onBulkDelete={handleBulkDelete}
+          onBulkClearTags={handleBulkClearTags}
+          clearTagsDisabled={!canEditTags}
+        />
+
         {isBatchRelateOpen && (
           <Card className="mb-4 bg-muted/50">
             <CardHeader><CardTitle className="text-lg">Criar Relação em Lote</CardTitle></CardHeader>
@@ -711,45 +710,29 @@ const PartManagementTable: React.FC = () => {
         )}
 
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" style={{ position: 'absolute', left: '-9999px' }} />
-        
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input type="text" placeholder="Buscar peça..." value={searchQuery} onChange={handleSearchChange} className="pl-9" />
-        </div>
-
-        {selectedPartIds.size > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="flex items-center gap-2"><Trash2 className="h-4 w-4" /> Excluir ({selectedPartIds.size})</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle></AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleBulkDelete}>Excluir</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2" disabled={!canEditTags}><Tag className="h-4 w-4" /> Limpar Tags ({selectedPartIds.size})</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle></AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleBulkClearTags}>Limpar Tags</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        )}
 
         {isLoading ? (
           <p className="text-center py-8"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></p>
         ) : parts.length === 0 ? (
           <p className="text-center py-8">Nenhuma peça encontrada.</p>
+        ) : isCompact ? (
+          <div className="flex flex-col gap-2">
+            {parts.map((part) => (
+              <AdminItemCard
+                key={part.id}
+                title={part.codigo}
+                subtitle={part.name || part.descricao}
+                meta={[part.name ? part.descricao : '', part.tags].filter(Boolean).join(' · ') || undefined}
+                selected={selectedPartIds.has(part.id)}
+                onSelectedChange={c => handleSelectPart(part.id, c)}
+                onOpen={() => handleEditPart(part)}
+                actions={[
+                  { label: 'Editar', icon: Edit, onSelect: () => handleEditPart(part) },
+                  { label: 'Excluir', icon: Trash2, onSelect: () => handleDeletePart(part.id), destructive: true },
+                ]}
+              />
+            ))}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -794,14 +777,14 @@ const PartManagementTable: React.FC = () => {
       </CardContent>
 
       {/* Dialog para Mapeamento CSV */}
-      <Dialog open={isMappingDialogOpen} onOpenChange={setIsMappingDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Mapear Colunas do CSV</DialogTitle>
-            <DialogDescription>
+      <ResponsiveDialog open={isMappingDialogOpen} onOpenChange={setIsMappingDialogOpen}>
+        <ResponsiveDialogContent dialogClassName="sm:max-w-[500px]">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Mapear Colunas do CSV</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
               Selecione as colunas do seu arquivo correspondentes aos campos do sistema.
-            </DialogDescription>
-          </DialogHeader>
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="map-codigo" className="text-right font-bold">Código *</Label>
@@ -868,15 +851,15 @@ const PartManagementTable: React.FC = () => {
               </select>
             </div>
           </div>
-          <DialogFooter>
+          <ResponsiveDialogFooter>
             <Button variant="outline" onClick={() => setIsMappingDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleApplyMapping}>Confirmar Mapeamento</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <ResponsiveSheetContent className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader><SheetTitle>{currentPart ? 'Editar Peça' : 'Nova Peça'}</SheetTitle></SheetHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
@@ -906,7 +889,7 @@ const PartManagementTable: React.FC = () => {
                   <Button type="button" onClick={handleBulkAddRelatedParts} disabled={!bulkRelatedPartsInput.trim()} variant="outline" size="icon"><PlusCircle className="h-4 w-4" /></Button>
                 </div>
               </div>
-              <ScrollArea className={cn("w-full rounded-md border p-2", isMobile ? "h-24" : "max-h-96")}>
+              <ScrollArea className={cn("w-full rounded-md border p-2", isCompact ? "h-24" : "max-h-96")}>
                 {formItensRelacionados.map((item) => (
                   <div key={item.codigo} className="flex items-center gap-1 bg-muted px-2 py-1 rounded-full text-xs mb-2 cursor-grab" draggable onDragStart={e => handleRelatedDragStart(e, item)} onDragOver={handleRelatedDragOver} onDrop={e => handleRelatedDrop(e, item)} onDragEnd={handleRelatedDragEnd}>
                     <GripVertical className="h-3 w-3" />
@@ -921,7 +904,7 @@ const PartManagementTable: React.FC = () => {
               <Button type="submit">Salvar</Button>
             </SheetFooter>
           </form>
-        </SheetContent>
+        </ResponsiveSheetContent>
       </Sheet>
 
       <AlertDialog open={isImportConfirmOpen} onOpenChange={setIsImportConfirmOpen}>

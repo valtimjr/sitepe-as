@@ -21,6 +21,10 @@ import { ptBR } from 'date-fns/locale';
 import { useSession } from './SessionContextProvider';
 import { v4 as uuidv4 } from 'uuid';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import AdminItemCard from '@/components/admin/AdminItemCard';
+import { useIsCompact } from '@/hooks/use-compact';
+
+const inviteLink = (code: string) => `${window.location.origin}/signup/${code}`;
 
 interface Invite {
   id: string;
@@ -38,6 +42,7 @@ const InviteManager: React.FC = () => {
   const [isCopied, setIsCopied] = useState(false);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [isLoadingInvites, setIsLoadingInvites] = useState(true);
+  const isCompact = useIsCompact();
 
   const loadInvites = useCallback(async () => {
     if (!checkPageAccess('/admin')) return;
@@ -80,8 +85,7 @@ const InviteManager: React.FC = () => {
       if (error) throw error;
 
       const inviteCode = data.invite_code;
-      const link = `${window.location.origin}/signup/${inviteCode}`;
-      setNewInviteLink(link);
+      setNewInviteLink(inviteLink(inviteCode));
       showSuccess('Link de convite gerado com sucesso!');
       loadInvites();
     } catch (error: any) {
@@ -104,8 +108,7 @@ const InviteManager: React.FC = () => {
   };
 
   const handleShowLink = (inviteCode: string) => {
-    const link = `${window.location.origin}/signup/${inviteCode}`;
-    setNewInviteLink(link);
+    setNewInviteLink(inviteLink(inviteCode));
     setIsCopied(false); // Resetar o estado de cópia ao mostrar um novo link
   };
 
@@ -129,13 +132,13 @@ const InviteManager: React.FC = () => {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
+    <Card className="w-full rounded-none border-0 bg-transparent shadow-none lg:rounded-lg lg:border lg:bg-card lg:shadow-sm">
+      <CardHeader className="hidden lg:flex">
         <CardTitle className="text-2xl font-bold">Gerenciador de Convites</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 p-0 lg:p-6 lg:pt-0">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <Button onClick={generateInviteLink} disabled={isGenerating} className="flex items-center gap-2">
+          <Button onClick={generateInviteLink} disabled={isGenerating} className="flex w-full items-center gap-2 sm:w-auto">
             {isGenerating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -160,11 +163,35 @@ const InviteManager: React.FC = () => {
           </div>
         )}
 
-        <h3 className="text-xl font-semibold pt-4">Convites Existentes</h3>
+        <h3 className="text-lg font-semibold lg:pt-4 lg:text-xl">Convites Existentes</h3>
         {isLoadingInvites ? (
           <p className="text-center text-muted-foreground py-8">Carregando convites...</p>
         ) : invites.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhum convite gerado ainda.</p>
+        ) : isCompact ? (
+          <div className="flex flex-col gap-2">
+            {invites.map((invite) => (
+              <AdminItemCard
+                key={invite.id}
+                title={<span className="font-mono text-xs">{invite.invite_code}</span>}
+                badge={
+                  invite.is_used ? (
+                    <span className="flex shrink-0 items-center gap-1 text-xs text-green-600"><Check className="h-3.5 w-3.5" /> Usado</span>
+                  ) : (
+                    <span className="flex shrink-0 items-center gap-1 text-xs text-yellow-600"><XCircle className="h-3.5 w-3.5" /> Pendente</span>
+                  )
+                }
+                subtitle={format(new Date(invite.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                meta={invite.used_by ? `Usado por: ${invite.used_by}` : undefined}
+                actions={[
+                  ...(!invite.is_used
+                    ? [{ label: 'Copiar link', icon: Copy, onSelect: () => handleCopyLink(inviteLink(invite.invite_code)) }]
+                    : []),
+                  { label: 'Excluir', icon: Trash2, onSelect: () => handleDeleteInvite(invite.id), destructive: true },
+                ]}
+              />
+            ))}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>

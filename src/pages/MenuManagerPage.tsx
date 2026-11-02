@@ -56,11 +56,11 @@ const MenuManagerPage: React.FC<MenuManagerPageProps> = ({ isEmbedded = false })
       )}
 
       <Tabs defaultValue="structure" className="w-full max-w-6xl">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="structure" className="flex items-center gap-2">
+        <TabsList className="flex w-full justify-start overflow-x-auto sm:grid sm:grid-cols-2">
+          <TabsTrigger value="structure" className="flex shrink-0 items-center gap-2">
             <Menu className="h-4 w-4" /> Estrutura do Menu
           </TabsTrigger>
-          <TabsTrigger value="lists" className="flex items-center gap-2">
+          <TabsTrigger value="lists" className="flex shrink-0 items-center gap-2">
             <ListIcon className="h-4 w-4" /> Listas Personalizadas
           </TabsTrigger>
         </TabsList>
