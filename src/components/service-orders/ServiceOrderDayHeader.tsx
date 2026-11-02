@@ -75,13 +75,13 @@ const ServiceOrderDayHeader: React.FC<ServiceOrderDayHeaderProps> = ({
           <ServiceOrderCharts osList={osList} currentDate={selectedDate} />
           <Button
             variant="outline"
-            className="relative h-10 px-3 text-primary border-primary/30"
+            size="icon"
+            className="relative h-10 w-10 text-primary border-primary/30"
             onClick={onShare}
             aria-label="Compartilhar"
             data-testid="os-share-button"
           >
-            <Share2 className="h-4 w-4 mr-1.5" />
-            Compartilhar
+            <Share2 className="h-4 w-4" />
             {selectedCount > 0 && (
               <span
                 className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center shadow"
