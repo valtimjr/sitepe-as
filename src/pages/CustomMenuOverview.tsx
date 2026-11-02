@@ -1,144 +1,26 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { FolderTree } from 'lucide-react';
 import { useAppRefresh } from '@/hooks/useAppRefresh';
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Menu, List as ListIcon, ChevronRight, Loader2, Tag, Info, ChevronLeft } from 'lucide-react';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { getMenuStructure } from '@/services/customListService';
-import { MenuItem, Part, RelatedPart } from '@/types/supabase';
-import { cn } from '@/lib/utils';
-import { showSuccess, showError } from '@/utils/toast';
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
-import { getParts } from '@/services/partListService'; // Importar getParts
-import RelatedPartDisplay from '@/components/RelatedPartDisplay';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { MenuItem } from '@/types/supabase';
+import { showError } from '@/utils/toast';
 import { useCompany } from '@/context/CompanyContext';
-
-interface MenuItemProps {
-  item: MenuItem;
-  level: number;
-  company: string;
-}
-
-const MenuItemDisplay: React.FC<MenuItemProps> = ({ item, level, company }) => {
-  const [isExpanded, setIsExpanded] = useState(level === 0);
-  const [isTooltipOpen, setIsTooltipOpen] = useState(false); // Estado para controlar o tooltip
-  const hasChildren = item.children && item.children.length > 0;
-  const isListLink = !!item.list_id;
-  const hasRelatedItems = item.itens_relacionados && item.itens_relacionados.length > 0;
-
-  const isMobile = useIsMobile(); // Usar o hook useIsMobile
-
-  const toggleExpand = (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    if (hasChildren) {
-      setIsExpanded(prev => !prev);
-    }
-  };
-
-  const handleTooltipClick = (e: React.MouseEvent) => {
-    if (isMobile) {
-      e.stopPropagation(); // Evita que o clique no botão feche o menu pai
-      setIsTooltipOpen(prev => !prev);
-    }
-  };
-
-  const content = (
-    <div 
-      className={cn(
-        "flex items-center justify-between p-3 border-b last:border-b-0 transition-colors",
-        isListLink ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/50',
-        level > 0 && 'border-l-2 border-muted-foreground/30'
-      )}
-      style={{ paddingLeft: `${16 + level * 20}px` }}
-    >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        {hasChildren ? (
-          <ChevronRight 
-            className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && 'rotate-90')} 
-            onClick={toggleExpand}
-            style={{ cursor: 'pointer' }}
-          />
-        ) : (
-          <ListIcon className="h-4 w-4 text-primary" />
-        )}
-        <span className={cn("font-medium truncate", isListLink && 'text-primary')}>
-          {item.title}
-        </span>
-        {hasRelatedItems && (
-          <div className="flex justify-center w-full sm:w-auto"> {/* Wrapper para centralizar o botão */}
-            <Tooltip open={isTooltipOpen} onOpenChange={setIsTooltipOpen}>
-              <TooltipTrigger asChild>
-                {/* Alterado para Button */}
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 p-0 text-muted-foreground cursor-pointer" // Removido ml-2
-                  onClick={handleTooltipClick}
-                >
-                  <Info className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs p-2">
-                <p className="font-bold mb-1">Itens Relacionados:</p>
-                <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
-                  <ul className="list-disc list-inside">
-                    {item.itens_relacionados.map(rel => (
-                      <li key={rel.codigo} className="list-none ml-0">
-                        <RelatedPartDisplay item={rel} />
-                      </li>
-                    ))}
-                  </ul>
-                </ScrollArea>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        )}
-      </div>
-      
-      {isListLink && (
-        <Button variant="link" size="sm" className="text-primary shrink-0">
-          Visualizar
-        </Button>
-      )}
-    </div>
-  );
-
-  return (
-    <div className="w-full">
-      {isListLink ? (
-        <Link to={`/${company}/custom-list/${item.list_id}`} className="block">
-          {content}
-        </Link>
-      ) : (
-        <div onClick={() => toggleExpand()} className="cursor-pointer">
-          {content}
-        </div>
-      )}
-      
-      {hasChildren && isExpanded && (
-        <div className="w-full">
-          {item.children!.map(child => (
-            <MenuItemDisplay key={child.id} item={child} level={level + 1} company={company} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+import { useIsCompact } from '@/hooks/use-compact';
+import { Skeleton } from '@/components/ui/skeleton';
+import { collectExpandableIds, countLists } from '@/lib/menuTree';
+import { cn } from '@/lib/utils';
+import CatalogHeader from '@/components/catalog/CatalogHeader';
+import CatalogCategoryCard from '@/components/catalog/CatalogCategoryCard';
 
 const CustomMenuOverview: React.FC = () => {
   const { company, branding } = useCompany();
+  const isCompact = useIsCompact();
   const [menuHierarchy, setMenuHierarchy] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     document.title = `Catálogo de Peças - AutoBoard (${branding.name})`;
@@ -149,6 +31,8 @@ const CustomMenuOverview: React.FC = () => {
     try {
       const structure = await getMenuStructure(company);
       setMenuHierarchy(structure);
+      // Categorias de topo começam abertas
+      setExpandedIds(new Set(structure.map(item => item.id)));
     } catch (error) {
       console.error('Erro ao carregar o catálogo de peças:', error);
       showError('Erro ao carregar o catálogo de peças.');
@@ -164,45 +48,71 @@ const CustomMenuOverview: React.FC = () => {
 
   useAppRefresh(loadMenu);
 
-  return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
-      <div className="w-full max-w-4xl flex justify-between items-center mb-4 mt-8">
-        <Link to={`/${company}`}>
-          <Button variant="outline" className="flex items-center gap-2">
-            <ChevronLeft className="h-4 w-4" /> Voltar para o Início
-          </Button>
-        </Link>
-      </div>
-      
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
-        <div className="flex items-center gap-3">
-          <img src="/icons/tela_inicial/11.png" alt="" className="h-16 w-auto object-contain" />
-          Catálogo de Peças
-        </div>
-        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
-      </h1>
+  const expandableIds = useMemo(() => collectExpandableIds(menuHierarchy), [menuHierarchy]);
+  const listsCount = useMemo(() => countLists(menuHierarchy), [menuHierarchy]);
+  const allExpanded = expandableIds.length > 0 && expandableIds.every(id => expandedIds.has(id));
 
-      <Card className="w-full max-w-4xl mx-auto mb-8">
-        <CardHeader>
-          <CardTitle className="text-xl">Estrutura de Listas ({branding.name})</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="text-center text-muted-foreground py-8 flex items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando catálogo...
-            </div>
-          ) : menuHierarchy.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Nenhuma lista ou categoria configurada para esta empresa.</p>
-          ) : (
-            <div className="border rounded-lg overflow-hidden">
-              {menuHierarchy.map(item => (
-                <MenuItemDisplay key={item.id} item={item} level={0} company={company} />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      <MadeWithDyad />
+  const handleToggle = useCallback((id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleToggleAll = () => setExpandedIds(allExpanded ? new Set() : new Set(expandableIds));
+
+  return (
+    <div
+      className={cn(
+        'min-h-screen p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background',
+        isCompact ? 'pb-28' : 'flex flex-col items-center',
+      )}
+    >
+      <div className={cn('w-full', !isCompact && 'max-w-4xl')}>
+        <CatalogHeader
+          compact={isCompact}
+          company={company}
+          brandingName={branding.name}
+          categoriesCount={menuHierarchy.length}
+          listsCount={listsCount}
+          allExpanded={allExpanded}
+          canToggle={expandableIds.length > 0}
+          onToggleAll={handleToggleAll}
+        />
+
+        {isLoading ? (
+          <div className={cn(isCompact ? 'space-y-2.5' : 'grid gap-3 md:grid-cols-2')} data-testid="catalog-loading">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-28 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : menuHierarchy.length === 0 ? (
+          <div className="flex flex-col items-center text-center text-muted-foreground py-16 px-6 border border-dashed rounded-lg">
+            <FolderTree className="h-12 w-12 mb-3 opacity-20" />
+            <p>Nenhuma lista ou categoria configurada para esta empresa.</p>
+          </div>
+        ) : (
+          <div className={cn(isCompact ? 'space-y-2.5' : 'grid gap-3 md:grid-cols-2 items-start')}>
+            {menuHierarchy.map(item => (
+              <CatalogCategoryCard
+                key={item.id}
+                item={item}
+                company={company}
+                compact={isCompact}
+                expandedIds={expandedIds}
+                onToggle={handleToggle}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+      {!isCompact && (
+        <div className="mt-8">
+          <MadeWithDyad />
+        </div>
+      )}
     </div>
   );
 };

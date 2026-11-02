@@ -7,7 +7,7 @@ import { useParams, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, List as ListIcon, Copy, Download, FileText, Tag, Info, Loader2, FileDown, Check, PlusCircle, XCircle, ChevronLeft, Plus } from 'lucide-react';
+import { List as ListIcon, Tag, Loader2, Check, PlusCircle, XCircle, ChevronLeft, Plus } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { getCustomListItems, getCustomListById } from '@/services/customListService';
@@ -18,8 +18,12 @@ import ListIconView from '@/components/list-icon/ListIcon';
 import type { ListIcon as CustomListIcon } from '@/types/listIcon';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils';
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
+import { useIsCompact } from '@/hooks/use-compact';
+import CustomListMobileHeader from '@/components/custom-list/CustomListMobileHeader';
+import CustomListShareSheet from '@/components/custom-list/CustomListShareSheet';
+import CustomListActionBar from '@/components/custom-list/CustomListActionBar';
+import CustomListSelectionBar from '@/components/custom-list/CustomListSelectionBar';
 import { Sheet, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import AfSearchInput from '@/components/AfSearchInput';
@@ -33,6 +37,11 @@ import { Input } from '@/components/ui/input';
 import { useCompany } from '@/context/CompanyContext';
 
 const CREATE_NEW_LIST = '__create_new_list__';
+
+/** Área de toque de 40px em volta da checkbox. */
+const CheckboxHit: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <label className="flex h-10 w-10 items-center justify-center cursor-pointer">{children}</label>
+);
 
 const CustomListPage: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -62,6 +71,8 @@ const CustomListPage: React.FC = () => {
   const [openRelatedItemsPopoverId, setOpenRelatedItemsPopoverId] = useState<string | null>(null);
 
   const isMobile = useIsMobile();
+  const isCompact = useIsCompact();
+  const [isShareOpen, setIsShareOpen] = useState(false);
 
   useEffect(() => {
     if (isExportSheetOpen) {
@@ -245,6 +256,23 @@ const CustomListPage: React.FC = () => {
     const fullTitle = `${listTitle} (${branding.name})`;
     await lazyGenerateCustomListPdf(itemsToProcess, fullTitle);
     showSuccess('PDF gerado com sucesso!');
+  };
+
+  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  const handleNativeShare = async () => {
+    if (itemsToProcess.length === 0) {
+      showError('Nenhum item para compartilhar.');
+      return;
+    }
+    try {
+      await navigator.share({ title: listTitle, text: formatListText(itemsToProcess) });
+    } catch (err) {
+      if ((err as DOMException)?.name !== 'AbortError') {
+        console.error('Erro ao compartilhar a lista:', err);
+        showError('Não foi possível compartilhar a lista.');
+      }
+    }
   };
 
   const selectableItems = useMemo(() => items.filter(i => i.type === 'item' || i.type === 'mangueira'), [items]);
@@ -466,13 +494,15 @@ const CustomListPage: React.FC = () => {
       const isGroupIndeterminate = selectedInGroupCount > 0 && !isGroupAllSelected;
 
       return (
-        <TableRow key={item.id} id={item.id} className="bg-accent/10 hover:bg-accent/50 border-y-2 border-primary/50">
-          <TableCell className="w-[40px] p-2">
-            <Checkbox
-              checked={isGroupAllSelected ? true : isGroupIndeterminate ? 'indeterminate' : false}
-              onCheckedChange={(checked) => handleSubtitleSelect(item, checked === true)}
-              aria-label={`Selecionar todos os itens em ${item.item_name}`}
-            />
+        <TableRow key={item.id} id={item.id} className="bg-accent/10 hover:bg-accent/50 border-y-2 border-primary/50 scroll-mt-40 lg:scroll-mt-24">
+          <TableCell className="w-[44px] p-0.5">
+            <CheckboxHit>
+              <Checkbox
+                checked={isGroupAllSelected ? true : isGroupIndeterminate ? 'indeterminate' : false}
+                onCheckedChange={(checked) => handleSubtitleSelect(item, checked === true)}
+                aria-label={`Selecionar todos os itens em ${item.item_name}`}
+              />
+            </CheckboxHit>
           </TableCell>
           <TableCell colSpan={isMobile ? 3 : 5} className="text-left font-bold text-lg text-primary p-2">
             {item.item_name}
@@ -504,12 +534,14 @@ const CustomListPage: React.FC = () => {
             </TableRow>
           )}
           <TableRow key={item.id} id={item.id}>
-            <TableCell className="w-[40px] p-2">
-              <Checkbox
-                checked={selectedItemIds.has(item.id)}
-                onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
-                aria-label={`Selecionar item ${item.item_name}`}
-              />
+            <TableCell className="w-[44px] p-0.5">
+              <CheckboxHit>
+                <Checkbox
+                  checked={selectedItemIds.has(item.id)}
+                  onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
+                  aria-label={`Selecionar item ${item.item_name}`}
+                />
+              </CheckboxHit>
             </TableCell>
             <TableCell className="w-[4rem] p-2 text-center font-medium">1</TableCell>
             <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
@@ -568,12 +600,14 @@ const CustomListPage: React.FC = () => {
 
     return (
       <TableRow key={item.id} id={item.id}>
-        <TableCell className="w-[40px] p-2">
-          <Checkbox
-            checked={selectedItemIds.has(item.id)}
-            onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
-            aria-label={`Selecionar item ${item.item_name}`}
-          />
+        <TableCell className="w-[44px] p-0.5">
+          <CheckboxHit>
+            <Checkbox
+              checked={selectedItemIds.has(item.id)}
+              onCheckedChange={(checked) => handleSelectItem(item.id, checked === true)}
+              aria-label={`Selecionar item ${item.item_name}`}
+            />
+          </CheckboxHit>
         </TableCell>
         <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
         <TableCell className="w-auto whitespace-normal break-words p-2 text-left" colSpan={isMobile ? 4 : 3}>
@@ -624,100 +658,100 @@ const CustomListPage: React.FC = () => {
 
   const SimpleItemHeader = () => (
     <TableRow className="bg-muted/50 border-y border-primary/50">
-      <TableHead className="w-[40px] p-2">
-        <Checkbox
-          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-          onCheckedChange={handleToggleSelectAll}
-          aria-label="Selecionar todos os itens"
-        />
+      <TableHead className="w-[44px] p-0.5">
+        <CheckboxHit>
+          <Checkbox
+            checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+            onCheckedChange={handleToggleSelectAll}
+            aria-label="Selecionar todos os itens"
+          />
+        </CheckboxHit>
       </TableHead>
       <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
       <TableHead className="w-auto p-2 text-left font-bold text-sm" colSpan={isMobile ? 4 : 3}>Item / Código / Descrição</TableHead>
     </TableRow>
   );
 
-  return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
-      <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
-        <Link to={`/${company}/custom-menu-view`}>
-          <Button variant="outline" className="flex items-center gap-2">
-            <ChevronLeft className="h-4 w-4" /> Voltar ao Catálogo
-          </Button>
-        </Link>
-        <Link to={`/${company}/parts-list`}>
-          <Button variant="outline" className="flex items-center gap-2">
-            <ListIcon className="h-4 w-4" /> Minha Lista de Peças
-          </Button>
-        </Link>
-      </div>
-      
-      <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
-        <div className="flex items-center gap-3">
-          <ListIconView name={listTitle} icon={listIconData} size="md" className="rounded-lg sm:p-2" />
-          {listTitle}
-        </div>
-        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
-      </h1>
+  const selectedCount = selectedItemIds.size;
+  const exportDisabled = isLoadingAfs || items.length === 0;
+  const clearSelection = () => setSelectedItemIds(new Set());
 
-      <Card className="w-full max-w-4xl mx-auto mb-8">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl font-bold text-center pt-2">
-            Itens da Lista
-          </CardTitle>
-          <div className="flex flex-row flex-wrap items-center justify-end gap-2 pt-2">
-            <Button 
-              onClick={handleExportSelectedToMyList} 
-              className="flex-1 sm:w-auto"
-              disabled={isLoadingAfs || items.length === 0}
-            >
-              <PlusCircle className="h-4 w-4 mr-2" /> 
-              {selectedItemIds.size > 0 
-                ? `Exportar Selecionados (${selectedItemIds.size})` 
-                : 'Exportar para Minha Lista'}
+  return (
+    <div
+      className={cn(
+        'min-h-screen p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background',
+        isCompact ? 'pb-28' : 'flex flex-col items-center',
+      )}
+    >
+      {isCompact ? (
+        <>
+          <CustomListMobileHeader
+            company={company}
+            title={listTitle}
+            icon={listIconData}
+            itemCount={selectableItems.length}
+            selectedCount={selectedCount}
+            onShare={() => setIsShareOpen(true)}
+            onClearSelection={clearSelection}
+          />
+          <Button
+            className="w-full h-11 mb-3 text-base"
+            onClick={handleExportSelectedToMyList}
+            disabled={exportDisabled}
+            data-testid="custom-list-export-button"
+          >
+            <PlusCircle className="h-5 w-5 mr-2" />
+            {selectedCount > 0
+              ? `Exportar ${selectedCount} ${selectedCount === 1 ? 'selecionado' : 'selecionados'}`
+              : 'Exportar para Minha Lista'}
+          </Button>
+        </>
+      ) : (
+        <>
+          <div className="w-full max-w-4xl flex flex-wrap justify-between items-center gap-2 mb-4 mt-8">
+            <Button variant="outline" asChild>
+              <Link to={`/${company}/custom-menu-view`} className="flex items-center gap-2">
+                <ChevronLeft className="h-4 w-4" /> Voltar ao Catálogo
+              </Link>
             </Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  onClick={handleCopyList} 
-                  disabled={items.length === 0} 
-                  variant="secondary" 
-                  size="icon"
-                  className="sm:w-auto sm:px-4"
-                >
-                  <Copy className="h-4 w-4" /> 
-                  <span className="hidden sm:inline ml-2">Copiar Lista</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Copiar Lista</TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  onClick={handleExportCsv} 
-                  disabled={items.length === 0} 
-                  variant="outline" 
-                  size="icon"
-                  className="sm:w-auto sm:px-4"
-                >
-                  <Download className="h-4 w-4" /> 
-                  <span className="hidden sm:inline ml-2">Exportar CSV</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Exportar CSV</TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={handleExportPdf} disabled={items.length === 0} variant="default" className="flex items-center gap-2">
-                  <FileDown className="h-4 w-4" /> Exportar PDF
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Exportar PDF</TooltipContent>
-            </Tooltip>
+            <Button variant="outline" asChild>
+              <Link to={`/${company}/parts-list`} className="flex items-center gap-2">
+                <ListIcon className="h-4 w-4" /> Minha Lista de Peças
+              </Link>
+            </Button>
           </div>
-        </CardHeader>
-        <CardContent>
+
+          <div className="w-full max-w-4xl flex items-center gap-3 mb-6">
+            <ListIconView name={listTitle} icon={listIconData} size="md" className="rounded-lg" />
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-primary leading-tight" data-testid="custom-list-title">
+                {listTitle}
+              </h1>
+              <p className="text-sm text-muted-foreground">{branding.name}</p>
+            </div>
+          </div>
+        </>
+      )}
+
+      <Card className={cn('w-full mx-auto', isCompact ? 'mb-4' : 'max-w-4xl mb-8')}>
+        {!isCompact && (
+          <>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-bold">Itens da Lista</CardTitle>
+            </CardHeader>
+            <CustomListActionBar
+              selectedCount={selectedCount}
+              disabled={items.length === 0}
+              exportDisabled={exportDisabled}
+              onExport={handleExportSelectedToMyList}
+              onCopy={handleCopyList}
+              onCsv={handleExportCsv}
+              onPdf={handleExportPdf}
+              onClearSelection={clearSelection}
+            />
+          </>
+        )}
+        <CardContent className={cn(isCompact ? 'p-1.5' : 'pt-4')}>
           {isLoading ? (
             <p className="text-center text-muted-foreground py-8">Carregando itens da lista...</p>
           ) : items.length === 0 ? (
@@ -757,7 +791,30 @@ const CustomListPage: React.FC = () => {
           )}
         </CardContent>
       </Card>
-      <MadeWithDyad />
+      {!isCompact && <MadeWithDyad />}
+
+      {isCompact && (
+        <>
+          {selectedCount > 0 && !isExportSheetOpen && !isShareOpen && (
+            <CustomListSelectionBar
+              count={selectedCount}
+              disabled={exportDisabled}
+              onClear={clearSelection}
+              onExport={handleExportSelectedToMyList}
+            />
+          )}
+          <CustomListShareSheet
+            open={isShareOpen}
+            onOpenChange={setIsShareOpen}
+            selectedCount={selectedCount}
+            disabled={items.length === 0}
+            onCopy={handleCopyList}
+            onPdf={handleExportPdf}
+            onCsv={handleExportCsv}
+            onNativeShare={canNativeShare ? handleNativeShare : undefined}
+          />
+        </>
+      )}
 
       <Sheet open={isExportSheetOpen} onOpenChange={setIsExportSheetOpen}>
         <ResponsiveSheetContent side="right" className="sm:max-w-md flex flex-col h-full max-h-screen">
@@ -872,6 +929,8 @@ const CustomListPage: React.FC = () => {
                               <Label className="text-[10px] text-muted-foreground">Qtd:</Label>
                               <Input
                                 type="number"
+                                inputMode="numeric"
+                                aria-label={`Quantidade de ${sub.name}`}
                                 value={exportQuantities[sub.key] ?? ''}
                                 onFocus={(e) => e.target.select()}
                                 onChange={(e) => {
@@ -882,7 +941,7 @@ const CustomListPage: React.FC = () => {
                                   }));
                                   setExportQuantityErrors(prev => ({ ...prev, [sub.key]: false }));
                                 }}
-                                className={cn("w-16 h-8 text-center text-xs", exportQuantityErrors[sub.key] && "border-destructive focus-visible:ring-destructive")}
+                                className={cn("w-20 h-10 text-center text-sm", exportQuantityErrors[sub.key] && "border-destructive focus-visible:ring-destructive")}
                               />
                             </div>
                           </div>
@@ -904,6 +963,8 @@ const CustomListPage: React.FC = () => {
                         <Label className="text-[10px] text-muted-foreground">Qtd:</Label>
                         <Input
                           type="number"
+                          inputMode="numeric"
+                          aria-label={`Quantidade de ${item.item_name || item.part_code || 'peça'}`}
                           value={exportQuantities[item.id] ?? ''}
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => {
@@ -914,7 +975,7 @@ const CustomListPage: React.FC = () => {
                             }));
                             setExportQuantityErrors(prev => ({ ...prev, [item.id]: false }));
                           }}
-                          className={cn("w-16 h-8 text-center text-xs", exportQuantityErrors[item.id] && "border-destructive focus-visible:ring-destructive")}
+                          className={cn("w-20 h-10 text-center text-sm", exportQuantityErrors[item.id] && "border-destructive focus-visible:ring-destructive")}
                         />
                       </div>
                     </div>
@@ -923,12 +984,12 @@ const CustomListPage: React.FC = () => {
               </div>
             </div>
           </div>
-          <SheetFooter className="pt-2 border-t">
-            <Button type="button" variant="outline" onClick={() => setIsExportSheetOpen(false)}>
+          <SheetFooter className="grid grid-cols-2 gap-2 sm:space-x-0 pt-3 border-t pb-[env(safe-area-inset-bottom)]" data-testid="export-sheet-footer">
+            <Button type="button" variant="outline" className="h-11 w-full" onClick={() => setIsExportSheetOpen(false)}>
               <XCircle className="h-4 w-4 mr-2" /> Cancelar
             </Button>
-            <Button type="button" onClick={handleConfirmExport} disabled={!afForExport.trim() || !selectedListId || isLoadingAfs}>
-              <Check className="h-4 w-4 mr-2" /> Confirmar Exportação
+            <Button type="button" className="h-11 w-full" onClick={handleConfirmExport} disabled={!afForExport.trim() || !selectedListId || isLoadingAfs}>
+              <Check className="h-4 w-4 mr-2" /> Confirmar
             </Button>
           </SheetFooter>
         </ResponsiveSheetContent>
