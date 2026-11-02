@@ -20,7 +20,7 @@ const BottomNav: React.FC = () => {
   const { company } = useCompany();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isMoreOpen, setMoreOpen, setSearchOpen } = useMobileNav();
+  const { isMoreOpen, setMoreOpen, isSearchOpen, setSearchOpen } = useMobileNav();
   const keyboardOpen = useKeyboardOpen();
 
   const tabs: Tab[] = [
@@ -33,12 +33,18 @@ const BottomNav: React.FC = () => {
 
   const pathname = location.pathname.replace(/\/+$/, '');
   const routeTab = tabs.find(t => t.path && t.path === pathname)?.key ?? 'more';
-  const activeTab: TabKey = isMoreOpen ? 'more' : routeTab;
+  const activeTab: TabKey = isMoreOpen ? 'more' : isSearchOpen ? 'search' : routeTab;
 
   if (keyboardOpen) return null;
 
   const handlePress = (tab: Tab) => {
     tap();
+    // Pesquisar abre a mesma busca em tela cheia do botão do cabeçalho
+    if (tab.key === 'search') {
+      setMoreOpen(false);
+      setSearchOpen(true);
+      return;
+    }
     setSearchOpen(false);
     if (tab.key === 'more') {
       setMoreOpen(!isMoreOpen);

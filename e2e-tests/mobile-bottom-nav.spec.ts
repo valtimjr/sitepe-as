@@ -27,6 +27,17 @@ test.describe('Mobile: barra de navegação inferior', () => {
     await expect(page).toHaveURL(/\/usina_vale\/?$/);
   });
 
+  test('Pesquisar da barra inferior abre a busca em tela cheia', async ({ page }) => {
+    await page.goto('/usina_vale', { timeout: 15000 });
+
+    await page.getByTestId('bottom-nav-search').click();
+    await expect(page.getByTestId('mobile-search-overlay')).toBeVisible();
+    await expect(page).toHaveURL(/\/usina_vale\/?$/);
+
+    await page.getByRole('button', { name: 'Fechar busca' }).click();
+    await expect(page.getByTestId('mobile-search-overlay')).toBeHidden();
+  });
+
   test('menu em lista do Início leva à Minha Lista de Peças', async ({ page }) => {
     await page.goto('/usina_vale', { timeout: 15000 });
 
