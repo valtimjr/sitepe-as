@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { DailyApontamento, MonthlyApontamento, DailyServiceOrder, Part as SupabasePart, Af as SupabaseAf } from '@/types/supabase';
 import { Network } from '@capacitor/network';
 import { CompanyType } from '@/types/company';
+import { normalizeSearch } from '@/lib/textNormalize';
 
 // Use the strict types from supabase.ts for local storage interfaces
 export interface Part extends SupabasePart {
@@ -122,18 +123,14 @@ export const getLocalParts = async (company: CompanyType): Promise<Part[]> => {
 };
 
 export const searchLocalParts = async (query: string, company: CompanyType): Promise<Part[]> => {
-  const lowerCaseQuery = query.toLowerCase().trim();
+  const normalizedQuery = normalizeSearch(query);
   const allParts = await localDb.parts.where('company').equals(company).toArray();
-  if (!lowerCaseQuery) return allParts;
-  const escapedWords = lowerCaseQuery.split(/\s+/).filter(Boolean).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const regexPattern = new RegExp(escapedWords.join('.*'), 'i');
-  return allParts.filter(part => {
-    const nameMatch = part.name && part.name.toLowerCase().match(regexPattern);
-    const codigoMatch = part.codigo.toLowerCase().match(regexPattern);
-    const descricaoMatch = part.descricao.toLowerCase().match(regexPattern);
-    const tagsMatch = part.tags && part.tags.toLowerCase().match(regexPattern);
-    return nameMatch || codigoMatch || descricaoMatch || tagsMatch;
-  });
+  if (!normalizedQuery) return allParts;
+  const escapedWords = normalizedQuery.split(/\s+/).filter(Boolean).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regexPattern = new RegExp(escapedWords.join('.*'));
+  return allParts.filter(part =>
+    [part.name, part.codigo, part.descricao, part.tags].some(field => !!field && regexPattern.test(normalizeSearch(field)))
+  );
 };
 
 export const updateLocalPart = async (updatedPart: Part): Promise<void> => {

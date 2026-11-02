@@ -85,6 +85,7 @@ export interface CustomList {
   created_at?: Date;
   updated_at?: string;
   items_data?: CustomListItem[];
+  icon?: ListIcon | null;
 }
 
 export interface CustomListItem {
@@ -109,6 +110,12 @@ export interface MenuItem {
   hash?: string;
   children?: MenuItem[];
   isDynamic?: boolean;
+  /** Ícone próprio do item (pastas/submenus sem lista). */
+  icon?: ListIcon | null;
+  /** Derivado da lista vinculada — não é salvo no JSON do menu. */
+  list_icon?: ListIcon | null;
+  /** Derivado da lista vinculada — não é salvo no JSON do menu. */
+  list_title?: string;
 }
 
 export interface ServiceOrderPart {

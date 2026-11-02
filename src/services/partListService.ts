@@ -31,6 +31,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { DailyApontamento, MonthlyApontamento, RelatedPart, Part as SupabasePart, DailyServiceOrder, ServiceOrderData, Af as SupabaseAf, ServiceOrderPart } from '@/types/supabase';
 import { CompanyType } from '@/types/company';
+import { normalizeSearch } from '@/lib/textNormalize';
 import {
   getListsData,
   getActiveList,
@@ -206,11 +207,11 @@ const sortPartsByPriority = (parts: Part[], query: string): Part[] => {
   if (!query) return parts;
   
   const getScore = (part: Part): number => {
-    const lowerQuery = query.toLowerCase().trim();
-    const partTags = (part.tags || '').toLowerCase();
-    const partCode = (part.codigo || '').toLowerCase().trim();
-    const partName = (part.name || '').toLowerCase();
-    const partDesc = (part.descricao || '').toLowerCase();
+    const lowerQuery = normalizeSearch(query);
+    const partTags = normalizeSearch(part.tags);
+    const partCode = normalizeSearch(part.codigo);
+    const partName = normalizeSearch(part.name);
+    const partDesc = normalizeSearch(part.descricao);
 
     // 1- tag
     if (partTags && partTags.includes(lowerQuery)) {
@@ -252,37 +253,44 @@ const sortPartsByPriority = (parts: Part[], query: string): Part[] => {
   });
 };
 
+type UnaccentSearchRow = Part & { total_count: number };
+
+/** Busca no servidor ignorando acentos (RPC search_parts_unaccent). */
+const searchPartsRpc = async (query: string, company: CompanyType, limit: number, offset: number) => {
+  const { data, error } = await supabase.rpc('search_parts_unaccent', {
+    p_company: company,
+    p_query: query,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) throw error;
+  const rows = (data || []) as UnaccentSearchRow[];
+  const totalCount = rows.length > 0 ? Number(rows[0].total_count) : 0;
+  const parts = rows.map(({ total_count: _total, ...part }) => part as Part);
+  return { parts, totalCount };
+};
+
 export const searchPartsPaginated = async (query: string, company: CompanyType, page: number = 1, pageSize: number = 50): Promise<{ parts: Part[], totalCount: number }> => {
-  const lowerCaseQuery = query.toLowerCase().trim();
   const offset = (page - 1) * pageSize;
-  const tableName = getPartsTable(company);
-  let queryBuilder = supabase.from(tableName).select('*', { count: 'exact' });
-  if (lowerCaseQuery) {
-    const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
-    queryBuilder = queryBuilder.or(`codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},tags.ilike.${searchPattern},name.ilike.${searchPattern}`);
-  }
-  queryBuilder = queryBuilder.order('codigo', { ascending: true }).range(offset, offset + pageSize - 1);
-  const { data, error, count } = await queryBuilder;
-  if (error) {
+  try {
+    const { parts, totalCount } = await searchPartsRpc(query.trim(), company, pageSize, offset);
+    return { parts: sortPartsByPriority(parts, query), totalCount };
+  } catch {
     const localResults = await searchLocalParts(query, company);
     const sortedLocal = sortPartsByPriority(localResults as Part[], query);
     return { parts: sortedLocal.slice(offset, offset + pageSize) as Part[], totalCount: sortedLocal.length };
   }
-  const sortedData = sortPartsByPriority(data as Part[], query);
-  return { parts: sortedData, totalCount: count || 0 };
 };
 
 export const searchParts = async (query: string, company: CompanyType): Promise<Part[]> => {
-  const lowerCaseQuery = query.toLowerCase().trim();
-  if (!lowerCaseQuery) return [];
-  const searchPattern = `%${lowerCaseQuery.split(/\s+/).filter(Boolean).join('%')}%`;
-  const tableName = getPartsTable(company);
-  const { data, error } = await supabase.from(tableName).select('*').or(`codigo.ilike.${searchPattern},descricao.ilike.${searchPattern},name.ilike.${searchPattern},tags.ilike.${searchPattern}`).limit(100);
-  if (error) {
+  if (!normalizeSearch(query)) return [];
+  try {
+    const { parts } = await searchPartsRpc(query.trim(), company, 100, 0);
+    return sortPartsByPriority(parts, query);
+  } catch {
     const localResults = await searchLocalParts(query, company);
     return sortPartsByPriority(localResults as Part[], query);
   }
-  return sortPartsByPriority(data as Part[], query);
 };
 
 export const getFrequentPartsForProfession = async (professionCode: number, company: CompanyType): Promise<Part[]> => {

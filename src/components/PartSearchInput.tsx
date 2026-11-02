@@ -6,6 +6,7 @@ import { Loader2, Star } from 'lucide-react';
 import { useSession } from '@/components/SessionContextProvider';
 import { useCompany } from '@/context/CompanyContext';
 import { cn } from '@/lib/utils';
+import { matchesQuery } from '@/lib/textNormalize';
 
 interface PartSearchInputProps {
   onSearch: (query: string) => void;
@@ -136,16 +137,12 @@ const PartSearchInput: React.FC<PartSearchInputProps> = ({ onSearch, searchResul
     
     // 1. Filter matching favorites
     const matchingFavorites = favoriteParts.filter(part => {
-      return part.codigo.toLowerCase().includes(queryLower) || 
-             (part.descricao && part.descricao.toLowerCase().includes(queryLower)) ||
-             (part.name && part.name.toLowerCase().includes(queryLower));
+      return matchesQuery([part.codigo, part.descricao, part.name], queryLower);
     }).map(p => ({ ...p, itemType: 'favorite' }));
     
     // 2. Filter matching frequent parts
     const matchingFrequent = frequentParts.filter(part => {
-      return part.codigo.toLowerCase().includes(queryLower) || 
-             (part.descricao && part.descricao.toLowerCase().includes(queryLower)) ||
-             (part.name && part.name.toLowerCase().includes(queryLower));
+      return matchesQuery([part.codigo, part.descricao, part.name], queryLower);
     }).filter(p => !matchingFavorites.some(mf => mf.codigo.toLowerCase() === p.codigo.toLowerCase()))
       .map(p => ({ ...p, itemType: 'frequent' }));
     

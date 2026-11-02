@@ -12,7 +12,7 @@ import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetConte
 import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, GripVertical, Tag, Loader2, FileText, MoreHorizontal } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { MenuItem, CustomList, Part, RelatedPart } from '@/types/supabase';
-import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists, saveAllMenuItems } from '@/services/customListService';
+import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists, saveAllMenuItems, updateCustomListIcon } from '@/services/customListService';
 import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
 import {
   Select,
@@ -40,6 +40,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import RelatedPartDisplay from './RelatedPartDisplay';
 import { useCompany } from '@/context/CompanyContext';
+import ListIconEditor from '@/components/list-icon/ListIconEditor';
+import MenuItemIcon from '@/components/list-icon/MenuItemIcon';
+import type { ListIcon as ListIconData } from '@/types/listIcon';
 
 interface MenuStructureEditorProps {
   onMenuUpdated: () => void;
@@ -97,6 +100,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
   const [formListId, setFormListId] = useState<string | null>(null);
   const [formOrderIndex, setFormOrderIndex] = useState(0);
   const [formItensRelacionados, setFormItensRelacionados] = useState<RelatedPart[]>([]);
+  const [formIcon, setFormIcon] = useState<ListIconData | null>(null);
+  const [isIconDirty, setIsIconDirty] = useState(false);
   
   // Estados para o PartSearchInput dentro do modal
   const [searchQueryRelated, setSearchQueryRelated] = useState('');
@@ -152,6 +157,30 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     return () => clearTimeout(handler);
   }, [searchQueryRelated, company]);
 
+  // Lista vinculada (as do usuário ou os dados derivados do próprio item de menu)
+  const getLinkedList = (listId: string | null, item: MenuItem | null) => {
+    if (!listId) return null;
+    const list = customLists.find(l => l.id === listId);
+    if (list) return { title: list.title, icon: list.icon ?? null };
+    if (item && item.list_id === listId) return { title: item.list_title ?? item.title, icon: item.list_icon ?? null };
+    return { title: '', icon: null };
+  };
+
+  const iconForSelection = (listId: string | null, item: MenuItem | null): ListIconData | null =>
+    listId ? getLinkedList(listId, item)?.icon ?? null : item?.icon ?? null;
+
+  const handleListChange = (value: string) => {
+    const listId = value === 'none' ? null : value;
+    setFormListId(listId);
+    setFormIcon(iconForSelection(listId, currentMenuItem));
+    setIsIconDirty(false);
+  };
+
+  const handleIconChange = (icon: ListIconData | null) => {
+    setFormIcon(icon);
+    setIsIconDirty(true);
+  };
+
   const handleAddMenuItem = (parentId: string | null = null) => {
     setCurrentMenuItem(null);
     setFormTitle('');
@@ -159,6 +188,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     setFormListId(null);
     setFormOrderIndex(flatMenuItems.length);
     setFormItensRelacionados([]);
+    setFormIcon(null);
+    setIsIconDirty(false);
     setSearchQueryRelated('');
     setSearchResultsRelated([]);
     setBulkRelatedPartsInput('');
@@ -172,6 +203,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     setFormListId(item.list_id);
     setFormOrderIndex(item.order_index);
     setFormItensRelacionados(item.itens_relacionados || []);
+    setFormIcon(iconForSelection(item.list_id, item));
+    setIsIconDirty(false);
     setSearchQueryRelated('');
     setSearchResultsRelated([]);
     setBulkRelatedPartsInput('');
@@ -207,7 +240,14 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
         list_id: formListId,
         order_index: formOrderIndex,
         itens_relacionados: formItensRelacionados,
+        // Com lista vinculada, o ícone pertence à lista; o ícone próprio do item é mantido.
+        icon: formListId ? currentMenuItem?.icon ?? null : formIcon,
       };
+
+      if (formListId && isIconDirty) {
+        await updateCustomListIcon(formListId, formIcon);
+        setCustomLists(prev => prev.map(l => (l.id === formListId ? { ...l, icon: formIcon } : l)));
+      }
 
       if (currentMenuItem) {
         await updateMenuItem({ ...currentMenuItem, ...payload }, company);
@@ -443,8 +483,9 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
                 {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </Button>
             ) : (
-              <ListIcon className="h-4 w-4 text-primary shrink-0" />
+              <span className="h-6 w-6 shrink-0" aria-hidden="true" />
             )}
+            {!item.isDynamic && <MenuItemIcon item={item} size="xs" />}
             <span className={cn("font-medium", isListLink && 'text-primary')}>
               {item.title}
             </span>
@@ -526,7 +567,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     );
   };
 
-  const availableParents = flatMenuItems.filter(item => !item.list_id);
+  const availableParents = flatMenuItems.filter(item => !item.list_id && !item.isDynamic);
+  const linkedList = getLinkedList(formListId, currentMenuItem);
 
   return (
     <Card className="w-full">
@@ -566,6 +608,20 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
                 required
               />
             </div>
+
+            <div className="space-y-2">
+              <Label>Ícone</Label>
+              <ListIconEditor
+                name={formListId ? linkedList?.title || formTitle : formTitle}
+                icon={formIcon}
+                onChange={handleIconChange}
+              />
+              {formListId && linkedList && (
+                <p className="text-xs text-muted-foreground" data-testid="menu-icon-list-note">
+                  Este ícone pertence à lista "{linkedList.title || formTitle}" e também aparece em Minhas Listas.
+                </p>
+              )}
+            </div>
             
             <div className="space-y-2">
               <Label htmlFor="parent_id">Item Pai (Submenu de)</Label>
@@ -591,7 +647,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
               <Label htmlFor="list_id">Link para Lista de Peças (Opcional)</Label>
               <Select
                 value={formListId || 'none'}
-                onValueChange={(value) => setFormListId(value === 'none' ? null : value)}
+                onValueChange={handleListChange}
                 disabled={hasChildren(currentMenuItem)}
               >
                 <SelectTrigger id="list_id">
@@ -685,11 +741,11 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
               </p>
             </div>
 
-            <SheetFooter>
-              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
+            <SheetFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
+              <Button type="button" variant="outline" className="h-11 w-full sm:h-10 sm:w-auto" onClick={() => setIsSheetOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
-              <Button type="submit">
+              <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto">
                 <Save className="h-4 w-4 mr-2" /> Salvar
               </Button>
             </SheetFooter>

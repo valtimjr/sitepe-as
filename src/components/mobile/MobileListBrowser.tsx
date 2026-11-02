@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Folder, List } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { MenuItem } from '@/types/supabase';
 import { tap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
+import MenuItemIcon from '@/components/list-icon/MenuItemIcon';
 
 interface MobileListBrowserProps {
   items: MenuItem[];
@@ -88,9 +89,7 @@ const MobileListBrowser: React.FC<MobileListBrowserProps> = ({ items, company, p
                 }}
                 data-testid="list-browser-category"
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-none bg-primary/10 text-primary shrink-0">
-                  <Folder className="h-4 w-4" />
-                </span>
+                <MenuItemIcon item={item} size="sm" className="h-9 w-9 rounded-md" />
                 <span className="flex-1 truncate">{item.title}</span>
                 <span className="text-xs text-muted-foreground">{children.length}</span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -106,9 +105,11 @@ const MobileListBrowser: React.FC<MobileListBrowserProps> = ({ items, company, p
               onClick={onNavigate}
               data-testid="list-browser-list"
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-none bg-primary/10 text-primary shrink-0">
-                <List className="h-4 w-4" />
-              </span>
+              {item.isDynamic ? (
+                <span className="h-9 w-9 shrink-0" aria-hidden="true" />
+              ) : (
+                <MenuItemIcon item={item} size="sm" className="h-9 w-9 rounded-md" />
+              )}
               <span className="flex-1 truncate">{item.title}</span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </Link>

@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { useCompany } from '@/context/CompanyContext';
 import { useSession } from '@/components/SessionContextProvider';
 import { cn } from '@/lib/utils';
+import { matchesQuery } from '@/lib/textNormalize';
 import {
   searchParts,
   getFrequentPartsForProfession,
@@ -33,10 +34,7 @@ type DisplayPart = Part & { itemType: 'favorite' | 'frequent' | 'normal' };
 
 const sameCode = (a: Part, b: Part) => a.codigo.toLowerCase() === b.codigo.toLowerCase();
 
-const matches = (part: Part, q: string) =>
-  part.codigo.toLowerCase().includes(q) ||
-  (!!part.descricao && part.descricao.toLowerCase().includes(q)) ||
-  (!!part.name && part.name.toLowerCase().includes(q));
+const matches = (part: Part, q: string) => matchesQuery([part.codigo, part.descricao, part.name], q);
 
 /** Busca de peça com favoritos, sugestões da profissão e resultados. */
 const ServiceOrderPartPicker: React.FC<ServiceOrderPartPickerProps> = ({ onConfirm, onCancel, large = false }) => {

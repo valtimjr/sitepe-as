@@ -2,6 +2,7 @@ import Papa from 'papaparse';
 import { CompanyType } from '@/types/company';
 import type { SimplePartItem, Part, Af } from '@/services/partListService';
 import type { ListIcon } from '@/types/listIcon';
+import { normalizeSearch, stripAccents } from './textNormalize';
 
 // ---------- Types ----------
 
@@ -90,8 +91,7 @@ export const isJsonFile = (file: File) => getExtension(file.name) === 'json';
 const dropEmptyRows = (matrix: string[][]) =>
   matrix.filter(row => row.some(cell => cell.trim() !== ''));
 
-const normalize = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const normalize = (s: string) => normalizeSearch(s).replace(/[^a-z0-9]/g, '');
 
 const columnLetter = (index: number) => {
   let s = '';
@@ -368,7 +368,7 @@ export const exportListAsXlsx = async (items: SimplePartItem[], filename: string
 };
 
 export const safeFileName = (name: string) =>
-  (name || 'lista').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9-_ ]/g, '').trim().replace(/\s+/g, '_') || 'lista';
+  stripAccents(name || 'lista').replace(/[^a-zA-Z0-9-_ ]/g, '').trim().replace(/\s+/g, '_') || 'lista';
 
 export const formatFileSize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;

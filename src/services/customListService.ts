@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { CustomList, CustomListItem, MenuItem, RelatedPart, RelatedItem, MangueiraItemData } from '@/types/supabase';
 import { updatePart as updatePartService } from '@/services/partListService'; // Importa a função de update de peça
 import { CompanyType } from '@/types/company';
+import { ListIcon, sanitizeListIcon } from '@/types/listIcon';
 
 // Re-exporta updatePart para uso no formulário de item de lista
 export const updatePart = updatePartService;
@@ -88,8 +89,13 @@ const flattenMenuHierarchy = (hierarchy: MenuItem[]): MenuItem[] => {
  * @param company The current company.
  */
 export const saveAllMenuItems = async (flatItems: MenuItem[], company: CompanyType): Promise<void> => {
-  // Filtra itens dinâmicos antes de salvar para evitar duplicação na próxima carga.
-  const itemsToSave = flatItems.filter(item => !item.isDynamic);
+  // Filtra itens dinâmicos e remove campos derivados da lista antes de salvar.
+  const itemsToSave = flatItems
+    .filter(item => !item.isDynamic)
+    .map(({ list_icon: _listIcon, list_title: _listTitle, ...item }) => ({
+      ...item,
+      icon: sanitizeListIcon(item.icon) ?? null,
+    }));
 
   const { error } = await supabase
     .from(APP_CONFIG_TABLE)
@@ -122,7 +128,10 @@ export const getMenuStructure = async (company: CompanyType): Promise<MenuItem[]
     throw new Error(`Error fetching menu structure from app_config: ${error.message}`);
   }
 
-  let flatItems: MenuItem[] = (data?.value as MenuItem[]) || [];
+  let flatItems: MenuItem[] = ((data?.value as MenuItem[]) || []).map(item => ({
+    ...item,
+    icon: sanitizeListIcon(item.icon) ?? null,
+  }));
 
   // Injeta os subtítulos como subitens
   const itemsWithList = flatItems.filter(item => item.list_id); // CORRIGIDO: Pega TODOS os itens com lista
@@ -130,13 +139,19 @@ export const getMenuStructure = async (company: CompanyType): Promise<MenuItem[]
     const listIds = itemsWithList.map(item => item.list_id!);
     const { data: lists, error: listsError } = await supabase
       .from('custom_lists')
-      .select('id, items_data')
+      .select('id, title, icon, items_data')
       .in('id', listIds)
       .eq('company', company);
 
     if (listsError) {
       console.error('Error fetching custom lists for menu subtitles:', listsError);
     } else if (lists) {
+      flatItems = flatItems.map(menuItem => {
+        const list = menuItem.list_id ? lists.find(l => l.id === menuItem.list_id) : undefined;
+        return list
+          ? { ...menuItem, list_icon: sanitizeListIcon(list.icon) ?? null, list_title: list.title }
+          : menuItem;
+      });
       const subtitlesToAdd: MenuItem[] = [];
       itemsWithList.forEach(menuItem => {
         const list = lists.find(l => l.id === menuItem.list_id);
@@ -232,6 +247,7 @@ export const getCustomLists = async (userId: string, company: CompanyType): Prom
 
   // Garante que os itens existentes também sejam padronizados
   return lists.map(list => {
+    list.icon = sanitizeListIcon(list.icon) ?? null;
     if (list.items_data) {
       list.items_data = list.items_data.map(item => ({
         ...item,
@@ -255,6 +271,7 @@ export const getCustomListById = async (listId: string, company: CompanyType): P
   }
 
   const list = data as CustomList | null;
+  if (list) list.icon = sanitizeListIcon(list.icon) ?? null;
   if (list && list.items_data) {
     list.items_data = list.items_data.map(item => ({
       ...item,
@@ -279,10 +296,10 @@ export const getCustomListItems = async (listId: string, company: CompanyType): 
     .sort((a, b) => a.order_index - b.order_index);
 };
 
-export const createCustomList = async (title: string, userId: string, company: CompanyType): Promise<CustomList> => {
+export const createCustomList = async (title: string, userId: string, company: CompanyType, icon?: ListIcon | null): Promise<CustomList> => {
   const { data, error } = await supabase
     .from('custom_lists')
-    .insert({ title, user_id: userId, items_data: [], company: company }) // Inicializa items_data vazio
+    .insert({ title, user_id: userId, items_data: [], company: company, icon: sanitizeListIcon(icon) ?? null }) // Inicializa items_data vazio
     .select()
     .single();
 
@@ -303,6 +320,7 @@ export const updateCustomList = async (list: CustomList): Promise<void> => {
     .update({ 
       title: list.title, 
       items_data: list.items_data, 
+      ...(list.icon !== undefined ? { icon: sanitizeListIcon(list.icon) ?? null } : {}),
       updated_at: new Date().toISOString(),
       company: list.company
     })
@@ -310,6 +328,18 @@ export const updateCustomList = async (list: CustomList): Promise<void> => {
 
   if (error) {
     throw new Error(`Erro ao atualizar lista personalizada: ${error.message}`);
+  }
+};
+
+/** Atualiza apenas o ícone de uma lista (null = automático). */
+export const updateCustomListIcon = async (listId: string, icon: ListIcon | null): Promise<void> => {
+  const { error } = await supabase
+    .from('custom_lists')
+    .update({ icon: sanitizeListIcon(icon) ?? null, updated_at: new Date().toISOString() })
+    .eq('id', listId);
+
+  if (error) {
+    throw new Error(`Erro ao atualizar ícone da lista: ${error.message}`);
   }
 };
 

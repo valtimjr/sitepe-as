@@ -36,6 +36,7 @@ import { useIsCompact } from '@/hooks/use-compact';
 import { useMobileNav } from '@/context/MobileNavContext';
 import { useHideOnScroll } from '@/hooks/useScrollDirection';
 import { tap } from '@/lib/haptics';
+import MenuItemIcon from '@/components/list-icon/MenuItemIcon';
 
 const AppHeader: React.FC = () => {
   const { session, isLoading, profile, checkPageAccess } = useSession();
@@ -195,7 +196,10 @@ const AppHeader: React.FC = () => {
       if (item.children && item.children.length > 0) {
         return (
           <DropdownMenuSub key={item.id}>
-            <DropdownMenuSubTrigger>{item.title}</DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger>
+              {!item.isDynamic && <MenuItemIcon item={item} className="rounded mr-2" />}
+              {item.title}
+            </DropdownMenuSubTrigger>
             <DropdownMenuSubContent sideOffset={2} alignOffset={-5}>
               {renderDynamicMenu(item.children)}
             </DropdownMenuSubContent>
@@ -213,7 +217,8 @@ const AppHeader: React.FC = () => {
             key={item.id}
           >
             <DropdownMenuItem>
-              <List className="h-4 w-4 mr-2" /> {item.title}
+              {item.isDynamic ? <span className="w-[18px] mr-2 shrink-0" aria-hidden="true" /> : <MenuItemIcon item={item} className="rounded mr-2" />}
+              {item.title}
             </DropdownMenuItem>
           </Link>
         );
@@ -227,7 +232,10 @@ const AppHeader: React.FC = () => {
     if (item.list_id && (!item.children || item.children.length === 0)) {
       return (
         <Link to={`/${company}/custom-list/${item.list_id}`} key={item.id}>
-          <Button variant="ghost" className="flex items-center gap-1">{item.title}</Button>
+          <Button variant="ghost" className="flex items-center gap-1.5">
+            <MenuItemIcon item={item} />
+            {item.title}
+          </Button>
         </Link>
       );
     }
@@ -238,7 +246,8 @@ const AppHeader: React.FC = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-1">
+                <Button variant="ghost" className="flex items-center gap-1.5">
+                  <MenuItemIcon item={item} />
                   {item.title}
                   <ChevronRight className="h-4 w-4 -rotate-90" />
                 </Button>

@@ -51,7 +51,7 @@ test.describe('Mobile: barra de navegação inferior', () => {
 
   test('navega pelas listas em camadas no "Mais"', async ({ page }) => {
     const menuStructure = [
-      { id: 'cat-motor', parent_id: null, title: 'Motor', order_index: 0, list_id: null, itens_relacionados: [] },
+      { id: 'cat-motor', parent_id: null, title: 'Motor', order_index: 0, list_id: null, itens_relacionados: [], icon: { source: 'emoji', value: '🔧' } },
       { id: 'cat-filtros', parent_id: 'cat-motor', title: 'Filtros', order_index: 0, list_id: null, itens_relacionados: [] },
       { id: 'list-oleo', parent_id: 'cat-filtros', title: 'Filtro de Óleo', order_index: 0, list_id: 'e2e-list-oleo', itens_relacionados: [] },
     ];
@@ -65,7 +65,13 @@ test.describe('Mobile: barra de navegação inferior', () => {
       });
     });
     await page.route(/\/rest\/v1\/custom_lists\?.*id=in\./, route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          { id: 'e2e-list-oleo', title: 'Filtro de Óleo', icon: { source: 'emoji', value: '🛢️' }, items_data: [] },
+        ]),
+      }),
     );
 
     await page.goto('/usina_vale', { timeout: 15000 });
@@ -73,7 +79,9 @@ test.describe('Mobile: barra de navegação inferior', () => {
 
     const drawer = page.getByTestId('mobile-more-drawer');
     await expect(drawer).toBeVisible();
-    await drawer.getByRole('button', { name: /Motor/ }).click();
+    const motorButton = drawer.getByRole('button', { name: /Motor/ });
+    await expect(motorButton.getByTestId('list-icon')).toHaveAttribute('data-icon-value', '🔧');
+    await motorButton.click();
 
     const breadcrumb = drawer.getByTestId('list-browser-breadcrumb');
     await expect(breadcrumb).toContainText('Motor');
@@ -86,7 +94,9 @@ test.describe('Mobile: barra de navegação inferior', () => {
     await expect(drawer.getByRole('button', { name: /Filtros/ })).toBeVisible();
 
     await drawer.getByRole('button', { name: /Filtros/ }).click();
-    await drawer.getByRole('link', { name: /Filtro de Óleo/ }).click();
+    const listLink = drawer.getByRole('link', { name: /Filtro de Óleo/ });
+    await expect(listLink.getByTestId('list-icon')).toHaveAttribute('data-icon-value', '🛢️');
+    await listLink.click();
 
     await expect(page).toHaveURL(/\/usina_vale\/custom-list\/e2e-list-oleo$/);
     await expect(drawer).toBeHidden();

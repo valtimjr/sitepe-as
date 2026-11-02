@@ -15,6 +15,7 @@ import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from
 import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts } from '@/services/partListService';
 import { getListsData, addItemToList, createList, LocalList } from '@/services/localListStorage';
 import ListIconView from '@/components/list-icon/ListIcon';
+import type { ListIcon as CustomListIcon } from '@/types/listIcon';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -39,6 +40,7 @@ const CustomListPage: React.FC = () => {
   const location = useLocation();
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [listTitle, setListTitle] = useState('Carregando Lista...');
+  const [listIconData, setListIconData] = useState<CustomListIcon | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
@@ -96,6 +98,7 @@ const CustomListPage: React.FC = () => {
       const listData = await getCustomListById(listId, company);
       if (listData) {
         setListTitle(listData.title);
+        setListIconData(listData.icon ?? null);
       } else {
         setListTitle('Lista Não Encontrada');
         showError('Lista não encontrada ou você não tem permissão para acessá-la.');
@@ -650,7 +653,7 @@ const CustomListPage: React.FC = () => {
       
       <h1 className="text-4xl font-extrabold mb-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
         <div className="flex items-center gap-3">
-          <ListIcon className="h-8 w-8 text-primary" />
+          <ListIconView name={listTitle} icon={listIconData} size="md" className="rounded-lg sm:p-2" />
           {listTitle}
         </div>
         <span className="text-2xl font-bold opacity-80">{branding.name}</span>

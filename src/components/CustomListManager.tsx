@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Edit, Trash2, Save, XCircle, List as ListIcon, FileText } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save, XCircle, FileText } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { CustomList } from '@/types/supabase';
 import { getCustomLists, createCustomList, updateCustomList, deleteCustomList } from '@/services/customListService';
@@ -28,6 +28,9 @@ import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetConte
 import { getParts } from '@/services/partListService';
 import { Part } from '@/types/supabase';
 import { useCompany } from '@/context/CompanyContext';
+import ListIcon from '@/components/list-icon/ListIcon';
+import ListIconEditor from '@/components/list-icon/ListIconEditor';
+import type { ListIcon as ListIconData } from '@/types/listIcon';
 
 const CustomListManager: React.FC = () => {
   const { user } = useSession();
@@ -37,6 +40,7 @@ const CustomListManager: React.FC = () => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [currentList, setCurrentList] = useState<CustomList | null>(null);
   const [formTitle, setFormTitle] = useState('');
+  const [formIcon, setFormIcon] = useState<ListIconData | null>(null);
   
   const [isEditorSheetOpen, setIsEditorSheetOpen] = useState(false);
   const [listToEditContent, setListToEditContent] = useState<CustomList | null>(null);
@@ -72,12 +76,14 @@ const CustomListManager: React.FC = () => {
   const handleAddList = () => {
     setCurrentList(null);
     setFormTitle('');
+    setFormIcon(null);
     setIsSheetOpen(true);
   };
 
   const handleEditListTitle = (list: CustomList) => {
     setCurrentList(list);
     setFormTitle(list.title);
+    setFormIcon(list.icon ?? null);
     setIsSheetOpen(true);
   };
 
@@ -105,10 +111,10 @@ const CustomListManager: React.FC = () => {
 
     try {
       if (currentList) {
-        await updateCustomList({ ...currentList, title: formTitle.trim() });
-        showSuccess('Título da lista atualizado com sucesso!');
+        await updateCustomList({ ...currentList, title: formTitle.trim(), icon: formIcon });
+        showSuccess('Lista atualizada com sucesso!');
       } else {
-        await createCustomList(formTitle.trim(), user.id, company);
+        await createCustomList(formTitle.trim(), user.id, company, formIcon);
         showSuccess('Lista criada com sucesso!');
       }
       
@@ -152,7 +158,12 @@ const CustomListManager: React.FC = () => {
               <TableBody>
                 {lists.map((list) => (
                   <TableRow key={list.id}>
-                    <TableCell className="font-medium">{list.title}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <ListIcon name={list.title} icon={list.icon} size="sm" className="rounded-md" />
+                        <span>{list.title}</span>
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => handleOpenEditor(list)} className="mr-2">
                         <FileText className="h-4 w-4" /> 
@@ -192,9 +203,13 @@ const CustomListManager: React.FC = () => {
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <ResponsiveSheetContent side="right" className="sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>{currentList ? 'Editar Título da Lista' : 'Criar Nova Lista'}</SheetTitle>
+            <SheetTitle>{currentList ? 'Editar Lista' : 'Criar Nova Lista'}</SheetTitle>
           </SheetHeader>
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Ícone</Label>
+              <ListIconEditor name={formTitle} icon={formIcon} onChange={setFormIcon} />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="title">Título</Label>
               <Input
@@ -204,11 +219,11 @@ const CustomListManager: React.FC = () => {
                 required
               />
             </div>
-            <SheetFooter>
-              <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>
+            <SheetFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
+              <Button type="button" variant="outline" className="h-11 w-full sm:h-10 sm:w-auto" onClick={() => setIsSheetOpen(false)}>
                 <XCircle className="h-4 w-4 mr-2" /> Cancelar
               </Button>
-              <Button type="submit">
+              <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto">
                 <Save className="h-4 w-4 mr-2" /> Salvar
               </Button>
             </SheetFooter>

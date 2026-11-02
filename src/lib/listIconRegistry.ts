@@ -3,6 +3,7 @@ import type { ComponentType, SVGProps } from 'react';
 import { icons as lucideIcons } from 'lucide-react';
 import * as HeroOutline from '@heroicons/react/24/outline';
 import * as HeroSolid from '@heroicons/react/24/solid';
+import { normalizeSearch } from './textNormalize';
 
 export type AnyIconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string; color?: string; strokeWidth?: number | string }>;
 
@@ -84,8 +85,7 @@ export const PT_ALIASES: Record<string, string[]> = {
   trofeu: ['trophy'],
 };
 
-const normalize = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const normalize = normalizeSearch;
 
 /** Filtra nomes de ícones por um termo de busca (nome em inglês + apelidos PT). */
 export const searchIconNames = (names: string[], query: string): string[] => {
