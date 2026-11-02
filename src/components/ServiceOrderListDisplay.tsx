@@ -3,10 +3,23 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ServiceOrderData } from '@/types/supabase';
-import { Clock, Pencil, Trash2, PlusCircle, Search, X, Check, GripVertical, Tag, Package, Star } from 'lucide-react';
+import {
+  Clock, Pencil, Trash2, PlusCircle, X, Check, GripVertical, Tag, Package,
+  ChevronDown, MoreHorizontal, CopyPlus, Wrench, ChevronRight,
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ResponsivePopover, ResponsivePopoverContent, ResponsivePopoverTrigger } from "@/components/responsive/ResponsivePopover";
+import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
+import { Sheet, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,9 +34,10 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from '@/context/CompanyContext';
 import { cn } from '@/lib/utils';
-import { useSession } from '@/components/SessionContextProvider';
+import { tap } from '@/lib/haptics';
 import { Checkbox } from '@/components/ui/checkbox';
-import { searchParts, getFrequentPartsForProfession, Part, getFavoriteParts, addFavoritePart, removeFavoritePart } from '@/services/partListService';
+import ServiceOrderPartPicker, { PickedPart } from '@/components/service-orders/ServiceOrderPartPicker';
+import QuantityStepper from '@/components/service-orders/QuantityStepper';
 
 interface ServiceOrderListDisplayProps {
   group: ServiceOrderData;
@@ -35,24 +49,114 @@ interface ServiceOrderListDisplayProps {
   additionalHeader?: React.ReactNode;
   isSelected?: boolean;
   onSelectChange?: (checked: boolean) => void;
+  /** Layout compacto para o celular (card que abre/fecha, menu ⋯ e gavetas). */
+  compact?: boolean;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
+  /** Abre "Nova OS" com a hora de início igual à hora final desta. */
+  onDuplicate?: () => void;
 }
+
+type OsPart = PickedPart;
 
 interface RelatedItem {
   code: string;
   description: string;
 }
 
+const useRelatedItems = (code: string, company: string) => {
+  const [relatedItems, setRelatedItems] = useState<RelatedItem[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchRelatedItems = async () => {
+      const tableName = company === 'citrosuco' ? 'parts_citrosuco' : 'parts';
+      try {
+        const { data } = await supabase
+          .from(tableName)
+          .select('itens_relacionados')
+          .eq('codigo', code)
+          .single();
+
+        if (data?.itens_relacionados) {
+          const rawItems = Array.isArray(data.itens_relacionados) ? data.itens_relacionados : [];
+          const codes = rawItems
+            .map((item: any) => (typeof item === 'string' ? item : (item.codigo || item.code)))
+            .filter((c: any) => typeof c === 'string');
+
+          if (codes.length > 0) {
+            const { data: partsData } = await supabase
+              .from(tableName)
+              .select('codigo, descricao')
+              .in('codigo', codes);
+            if (cancelled) return;
+            if (partsData) {
+              const partsMap = new Map(partsData.map(p => [p.codigo, p.descricao]));
+              setRelatedItems(codes.map((c: string) => ({
+                code: c,
+                description: partsMap.get(c) || 'Descrição não encontrada',
+              })));
+            } else {
+              setRelatedItems(codes.map((c: string) => ({ code: c, description: '' })));
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching related items:", err);
+      }
+    };
+    fetchRelatedItems();
+    return () => {
+      cancelled = true;
+    };
+  }, [code, company]);
+
+  return relatedItems;
+};
+
+const RelatedItemsPopover: React.FC<{ items: RelatedItem[]; large?: boolean }> = ({ items, large }) => {
+  if (items.length === 0) return null;
+  return (
+    <ResponsivePopover>
+      <ResponsivePopoverTrigger>
+        <div
+          className={cn(
+            "flex items-center text-xs text-blue-500 font-medium cursor-pointer hover:text-blue-700 w-fit transition-colors mt-1",
+            large && "min-h-8",
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Tag className="h-3 w-3 mr-1" />
+          <span>{items.length} item(s) relacionado(s)</span>
+        </div>
+      </ResponsivePopoverTrigger>
+      <ResponsivePopoverContent title="Itens Relacionados" popoverClassName="w-auto max-w-[450px] p-4 bg-white shadow-lg border" align="start">
+        <h4 className="hidden lg:flex font-bold text-sm mb-2 text-foreground items-center gap-2">
+          <Package className="h-4 w-4" /> Itens Relacionados:
+        </h4>
+        <ul className="space-y-2 list-none pl-1">
+          {items.map((item, idx) => (
+            <li key={idx} className="text-xs text-muted-foreground leading-snug border-b last:border-0 pb-1 last:pb-0 border-dashed border-gray-200">
+              <span className="font-bold text-blue-600 mr-1">{item.code}</span>
+              <span className="text-gray-600">- {item.description}</span>
+            </li>
+          ))}
+        </ul>
+      </ResponsivePopoverContent>
+    </ResponsivePopover>
+  );
+};
+
 const ServiceOrderPartRow: React.FC<{
-  part: { codigo_peca: string; descricao: string; quantidade: number };
+  part: OsPart;
   index: number;
   onDelete?: (index: number) => void;
-  onUpdate?: (index: number, updatedPart: { codigo_peca: string; descricao: string; quantidade: number }) => void;
+  onUpdate?: (index: number, updatedPart: OsPart) => void;
   company: string;
   readOnly?: boolean;
 }> = ({ part, index, onDelete, onUpdate, company, readOnly }) => {
-  const [relatedItems, setRelatedItems] = useState<RelatedItem[]>([]);
-  
-  // Edit state
+  const relatedItems = useRelatedItems(part.codigo_peca, company);
+
   const [isEditing, setIsEditing] = useState(false);
   const [editCode, setEditCode] = useState(part.codigo_peca);
   const [editDesc, setEditDesc] = useState(part.descricao);
@@ -67,51 +171,6 @@ const ServiceOrderPartRow: React.FC<{
       setEditQtyError(false);
     }
   }, [part, isEditing]);
-  
-  useEffect(() => {
-    const fetchRelatedItems = async () => {
-      const tableName = company === 'citrosuco' ? 'parts_citrosuco' : 'parts';
-      try {
-        const { data } = await supabase
-          .from(tableName)
-          .select('itens_relacionados')
-          .eq('codigo', part.codigo_peca)
-          .single();
-
-        if (data?.itens_relacionados) {
-          const rawItems = Array.isArray(data.itens_relacionados) 
-            ? data.itens_relacionados 
-            : [];
-            
-          const codes = rawItems.map((item: any) => 
-            typeof item === 'string' ? item : (item.codigo || item.code)
-          ).filter((c: any) => typeof c === 'string');
-
-          if (codes.length > 0) {
-            const { data: partsData } = await supabase
-              .from(tableName)
-              .select('codigo, descricao')
-              .in('codigo', codes);
-              
-            if (partsData) {
-               const partsMap = new Map(partsData.map(p => [p.codigo, p.descricao]));
-               const formattedItems: RelatedItem[] = codes.map((code: string) => ({
-                 code,
-                 description: partsMap.get(code) || 'Descrição não encontrada'
-               }));
-               setRelatedItems(formattedItems);
-            } else {
-               setRelatedItems(codes.map((c: string) => ({ code: c, description: '' })));
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching related items:", err);
-      }
-    };
-    
-    fetchRelatedItems();
-  }, [part.codigo_peca, company]);
 
   const handleSaveEdit = () => {
     const qtyNum = editQty === "" ? 0 : Number(editQty);
@@ -119,14 +178,7 @@ const ServiceOrderPartRow: React.FC<{
       setEditQtyError(true);
       return;
     }
-
-    if (onUpdate) {
-      onUpdate(index, {
-        codigo_peca: editCode,
-        descricao: editDesc,
-        quantidade: qtyNum
-      });
-    }
+    onUpdate?.(index, { codigo_peca: editCode, descricao: editDesc, quantidade: qtyNum });
     setIsEditing(false);
   };
 
@@ -144,21 +196,21 @@ const ServiceOrderPartRow: React.FC<{
          <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3 items-center">
            <div className="space-y-1">
              <span className="text-xs font-medium text-muted-foreground md:hidden">Código</span>
-             <Input 
-                value={editCode} 
-                onChange={(e) => setEditCode(e.target.value)} 
-                placeholder="Código" 
+             <Input
+                value={editCode}
+                onChange={(e) => setEditCode(e.target.value)}
+                placeholder="Código"
                 className="h-9 text-sm font-mono"
                 autoFocus
              />
            </div>
            <div className="space-y-1">
              <span className="text-xs font-medium text-muted-foreground md:hidden">Descrição</span>
-             <Input 
-                value={editDesc} 
-                onChange={(e) => setEditDesc(e.target.value)} 
-                placeholder="Descrição" 
-                className="h-9 text-sm" 
+             <Input
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                placeholder="Descrição"
+                className="h-9 text-sm"
              />
            </div>
            <div className="space-y-1">
@@ -204,39 +256,13 @@ const ServiceOrderPartRow: React.FC<{
         <div className="text-sm text-foreground uppercase leading-tight">
           {part.descricao}
         </div>
-        
-        {relatedItems.length > 0 && (
-          <ResponsivePopover>
-            <ResponsivePopoverTrigger>
-              <div 
-                className="flex items-center text-xs text-blue-500 font-medium cursor-pointer hover:text-blue-700 w-fit transition-colors mt-1"
-                onClick={(e) => e.stopPropagation()}
-              >
-                 <Tag className="h-3 w-3 mr-1" />
-                 <span>{relatedItems.length} item(s) relacionado(s)</span>
-              </div>
-            </ResponsivePopoverTrigger>
-            <ResponsivePopoverContent title="Itens Relacionados" popoverClassName="w-auto max-w-[450px] p-4 bg-white shadow-lg border" align="start">
-               <h4 className="hidden lg:flex font-bold text-sm mb-2 text-foreground items-center gap-2">
-                  <Package className="h-4 w-4" /> Itens Relacionados:
-               </h4>
-               <ul className="space-y-2 list-none pl-1">
-                  {relatedItems.map((item, idx) => (
-                     <li key={idx} className="text-xs text-muted-foreground leading-snug border-b last:border-0 pb-1 last:pb-0 border-dashed border-gray-200">
-                        <span className="font-bold text-blue-600 mr-1">{item.code}</span>
-                        <span className="text-gray-600">- {item.description}</span>
-                     </li>
-                  ))}
-               </ul>
-            </ResponsivePopoverContent>
-          </ResponsivePopover>
-        )}
+        <RelatedItemsPopover items={relatedItems} />
       </div>
 
       <div className="flex items-center justify-between md:contents">
          <span className="md:hidden text-sm font-medium text-muted-foreground">Qtd:</span>
          <div className="text-center w-16 font-medium text-sm">{part.quantidade}</div>
-         
+
          {!readOnly && (
            <div className="flex items-center justify-end gap-1 w-20">
               <Button
@@ -287,6 +313,121 @@ const ServiceOrderPartRow: React.FC<{
   );
 };
 
+/** Linha de peça do card compacto: só é montada com o card aberto (consulta adiada dos relacionados). */
+const CompactPartRow: React.FC<{
+  part: OsPart;
+  company: string;
+  readOnly?: boolean;
+  onOpen: () => void;
+}> = ({ part, company, readOnly, onOpen }) => {
+  const relatedItems = useRelatedItems(part.codigo_peca, company);
+  return (
+    <div className="px-3 py-2" data-testid="os-part-row">
+      <button
+        type="button"
+        disabled={readOnly}
+        onClick={onOpen}
+        className="w-full min-h-11 text-left flex items-center gap-2 rounded-md active:bg-muted/60"
+        aria-label={`Editar peça ${part.codigo_peca || part.descricao}`}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-blue-600 text-sm">{part.codigo_peca || 'S/ Cód'}</div>
+          <div className="text-sm uppercase leading-tight line-clamp-2">{part.descricao}</div>
+        </div>
+        <span className="text-sm font-medium text-muted-foreground shrink-0">Qtd {part.quantidade}</span>
+        {!readOnly && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+      </button>
+      <RelatedItemsPopover items={relatedItems} large />
+    </div>
+  );
+};
+
+/** Gaveta de edição de uma peça (celular). */
+const PartEditSheet: React.FC<{
+  part: OsPart | null;
+  onClose: () => void;
+  onSave: (part: OsPart) => void;
+  onDelete: () => void;
+}> = ({ part, onClose, onSave, onDelete }) => {
+  const [code, setCode] = useState('');
+  const [desc, setDesc] = useState('');
+  const [qty, setQty] = useState<number | ''>(1);
+  const [qtyError, setQtyError] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (part) {
+      setCode(part.codigo_peca);
+      setDesc(part.descricao);
+      setQty(part.quantidade);
+      setQtyError(false);
+    }
+  }, [part]);
+
+  const handleSave = () => {
+    const qtyNum = qty === '' ? 0 : Number(qty);
+    if (qty === '' || isNaN(qtyNum) || qtyNum <= 0) {
+      setQtyError(true);
+      return;
+    }
+    onSave({ codigo_peca: code, descricao: desc, quantidade: qtyNum });
+  };
+
+  return (
+    <>
+      <Sheet open={!!part} onOpenChange={(open) => { if (!open) onClose(); }}>
+        <ResponsiveSheetContent className="w-full sm:max-w-lg" data-testid="part-edit-sheet">
+          <SheetHeader className="text-left">
+            <SheetTitle>Editar peça</SheetTitle>
+            <SheetDescription className="sr-only">Altere o código, a descrição ou a quantidade.</SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-part-code">Código</Label>
+              <Input id="edit-part-code" value={code} onChange={(e) => setCode(e.target.value)} className="h-11 text-base font-mono" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-part-desc">Descrição</Label>
+              <Input id="edit-part-desc" value={desc} onChange={(e) => setDesc(e.target.value)} className="h-11 text-base" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Quantidade</Label>
+              <QuantityStepper value={qty} onChange={(v) => { setQty(v); setQtyError(false); }} error={qtyError} />
+              {qtyError && <p className="text-xs text-destructive">O valor tem que ser maior que "0"</p>}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" /> Excluir peça
+            </Button>
+          </div>
+          <div className="sticky bottom-0 -mx-6 mt-4 flex gap-3 border-t bg-background px-6 py-3">
+            <Button type="button" variant="outline" className="flex-1 h-11" onClick={onClose}>Cancelar</Button>
+            <Button type="button" className="flex-1 h-11" onClick={handleSave}>
+              <Check className="h-4 w-4 mr-2" /> Salvar
+            </Button>
+          </div>
+        </ResponsiveSheetContent>
+      </Sheet>
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta peça?</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={onDelete} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+};
+
 const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
   group,
   onEdit,
@@ -296,172 +437,28 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
   readOnly = false,
   additionalHeader,
   isSelected = false,
-  onSelectChange
+  onSelectChange,
+  compact = false,
+  expanded: expandedProp,
+  onExpandedChange,
+  onDuplicate,
 }) => {
   const { company } = useCompany();
-  const { profile, user } = useSession();
   const [isAddingPart, setIsAddingPart] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [selectedPart, setSelectedPart] = useState<Part | null>(null);
-  const [quantity, setQuantity] = useState<number | "">(1);
-  const [quantityError, setQuantityError] = useState(false);
-  const [manualDescription, setManualDescription] = useState('');
-  const [manualCode, setManualCode] = useState('');
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const [editingPartIndex, setEditingPartIndex] = useState<number | null>(null);
+  const [confirmDeleteOs, setConfirmDeleteOs] = useState(false);
 
-  const [frequentParts, setFrequentParts] = useState<Part[]>([]);
-  const [favoriteParts, setFavoriteParts] = useState<Part[]>([]);
-
-  // Load frequent parts for the user's profession
-  useEffect(() => {
-    const fetchFrequent = async () => {
-      // Respect user preference. If disabled, do not show suggestions
-      if (profile?.suggest_parts === false) {
-        setFrequentParts([]);
-        return;
-      }
-
-      if (profile?.profession_code && company) {
-        try {
-          const parts = await getFrequentPartsForProfession(profile.profession_code, company);
-          setFrequentParts(parts);
-        } catch (e) {
-          console.error("Error loading frequent parts for ServiceOrderListDisplay:", e);
-        }
-      }
-    };
-    fetchFrequent();
-  }, [profile?.profession_code, profile?.suggest_parts, company]);
-
-  // Load favorite parts
-  const fetchFavorites = async () => {
-    try {
-      const favs = await getFavoriteParts(user?.id, company);
-      setFavoriteParts(favs);
-    } catch (e) {
-      console.error("Error loading favorite parts for ServiceOrderListDisplay:", e);
-    }
+  const expanded = expandedProp ?? internalExpanded;
+  const setExpanded = (value: boolean) => {
+    if (onExpandedChange) onExpandedChange(value);
+    else setInternalExpanded(value);
   };
 
-  useEffect(() => {
-    fetchFavorites();
-  }, [user?.id, company]);
-
-  const handleToggleFavorite = async (e: React.MouseEvent, part: Part) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const isFav = favoriteParts.some(fp => fp.codigo.toLowerCase() === part.codigo.toLowerCase());
-    if (isFav) {
-      await removeFavoritePart(user?.id, company, part.codigo);
-      setFavoriteParts(prev => prev.filter(p => p.codigo.toLowerCase() !== part.codigo.toLowerCase()));
-    } else {
-      await addFavoritePart(user?.id, company, part.codigo);
-      setFavoriteParts(prev => [...prev, part]);
-    }
-  };
-
-  const displayedSearchResults = React.useMemo(() => {
-    if (searchQuery.length === 0) {
-      const list: any[] = [];
-      if (favoriteParts.length > 0) {
-        favoriteParts.forEach(p => list.push({ ...p, itemType: 'favorite' }));
-      }
-      if (frequentParts.length > 0) {
-        frequentParts.forEach(p => {
-          if (!favoriteParts.some(fp => fp.codigo.toLowerCase() === p.codigo.toLowerCase())) {
-            list.push({ ...p, itemType: 'frequent' });
-          }
-        });
-      }
-      return list;
-    }
-    
-    const queryLower = searchQuery.toLowerCase().trim();
-    
-    // 1. Filter matching favorites
-    const matchingFavorites = favoriteParts.filter(part => {
-      return part.codigo.toLowerCase().includes(queryLower) ||
-             (part.descricao && part.descricao.toLowerCase().includes(queryLower)) ||
-             (part.name && part.name.toLowerCase().includes(queryLower));
-    }).map(p => ({ ...p, itemType: 'favorite' }));
-    
-    // 2. Filter matching frequent parts
-    const matchingFrequent = frequentParts.filter(part => {
-      return part.codigo.toLowerCase().includes(queryLower) ||
-             (part.descricao && part.descricao.toLowerCase().includes(queryLower)) ||
-             (part.name && part.name.toLowerCase().includes(queryLower));
-    }).filter(p => !matchingFavorites.some(mf => mf.codigo.toLowerCase() === p.codigo.toLowerCase()))
-      .map(p => ({ ...p, itemType: 'frequent' }));
-    
-    // 3. Normal search results
-    const normalResults: any[] = [];
-    searchResults.forEach(part => {
-      const isFav = matchingFavorites.some(mf => mf.codigo.toLowerCase() === part.codigo.toLowerCase());
-      const isFreq = matchingFrequent.some(mf => mf.codigo.toLowerCase() === part.codigo.toLowerCase());
-      if (!isFav && !isFreq) {
-        normalResults.push({ ...part, itemType: 'normal' });
-      }
-    });
-    
-    return [...matchingFavorites, ...matchingFrequent, ...normalResults];
-  }, [searchQuery, searchResults, frequentParts, favoriteParts]);
-
-  useEffect(() => {
-    if (!searchQuery.trim() || selectedPart) {
-      setSearchResults([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      try {
-        const results = await searchParts(searchQuery, company);
-        setSearchResults(results || []);
-      } catch (error) {
-        console.error("Error searching parts", error);
-      }
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery, selectedPart, company]);
-
-  const handleSelectPart = (part: Part) => {
-    setSelectedPart(part);
-    setSearchQuery(part.descricao);
-    setManualDescription(part.descricao);
-    setManualCode(part.codigo);
-    setSearchResults([]);
-  };
-
-  const handleAddPartConfirm = () => {
+  const handleAddPartConfirm = (newPart: PickedPart) => {
     if (!onSave) return;
-    if (!manualDescription) return;
-
-    const qtyNum = quantity === "" ? 0 : Number(quantity);
-    if (quantity === "" || isNaN(qtyNum) || qtyNum <= 0) {
-      setQuantityError(true);
-      return;
-    }
-
-    const newPart = {
-      codigo_peca: manualCode,
-      descricao: manualDescription,
-      quantidade: qtyNum
-    };
-
-    const updatedGroup = {
-      ...group,
-      parts: [...(group.parts || []), newPart]
-    };
-
-    onSave(updatedGroup);
+    onSave({ ...group, parts: [...(group.parts || []), newPart] });
     setIsAddingPart(false);
-    setSelectedPart(null);
-    setSearchQuery('');
-    setManualDescription('');
-    setManualCode('');
-    setQuantity(1);
-    setQuantityError(false);
   };
 
   const handleDeletePart = (index: number) => {
@@ -471,7 +468,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
     onSave({ ...group, parts: updatedParts });
   };
 
-  const handleUpdatePart = (index: number, updatedPart: { codigo_peca: string; descricao: string; quantidade: number }) => {
+  const handleUpdatePart = (index: number, updatedPart: OsPart) => {
     if (!onSave) return;
     const updatedParts = [...(group.parts || [])];
     updatedParts[index] = updatedPart;
@@ -481,27 +478,211 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
   const toggleAddPart = () => {
     if (onSave) {
       setIsAddingPart(!isAddingPart);
-      if (!isAddingPart) {
-        setSelectedPart(null);
-        setSearchQuery('');
-        setManualDescription('');
-        setManualCode('');
-        setQuantity(1);
-        setQuantityError(false);
-      }
     } else if (onAddPart) {
       onAddPart();
     }
   };
 
   const isPercurso = !!group.is_percurso;
+  const partsCount = group.parts?.length || 0;
+
+  if (compact) {
+    const editingPart = editingPartIndex !== null ? group.parts?.[editingPartIndex] ?? null : null;
+    return (
+      <div
+        className={cn(
+          "relative bg-card rounded-lg border shadow-sm overflow-hidden",
+          isSelected && (isPercurso ? "ring-2 ring-red-300" : "ring-2 ring-blue-300"),
+        )}
+        data-testid="os-card"
+      >
+        <div className={cn("absolute left-0 inset-y-0 w-1.5", isPercurso ? "bg-red-500" : "bg-blue-600")} aria-hidden="true" />
+
+        <div className="flex items-start pl-1.5">
+          {onSelectChange && (
+            <label
+              className="h-11 w-11 shrink-0 flex items-center justify-center cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={(checked) => {
+                  tap();
+                  onSelectChange(!!checked);
+                }}
+                aria-label={`Selecionar AF ${group.af}`}
+                className={cn(
+                  "h-5 w-5 rounded",
+                  isPercurso
+                    ? "border-red-300 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
+                    : "border-blue-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                )}
+              />
+            </label>
+          )}
+
+          <button
+            type="button"
+            className={cn("flex-1 min-w-0 text-left py-2.5 pr-1", !onSelectChange && "pl-3")}
+            onClick={() => setExpanded(!expanded)}
+            aria-expanded={expanded}
+            data-testid="os-card-toggle"
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <div className={cn("font-bold text-base truncate", isPercurso ? "text-red-600" : "text-blue-600")}>
+                {isPercurso ? (group.af ? `AF: ${group.af}` : 'Percurso sem AF') : `AF: ${group.af}`}
+                {!isPercurso && group.os && <span className="font-semibold text-sm opacity-80"> · OS {group.os}</span>}
+              </div>
+              {(group.hora_inicio || group.hora_final) && (
+                <span className="text-sm font-medium text-muted-foreground tabular-nums shrink-0">
+                  {group.hora_inicio || '--:--'}–{group.hora_final || '--:--'}
+                </span>
+              )}
+            </div>
+            <div className="mt-0.5 text-sm text-foreground/90 truncate">
+              {isPercurso ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-[10px] bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 font-extrabold px-1.5 py-0.5 rounded border border-red-200 uppercase tracking-wide">
+                    Percurso
+                  </span>
+                  <span className="text-red-600/80 font-medium">Tempo de Deslocamento</span>
+                </span>
+              ) : (
+                <>
+                  {group.servico_executado || <span className="text-muted-foreground italic">Sem descrição</span>}
+                  {group.agregado && group.numero_agregado && (
+                    <span className="text-muted-foreground"> · Agregado {group.numero_agregado}</span>
+                  )}
+                </>
+              )}
+            </div>
+            {!isPercurso && (
+              <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  <Wrench className="h-3.5 w-3.5" />
+                  {partsCount === 0 ? 'Sem peças' : `${partsCount} ${partsCount === 1 ? 'peça' : 'peças'}`}
+                </span>
+                <ChevronDown className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")} />
+              </div>
+            )}
+          </button>
+
+          {!readOnly && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-11 shrink-0 text-muted-foreground"
+                  aria-label={`Opções da AF ${group.af || 'Percurso'}`}
+                  data-testid="os-card-menu"
+                >
+                  <MoreHorizontal className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuItem className="min-h-11" onSelect={() => onEdit?.()}>
+                  <Pencil className="h-4 w-4 mr-2" /> Editar OS
+                </DropdownMenuItem>
+                {onDuplicate && (
+                  <DropdownMenuItem className="min-h-11" onSelect={() => onDuplicate()} disabled={!group.hora_final}>
+                    <CopyPlus className="h-4 w-4 mr-2" /> Nova OS a partir de {group.hora_final || '--:--'}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="min-h-11 text-red-600 focus:text-red-700"
+                  onSelect={() => setConfirmDeleteOs(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+
+        {expanded && !isPercurso && (
+          <div className="border-t ml-1.5 animate-in fade-in slide-in-from-top-1 duration-150" data-testid="os-card-details">
+            {partsCount > 0 && (
+              <div className="divide-y divide-border/50">
+                {group.parts!.map((part, index) => (
+                  <CompactPartRow
+                    key={index}
+                    part={part}
+                    company={company}
+                    readOnly={readOnly}
+                    onOpen={() => setEditingPartIndex(index)}
+                  />
+                ))}
+              </div>
+            )}
+            {!readOnly && onSave && (
+              <div className="p-2 border-t border-border/50">
+                <Button
+                  variant="ghost"
+                  className="w-full h-11 text-primary justify-center"
+                  onClick={() => setIsAddingPart(true)}
+                >
+                  <PlusCircle className="h-4 w-4 mr-2" /> Adicionar peça
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!readOnly && onSave && (
+          <>
+            <Sheet open={isAddingPart} onOpenChange={setIsAddingPart}>
+              <ResponsiveSheetContent className="w-full sm:max-w-lg" data-testid="add-part-sheet">
+                <SheetHeader className="text-left">
+                  <SheetTitle>Adicionar peça</SheetTitle>
+                  <SheetDescription>AF {group.af}{group.os ? ` · OS ${group.os}` : ''}</SheetDescription>
+                </SheetHeader>
+                <div className="mt-4">
+                  <ServiceOrderPartPicker large onConfirm={handleAddPartConfirm} onCancel={() => setIsAddingPart(false)} />
+                </div>
+              </ResponsiveSheetContent>
+            </Sheet>
+
+            <PartEditSheet
+              part={editingPart}
+              onClose={() => setEditingPartIndex(null)}
+              onSave={(p) => {
+                if (editingPartIndex !== null) handleUpdatePart(editingPartIndex, p);
+                setEditingPartIndex(null);
+              }}
+              onDelete={() => {
+                if (editingPartIndex !== null) handleDeletePart(editingPartIndex);
+                setEditingPartIndex(null);
+              }}
+            />
+
+            <AlertDialog open={confirmDeleteOs} onOpenChange={setConfirmDeleteOs}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação não pode ser desfeita. Isso excluirá permanentemente esta Ordem de Serviço e todos os seus itens.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={onDelete} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card shadow-sm rounded-sm overflow-hidden overflow-visible">
       <div className={cn("h-1 w-full", isPercurso ? "bg-red-500" : "bg-blue-600")}></div>
-      
+
       {additionalHeader}
-      
+
       <div className={cn("p-4 border-b", isPercurso ? "bg-red-50/20 border-red-100/30" : "bg-blue-50/30 border-blue-100/50")}>
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div className="flex items-start gap-4">
@@ -510,7 +691,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
                 <GripVertical className="h-5 w-5" />
               </div>
             )}
-            
+
             {onSelectChange && (
               <div className="pt-1 flex items-center" onClick={(e) => e.stopPropagation()}>
                 <Checkbox
@@ -526,7 +707,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
                 />
               </div>
             )}
-            
+
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <h3 className={cn("text-lg font-bold flex items-center gap-2", isPercurso ? "text-red-600" : "text-blue-600")}>
@@ -550,14 +731,14 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
                   )}
                 </h3>
               </div>
-              
+
               {(group.hora_inicio || group.hora_final) && (
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Clock className="h-3.5 w-3.5 mr-2" />
                   <span>{group.hora_inicio || '--:--'} - {group.hora_final || '--:--'}</span>
                 </div>
               )}
-              
+
               <div className="text-foreground font-medium">
                 {isPercurso ? (
                   <span className="text-red-600/80 font-semibold text-sm">Tempo de Deslocamento</span>
@@ -620,7 +801,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
         {group.parts && group.parts.length > 0 && (
           <div className="divide-y divide-border/40">
             {group.parts.map((part, index) => (
-              <ServiceOrderPartRow 
+              <ServiceOrderPartRow
                 key={index}
                 part={part}
                 index={index}
@@ -651,136 +832,7 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
                        <X className="h-3 w-3" />
                     </Button>
                  </div>
-
-                 <div className="grid gap-3 relative">
-                    <div className="relative z-50">
-                       <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                       <Input
-                          placeholder="Buscar peça..."
-                          value={searchQuery}
-                          onChange={(e) => {
-                             if (selectedPart) {
-                                setSelectedPart(null);
-                                setManualCode('');
-                                setManualDescription(e.target.value);
-                             }
-                             setSearchQuery(e.target.value);
-                          }}
-                          onFocus={() => setIsSearchFocused(true)}
-                          onBlur={() => {
-                             // Delay to allow item click
-                             setTimeout(() => setIsSearchFocused(false), 150);
-                          }}
-                          className="pl-9"
-                          autoFocus
-                          autoComplete="off"
-                       />
-                       {isSearchFocused && !selectedPart && (searchQuery.length > 0 || frequentParts.length > 0 || favoriteParts.length > 0) && (
-                          <div className="absolute z-[60] w-full mt-1 bg-popover rounded-md border shadow-2xl max-h-60 overflow-y-auto">
-                             {displayedSearchResults.length > 0 ? (
-                                displayedSearchResults.map((part, index) => {
-                                   const isFrequent = frequentParts.some(fp => fp.codigo.toLowerCase() === part.codigo.toLowerCase());
-                                   const isFav = favoriteParts.some(fp => fp.codigo.toLowerCase() === part.codigo.toLowerCase());
-
-                                   const showFavoriteHeader = searchQuery.length === 0 && index === 0 && part.itemType === 'favorite';
-                                   const showFrequentHeader = searchQuery.length === 0 &&
-                                     (part.itemType === 'frequent' && (index === 0 || displayedSearchResults[index - 1].itemType === 'favorite'));
-
-                                   return (
-                                      <React.Fragment key={part.id || `disp-${index}`}>
-                                         {showFavoriteHeader && (
-                                            <div className="px-3 py-2 text-xs font-bold text-amber-600 bg-amber-500/5 border-b flex items-center gap-1.5 sticky top-0 z-10">
-                                               <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" /> MEUS FAVORITOS
-                                            </div>
-                                         )}
-                                         {showFrequentHeader && (
-                                            <div className="px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 border-b flex items-center gap-1.5 sticky top-0 z-10">
-                                               <span>⭐</span> SUGESTÕES PARA SUA PROFISSÃO
-                                            </div>
-                                         )}
-                                         <div
-                                            className="px-3 py-2 text-sm hover:bg-muted cursor-pointer border-b last:border-0 flex items-center justify-between group/item"
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={() => {
-                                               handleSelectPart(part);
-                                               setIsSearchFocused(false);
-                                            }}
-                                         >
-                                            <div className="flex flex-col flex-grow pr-4">
-                                               <div className="flex items-center gap-2">
-                                                  <div className="font-bold text-blue-600">{part.codigo}</div>
-                                                  {isFrequent && (
-                                                     <span className="text-blue-500 font-bold text-sm animate-pulse" title="Peça recomendada para sua profissão">
-                                                        ★
-                                                     </span>
-                                                  )}
-                                               </div>
-                                               <div className="text-xs text-muted-foreground">{part.name || part.descricao}</div>
-                                            </div>
-                                            
-                                            <button
-                                               type="button"
-                                               onMouseDown={(e) => e.preventDefault()}
-                                               onClick={(e) => handleToggleFavorite(e, part)}
-                                               className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shrink-0"
-                                               title={isFav ? "Remover dos favoritos" : "Adicionar aos favoritos"}
-                                            >
-                                               <Star
-                                                  className={cn(
-                                                     "h-4 w-4 transition-all duration-200",
-                                                     isFav ? "fill-amber-500 text-amber-500 scale-110" : "text-gray-300 dark:text-gray-600 hover:text-amber-400"
-                                                  )}
-                                               />
-                                            </button>
-                                         </div>
-                                      </React.Fragment>
-                                   );
-                                })
-                             ) : (
-                                <div className="px-3 py-2 text-sm text-muted-foreground">Nenhuma peça encontrada.</div>
-                             )}
-                          </div>
-                       )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto_auto] gap-3 relative z-40 items-start">
-                       <Input
-                          placeholder="Código"
-                          value={manualCode}
-                          onChange={(e) => setManualCode(e.target.value)}
-                          className="font-mono text-sm"
-                       />
-                       <Input
-                          placeholder="Descrição"
-                          value={manualDescription}
-                          onChange={(e) => setManualDescription(e.target.value)}
-                          className="text-sm"
-                       />
-                       <div className="flex flex-col gap-1 w-full md:w-20">
-                         <Input
-                            type="number"
-                            value={quantity}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === '') {
-                                setQuantity('');
-                              } else {
-                                const parsed = parseInt(val, 10);
-                                setQuantity(isNaN(parsed) ? '' : parsed);
-                              }
-                              setQuantityError(false);
-                            }}
-                            className={cn("w-full text-center", quantityError && "border-destructive focus-visible:ring-destructive")}
-                         />
-                         {quantityError && (
-                           <p className="text-[10px] text-destructive text-center mt-1">O valor tem que ser maior que "0"</p>
-                         )}
-                       </div>
-                       <Button onClick={handleAddPartConfirm} disabled={!manualDescription}>
-                          <Check className="h-4 w-4 mr-2" /> Salvar
-                       </Button>
-                    </div>
-                 </div>
+                 <ServiceOrderPartPicker onConfirm={handleAddPartConfirm} onCancel={() => setIsAddingPart(false)} />
               </div>
             )}
           </div>

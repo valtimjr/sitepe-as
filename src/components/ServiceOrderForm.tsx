@@ -19,6 +19,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useSession } from '@/components/SessionContextProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { validateTimesAgainstShift } from '@/services/shiftService';
+import { useIsCompact } from '@/hooks/use-compact';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +37,8 @@ interface ServiceOrderFormProps {
   onCancel: () => void;
   existingOsList?: ServiceOrderData[];
   selectedDate: Date;
+  /** Hora de início sugerida para uma OS nova (ação "Nova OS a partir de..."). */
+  initialStartTime?: string;
 }
 
 const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
@@ -43,8 +46,10 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   onSave,
   onCancel,
   existingOsList,
-  selectedDate
+  selectedDate,
+  initialStartTime
 }) => {
+  const isCompact = useIsCompact();
   const { company } = useCompany();
   const { user, profile } = useSession();
   
@@ -122,8 +127,9 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       setIsPercurso(false);
       setIsAgregado(false);
       setNumeroAgregado('');
+      if (initialStartTime) setHoraInicio(initialStartTime);
     }
-  }, [initialData, company]);
+  }, [initialData, company, initialStartTime]);
 
   useEffect(() => {
     if (isPercurso) {
@@ -417,11 +423,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Hora Início</Label>
-          <Input type="time" value={horaInicio} onChange={e => setHoraInicio(e.target.value)} />
+          <Input type="time" value={horaInicio} onChange={e => setHoraInicio(e.target.value)} className={cn(isCompact && "h-11 text-base")} />
         </div>
         <div className="space-y-2">
           <Label>Hora Final</Label>
-          <Input type="time" value={horaFinal} onChange={e => setHoraFinal(e.target.value)} />
+          <Input type="time" value={horaFinal} onChange={e => setHoraFinal(e.target.value)} className={cn(isCompact && "h-11 text-base")} />
         </div>
       </div>
 
@@ -537,11 +543,19 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         </>
       )}
 
-      <div className="flex gap-3 pt-4">
-        <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>
+      <div
+        className={cn(
+          "flex gap-3",
+          isCompact
+            ? "sticky bottom-0 z-10 -mx-6 border-t bg-background px-6 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+            : "pt-4"
+        )}
+        data-testid="os-form-footer"
+      >
+        <Button type="button" variant="outline" className={cn("flex-1", isCompact && "h-11")} onClick={onCancel}>
           <XCircle className="h-4 w-4 mr-2" /> Cancelar
         </Button>
-        <Button type="submit" className="flex-1">
+        <Button type="submit" className={cn("flex-1", isCompact && "h-11")}>
           <Save className="h-4 w-4 mr-2" /> Salvar OS
         </Button>
       </div>

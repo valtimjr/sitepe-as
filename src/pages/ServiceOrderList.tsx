@@ -16,7 +16,12 @@ import { format, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { showSuccess, showError } from '@/utils/toast';
 import { Sheet, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsCompact } from '@/hooks/use-compact';
+import { useKeyboardOpen } from '@/hooks/useKeyboardOpen';
+import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
+import { tap } from '@/lib/haptics';
+import ServiceOrderDayHeader from '@/components/service-orders/ServiceOrderDayHeader';
+import ServiceOrderShareSheet from '@/components/service-orders/ServiceOrderShareSheet';
 import { useSession } from '@/components/SessionContextProvider';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { lazyGenerateServiceOrderPdf } from '@/utils/pdfExportUtils';
@@ -45,11 +50,12 @@ import {
 
 import { ServiceOrderCharts } from '@/components/ServiceOrderCharts';
 import { useCompany } from '@/context/CompanyContext';
-import { FileChartLine } from 'lucide-react';
+import { FileChartLine, Plus } from 'lucide-react';
 
 const ServiceOrderList: React.FC = () => {
   const { user, session, profile } = useSession();
-  const isMobile = useIsMobile();
+  const isCompact = useIsCompact();
+  const keyboardOpen = useKeyboardOpen();
   const { company, branding } = useCompany();
   
   const [selectedDate, setSelectedDate] = useState<Date>(getOperationalDate(new Date()));
@@ -62,6 +68,10 @@ const ServiceOrderList: React.FC = () => {
   const [selectedOsIds, setSelectedOsIds] = useState<string[]>([]);
   const [userShift, setUserShift] = useState<any>(null);
   const [invalidTimesDialog, setInvalidTimesDialog] = useState<{ title: string; lines: string[] } | null>(null);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  const [duplicateStartTime, setDuplicateStartTime] = useState<string | undefined>(undefined);
+  const [slideFrom, setSlideFrom] = useState<'left' | 'right' | null>(null);
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
 
@@ -187,8 +197,34 @@ const ServiceOrderList: React.FC = () => {
     }
   };
 
-  const handleOpenForm = (os?: ServiceOrderData) => {
+  const isToday = selectedDate.toDateString() === getOperationalDate(new Date()).toDateString();
+
+  const changeDay = (delta: number) => {
+    tap();
+    setSlideFrom(delta > 0 ? 'right' : 'left');
+    setSelectedDate(prev => (delta > 0 ? addDays(prev, 1) : subDays(prev, 1)));
+  };
+
+  const goToToday = () => {
+    tap();
+    const today = getOperationalDate(new Date());
+    setSlideFrom(today > selectedDate ? 'right' : 'left');
+    setSelectedDate(today);
+  };
+
+  const swipeHandlers = useHorizontalSwipe({
+    onSwipeLeft: () => changeDay(1),
+    onSwipeRight: () => changeDay(-1),
+    enabled: isCompact && !!session && !isFormOpen && !isShareOpen,
+  });
+
+  const setExpanded = (id: string, expanded: boolean) => {
+    setExpandedIds(prev => (expanded ? [...prev.filter(i => i !== id), id] : prev.filter(i => i !== id)));
+  };
+
+  const handleOpenForm = (os?: ServiceOrderData, startTime?: string) => {
     setEditingOs(os || null);
+    setDuplicateStartTime(startTime);
     setIsFormOpen(true);
   };
 
@@ -213,6 +249,10 @@ const ServiceOrderList: React.FC = () => {
     try {
       await saveDailyServiceOrder(user?.id, dateStr, migratedList, company);
       setOsList(migratedList);
+      if (isFormOpen && isCompact) {
+        // Card novo ou acabado de editar abre sozinho
+        setExpanded(osWithBadge.id, true);
+      }
       if (isFormOpen) {
         setIsFormOpen(false);
         showSuccess(editingOs ? 'OS atualizada!' : 'OS adicionada!');
@@ -360,6 +400,116 @@ const ServiceOrderList: React.FC = () => {
   return (
     <div className="min-h-screen p-4 bg-background text-foreground max-w-5xl mx-auto w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
       
+      {isCompact ? (
+        <>
+      <ServiceOrderDayHeader
+        selectedDate={selectedDate}
+        isToday={isToday}
+        showDateNav={!!session}
+        onPrev={() => changeDay(-1)}
+        onNext={() => changeDay(1)}
+        onToday={goToToday}
+        onDateChange={handleDateChange}
+        osList={osList}
+        dailyTimes={dailyTimes}
+        selectedCount={selectedOsIds.length}
+        allSelected={sortedOsList.length > 0 && sortedOsList.every(os => selectedOsIds.includes(os.id))}
+        onShare={() => setIsShareOpen(true)}
+        onClearSelection={() => setSelectedOsIds([])}
+        onSelectAll={() => handleToggleSelectAll(true)}
+      />
+
+      {!session && (
+        <Alert variant="default" className="bg-amber-50 border-amber-200 dark:bg-amber-950/20 mb-3 py-2.5">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-sm">
+            <span className="font-semibold">Modo Visitante:</span> salvo só neste aparelho.
+            <Link to="/login" className="font-bold underline ml-1 text-primary">Entrar</Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div {...swipeHandlers} className="min-h-[50vh] pb-28" data-testid="os-swipe-area">
+        <div
+          key={dateStr}
+          className={cn(
+            slideFrom === 'right' && 'animate-in fade-in slide-in-from-right-8 duration-200',
+            slideFrom === 'left' && 'animate-in fade-in slide-in-from-left-8 duration-200'
+          )}
+        >
+          {sortedOsList.length > 1 && (
+            <div className="flex justify-end mb-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 text-muted-foreground"
+                onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+              >
+                <Clock className="h-4 w-4 mr-1.5" />
+                Horário {sortDirection === 'asc' ? '↑' : '↓'}
+              </Button>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="flex justify-center py-20">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+            </div>
+          ) : sortedOsList.length === 0 ? (
+            <div className="flex flex-col items-center text-center text-muted-foreground py-16 px-6 border border-dashed rounded-lg">
+              <ClipboardList className="h-12 w-12 mb-3 opacity-20" />
+              <p>Nenhuma ordem de serviço para esta data.</p>
+              <p className="text-xs mt-1">Toque em + para criar. Deslize para o lado para trocar de dia.</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {sortedOsList.map(os => (
+                <ServiceOrderListDisplay
+                  key={os.id}
+                  compact
+                  group={os}
+                  expanded={expandedIds.includes(os.id)}
+                  onExpandedChange={(value) => setExpanded(os.id, value)}
+                  onEdit={() => handleOpenForm(os)}
+                  onDuplicate={() => handleOpenForm(undefined, os.hora_final)}
+                  onDelete={() => handleDeleteOS(os.id)}
+                  onSave={handleSaveOS}
+                  isSelected={selectedOsIds.includes(os.id)}
+                  onSelectChange={() => handleToggleSelect(os.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!keyboardOpen && !isFormOpen && !isShareOpen && (
+        <Button
+          className="fixed right-4 z-40 h-14 w-14 rounded-full p-0 shadow-lg shadow-primary/30 bg-primary text-primary-foreground hover:bg-primary/90"
+          style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom) + 16px)' }}
+          onClick={() => { tap(); handleOpenForm(); }}
+          aria-label="Nova OS"
+          data-testid="os-fab"
+        >
+          <Plus className="h-7 w-7" />
+        </Button>
+      )}
+
+      <ServiceOrderShareSheet
+        open={isShareOpen}
+        onOpenChange={setIsShareOpen}
+        dateLabel={format(selectedDate, 'dd/MM')}
+        selectedCount={selectedOsIds.length}
+        disabled={osList.length === 0}
+        onCopy={handleCopyList}
+        onWhatsApp={handleShareOnWhatsApp}
+        onPdf={handleExportPdf}
+        reportPath={isAdmin ? `/${company}/admin-report` : undefined}
+      />
+
+        </>
+      ) : (
+        <>
       {/* Title */}
       <h1 className="text-4xl font-extrabold mb-8 mt-8 text-center text-primary dark:text-primary flex flex-col items-center justify-center gap-2">
         <div className="flex items-center gap-3">
@@ -603,6 +753,9 @@ const ServiceOrderList: React.FC = () => {
         </div>
       )}
 
+        </>
+      )}
+
       <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
         <ResponsiveSheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
@@ -610,6 +763,7 @@ const ServiceOrderList: React.FC = () => {
           </SheetHeader>
           <div className="py-6">
             <ServiceOrderForm
+              initialStartTime={duplicateStartTime}
               initialData={editingOs}
               onSave={handleSaveOS}
               onCancel={() => setIsFormOpen(false)}
@@ -636,14 +790,18 @@ const ServiceOrderList: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
       
-      <div className="flex justify-center mt-8 mb-8">
-        <Link to={`/${company}`}>
-          <Button variant="outline" className="flex items-center gap-2">
-            <ChevronLeft className="h-4 w-4" /> Voltar ao Início
-          </Button>
-        </Link>
-      </div>
-      <MadeWithDyad />
+      {!isCompact && (
+        <>
+          <div className="flex justify-center mt-8 mb-8">
+            <Link to={`/${company}`}>
+              <Button variant="outline" className="flex items-center gap-2">
+                <ChevronLeft className="h-4 w-4" /> Voltar ao Início
+              </Button>
+            </Link>
+          </div>
+          <MadeWithDyad />
+        </>
+      )}
     </div>
   );
 };

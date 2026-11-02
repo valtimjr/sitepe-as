@@ -130,6 +130,12 @@
   .bottom-above-nav {
     bottom: calc(4rem + env(safe-area-inset-bottom) + 0.75rem);
   }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer components {
