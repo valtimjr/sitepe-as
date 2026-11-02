@@ -58,7 +58,7 @@ const BottomNav: React.FC = () => {
       aria-label="Navegação principal"
       data-testid="bottom-nav"
     >
-      <ul className="flex h-16 items-stretch justify-around px-1">
+      <ul className="flex h-16 items-stretch justify-around">
         {tabs.map(tab => {
           const isActive = tab.key === activeTab;
           const Icon = tab.icon;
@@ -71,16 +71,18 @@ const BottomNav: React.FC = () => {
                 aria-label={tab.label}
                 data-testid={`bottom-nav-${tab.key}`}
                 className={cn(
-                  'flex h-full w-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors active:scale-90 transition-transform duration-150',
-                  isActive ? 'text-primary' : 'text-muted-foreground',
+                  'relative flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-none text-[11px] font-medium transition-colors duration-150 active:bg-muted',
+                  isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground',
                 )}
               >
                 <span
                   className={cn(
-                    'flex h-7 w-14 items-center justify-center rounded-full transition-all duration-200',
-                    isActive ? 'bg-primary/15 scale-100' : 'scale-95',
+                    'absolute inset-x-0 top-0 h-0.5 bg-primary transition-opacity duration-200',
+                    isActive ? 'opacity-100' : 'opacity-0',
                   )}
-                >
+                  aria-hidden="true"
+                />
+                <span className="flex h-7 items-center justify-center">
                   <Icon className={cn('h-5 w-5', isActive && 'stroke-[2.5]')} />
                 </span>
                 <span className="leading-tight truncate max-w-full px-0.5">{tab.label}</span>

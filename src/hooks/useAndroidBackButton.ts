@@ -25,6 +25,7 @@ export const useAndroidBackButton = () => {
         return;
       }
       if (current.isMoreOpen) {
+        if (current.moreBackHandlerRef.current?.()) return;
         current.setMoreOpen(false);
         return;
       }

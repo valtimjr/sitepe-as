@@ -66,7 +66,7 @@ export const ResponsivePopoverContent: React.FC<ResponsivePopoverContentProps> =
   }
 
   return (
-    <DrawerContent className={cn('max-h-[90vh] pb-safe', className)} {...props}>
+    <DrawerContent className={cn('max-h-[90vh] pb-safe rounded-none [&>div:first-child]:rounded-none', className)} {...props}>
       {title ? (
         <DrawerHeader className="text-left pb-1">
           <DrawerTitle>{title}</DrawerTitle>

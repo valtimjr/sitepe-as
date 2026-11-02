@@ -67,7 +67,10 @@ export const ResponsiveDialogContent: React.FC<ContentProps> = ({
     );
   }
   return (
-    <DrawerContent className={cn('max-h-[90vh] pb-safe', className, drawerClassName)} {...props}>
+    <DrawerContent
+      className={cn('max-h-[90vh] pb-safe rounded-none [&>div:first-child]:rounded-none', className, drawerClassName)}
+      {...props}
+    >
       <div className="overflow-y-auto overscroll-contain px-4 pb-4">{children}</div>
     </DrawerContent>
   );

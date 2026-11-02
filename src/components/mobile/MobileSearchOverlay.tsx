@@ -103,7 +103,7 @@ const MobileSearchOverlay: React.FC = () => {
         <button
           type="button"
           onClick={close}
-          className="flex h-11 w-11 items-center justify-center rounded-full active:bg-muted"
+          className="flex h-11 w-11 items-center justify-center rounded-none active:bg-muted"
           aria-label="Fechar busca"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -117,7 +117,7 @@ const MobileSearchOverlay: React.FC = () => {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Código, descrição ou tags"
-            className="h-11 w-full rounded-full border bg-muted/40 pl-9 pr-10 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            className="h-11 w-full rounded-none border bg-muted/40 pl-9 pr-10 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             autoComplete="off"
             data-testid="mobile-search-input"
           />
@@ -128,7 +128,7 @@ const MobileSearchOverlay: React.FC = () => {
                 setQuery('');
                 inputRef.current?.focus();
               }}
-              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground active:bg-muted"
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-none text-muted-foreground active:bg-muted"
               aria-label="Limpar busca"
             >
               <X className="h-4 w-4" />
@@ -182,7 +182,7 @@ const MobileSearchOverlay: React.FC = () => {
             {results.map(part => (
               <li
                 key={part.id}
-                className="flex items-center gap-2 rounded-xl border bg-card p-3 shadow-sm"
+                className="flex items-center gap-2 rounded-none border bg-card p-3 shadow-sm"
                 data-testid="mobile-search-result"
               >
                 <button
@@ -197,7 +197,7 @@ const MobileSearchOverlay: React.FC = () => {
                   part={part}
                   company={company}
                   idPrefix="mobile-search"
-                  triggerClassName="h-11 w-11 rounded-full bg-primary/10"
+                  triggerClassName="h-11 w-11 rounded-none bg-primary/10"
                 />
               </li>
             ))}
@@ -205,7 +205,7 @@ const MobileSearchOverlay: React.FC = () => {
               <button
                 type="button"
                 onClick={() => goToAll(query)}
-                className="flex w-full items-center justify-center gap-1 rounded-xl py-3 text-sm font-semibold text-primary active:bg-primary/10"
+                className="flex w-full items-center justify-center gap-1 rounded-none py-3 text-sm font-semibold text-primary active:bg-primary/10"
               >
                 Ver todos os resultados
                 <ChevronRight className="h-4 w-4" />
