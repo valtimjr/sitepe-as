@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +43,8 @@ const MyCustomListsPage: React.FC = () => {
       loadLists();
     }
   }, [isSessionLoading, loadLists]);
+
+  useAppRefresh(loadLists);
 
   if (isSessionLoading || isLoading) {
     return (

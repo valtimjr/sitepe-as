@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SearchParts from "./pages/SearchParts";
@@ -27,16 +28,45 @@ import { useOfflineSync } from "./hooks/useOfflineSync";
 import WelcomeModal from "./components/WelcomeModal";
 import { CompanyProvider } from "./context/CompanyContext";
 import AdminReportPage from "./pages/AdminReportPage";
+import { MobileNavProvider, useMobileNav } from "./context/MobileNavContext";
+import { useIsCompact } from "./hooks/use-compact";
+import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
+import BottomNav from "./components/mobile/BottomNav";
+import MobileMoreDrawer from "./components/mobile/MobileMoreDrawer";
+import MobileSearchOverlay from "./components/mobile/MobileSearchOverlay";
+import PullToRefresh from "./components/mobile/PullToRefresh";
 
 const queryClient = new QueryClient();
 
 const CompanyLayout = () => {
+  const isCompact = useIsCompact();
+  const { isMoreOpen, setMoreOpen, setSearchOpen } = useMobileNav();
+  const { pathname } = useLocation();
+  useAndroidBackButton();
+
+  // Fecha o "Mais" e a busca ao navegar
+  useEffect(() => {
+    setMoreOpen(false);
+    setSearchOpen(false);
+  }, [pathname, setMoreOpen, setSearchOpen]);
+
   return (
     <>
       <AppHeader />
-      <Outlet />
+      <div className={isCompact ? "pb-bottom-nav" : undefined}>
+        <PullToRefresh enabled={isCompact}>
+          <Outlet />
+        </PullToRefresh>
+      </div>
       <WelcomeModal />
       <CookieConsentBanner />
+      {isCompact && (
+        <>
+          <BottomNav />
+          <MobileMoreDrawer open={isMoreOpen} onOpenChange={setMoreOpen} />
+          <MobileSearchOverlay />
+        </>
+      )}
     </>
   );
 };
@@ -46,7 +76,9 @@ const AppWrapper = () => {
     <BrowserRouter>
       <SessionContextProvider>
         <CompanyProvider>
-          <AppContent />
+          <MobileNavProvider>
+            <AppContent />
+          </MobileNavProvider>
         </CompanyProvider>
       </SessionContextProvider>
     </BrowserRouter>

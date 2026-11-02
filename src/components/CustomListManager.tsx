@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import CustomListEditor from './CustomListEditor';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
+import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
 import { getParts } from '@/services/partListService';
 import { Part } from '@/types/supabase';
 import { useCompany } from '@/context/CompanyContext';
@@ -189,7 +190,7 @@ const CustomListManager: React.FC = () => {
 
       {/* Sheet de Edição/Adição de Título da Lista */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md">
+        <ResponsiveSheetContent side="right" className="sm:max-w-md">
           <SheetHeader>
             <SheetTitle>{currentList ? 'Editar Título da Lista' : 'Criar Nova Lista'}</SheetTitle>
           </SheetHeader>
@@ -212,7 +213,7 @@ const CustomListManager: React.FC = () => {
               </Button>
             </SheetFooter>
           </form>
-        </SheetContent>
+        </ResponsiveSheetContent>
       </Sheet>
 
       {/* NOVO: Sheet para o CustomListEditor (edição de conteúdo da lista) */}

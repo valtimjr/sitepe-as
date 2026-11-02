@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useAppRefresh } from '@/hooks/useAppRefresh';
+import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,12 +19,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
+import { Sheet, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import AfSearchInput from '@/components/AfSearchInput';
 import { Label } from '@/components/ui/label';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ResponsivePopover, ResponsivePopoverContent, ResponsivePopoverTrigger } from '@/components/responsive/ResponsivePopover';
 import { Separator } from '@/components/ui/separator';
 import RelatedPartDisplay from '@/components/RelatedPartDisplay';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -128,6 +130,8 @@ const CustomListPage: React.FC = () => {
     loadList();
     loadAfsAndParts();
   }, [loadList, loadAfsAndParts]);
+
+  useAppRefresh(() => Promise.all([loadList(), loadAfsAndParts()]));
 
   useEffect(() => {
     document.title = `${listTitle} - AutoBoard (${branding.name})`;
@@ -581,13 +585,12 @@ const CustomListPage: React.FC = () => {
                 <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
               )}
               {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                <Popover 
+                <ResponsivePopover
                   key={`popover-${item.id}`}
                   open={openRelatedItemsPopoverId === item.id} 
                   onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
-                  modal={false}
                 >
-                  <PopoverTrigger asChild>
+                  <ResponsivePopoverTrigger>
                     <Button 
                       variant="ghost" 
                       size="sm" 
@@ -595,10 +598,10 @@ const CustomListPage: React.FC = () => {
                     >
                       <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto max-w-xs p-2">
-                    <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                    <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
+                  </ResponsivePopoverTrigger>
+                  <ResponsivePopoverContent title="Itens Relacionados" popoverClassName="w-auto max-w-xs p-2">
+                    <p className="font-bold mb-1 text-sm hidden lg:block">Itens Relacionados:</p>
+                    <ScrollArea className={isMobile ? "max-h-[60vh]" : "max-h-96"}>
                       <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
                         {item.itens_relacionados.map(rel => (
                           <li key={rel.codigo} className="list-none ml-0">
@@ -607,8 +610,8 @@ const CustomListPage: React.FC = () => {
                         ))}
                       </ul>
                     </ScrollArea>
-                  </PopoverContent>
-                </Popover>
+                  </ResponsivePopoverContent>
+                </ResponsivePopover>
               )}
             </div>
         </TableCell>
@@ -754,7 +757,7 @@ const CustomListPage: React.FC = () => {
       <MadeWithDyad />
 
       <Sheet open={isExportSheetOpen} onOpenChange={setIsExportSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md flex flex-col h-full max-h-screen">
+        <ResponsiveSheetContent side="right" className="sm:max-w-md flex flex-col h-full max-h-screen">
           <SheetHeader>
             <SheetTitle>Exportar Itens para Minha Lista</SheetTitle>
             <SheetDescription>
@@ -925,7 +928,7 @@ const CustomListPage: React.FC = () => {
               <Check className="h-4 w-4 mr-2" /> Confirmar Exportação
             </Button>
           </SheetFooter>
-        </SheetContent>
+        </ResponsiveSheetContent>
       </Sheet>
     </div>
   );

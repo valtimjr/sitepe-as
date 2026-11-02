@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useAppRefresh } from '@/hooks/useAppRefresh';
+import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
 import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import ServiceOrderForm from '@/components/ServiceOrderForm';
@@ -13,7 +15,7 @@ import { ClipboardList, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Ale
 import { format, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { showSuccess, showError } from '@/utils/toast';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSession } from '@/components/SessionContextProvider';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -112,6 +114,8 @@ const ServiceOrderList: React.FC = () => {
   useEffect(() => {
     loadDailyOrders();
   }, [loadDailyOrders]);
+
+  useAppRefresh(loadDailyOrders);
 
   useEffect(() => {
     const fetchUserShift = async () => {
@@ -600,7 +604,7 @@ const ServiceOrderList: React.FC = () => {
       )}
 
       <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+        <ResponsiveSheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{editingOs ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}</SheetTitle>
           </SheetHeader>
@@ -613,7 +617,7 @@ const ServiceOrderList: React.FC = () => {
               selectedDate={selectedDate}
             />
           </div>
-        </SheetContent>
+        </ResponsiveSheetContent>
       </Sheet>
 
       <AlertDialog open={!!invalidTimesDialog} onOpenChange={(open) => { if (!open) setInvalidTimesDialog(null); }}>

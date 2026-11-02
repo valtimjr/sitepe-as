@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useAppRefresh } from '@/hooks/useAppRefresh';
+import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
 import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MadeWithDyad } from "@/components/made-with-dyad";
@@ -38,7 +40,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Link } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
+import { Sheet, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'; // Importar Sheet e SheetFooter
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { MonthlyApontamento } from '@/types/supabase'; // Importar MonthlyApontamento
 import { v4 as uuidv4 } from 'uuid'; // Importar uuidv4
@@ -159,6 +161,8 @@ const TimeTrackingPage: React.FC = () => {
   useEffect(() => {
     loadApontamentos();
   }, [loadApontamentos]);
+
+  useAppRefresh(loadApontamentos);
 
   const currentMonthStart = startOfMonth(currentDate);
   const currentMonthEnd = endOfMonth(currentDate);
@@ -954,7 +958,7 @@ const TimeTrackingPage: React.FC = () => {
 
       {/* Sheet para Outros Status */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md">
+        <ResponsiveSheetContent side="right" className="sm:max-w-md">
           <SheetHeader>
             <SheetTitle>Marcar Outro Status</SheetTitle>
           </SheetHeader>
@@ -976,7 +980,7 @@ const TimeTrackingPage: React.FC = () => {
               <Save className="h-4 w-4 mr-2" /> Salvar Status
             </Button>
           </SheetFooter>
-        </SheetContent>
+        </ResponsiveSheetContent>
       </Sheet>
     </div>
   );

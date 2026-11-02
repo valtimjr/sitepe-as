@@ -20,14 +20,14 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { 
-  Dialog, 
-  DialogContent,
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter,
-  DialogDescription
-} from '@/components/ui/dialog';
+import {
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogDescription as DialogDescription,
+} from '@/components/responsive/ResponsiveDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LocalList, formatListText } from '@/services/localListStorage';
@@ -395,6 +395,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
         ref={containerRef}
         role="region"
         aria-label="Navegação de Listas de Peças"
+        data-no-ptr
         tabIndex={0}
         onKeyDown={handleKeyDown}
         onWheel={handleWheel}
@@ -547,7 +548,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
           if (!open) setNewListIcon(null);
         }}
       >
-        <DialogContent className="sm:max-w-md rounded-none max-h-[90vh] overflow-y-auto">
+        <DialogContent dialogClassName="sm:max-w-md rounded-none max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-extrabold text-lg">Criar Nova Lista</DialogTitle>
             <DialogDescription className="text-xs">
@@ -579,7 +580,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
 
       {/* Rename List Dialog */}
       <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
-        <DialogContent className="sm:max-w-md rounded-none max-h-[90vh] overflow-y-auto">
+        <DialogContent dialogClassName="sm:max-w-md rounded-none max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-extrabold text-lg">Editar Lista</DialogTitle>
             <DialogDescription className="text-xs">
@@ -612,7 +613,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
 
       {/* Delete List Dialog */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent className="sm:max-w-md rounded-none">
+        <DialogContent dialogClassName="sm:max-w-md rounded-none">
           <DialogHeader>
             <DialogTitle className="font-extrabold text-lg text-destructive">Excluir Lista</DialogTitle>
             <DialogDescription className="text-xs">

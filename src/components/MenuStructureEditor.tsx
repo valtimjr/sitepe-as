@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { Sheet, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
 import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, GripVertical, Tag, Loader2, FileText, MoreHorizontal } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { MenuItem, CustomList, Part, RelatedPart } from '@/types/supabase';
@@ -551,7 +552,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
 
       {/* Sheet de Edição/Adição */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <ResponsiveSheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{currentMenuItem ? 'Editar Item de Menu' : 'Adicionar Novo Item de Menu'}</SheetTitle>
           </SheetHeader>
@@ -693,7 +694,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
               </Button>
             </SheetFooter>
           </form>
-        </SheetContent>
+        </ResponsiveSheetContent>
       </Sheet>
     </Card>
   );

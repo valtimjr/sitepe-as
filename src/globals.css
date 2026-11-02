@@ -99,7 +99,37 @@
     @apply font-heading;
   }
 
+  /* Remove o highlight azul padrão do toque em dispositivos móveis */
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* No mobile, evita o "pull-to-refresh" nativo do navegador (usamos o nosso) */
+  @media (max-width: 1023px) {
+    html,
+    body {
+      overscroll-behavior-y: contain;
+    }
+  }
+
   /* A regra CSS para ocultar o link de cadastro não é mais necessária, pois o componente Auth UI foi substituído. */
+}
+
+@layer utilities {
+  /* Safe-area (notch / barra de gestos) para PWA e Capacitor */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* Espaço para o conteúdo não ficar atrás da barra de navegação inferior (64px + safe-area) */
+  .pb-bottom-nav {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+  .bottom-above-nav {
+    bottom: calc(4rem + env(safe-area-inset-bottom) + 0.75rem);
+  }
 }
 
 @layer components {

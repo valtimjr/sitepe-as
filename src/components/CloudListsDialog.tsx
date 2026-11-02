@@ -1,7 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Cloud, FolderOpen, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/responsive/ResponsiveDialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -71,7 +77,7 @@ const CloudListsDialog: React.FC<CloudListsDialogProps> = ({ open, onOpenChange,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent dialogClassName="sm:max-w-lg">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-primary/10 text-primary"><Cloud className="h-5 w-5" /></div>
@@ -87,7 +93,7 @@ const CloudListsDialog: React.FC<CloudListsDialogProps> = ({ open, onOpenChange,
         ) : lists.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">Nenhuma lista salva na nuvem ainda.</p>
         ) : (
-          <div className="max-h-[60vh] overflow-y-auto pr-1">
+          <div className="lg:max-h-[60vh] lg:overflow-y-auto lg:pr-1">
             <ul className="space-y-2">
               {lists.map(list => (
                 <li key={list.id} className="flex items-center gap-3 rounded-lg border bg-card p-3" data-testid="cloud-list-row">

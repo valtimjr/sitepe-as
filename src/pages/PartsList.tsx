@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useAppRefresh } from '@/hooks/useAppRefresh';
+import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import PartItemForm from '@/components/PartItemForm';
 import PartsListDisplay from '@/components/PartsListDisplay';
@@ -17,7 +19,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, Clock } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useCompany } from '@/context/CompanyContext';
 import { ListCarousel } from '@/components/ListCarousel';
@@ -66,6 +68,8 @@ const PartsList = () => {
   useEffect(() => {
     loadListsAndItems();
   }, [loadListsAndItems]);
+
+  useAppRefresh(loadListsAndItems);
 
   useEffect(() => {
     const handlePartAdded = () => {
@@ -247,7 +251,7 @@ const PartsList = () => {
       {/* Sheet para o formulário de edição em mobile */}
       {isMobile && (
         <Sheet open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
-          <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <ResponsiveSheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
             <SheetHeader>
               <SheetTitle>{editingItem ? 'Editar Item' : 'Adicionar Item'}</SheetTitle>
             </SheetHeader>
@@ -258,7 +262,7 @@ const PartsList = () => {
                 onCloseEdit={handleCloseEditForm}
               />
             </div>
-          </SheetContent>
+          </ResponsiveSheetContent>
         </Sheet>
       )}
     </div>

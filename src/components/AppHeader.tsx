@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreVertical, Loader2, Wifi, WifiOff, Plus } from 'lucide-react';
+import { LogIn, Settings, LogOut, User as UserIcon, Menu, Search, List, ClipboardList, Database, Clock, CalendarDays, ChevronRight, MoreVertical, Loader2, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
@@ -31,157 +31,11 @@ import { searchParts, addSimplePartItem } from '@/services/partListService';
 import { getListsData, addItemToList } from '@/services/localListStorage';
 import { ListSelectorDropdown } from './ListSelectorDropdown';
 import LoginModal from './LoginModal';
-
-interface AddPartPopoverProps {
-  part: { codigo: string; descricao: string };
-  company: any;
-}
-
-const AddPartPopover: React.FC<AddPartPopoverProps> = ({ part, company }) => {
-  const [quantidade, setQuantidade] = useState<number>(1);
-  const [af, setAf] = useState<string>('');
-  const [isOpen, setIsOpen] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
-  const [selectedListId, setSelectedListId] = useState<string>('');
-
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (quantidade <= 0) {
-      showError('A quantidade deve ser maior que zero.');
-      return;
-    }
-    
-    setIsAdding(true);
-    try {
-      const listsData = await getListsData(company);
-      
-      // Determine which list to add to
-      let targetListId = selectedListId;
-      if (!targetListId || listsData.lists.length <= 1) {
-        targetListId = listsData.activeListId;
-      }
-
-      await addItemToList(company, targetListId, {
-        codigo_peca: part.codigo,
-        descricao: part.descricao,
-        quantidade,
-        af: af.trim() || undefined
-      });
-
-      // Find the list name for the toast
-      const targetList = listsData.lists.find(l => l.id === targetListId);
-      const listName = targetList ? targetList.name : 'sua lista';
-
-      showSuccess(`Peça ${part.codigo} adicionada em "${listName}"!`);
-      window.dispatchEvent(new CustomEvent('part-added-to-list'));
-      setIsOpen(false);
-      setQuantidade(1);
-      setAf('');
-    } catch (err) {
-      showError('Erro ao adicionar peça.');
-    } finally {
-      setIsAdding(false);
-    }
-  };
-
-  return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-primary hover:bg-primary/10 shrink-0"
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-          title="Adicionar rápido à lista"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-72 p-4 z-[200] rapid-add-popover-content"
-        align="end"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <form onSubmit={handleAdd} className="space-y-3">
-          <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">
-            Adicionar à Minha Lista
-          </div>
-          <div className="text-xs text-muted-foreground font-semibold truncate">
-            {part.codigo} - {part.descricao}
-          </div>
-          
-          <div className="space-y-1 text-left">
-            <Label htmlFor={`qty-${part.codigo}`} className="text-[10px] font-semibold uppercase">Quantidade</Label>
-            <Input
-              id={`qty-${part.codigo}`}
-              type="number"
-              min="1"
-              value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, parseInt(e.target.value) || 1))}
-              required
-              className="h-8 text-xs"
-            />
-          </div>
-          
-          <div className="space-y-1 text-left">
-            <Label htmlFor={`af-${part.codigo}`} className="text-[10px] font-semibold uppercase">AF / Frota (Opcional)</Label>
-            <Input
-              id={`af-${part.codigo}`}
-              type="text"
-              placeholder="Ex: AF42"
-              value={af}
-              onChange={(e) => setAf(e.target.value)}
-              className="h-8 text-xs"
-            />
-          </div>
-
-          <ListSelectorDropdown
-            company={company}
-            selectedListId={selectedListId}
-            onSelectedListIdChange={setSelectedListId}
-            part={{
-              codigo: part.codigo,
-              descricao: part.descricao,
-              quantidade,
-              af: af.trim() || undefined
-            }}
-            onCreatedAndAdded={() => {
-              setIsOpen(false);
-              setQuantidade(1);
-              setAf('');
-            }}
-          />
-          
-          <div className="flex gap-2 justify-end pt-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs px-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsOpen(false);
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              className="h-7 text-xs px-2"
-              disabled={isAdding}
-            >
-              {isAdding ? 'Adicionando...' : 'Adicionar'}
-            </Button>
-          </div>
-        </form>
-      </PopoverContent>
-    </Popover>
-  );
-};
+import AddPartPopover from './AddPartPopover';
+import { useIsCompact } from '@/hooks/use-compact';
+import { useMobileNav } from '@/context/MobileNavContext';
+import { useHideOnScroll } from '@/hooks/useScrollDirection';
+import { tap } from '@/lib/haptics';
 
 const AppHeader: React.FC = () => {
   const { session, isLoading, profile, checkPageAccess } = useSession();
@@ -194,6 +48,9 @@ const AppHeader: React.FC = () => {
   const [showResults, setShowResults] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const isCompact = useIsCompact();
+  const { setMoreOpen, setSearchOpen } = useMobileNav();
+  const isHiddenOnScroll = useHideOnScroll({ enabled: isCompact });
   
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
@@ -422,10 +279,32 @@ const AppHeader: React.FC = () => {
   const dynamicMenuLinks = rootMenuItems.filter(item => item.list_id || (item.children && item.children.length > 0));
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header
+      className={cn(
+        "sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-safe transition-transform duration-300 ease-out",
+        isCompact && isHiddenOnScroll && "-translate-y-full"
+      )}
+      data-testid="app-header"
+    >
       <div className="container flex h-14 sm:h-16 items-center justify-between px-2 sm:px-4 md:px-6 max-w-7xl mx-auto">
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {!isLoginPage && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden h-10 w-10 shrink-0 p-0 active:bg-muted/80"
+              aria-label="Abrir menu"
+              data-testid="mobile-menu-button"
+              onClick={() => {
+                tap();
+                setMoreOpen(true);
+              }}
+            >
+              <Menu className="h-5 w-5 text-foreground/90" />
+            </Button>
+          )}
+          {!isLoginPage && (
+            <div className="hidden lg:block">
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -472,6 +351,7 @@ const AppHeader: React.FC = () => {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            </div>
           )}
 
           <Tooltip>
@@ -495,15 +375,15 @@ const AppHeader: React.FC = () => {
           {/* Indicador de Status do Supabase Ao Vivo */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full border bg-muted/40 text-[10px] sm:text-[11px] font-semibold cursor-help select-none shrink-0">
+              <div className="flex items-center gap-1.5 p-1.5 lg:px-2.5 lg:py-1 rounded-full lg:border lg:bg-muted/40 text-[11px] font-semibold cursor-help select-none shrink-0" aria-label={supabaseStatus === 'online' ? 'Conectado' : supabaseStatus === 'offline' ? 'Sem conexão' : 'Verificando conexão'}>
                 {supabaseStatus === 'online' && (
                   <>
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
-                    <Wifi className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-500" />
-                    <span className="text-emerald-600 dark:text-emerald-400 hidden min-[420px]:inline">Conectado</span>
+                    <Wifi className="hidden lg:block h-3.5 w-3.5 text-emerald-500" />
+                    <span className="text-emerald-600 dark:text-emerald-400 hidden lg:inline">Conectado</span>
                   </>
                 )}
                 {supabaseStatus === 'offline' && (
@@ -511,14 +391,14 @@ const AppHeader: React.FC = () => {
                     <span className="relative flex h-2 w-2">
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive"></span>
                     </span>
-                    <WifiOff className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-destructive animate-pulse" />
-                    <span className="text-destructive font-bold text-[10px] sm:text-xs">Sem Conexão</span>
+                    <WifiOff className="hidden lg:block h-3.5 w-3.5 text-destructive animate-pulse" />
+                    <span className="text-destructive font-bold text-xs hidden lg:inline">Sem Conexão</span>
                   </>
                 )}
                 {supabaseStatus === 'checking' && (
                   <>
                     <Loader2 className="h-3 w-3 text-amber-500 animate-spin" />
-                    <span className="text-amber-600 dark:text-amber-400 hidden min-[420px]:inline">Verificando...</span>
+                    <span className="text-amber-600 dark:text-amber-400 hidden lg:inline">Verificando...</span>
                   </>
                 )}
               </div>
@@ -539,7 +419,22 @@ const AppHeader: React.FC = () => {
 
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {!isLoginPage && (
-            <div ref={searchContainerRef} className="uiverse-search-container relative shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden h-10 w-10 shrink-0 active:bg-muted/80"
+              aria-label="Pesquisar peças"
+              data-testid="mobile-search-button"
+              onClick={() => {
+                tap();
+                setSearchOpen(true);
+              }}
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+          )}
+          {!isLoginPage && (
+            <div ref={searchContainerRef} className="uiverse-search-container relative shrink-0 hidden lg:block">
               <input
                 type="text"
                 placeholder="Pesquisar peça"
@@ -622,7 +517,7 @@ const AppHeader: React.FC = () => {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 hover:bg-muted/80 p-0">
+                      <Button variant="ghost" size="icon" className="hidden lg:inline-flex h-8 w-8 shrink-0 hover:bg-muted/80 p-0">
                         <MoreVertical className="h-4 w-4 text-foreground/80" />
                       </Button>
                     </DropdownMenuTrigger>

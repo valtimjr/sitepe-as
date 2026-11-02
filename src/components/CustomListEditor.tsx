@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { Sheet, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
 import { PlusCircle, Edit, Trash2, ArrowUp, ArrowDown, GripVertical, List as ListIcon, Copy, Download, FileText, MoreHorizontal, ArrowLeft, Tag, Loader2, FileDown, Check, XCircle } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
@@ -35,7 +35,8 @@ import { Separator } from '@/components/ui/separator';
 import RelatedPartDisplay from './RelatedPartDisplay';
 import CustomListItemForm from './CustomListItemForm';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { ResponsivePopover, ResponsivePopoverContent, ResponsivePopoverTrigger } from './responsive/ResponsivePopover';
+import ResponsiveSheetContent from './responsive/ResponsiveSheetContent';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCompany } from '@/context/CompanyContext';
 
@@ -363,13 +364,13 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
                 <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
               )}
               {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                <Popover 
+                <ResponsivePopover
                   key={`popover-${item.id}`}
-                  open={openRelatedItemsPopoverId === item.id} 
+                  open={openRelatedItemsPopoverId === item.id}
                   onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
                   modal={false}
                 >
-                  <PopoverTrigger asChild>
+                  <ResponsivePopoverTrigger>
                     <Button 
                       variant="ghost" 
                       size="sm" 
@@ -377,10 +378,10 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
                     >
                       <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto max-w-xs p-2">
-                    <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                    <ScrollArea className={isMobile ? "h-24" : "max-h-96"}>
+                  </ResponsivePopoverTrigger>
+                  <ResponsivePopoverContent title="Itens Relacionados" popoverClassName="w-auto max-w-xs p-2">
+                    <p className="hidden lg:block font-bold mb-1 text-sm">Itens Relacionados:</p>
+                    <ScrollArea className="max-h-96">
                       <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
                         {item.itens_relacionados.map(rel => (
                           <li key={rel.codigo} className="list-none ml-0">
@@ -389,8 +390,8 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
                         ))}
                       </ul>
                     </ScrollArea>
-                  </PopoverContent>
-                </Popover>
+                  </ResponsivePopoverContent>
+                </ResponsivePopover>
               )}
             </div>
         </TableCell>
@@ -485,7 +486,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
       </SheetFooter>
 
       <Sheet open={isFormSheetOpen} onOpenChange={setIsFormSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+        <ResponsiveSheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{itemToEdit ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
             <SheetDescription>
@@ -499,7 +500,7 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
             onClose={handleItemSavedOrClosed}
             allAvailableParts={allAvailableParts}
           />
-        </SheetContent>
+        </ResponsiveSheetContent>
       </Sheet>
     </div>
   );

@@ -32,7 +32,7 @@ import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { useIsMobile } from '@/hooks/use-mobile'; // Importar o hook useIsMobile
 import { cn } from '@/lib/utils'; // Importar cn
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ResponsivePopover, ResponsivePopoverContent, ResponsivePopoverTrigger } from '@/components/responsive/ResponsivePopover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
 import { RelatedPart } from '@/types/supabase';
@@ -743,8 +743,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                                 <span className="text-xs text-blue-600 dark:text-blue-400 mt-1">AF: {item.af}</span>
                               )}
                               {relatedItems.length > 0 && (
-                                <Popover>
-                                  <PopoverTrigger asChild>
+                                <ResponsivePopover>
+                                  <ResponsivePopoverTrigger>
                                     <Button 
                                       variant="ghost" 
                                       size="sm" 
@@ -752,10 +752,10 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                                     >
                                       <Tag className="h-3 w-3" /> {relatedItems.length} item(s) relacionado(s)
                                     </Button>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-auto max-w-xs p-2">
-                                    <p className="font-bold mb-1 text-sm">Itens Relacionados:</p>
-                                    <ScrollArea className="h-24">
+                                  </ResponsivePopoverTrigger>
+                                  <ResponsivePopoverContent title="Itens Relacionados" popoverClassName="w-auto max-w-xs p-2">
+                                    <p className="hidden lg:block font-bold mb-1 text-sm">Itens Relacionados:</p>
+                                    <ScrollArea className="max-h-96">
                                       <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
                                         {relatedItems.map(rel => (
                                           <li key={rel.codigo} className="list-none ml-0">
@@ -764,8 +764,8 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                                         ))}
                                       </ul>
                                     </ScrollArea>
-                                  </PopoverContent>
-                                </Popover>
+                                  </ResponsivePopoverContent>
+                                </ResponsivePopover>
                               )}
                             </div>
                           </TableCell>

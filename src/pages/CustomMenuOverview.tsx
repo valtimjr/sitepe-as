@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -160,6 +161,8 @@ const CustomMenuOverview: React.FC = () => {
   useEffect(() => {
     loadMenu();
   }, [loadMenu]);
+
+  useAppRefresh(loadMenu);
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">

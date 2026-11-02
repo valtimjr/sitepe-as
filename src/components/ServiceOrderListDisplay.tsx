@@ -6,7 +6,7 @@ import { ServiceOrderData } from '@/types/supabase';
 import { Clock, Pencil, Trash2, PlusCircle, Search, X, Check, GripVertical, Tag, Package, Star } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ResponsivePopover, ResponsivePopoverContent, ResponsivePopoverTrigger } from "@/components/responsive/ResponsivePopover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -206,8 +206,8 @@ const ServiceOrderPartRow: React.FC<{
         </div>
         
         {relatedItems.length > 0 && (
-          <Popover>
-            <PopoverTrigger asChild>
+          <ResponsivePopover>
+            <ResponsivePopoverTrigger>
               <div 
                 className="flex items-center text-xs text-blue-500 font-medium cursor-pointer hover:text-blue-700 w-fit transition-colors mt-1"
                 onClick={(e) => e.stopPropagation()}
@@ -215,9 +215,9 @@ const ServiceOrderPartRow: React.FC<{
                  <Tag className="h-3 w-3 mr-1" />
                  <span>{relatedItems.length} item(s) relacionado(s)</span>
               </div>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto max-w-[450px] p-4 bg-white shadow-lg border" align="start">
-               <h4 className="font-bold text-sm mb-2 text-foreground flex items-center gap-2">
+            </ResponsivePopoverTrigger>
+            <ResponsivePopoverContent title="Itens Relacionados" popoverClassName="w-auto max-w-[450px] p-4 bg-white shadow-lg border" align="start">
+               <h4 className="hidden lg:flex font-bold text-sm mb-2 text-foreground items-center gap-2">
                   <Package className="h-4 w-4" /> Itens Relacionados:
                </h4>
                <ul className="space-y-2 list-none pl-1">
@@ -228,8 +228,8 @@ const ServiceOrderPartRow: React.FC<{
                      </li>
                   ))}
                </ul>
-            </PopoverContent>
-          </Popover>
+            </ResponsivePopoverContent>
+          </ResponsivePopover>
         )}
       </div>
 
