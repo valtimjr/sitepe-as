@@ -38,6 +38,7 @@ import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo compo
 import { RelatedPart } from '@/types/supabase';
 import { useCompany } from '@/context/CompanyContext';
 import ListSaveMenu from './ListSaveMenu';
+import type { ListIcon } from '@/types/listIcon';
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
@@ -46,12 +47,13 @@ interface PartsListDisplayProps {
   listTitle: string;
   onTitleChange: (title: string) => void;
   onOpenEditForm: (item: SimplePartItem) => void; // Nova prop para abrir o formulário de edição
+  listIcon?: ListIcon | null;
 }
 
 type SortField = 'codigo' | 'descricao' | 'af' | 'quantidade' | null;
 type SortDirection = 'asc' | 'desc';
 
-const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged, onListReordered, listTitle, onTitleChange, onOpenEditForm }) => {
+const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged, onListReordered, listTitle, onTitleChange, onOpenEditForm, listIcon }) => {
   const { company, branding } = useCompany();
   const [orderedItems, setOrderedItems] = useState<SimplePartItem[]>(listItems);
   const [draggedItem, setDraggedItem] = useState<SimplePartItem | null>(null);
@@ -222,9 +224,18 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
       showError('A lista está vazia. Adicione itens antes de exportar.');
       return;
     }
-    const fullTitle = `${listTitle} (${branding.name})`;
-    await lazyGeneratePartsListPdf(orderedItems, fullTitle); // Usa a função lazy
-    showSuccess('PDF gerado com sucesso!');
+    try {
+      await lazyGeneratePartsListPdf(orderedItems, {
+        title: listTitle || 'Lista de Peças',
+        listIcon,
+        companyName: branding.name,
+        logoUrl: branding.logo,
+      });
+      showSuccess('PDF gerado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      showError('Erro ao gerar o PDF.');
+    }
   };
 
   const formatListText = () => {

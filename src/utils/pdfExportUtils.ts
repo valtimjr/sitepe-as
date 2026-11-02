@@ -1,5 +1,6 @@
 import { SimplePartItem, ServiceOrderItem, Apontamento } from '@/services/partListService';
 import { CustomListItem } from '@/types/supabase';
+import type { ListPdfOptions } from '@/lib/pdfGenerator';
 
 // Função para carregar dinamicamente o módulo pdfGenerator
 const loadPdfGenerator = async () => {
@@ -7,14 +8,14 @@ const loadPdfGenerator = async () => {
   return pdfGenerator;
 };
 
-export const lazyGeneratePartsListPdf = async (listItems: SimplePartItem[], title: string = 'Lista de Peças'): Promise<void> => {
+export const lazyGeneratePartsListPdf = async (listItems: SimplePartItem[], opts: ListPdfOptions): Promise<void> => {
   const { generatePartsListPdf } = await loadPdfGenerator();
-  generatePartsListPdf(listItems, title);
+  await generatePartsListPdf(listItems, opts);
 };
 
-export const lazyGenerateCustomListPdf = async (listItems: CustomListItem[], title: string): Promise<void> => {
+export const lazyGenerateCustomListPdf = async (listItems: CustomListItem[], opts: ListPdfOptions): Promise<void> => {
   const { generateCustomListPdf } = await loadPdfGenerator();
-  generateCustomListPdf(listItems, title);
+  await generateCustomListPdf(listItems, opts);
 };
 
 export const lazyGenerateServiceOrderPdf = async (groupedServiceOrders: any[], title: string = 'Ordens de Serviço'): Promise<void> => {

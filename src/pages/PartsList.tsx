@@ -234,6 +234,7 @@ const PartsList = () => {
             listTitle={listTitle} 
             onTitleChange={handleTitleChange} 
             onOpenEditForm={handleOpenEditForm}
+            listIcon={activeList?.icon}
           />
         </div>
       )}

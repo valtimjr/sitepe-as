@@ -6,6 +6,8 @@ import { ptBR } from 'date-fns/locale';
 import { CustomListItem, MangueiraPartDetails } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
 import { calculateDailyTimesAndGaps } from '@/services/shiftService';
+import type { ListIcon } from '@/types/listIcon';
+import { renderListIconToPng, loadImageAsDataUrl, type LoadedImage } from '@/lib/pdfIcons';
 
 // Aplica o plugin explicitamente ao jsPDF
 applyPlugin(jsPDF);
@@ -90,26 +92,155 @@ const compareTimeStringsForPdf = (t1: string | undefined, t2: string | undefined
   return effectiveMinutes1 - effectiveMinutes2;
 };
 
-export const generatePartsListPdf = async (listItems: SimplePartItem[], title: string = 'Lista de Peças'): Promise<void> => {
+// ---------- Cabeçalho, ícones e utilitários dos PDFs de listas ----------
+
+const PAGE_MARGIN_X = 14;
+const CONTENT_TOP = 30;
+const PAGE_BOTTOM_MARGIN = 14;
+
+export interface ListPdfOptions {
+  title: string;
+  listIcon?: ListIcon | null;
+  companyName: string;
+  logoUrl?: string;
+}
+
+interface PdfHeaderData {
+  logo: LoadedImage | null;
+  companyName: string;
+}
+
+const WIN_ANSI_EXTRA = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
+
+/** Remove emojis e caracteres que a Helvetica do jsPDF não tem (mantém acentos). */
+export const pdfSafeText = (text: string | null | undefined): string =>
+  Array.from(text || '')
+    .filter(ch => {
+      const code = ch.codePointAt(0) ?? 0;
+      return code === 10 || (code >= 0x20 && code <= 0x7e) || (code >= 0xa0 && code <= 0xff) || WIN_ANSI_EXTRA.includes(ch);
+    })
+    .join('')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+
+/** "Filtro de Óleo" -> "Filtro_de_Oleo_2026-11-02.pdf" */
+export const buildPdfFileName = (title: string): string => {
+  const base = (title || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return `${base || 'Lista'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+};
+
+/** Desenha o cabeçalho (logo + nome da empresa) uma vez por página. */
+const createHeaderDrawer = (doc: jsPDF, header: PdfHeaderData) => {
+  const drawnPages = new Set<number>();
+  return () => {
+    const page = doc.getCurrentPageInfo().pageNumber;
+    if (drawnPages.has(page)) return;
+    drawnPages.add(page);
+    drawPdfHeader(doc, header);
+  };
+};
+
+const drawPdfHeader = (doc: jsPDF, { logo, companyName }: PdfHeaderData) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const right = pageWidth - PAGE_MARGIN_X;
+
+  if (logo) {
+    const height = 12;
+    const width = Math.min(60, (height * logo.width) / logo.height);
+    try {
+      doc.addImage(logo.dataUrl, 'PNG', PAGE_MARGIN_X, 8, width, height, 'company-logo');
+    } catch (error) {
+      console.warn('Não foi possível adicionar o logo ao PDF:', error);
+    }
+  }
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(110, 110, 110);
+  doc.text(pdfSafeText(companyName), right, 16, { align: 'right' });
+
+  doc.setDrawColor(210, 210, 210);
+  doc.setLineWidth(0.3);
+  doc.line(PAGE_MARGIN_X, 23, right, 23);
+
+  doc.setTextColor(0, 0, 0);
+};
+
+/** Ícone (9mm) + título (16pt). Devolve o Y abaixo do título. */
+const drawListTitle = (doc: jsPDF, y: number, { title, iconPng }: { title: string; iconPng: string | null }) => {
+  const iconSize = 9;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let textX = PAGE_MARGIN_X;
+  if (iconPng) {
+    doc.addImage(iconPng, 'PNG', PAGE_MARGIN_X, y, iconSize, iconSize, imageAlias(iconPng));
+    textX += iconSize + 3;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(0, 0, 0);
+  const lines = doc.splitTextToSize(pdfSafeText(title) || 'Lista', pageWidth - PAGE_MARGIN_X - textX);
+  doc.text(lines, textX, y + 6.3);
+  doc.setFont('helvetica', 'normal');
+  const textHeight = 6.3 + (lines.length - 1) * 6.5;
+  return y + Math.max(iconSize, textHeight) + 5;
+};
+
+/** Se não couber `needed` mm na página, cria uma nova (com cabeçalho) e devolve o novo Y. */
+const ensureSpace = (doc: jsPDF, y: number, needed: number, drawHeader: () => void) => {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  if (y + needed <= pageHeight - PAGE_BOTTOM_MARGIN) return y;
+  doc.addPage();
+  drawHeader();
+  return CONTENT_TOP;
+};
+
+/** Alias estável por imagem: o mesmo ícone vira um único objeto de imagem no PDF. */
+const imageAliases = new Map<string, string>();
+const imageAlias = (dataUrl: string) => {
+  let alias = imageAliases.get(dataUrl);
+  if (!alias) {
+    alias = `list-icon-${imageAliases.size + 1}`;
+    imageAliases.set(dataUrl, alias);
+  }
+  return alias;
+};
+
+const loadHeader = async (opts: ListPdfOptions): Promise<PdfHeaderData> => ({
+  logo: opts.logoUrl ? await loadImageAsDataUrl(opts.logoUrl) : null,
+  companyName: opts.companyName,
+});
+
+const tableBaseOptions = (drawHeader: () => void) => ({
+  theme: 'plain',
+  showHead: 'everyPage',
+  headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
+  margin: { top: CONTENT_TOP, left: PAGE_MARGIN_X, right: PAGE_MARGIN_X, bottom: PAGE_BOTTOM_MARGIN },
+  didDrawPage: drawHeader,
+});
+
+export const generatePartsListPdf = async (listItems: SimplePartItem[], opts: ListPdfOptions): Promise<void> => {
   const doc = new jsPDF();
-  let currentY = 22;
+  const [header, iconPng] = await Promise.all([
+    loadHeader(opts),
+    renderListIconToPng(opts.listIcon ?? null, opts.title),
+  ]);
+  const drawHeader = createHeaderDrawer(doc, header);
+  drawHeader();
 
-  doc.setFontSize(18);
-  doc.text(title, 14, currentY); // Usa o título fornecido como título principal
-  currentY += 8;
+  const currentY = drawListTitle(doc, CONTENT_TOP, { title: opts.title, iconPng });
 
-  // Colunas: Código da Peça, Nome, Quantidade, Descrição
   const tableColumn = ["Cód. Peça", "Nome", "Quantidade", "Descrição", "AF"];
   const tableRows: (string | number | undefined)[][] = [];
 
   for (const item of listItems) {
-    // Tenta obter o nome da peça (se disponível)
     const part = await localDb.parts.where('codigo').equals(item.codigo_peca || '').first();
-    
-    // Ajusta a ordem dos dados para a tabela
     tableRows.push([
       item.codigo_peca || 'N/A',
-      part?.name || 'N/A', // Adiciona o campo Nome
+      part?.name || 'N/A',
       item.quantidade ?? 'N/A',
       item.descricao || 'N/A',
       item.af || '',
@@ -117,26 +248,40 @@ export const generatePartsListPdf = async (listItems: SimplePartItem[], title: s
   }
 
   (doc as any).autoTable({
+    ...tableBaseOptions(drawHeader),
     head: [tableColumn],
     body: tableRows,
     startY: currentY,
-    theme: 'plain',
     styles: { fontSize: 10, cellPadding: 2, overflow: 'linebreak', lineWidth: 0 },
-    headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [240, 240, 240] },
-    margin: { top: 10 },
   });
 
-  doc.save(`${title.replace(/\s/g, '_')}.pdf`);
+  doc.save(buildPdfFileName(opts.title));
 };
 
-export const generateCustomListPdf = (listItems: CustomListItem[], title: string): void => {
+export const generateCustomListPdf = async (listItems: CustomListItem[], opts: ListPdfOptions): Promise<void> => {
   const doc = new jsPDF({ orientation: 'portrait' });
-  let currentY = 22;
+  const listIcon = opts.listIcon ?? null;
 
-  doc.setFontSize(18);
-  doc.text(title, 14, currentY);
-  currentY += 10;
+  // Ícone efetivo de cada subtítulo (próprio -> da lista -> automático), igual ao app.
+  const subtitleIconArgs = (item: CustomListItem) =>
+    item.icon ? { icon: item.icon, name: item.item_name } : { icon: listIcon, name: opts.title };
+
+  const subtitleItems = listItems.filter(item => item.type === 'subtitle');
+  const [header, titleIconPng, subtitleIconPngs] = await Promise.all([
+    loadHeader(opts),
+    renderListIconToPng(listIcon, opts.title),
+    Promise.all(subtitleItems.map(item => {
+      const { icon, name } = subtitleIconArgs(item);
+      return renderListIconToPng(icon, name);
+    })),
+  ]);
+  const subtitleIcons = new Map(subtitleItems.map((item, i) => [item.id, subtitleIconPngs[i]]));
+
+  const drawHeader = createHeaderDrawer(doc, header);
+  drawHeader();
+
+  let currentY = drawListTitle(doc, CONTENT_TOP, { title: opts.title, iconPng: titleIconPng });
 
   let currentGroupType: 'item' | 'mangueira' | null = null;
   let currentGroupRows: any[] = [];
@@ -171,14 +316,12 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
     if (head) {
       (doc as any).autoTable({
+        ...tableBaseOptions(drawHeader),
         head: head,
         body: currentGroupRows,
         startY: currentY,
-        theme: 'plain',
         styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak', lineWidth: 0 },
-        headStyles: { fillColor: [20, 20, 20], textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [248, 249, 250] },
-        margin: { top: 10, left: 14, right: 14 },
         columnStyles: columnStyles,
       });
       currentY = (doc as any).lastAutoTable.finalY;
@@ -188,24 +331,35 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
     currentGroupType = null;
   };
 
+  const pageWidth = doc.internal.pageSize.getWidth();
+
   listItems.forEach(item => {
     if (item.type === 'separator') {
       renderGroup();
-      currentY += 2;
+      currentY = ensureSpace(doc, currentY + 2, 8, drawHeader);
       doc.setDrawColor(200);
-      doc.line(14, currentY, 196, currentY);
+      doc.line(PAGE_MARGIN_X, currentY, pageWidth - PAGE_MARGIN_X, currentY);
       currentY += 4;
       return;
     }
 
     if (item.type === 'subtitle') {
       renderGroup();
-      currentY += 5;
+      // Manter junto: o subtítulo só fica na página se couber também o começo da tabela.
+      currentY = ensureSpace(doc, currentY + 4, 20, drawHeader);
+      const iconSize = 5;
+      const iconPng = subtitleIcons.get(item.id) ?? null;
+      let textX = PAGE_MARGIN_X;
+      if (iconPng) {
+        doc.addImage(iconPng, 'PNG', PAGE_MARGIN_X, currentY, iconSize, iconSize, imageAlias(iconPng));
+        textX += iconSize + 2;
+      }
       doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(0, 0, 0); // primary color
-      doc.text(item.item_name, 14, currentY);
-      currentY += 7;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(pdfSafeText(item.item_name), textX, currentY + 4);
+      doc.setFont('helvetica', 'normal');
+      currentY += iconSize + 3;
       return;
     }
 
@@ -256,7 +410,7 @@ export const generateCustomListPdf = (listItems: CustomListItem[], title: string
 
   renderGroup(); // Render the last group
 
-  doc.save(`${title.replace(/\s/g, '_')}.pdf`);
+  doc.save(buildPdfFileName(opts.title));
 };
 
 // ATUALIZADO: generateServiceOrderPdf agora aceita ServiceOrderGroup[]

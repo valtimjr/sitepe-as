@@ -253,9 +253,18 @@ const CustomListPage: React.FC = () => {
       showError('Nenhum item para exportar.');
       return;
     }
-    const fullTitle = `${listTitle} (${branding.name})`;
-    await lazyGenerateCustomListPdf(itemsToProcess, fullTitle);
-    showSuccess('PDF gerado com sucesso!');
+    try {
+      await lazyGenerateCustomListPdf(itemsToProcess, {
+        title: listTitle,
+        listIcon: listIconData,
+        companyName: branding.name,
+        logoUrl: branding.logo,
+      });
+      showSuccess('PDF gerado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      showError('Erro ao gerar o PDF.');
+    }
   };
 
   const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
