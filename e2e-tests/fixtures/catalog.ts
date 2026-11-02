@@ -18,6 +18,17 @@ export const LIST_ITEMS = [
   { id: 'sub-1', type: 'subtitle', item_name: 'Sub Dinâmico', order_index: 0, part_code: null, description: null, quantity: 0, itens_relacionados: [] },
   { id: 'it-1', type: 'item', item_name: 'Filtro A', order_index: 1, part_code: 'FA-1', description: 'Filtro de óleo A', quantity: 2, itens_relacionados: [] },
   { id: 'it-2', type: 'item', item_name: 'Filtro B', order_index: 2, part_code: 'FB-2', description: null, quantity: 1, itens_relacionados: [] },
+  {
+    id: 'sub-2',
+    type: 'subtitle',
+    item_name: 'Sub Próprio',
+    order_index: 3,
+    part_code: null,
+    description: null,
+    quantity: 0,
+    itens_relacionados: [],
+    icon: { source: 'emoji', value: '⚙️' },
+  },
 ];
 
 const LISTS = [
@@ -39,7 +50,7 @@ export async function mockCatalog(page: Page) {
   await page.route(/\/rest\/v1\/custom_lists\?/, async route => {
     const url = decodeURIComponent(route.request().url());
     const accept = route.request().headers()['accept'] || '';
-    const single = url.match(/id=eq\.([^&]+)/);
+    const single = url.match(/[?&]id=eq\.([^&]+)/);
     if (single) {
       const list = LISTS.find(l => l.id === single[1]) ?? null;
       await route.fulfill({ json: accept.includes('vnd.pgrst.object') ? list : list ? [list] : [] });

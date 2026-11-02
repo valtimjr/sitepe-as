@@ -105,11 +105,7 @@ const MobileListBrowser: React.FC<MobileListBrowserProps> = ({ items, company, p
               onClick={onNavigate}
               data-testid="list-browser-list"
             >
-              {item.isDynamic ? (
-                <span className="h-9 w-9 shrink-0" aria-hidden="true" />
-              ) : (
-                <MenuItemIcon item={item} size="sm" className="h-9 w-9 rounded-md" />
-              )}
+              <MenuItemIcon item={item} size="sm" className="h-9 w-9 rounded-md" />
               <span className="flex-1 truncate">{item.title}</span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </Link>

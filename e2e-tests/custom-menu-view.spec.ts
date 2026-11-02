@@ -21,7 +21,11 @@ test.describe('Catálogo de Peças no celular', () => {
     await page.getByRole('button', { name: 'Expandir tudo' }).click();
     const oleo = page.getByRole('link', { name: /Filtro de Óleo/ });
     await expect(oleo.getByTestId('list-icon')).toHaveAttribute('data-icon-value', '🛢️');
-    await expect(page.getByText('Sub Dinâmico')).toHaveCount(0);
+    // Subtítulos: sem ícone próprio herdam o da lista; com ícone próprio usam o seu
+    const subInherited = page.getByRole('link', { name: /Sub Dinâmico/ });
+    await expect(subInherited.getByTestId('list-icon')).toHaveAttribute('data-icon-value', '🛢️');
+    await expect(subInherited).toHaveAttribute('href', '/usina_vale/custom-list/e2e-list-oleo#sub-1');
+    await expect(page.getByRole('link', { name: /Sub Próprio/ }).getByTestId('list-icon')).toHaveAttribute('data-icon-value', '⚙️');
 
     await page.getByRole('button', { name: 'Itens relacionados de Filtro de Óleo' }).click();
     await expect(page.getByTestId('catalog-related-popover')).toContainText('REL-1');

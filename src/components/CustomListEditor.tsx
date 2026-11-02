@@ -1,44 +1,18 @@
-/** @jsxImportSource react */
-"use client";
-
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { PlusCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
-import { PlusCircle, Edit, Trash2, ArrowUp, ArrowDown, GripVertical, List as ListIcon, Copy, Download, FileText, MoreHorizontal, ArrowLeft, Tag, Loader2, FileDown, Check, XCircle } from 'lucide-react';
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
-import { getCustomListItems, deleteCustomListItem, updateAllCustomListItems } from '@/services/customListService';
-import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
-import { lazyGenerateCustomListPdf } from '@/utils/pdfExportUtils';
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from '@/lib/utils';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Separator } from '@/components/ui/separator';
-import RelatedPartDisplay from './RelatedPartDisplay';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Sheet, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { showError, showSuccess } from '@/utils/toast';
+import type { CustomList, CustomListItem, Part } from '@/types/supabase';
+import { deleteCustomListItem, getCustomListItems, updateAllCustomListItems } from '@/services/customListService';
 import CustomListItemForm from './CustomListItemForm';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { ResponsivePopover, ResponsivePopoverContent, ResponsivePopoverTrigger } from './responsive/ResponsivePopover';
 import ResponsiveSheetContent from './responsive/ResponsiveSheetContent';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import SortableList from './sortable/SortableList';
+import ListItemBlock from './custom-list-admin/ListItemBlock';
+import ListIcon from './list-icon/ListIcon';
 import { useCompany } from '@/context/CompanyContext';
+import { useIsCompact } from '@/hooks/use-compact';
 
 interface CustomListEditorProps {
   list: CustomList;
@@ -46,24 +20,24 @@ interface CustomListEditorProps {
   allAvailableParts: Part[];
 }
 
+/** Editor dos itens de uma lista: cabeçalho fixo, blocos por tipo e arrastar para reordenar. */
 const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allAvailableParts }) => {
   const { company } = useCompany();
+  const isCompact = useIsCompact();
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isFormSheetOpen, setIsFormSheetOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<CustomListItem | null>(null);
-  const [draggedItem, setDraggedItem] = useState<CustomListItem | null>(null);
-  const [openRelatedItemsPopoverId, setOpenRelatedItemsPopoverId] = useState<string | null>(null);
-  const isMobile = useIsMobile();
+  const savedRef = useRef<CustomListItem[]>([]);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadItems = useCallback(async () => {
-    if (!list.id) return;
     setIsLoading(true);
     try {
-      const fetchedItems = await getCustomListItems(list.id, company);
-      setItems(fetchedItems);
-    } catch (error) {
-      console.error('Erro ao carregar itens da lista:', error);
+      const fetched = await getCustomListItems(list.id, company);
+      setItems(fetched);
+      savedRef.current = fetched;
+    } catch {
       showError('Erro ao carregar itens da lista.');
     } finally {
       setIsLoading(false);
@@ -74,430 +48,125 @@ const CustomListEditor: React.FC<CustomListEditorProps> = ({ list, onClose, allA
     loadItems();
   }, [loadItems]);
 
-  const handleItemSavedOrClosed = () => {
-    setIsFormSheetOpen(false);
+  useEffect(() => () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+  }, []);
+
+  const handleSaved = () => {
+    setIsFormOpen(false);
     setItemToEdit(null);
     loadItems();
   };
 
-  const handleAdd = () => {
-    setItemToEdit(null);
-    setIsFormSheetOpen(true);
-  };
-
-  const handleEditItemClick = (item: CustomListItem) => {
+  const openForm = (item: CustomListItem | null) => {
     setItemToEdit(item);
-    setIsFormSheetOpen(true);
+    setIsFormOpen(true);
   };
 
-  const handleDelete = async (itemId: string) => {
+  const handleDelete = async (item: CustomListItem) => {
     try {
-      await deleteCustomListItem(list.id, itemId, company);
-      showSuccess('Item excluído com sucesso!');
+      await deleteCustomListItem(list.id, item.id, company);
+      showSuccess('Item excluído!');
       loadItems();
-    } catch (error) {
-      console.error('Erro ao excluir item:', error);
+    } catch {
       showError('Erro ao excluir item.');
     }
   };
 
-  const handleMoveItem = async (item: CustomListItem, direction: 'up' | 'down') => {
-    const siblings = [...items];
-    const currentIndex = siblings.findIndex(i => i.id === item.id);
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-  
-    if (targetIndex < 0 || targetIndex >= siblings.length) return;
-  
-    const [removed] = siblings.splice(currentIndex, 1);
-    siblings.splice(targetIndex, 0, removed);
-  
-    const updatedItemsWithNewOrder = siblings.map((reorderedItem, index) => ({
-      ...reorderedItem,
-      order_index: index,
-    }));
-    
-    setItems(updatedItemsWithNewOrder);
-
-    const loadingToastId = showLoading('Reordenando itens...');
-
-    try {
-      await updateAllCustomListItems(list.id, updatedItemsWithNewOrder, company);
-      showSuccess('Ordem atualizada!');
-      await loadItems();
-    } catch (error) {
-      console.error('Erro ao reordenar itens:', error);
-      showError('Erro ao reordenar itens.');
-      loadItems();
-    } finally {
-      dismissToast(loadingToastId);
-    }
-  };
-
-  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, item: CustomListItem) => {
-    setDraggedItem(item);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', item.id);
-    e.currentTarget.classList.add('opacity-50');
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    e.currentTarget.classList.add('border-t-2', 'border-primary');
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.currentTarget.classList.remove('border-t-2', 'border-primary');
-  };
-
-  const handleDrop = async (e: React.DragEvent<HTMLTableRowElement>, targetItem: CustomListItem) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('opacity-50');
-
-    if (draggedItem && draggedItem.id !== targetItem.id) {
-      const currentItemsCopy = [...items];
-      const draggedIndex = currentItemsCopy.findIndex(item => item.id === draggedItem.id);
-      const targetIndex = currentItemsCopy.findIndex(item => item.id === targetItem.id);
-
-      if (draggedIndex !== -1 && targetIndex !== -1) {
-        const [removed] = currentItemsCopy.splice(draggedIndex, 1);
-        currentItemsCopy.splice(targetIndex, 0, removed);
-        
-        const updatedItemsWithNewOrder = currentItemsCopy.map((reorderedItem, index) => ({
-          ...reorderedItem,
-          order_index: index,
-        }));
-        
-        setItems(updatedItemsWithNewOrder);
-
-        const loadingToastId = showLoading('Reordenando itens...');
-        try {
-          await updateAllCustomListItems(list.id, updatedItemsWithNewOrder, company);
-          showSuccess('Ordem atualizada com sucesso!');
-          await loadItems();
-        } catch (error) {
-          console.error('Erro ao reordenar itens:', error);
-          showError('Erro ao reordenar itens.');
-          await loadItems();
-        } finally {
-          dismissToast(loadingToastId);
-        }
+  // Reordenação otimista com debounce de 400ms; volta à ordem anterior se falhar.
+  const applyOrder = (ids: string[]) => {
+    const byId = new Map(items.map(i => [i.id, i]));
+    const next = ids.map((id, index) => ({ ...byId.get(id)!, order_index: index }));
+    setItems(next);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      saveTimer.current = null;
+      try {
+        await updateAllCustomListItems(list.id, next, company);
+        savedRef.current = next;
+      } catch {
+        showError('Erro ao reordenar itens. A ordem anterior foi restaurada.');
+        setItems(savedRef.current);
       }
-    }
-    setDraggedItem(null);
+    }, 400);
   };
 
-  const handleDragEnd = (e: React.DragEvent<HTMLTableRowElement>) => {
-    e.currentTarget.classList.remove('opacity-50');
-    setDraggedItem(null);
+  const handleMove = (item: CustomListItem, direction: 'up' | 'down') => {
+    const ids = items.map(i => i.id);
+    const from = ids.indexOf(item.id);
+    const to = direction === 'up' ? from - 1 : from + 1;
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    [ids[from], ids[to]] = [ids[to], ids[from]];
+    applyOrder(ids);
   };
-
-  const renderItemRow = (item: CustomListItem, index: number) => {
-    const isSeparator = item.type === 'separator';
-    const isSubtitle = item.type === 'subtitle';
-    const isMangueira = item.type === 'mangueira';
-    const isItem = item.type === 'item';
-    
-    const previousItem = index > 0 ? items[index - 1] : null;
-    const showMangueiraHeader = isMangueira && (!previousItem || previousItem.type !== 'mangueira');
-
-    if (isSeparator) {
-      return (
-        <TableRow key={item.id} id={item.id} className="bg-muted/50 border-y border-dashed">
-          <TableCell colSpan={6} className="text-center font-mono text-sm font-bold text-foreground italic p-2">
-            <Separator className="my-0 bg-foreground/50 h-px" />
-          </TableCell>
-        </TableRow>
-      );
-    }
-
-    if (isSubtitle) {
-      return (
-        <TableRow 
-          key={item.id} 
-          id={item.id} 
-          className="bg-accent/10 hover:bg-accent/50 border-y-2 border-primary/50"
-          draggable
-          onDragStart={(e) => handleDragStart(e, item)}
-          onDragOver={handleDragOver}
-          onDrop={(e) => handleDrop(e, item)}
-          onDragLeave={handleDragLeave}
-          onDragEnd={handleDragEnd}
-          data-id={item.id}
-        >
-          <TableCell className="w-[30px] p-2 cursor-grab"><GripVertical className="h-4 w-4" /></TableCell>
-          <TableCell colSpan={4} className="text-left font-bold text-lg text-primary p-2">
-            {item.item_name}
-          </TableCell>
-          <TableCell className="w-[70px] p-2 text-right">
-            <div className="flex justify-end items-center gap-1">
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-              <AlertDialog>
-                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o subtítulo "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </TableCell>
-        </TableRow>
-      );
-    }
-
-    if (isMangueira) {
-      const data = item.mangueira_data;
-      if (!data) return null;
-
-      return (
-        <React.Fragment key={item.id}>
-          {showMangueiraHeader && (
-            <TableRow className="bg-muted/50 border-y border-primary/50">
-              <TableHead className="w-[30px] p-2"></TableHead>
-              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
-              <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
-              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 1</TableHead>
-              <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 2</TableHead>
-              <TableHead className="w-[70px] p-2 text-right"></TableHead>
-            </TableRow>
-          )}
-          <TableRow 
-            key={item.id}
-            draggable
-            onDragStart={(e) => handleDragStart(e, item)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, item)}
-            onDragLeave={handleDragLeave}
-            onDragEnd={handleDragEnd}
-            data-id={item.id}
-          >
-            <TableCell className="w-[30px] p-2 cursor-grab">
-              <GripVertical className="h-4 w-4" />
-            </TableCell>
-            
-            {/* Coluna 1: Mangueira (Nome/Desc/Cód) */}
-            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-              <div className="flex flex-col items-start">
-                <span className="font-medium text-sm text-primary whitespace-normal break-words">Cód.: {data.mangueira.codigo}</span>
-                <span className="text-[9pt] text-foreground whitespace-normal break-words">{data.mangueira.name}</span>
-                {data.mangueira.description && (
-                  <span className="text-[8pt] italic text-foreground/90 max-w-full whitespace-normal break-words">{data.mangueira.description}</span>
-                )}
-              </div>
-            </TableCell>
-            
-            {/* Coluna 2: Corte (cm) */}
-            <TableCell className="w-[4rem] p-2 text-center font-medium text-lg">
-              {data.corte_cm}
-            </TableCell>
-            
-            {/* Coluna 3: Conexão 1 */}
-            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-              <div className="flex flex-col items-start">
-                <span className="font-medium text-sm text-primary whitespace-normal break-words">Cód.: {data.conexao1.codigo}</span>
-                <span className="text-[9pt] text-foreground whitespace-normal break-words">{data.conexao1.name}</span>
-                {data.conexao1.description && (
-                  <span className="text-[8pt] italic text-foreground/90 max-w-full whitespace-normal break-words">{data.conexao1.description}</span>
-                )}
-              </div>
-            </TableCell>
-            
-            {/* Coluna 4: Conexão 2 */}
-            <TableCell className="w-auto whitespace-normal break-words p-2 text-left">
-              <div className="flex flex-col items-start">
-                <span className="font-medium text-sm text-primary whitespace-normal break-words">Cód.: {data.conexao2.codigo}</span>
-                <span className="text-[9pt] text-foreground whitespace-normal break-words">{data.conexao2.name}</span>
-                {data.conexao2.description && (
-                  <span className="text-[8pt] italic text-foreground/90 max-w-full whitespace-normal break-words">{data.conexao2.description}</span>
-                )}
-              </div>
-            </TableCell>
-
-            {/* Coluna 5: Ações */}
-            <TableCell className="w-[70px] p-2 text-right">
-              <div className="flex justify-end items-center gap-1">
-                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o item "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                    <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </TableCell>
-          </TableRow>
-        </React.Fragment>
-      );
-    }
-
-    // Item de peça normal
-    return (
-      <TableRow 
-        key={item.id}
-        draggable
-        onDragStart={(e) => handleDragStart(e, item)}
-        onDragOver={handleDragOver}
-        onDrop={(e) => handleDrop(e, item)}
-        onDragLeave={handleDragLeave}
-        onDragEnd={handleDragEnd}
-        data-id={item.id}
-        className="relative"
-      >
-        <TableCell className="w-[30px] p-2 cursor-grab">
-          <GripVertical className="h-4 w-4" />
-        </TableCell>
-        <TableCell className="font-medium p-2 text-center">{item.quantity}</TableCell>
-        <TableCell className="w-auto whitespace-normal break-words p-2 text-left" colSpan={isMobile ? 4 : 3}>
-            <div className="flex flex-col items-start">
-              {item.part_code && (
-                <span className="font-medium text-sm text-primary whitespace-normal break-words">
-                  Cód.: {item.part_code}
-                </span>
-              )}
-              <span className={cn("text-sm whitespace-normal break-words", !item.part_code && 'font-medium')}>{item.item_name}</span>
-              {item.description && (
-                <span className="text-xs text-muted-foreground italic max-w-full whitespace-normal break-words">{item.description}</span>
-              )}
-              {item.itens_relacionados && item.itens_relacionados.length > 0 && (
-                <ResponsivePopover
-                  key={`popover-${item.id}`}
-                  open={openRelatedItemsPopoverId === item.id}
-                  onOpenChange={(open) => setOpenRelatedItemsPopoverId(open ? item.id : null)}
-                  modal={false}
-                >
-                  <ResponsivePopoverTrigger>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1 cursor-pointer h-auto py-0 px-1"
-                    >
-                      <Tag className="h-3 w-3" /> {item.itens_relacionados.length} item(s) relacionado(s)
-                    </Button>
-                  </ResponsivePopoverTrigger>
-                  <ResponsivePopoverContent title="Itens Relacionados" popoverClassName="w-auto max-w-xs p-2">
-                    <p className="hidden lg:block font-bold mb-1 text-sm">Itens Relacionados:</p>
-                    <ScrollArea className="max-h-96">
-                      <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
-                        {item.itens_relacionados.map(rel => (
-                          <li key={rel.codigo} className="list-none ml-0">
-                            <RelatedPartDisplay item={rel} />
-                          </li>
-                        ))}
-                      </ul>
-                    </ScrollArea>
-                  </ResponsivePopoverContent>
-                </ResponsivePopover>
-              )}
-            </div>
-        </TableCell>
-        <TableCell className="w-[70px] p-2 text-right">
-          <div className="flex justify-end items-center gap-1">
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'up')} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Cima</TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleMoveItem(item, 'down')} disabled={index === items.length - 1}><ArrowDown className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Mover para Baixo</TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handleEditItemClick(item)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Editar Item</TooltipContent></Tooltip>
-            <AlertDialog>
-              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>Tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação irá remover o item "{item.item_name}". Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Excluir</AlertDialogAction></AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  };
-
-  const SimpleItemHeader = () => (
-    <TableRow className="bg-muted/50 border-y border-primary/50">
-      <TableHead className="w-[30px] p-2"></TableHead>
-      <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Qtd</TableHead>
-      <TableHead className="w-auto p-2 text-left font-bold text-sm" colSpan={isMobile ? 4 : 3}>Item / Código / Descrição</TableHead>
-      <TableHead className="w-[70px] p-2 text-right"></TableHead>
-    </TableRow>
-  );
-
-  const MangueiraHeader = () => (
-    <TableRow className="bg-muted/50 border-y border-primary/50">
-      <TableHead className="w-[30px] p-2"></TableHead>
-      <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Mangueira</TableHead>
-      <TableHead className="w-[4rem] p-2 text-center font-bold text-sm">Corte (cm)</TableHead>
-      <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 1</TableHead>
-      <TableHead className="w-auto whitespace-normal break-words p-2 text-left font-bold text-sm">Conexão 2</TableHead>
-      <TableHead className="w-[70px] p-2 text-right"></TableHead>
-    </TableRow>
-  );
 
   return (
-    <div className="flex flex-col h-full pt-4">
-      <div className="flex flex-wrap gap-2 justify-end mb-4 px-4">
-        <Button onClick={handleAdd} className="flex items-center gap-2">
-          <PlusCircle className="h-4 w-4" /> Adicionar Item
-        </Button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4">
-        {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Carregando itens...</p>
-        ) : items.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum item nesta lista.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableBody>
-                {(() => {
-                  let lastItemType: string | null = null;
-                  const rows: React.ReactNode[] = [];
-
-                  items.forEach((item, index) => {
-                    const currentItemType = item.type;
-
-                    if (currentItemType === 'subtitle' || currentItemType === 'separator') {
-                      rows.push(renderItemRow(item, index));
-                      lastItemType = null;
-                      return;
-                    }
-
-                    if (currentItemType !== lastItemType) {
-                      if (currentItemType === 'item') {
-                        rows.push(<SimpleItemHeader key={`header-item-${index}`} />);
-                      }
-                      lastItemType = currentItemType;
-                    }
-
-                    rows.push(renderItemRow(item, index));
-                  });
-
-                  return rows;
-                })()}
-              </TableBody>
-            </Table>
+    <div className="flex h-full min-h-0 flex-col" data-testid="custom-list-editor">
+      <SheetHeader className="space-y-0 border-b px-3 pb-3 pt-4 pr-12 text-left sm:px-4 sm:pr-12">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <ListIcon name={list.title} icon={list.icon} size="sm" className="h-9 w-9 rounded-md" />
+          <div className="min-w-0">
+            <SheetTitle className="line-clamp-2 break-words text-base sm:text-lg">{list.title}</SheetTitle>
+            <SheetDescription className="text-xs">
+              {items.length} {items.length === 1 ? 'linha' : 'linhas'} · segure a alça para reordenar
+            </SheetDescription>
           </div>
+        </div>
+        <Button onClick={() => openForm(null)} className="mt-3 h-11 w-full gap-2 sm:h-10 sm:w-auto" data-testid="add-list-item">
+          <PlusCircle className="h-4 w-4" /> Adicionar item
+        </Button>
+      </SheetHeader>
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-2 sm:px-3">
+        {isLoading ? (
+          <div className="space-y-2 px-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="m-2 rounded-lg border-2 border-dashed p-8 text-center text-sm text-muted-foreground">
+            Nenhum item nesta lista.
+          </div>
+        ) : (
+          <SortableList
+            items={items}
+            getId={item => item.id}
+            onReorder={applyOrder}
+            className="divide-y"
+            renderItem={(item, index) => (
+              <ListItemBlock
+                item={item}
+                list={list}
+                isCompact={isCompact}
+                isFirst={index === 0}
+                isLast={index === items.length - 1}
+                onEdit={openForm}
+                onMove={handleMove}
+                onDelete={handleDelete}
+              />
+            )}
+          />
         )}
       </div>
 
-      <SheetFooter className="p-4 border-t mt-4">
-        <Button variant="outline" onClick={onClose}>Fechar</Button>
-      </SheetFooter>
+      <div className="border-t bg-background px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-4">
+        <Button variant="outline" className="h-11 w-full gap-2 sm:h-10 sm:w-auto" onClick={onClose} data-testid="close-list-editor">
+          <X className="h-4 w-4" /> Fechar
+        </Button>
+      </div>
 
-      <Sheet open={isFormSheetOpen} onOpenChange={setIsFormSheetOpen}>
-        <ResponsiveSheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+      <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <ResponsiveSheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
           <SheetHeader>
-            <SheetTitle>{itemToEdit ? 'Editar Item' : 'Adicionar Novo Item'}</SheetTitle>
-            <SheetDescription>
-              Preencha os detalhes do item para a lista "{list.title}".
-            </SheetDescription>
+            <SheetTitle>{itemToEdit ? 'Editar item' : 'Adicionar item'}</SheetTitle>
+            <SheetDescription>Lista "{list.title}".</SheetDescription>
           </SheetHeader>
           <CustomListItemForm
             list={list}
             editingItem={itemToEdit}
-            onItemSaved={handleItemSavedOrClosed}
-            onClose={handleItemSavedOrClosed}
+            onItemSaved={handleSaved}
+            onClose={handleSaved}
             allAvailableParts={allAvailableParts}
           />
         </ResponsiveSheetContent>

@@ -85,7 +85,7 @@ const CustomMenuOverview: React.FC = () => {
         {isLoading ? (
           <div className={cn(isCompact ? 'space-y-2.5' : 'grid gap-3 md:grid-cols-2')} data-testid="catalog-loading">
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-28 w-full rounded-xl" />
+              <Skeleton key={i} className="h-28 w-full rounded-none" />
             ))}
           </div>
         ) : menuHierarchy.length === 0 ? (

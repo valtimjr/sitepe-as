@@ -1,137 +1,62 @@
-/** @jsxImportSource react */
-"use client";
-
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FolderTree, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sheet, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
-import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
-import { PlusCircle, Edit, Trash2, Save, XCircle, ChevronDown, ChevronRight, List as ListIcon, ArrowUp, ArrowDown, GripVertical, Tag, Loader2, FileText, MoreHorizontal } from 'lucide-react';
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { MenuItem, CustomList, Part, RelatedPart } from '@/types/supabase';
-import { getAllMenuItemsFlat, createMenuItem, updateMenuItem, deleteMenuItem, getCustomLists, saveAllMenuItems, updateCustomListIcon } from '@/services/customListService';
-import { getParts, searchParts as searchPartsService, updatePart } from '@/services/partListService';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Skeleton } from '@/components/ui/skeleton';
+import { showError, showSuccess } from '@/utils/toast';
+import type { CustomList, MenuItem } from '@/types/supabase';
+import { createMenuItem, deleteMenuItem, getAllMenuItemsFlat, getCustomLists, saveAllMenuItems, updateMenuItem } from '@/services/customListService';
 import { useSession } from './SessionContextProvider';
-import { cn } from '@/lib/utils';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import PartSearchInput from './PartSearchInput';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
-import RelatedPartDisplay from './RelatedPartDisplay';
 import { useCompany } from '@/context/CompanyContext';
-import ListIconEditor from '@/components/list-icon/ListIconEditor';
-import MenuItemIcon from '@/components/list-icon/MenuItemIcon';
-import type { ListIcon as ListIconData } from '@/types/listIcon';
+import { useIsCompact } from '@/hooks/use-compact';
+import { buildMenuTree } from '@/lib/menuTree';
+import MenuTree from './menu-admin/MenuTree';
+import MenuItemFormSheet, { type MenuItemFormValues } from './menu-admin/MenuItemFormSheet';
 
 interface MenuStructureEditorProps {
   onMenuUpdated: () => void;
+  /** Abre a edição da lista (aba Listas). */
+  onEditList: (listId: string) => void;
 }
 
-// Função auxiliar para formatar a string de exibição (CÓDIGO - NOME/DESCRIÇÃO)
-const formatRelatedPartObject = (part: Part): RelatedPart => {
-  const mainText = part.name && part.name.trim() !== '' ? part.name : part.descricao;
-  const subText = (part.name && part.name.trim() !== '' && part.descricao !== mainText) ? part.descricao : '';
-  return { codigo: part.codigo, name: mainText, desc: subText };
-};
+const countableItems = (list?: CustomList) =>
+  (list?.items_data ?? []).filter(i => i.type !== 'subtitle' && i.type !== 'separator').length;
 
-// Função auxiliar para construir a hierarquia (duplicada do service para uso local na UI)
-const buildMenuHierarchy = (items: MenuItem[]): MenuItem[] => {
-  const map: { [key: string]: MenuItem } = {};
-  const roots: MenuItem[] = [];
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-  items.forEach(item => {
-    map[item.id] = { ...item, children: [], itens_relacionados: item.itens_relacionados || [] };
-  });
+/** Remove campos de árvore antes de salvar. */
+const stripTree = ({ children: _children, ...item }: MenuItem): MenuItem => item;
 
-  items.forEach(item => {
-    if (item.parent_id && map[item.parent_id]) {
-      map[item.parent_id].children!.push(map[item.id]);
-    } else if (!item.parent_id) {
-      roots.push(map[item.id]);
-    }
-  });
-
-  // Ordena os filhos e as raízes
-  const sortChildren = (menuItems: MenuItem[]) => {
-    menuItems.sort((a, b) => a.order_index - b.order_index);
-    menuItems.forEach(item => {
-      if (item.children && item.children.length > 0) {
-        sortChildren(item.children);
-      }
-    });
-  };
-
-  sortChildren(roots);
-  return roots;
-};
-
-const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated }) => {
+const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated, onEditList }) => {
   const { user } = useSession();
   const { company } = useCompany();
-  const [flatMenuItems, setFlatMenuItems] = useState<MenuItem[]>([]);
-  const [menuHierarchy, setMenuHierarchy] = useState<MenuItem[]>([]);
+  const isCompact = useIsCompact();
+  const [flatItems, setFlatItems] = useState<MenuItem[]>([]);
   const [customLists, setCustomLists] = useState<CustomList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSheetOpen, setIsSheetOpen] = useState(false); // Alterado para isSheetOpen
-  const [currentMenuItem, setCurrentMenuItem] = useState<MenuItem | null>(null);
-  const [formTitle, setFormTitle] = useState('');
-  const [formParentId, setFormParentId] = useState<string | null>(null);
-  const [formListId, setFormListId] = useState<string | null>(null);
-  const [formOrderIndex, setFormOrderIndex] = useState(0);
-  const [formItensRelacionados, setFormItensRelacionados] = useState<RelatedPart[]>([]);
-  const [formIcon, setFormIcon] = useState<ListIconData | null>(null);
-  const [isIconDirty, setIsIconDirty] = useState(false);
-  
-  // Estados para o PartSearchInput dentro do modal
-  const [searchQueryRelated, setSearchQueryRelated] = useState('');
-  const [searchResultsRelated, setSearchResultsRelated] = useState<Part[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(false); // Inicializado como false
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [initialParentId, setInitialParentId] = useState<string | null>(null);
 
-  // Bulk add related items state
-  const [bulkRelatedPartsInput, setBulkRelatedPartsInput] = useState('');
-
-  // NOVO: Estado para controlar a expansão dos itens do menu
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const [draggedItem, setDraggedItem] = useState<MenuItem | null>(null);
+  // Reordenação otimista: guarda o último estado salvo e junta movimentos seguidos (400ms).
+  const savedRef = useRef<MenuItem[]>([]);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadData = useCallback(async () => {
-    console.time('MenuStructureEditor: loadData');
     setIsLoading(true);
     try {
-      const [fetchedFlatItems, fetchedLists] = await Promise.all([
+      const [items, lists] = await Promise.all([
         getAllMenuItemsFlat(company),
         user ? getCustomLists(user.id, company) : Promise.resolve([]),
       ]);
-      
-      setFlatMenuItems(fetchedFlatItems);
-      setMenuHierarchy(buildMenuHierarchy(fetchedFlatItems));
-      setCustomLists(fetchedLists);
-    } catch (error) {
+      setFlatItems(items);
+      savedRef.current = items;
+      setCustomLists(lists);
+    } catch {
       showError('Erro ao carregar dados do menu.');
     } finally {
       setIsLoading(false);
-      console.timeEnd('MenuStructureEditor: loadData');
     }
   }, [user, company]);
 
@@ -139,626 +64,188 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ onMenuUpdated
     loadData();
   }, [loadData]);
 
-  // Efeito para a busca de peças relacionadas
-  useEffect(() => {
-    const fetchSearchResults = async () => {
-      if (searchQueryRelated.length > 1) {
-        setIsLoadingParts(true);
-        const results = await searchPartsService(searchQueryRelated, company);
-        setSearchResultsRelated(results);
-        setIsLoadingParts(false);
-      } else {
-        setSearchResultsRelated([]);
+  useEffect(() => () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+  }, []);
+
+  const tree = useMemo(() => buildMenuTree(flatItems), [flatItems]);
+  const listById = useMemo(() => new Map(customLists.map(l => [l.id, l])), [customLists]);
+  const totalItems = flatItems.filter(i => !i.isDynamic).length;
+
+  const getMeta = useCallback(
+    (item: MenuItem) => {
+      if (item.isDynamic) return 'Subtítulo';
+      if (item.list_id) {
+        const list = listById.get(item.list_id);
+        return list ? `Lista · ${plural(countableItems(list), 'item', 'itens')}` : 'Lista';
       }
-    };
-    const handler = setTimeout(() => {
-      fetchSearchResults();
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [searchQueryRelated, company]);
+      const children = flatItems.filter(i => i.parent_id === item.id && !i.isDynamic).length;
+      return `Pasta · ${plural(children, 'item', 'itens')}`;
+    },
+    [flatItems, listById],
+  );
 
-  // Lista vinculada (as do usuário ou os dados derivados do próprio item de menu)
-  const getLinkedList = (listId: string | null, item: MenuItem | null) => {
-    if (!listId) return null;
-    const list = customLists.find(l => l.id === listId);
-    if (list) return { title: list.title, icon: list.icon ?? null };
-    if (item && item.list_id === listId) return { title: item.list_title ?? item.title, icon: item.list_icon ?? null };
-    return { title: '', icon: null };
-  };
-
-  const iconForSelection = (listId: string | null, item: MenuItem | null): ListIconData | null =>
-    listId ? getLinkedList(listId, item)?.icon ?? null : item?.icon ?? null;
-
-  const handleListChange = (value: string) => {
-    const listId = value === 'none' ? null : value;
-    setFormListId(listId);
-    setFormIcon(iconForSelection(listId, currentMenuItem));
-    setIsIconDirty(false);
-  };
-
-  const handleIconChange = (icon: ListIconData | null) => {
-    setFormIcon(icon);
-    setIsIconDirty(true);
-  };
-
-  const handleAddMenuItem = (parentId: string | null = null) => {
-    setCurrentMenuItem(null);
-    setFormTitle('');
-    setFormParentId(parentId);
-    setFormListId(null);
-    setFormOrderIndex(flatMenuItems.length);
-    setFormItensRelacionados([]);
-    setFormIcon(null);
-    setIsIconDirty(false);
-    setSearchQueryRelated('');
-    setSearchResultsRelated([]);
-    setBulkRelatedPartsInput('');
-    setIsSheetOpen(true); // Abre o Sheet
-  };
-
-  const handleEditMenuItem = (item: MenuItem) => {
-    setCurrentMenuItem(item);
-    setFormTitle(item.title);
-    setFormParentId(item.parent_id);
-    setFormListId(item.list_id);
-    setFormOrderIndex(item.order_index);
-    setFormItensRelacionados(item.itens_relacionados || []);
-    setFormIcon(iconForSelection(item.list_id, item));
-    setIsIconDirty(false);
-    setSearchQueryRelated('');
-    setSearchResultsRelated([]);
-    setBulkRelatedPartsInput('');
-    setIsSheetOpen(true); // Abre o Sheet
-  };
-
-  const handleDeleteMenuItem = async (id: string) => {
-    console.time('MenuStructureEditor: handleDeleteMenuItem');
-    try {
-      await deleteMenuItem(id, company);
-      showSuccess('Item de menu excluído com sucesso!');
-      await loadData();
-      onMenuUpdated();
-    } catch (error) {
-      showError('Erro ao excluir item de menu.');
-    } finally {
-      console.timeEnd('MenuStructureEditor: handleDeleteMenuItem');
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formTitle.trim()) {
-      showError('O título é obrigatório.');
-      return;
-    }
-    console.time('MenuStructureEditor: handleSubmit');
-
-    try {
-      const payload: Omit<MenuItem, 'id' | 'created_at'> = {
-        title: formTitle.trim(),
-        parent_id: formParentId,
-        list_id: formListId,
-        order_index: formOrderIndex,
-        itens_relacionados: formItensRelacionados,
-        // Com lista vinculada, o ícone pertence à lista; o ícone próprio do item é mantido.
-        icon: formListId ? currentMenuItem?.icon ?? null : formIcon,
-      };
-
-      if (formListId && isIconDirty) {
-        await updateCustomListIcon(formListId, formIcon);
-        setCustomLists(prev => prev.map(l => (l.id === formListId ? { ...l, icon: formIcon } : l)));
+  const scheduleSave = (next: MenuItem[]) => {
+    setFlatItems(next);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      saveTimer.current = null;
+      try {
+        await saveAllMenuItems(next, company);
+        savedRef.current = next;
+        onMenuUpdated();
+      } catch {
+        showError('Erro ao reordenar itens. A ordem anterior foi restaurada.');
+        setFlatItems(savedRef.current);
       }
-
-      if (currentMenuItem) {
-        await updateMenuItem({ ...currentMenuItem, ...payload }, company);
-        showSuccess('Item de menu atualizado com sucesso!');
-      } else {
-        await createMenuItem(payload, company);
-        showSuccess('Item de menu criado com sucesso!');
-      }
-      
-      setIsSheetOpen(false); // Fecha o Sheet
-      await loadData();
-      onMenuUpdated();
-    } catch (error) {
-      showError('Erro ao salvar item de menu.');
-    } finally {
-      console.timeEnd('MenuStructureEditor: handleSubmit');
-    }
+    }, 400);
   };
 
-  const handleMoveItem = async (item: MenuItem, direction: 'up' | 'down') => {
-    const siblings = flatMenuItems
-      .filter(i => i.parent_id === item.parent_id)
+  const applyOrder = (ids: string[]) => {
+    const order = new Map(ids.map((id, index) => [id, index]));
+    scheduleSave(flatItems.map(i => (order.has(i.id) ? { ...i, order_index: order.get(i.id)! } : i)));
+  };
+
+  const siblingsOf = (item: MenuItem) =>
+    flatItems
+      .filter(i => !i.isDynamic && i.parent_id === item.parent_id)
       .sort((a, b) => a.order_index - b.order_index);
 
-    const currentIndex = siblings.findIndex(i => i.id === item.id);
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+  const handleMove = (item: MenuItem, direction: 'up' | 'down') => {
+    const ids = siblingsOf(item).map(i => i.id);
+    const from = ids.indexOf(item.id);
+    const to = direction === 'up' ? from - 1 : from + 1;
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    [ids[from], ids[to]] = [ids[to], ids[from]];
+    applyOrder(ids);
+  };
 
-    if (targetIndex < 0 || targetIndex >= siblings.length) {
-      return; // Can't move further
-    }
-
-    // Reorder the local siblings array
-    const [movedItem] = siblings.splice(currentIndex, 1);
-    siblings.splice(targetIndex, 0, movedItem);
-
-    // Create a map of updated siblings with new, contiguous order_index values
-    const updatedSiblingsMap = new Map<string, number>();
-    siblings.forEach((sibling, index) => {
-      updatedSiblingsMap.set(sibling.id, index);
+  const toggle = (id: string) =>
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
 
-    // Create the new full flat list with updated order for the affected siblings
-    const updatedFlatItems = flatMenuItems.map(i => {
-      if (updatedSiblingsMap.has(i.id)) {
-        return { ...i, order_index: updatedSiblingsMap.get(i.id)! };
-      }
-      return i;
-    });
+  const openNew = (parentId: string | null) => {
+    setEditingItem(null);
+    setInitialParentId(parentId);
+    setFormOpen(true);
+  };
 
-    // Update local state for immediate visual feedback
-    setFlatMenuItems(updatedFlatItems);
-    setMenuHierarchy(buildMenuHierarchy(updatedFlatItems));
+  const openEdit = (item: MenuItem) => {
+    setEditingItem(item);
+    setInitialParentId(item.parent_id);
+    setFormOpen(true);
+  };
 
-    const loadingToastId = showLoading('Reordenando itens...');
+  const nextOrderIndex = (parentId: string | null) => {
+    const siblings = flatItems.filter(i => !i.isDynamic && i.parent_id === parentId);
+    return siblings.length ? Math.max(...siblings.map(i => i.order_index)) + 1 : 0;
+  };
 
+  const handleSave = async (values: MenuItemFormValues) => {
     try {
-      // Save the entire updated structure in one go
-      await saveAllMenuItems(updatedFlatItems, company);
-      showSuccess('Ordem atualizada!');
-      
-      // After saving, reload data from the source of truth to ensure consistency
+      if (editingItem) {
+        const movedParent = values.parent_id !== editingItem.parent_id;
+        await updateMenuItem(
+          {
+            ...stripTree(editingItem),
+            ...values,
+            order_index: movedParent ? nextOrderIndex(values.parent_id) : editingItem.order_index,
+          },
+          company,
+        );
+        showSuccess('Item atualizado!');
+      } else {
+        await createMenuItem({ ...values, order_index: nextOrderIndex(values.parent_id) }, company);
+        showSuccess('Item criado!');
+      }
+      if (values.parent_id) setExpandedIds(prev => new Set(prev).add(values.parent_id!));
+      setFormOpen(false);
       await loadData();
       onMenuUpdated();
-    } catch (error) {
-      showError('Erro ao reordenar itens.');
-      // If there's an error, reload to revert to the previous state from DB
+    } catch {
+      showError('Erro ao salvar item de menu.');
+    }
+  };
+
+  const handleDelete = async (item: MenuItem) => {
+    try {
+      await deleteMenuItem(item.id, company);
+      showSuccess('Item excluído!');
       await loadData();
-    } finally {
-      dismissToast(loadingToastId);
+      onMenuUpdated();
+    } catch {
+      showError('Erro ao excluir item de menu.');
     }
   };
 
-  const handleAddRelatedPart = (part: Part) => {
-    const relatedPartObject = formatRelatedPartObject(part);
-    if (!formItensRelacionados.some(p => p.codigo === relatedPartObject.codigo)) {
-      setFormItensRelacionados(prev => [...prev, relatedPartObject]);
-      setSearchQueryRelated('');
-      setSearchResultsRelated([]);
-      showSuccess(`Peça ${part.codigo} adicionada aos itens relacionados.`);
-    } else {
-      showError(`Peça ${part.codigo} já está na lista de itens relacionados.`);
-    }
+  const handleEditList = (listId: string) => {
+    setFormOpen(false);
+    onEditList(listId);
   };
-
-  const handleRemoveRelatedPart = (codigo: string) => {
-    setFormItensRelacionados(prev => prev.filter(p => p.codigo !== codigo));
-    showSuccess(`Item ${codigo} removido dos itens relacionados.`);
-  };
-
-  const handleBulkAddRelatedParts = () => {
-    const codesToSearch = bulkRelatedPartsInput
-      .split(';')
-      .map(code => code.trim())
-      .filter(code => code.length > 0);
-
-    if (codesToSearch.length === 0) {
-      showError('Nenhum código válido encontrado para adicionar.');
-      return;
-    }
-
-    const newRelatedItems: RelatedPart[] = codesToSearch.map(code => ({
-      codigo: code,
-      name: code,
-      desc: ''
-    }));
-
-    const uniqueNewItems = newRelatedItems.filter(newItem => 
-      !formItensRelacionados.some(existingItem => existingItem.codigo === newItem.codigo)
-    );
-
-    if (uniqueNewItems.length > 0) {
-      setFormItensRelacionados(prev => [...prev, ...uniqueNewItems]);
-      showSuccess(`${uniqueNewItems.length} código(s) adicionado(s) aos itens relacionados.`);
-    } else {
-      showError('Nenhum novo item válido encontrado ou adicionado em massa.');
-    }
-    setBulkRelatedPartsInput('');
-  };
-
-  const toggleItemExpansion = (itemId: string) => {
-    setExpandedItems(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(itemId)) {
-        newSet.delete(itemId);
-      } else {
-        newSet.add(itemId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, item: MenuItem) => {
-    setDraggedItem(item);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', item.id);
-    e.currentTarget.classList.add('opacity-50');
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    e.currentTarget.classList.add('border-t-2', 'border-primary');
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.currentTarget.classList.remove('border-t-2', 'border-primary');
-  };
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetItem: MenuItem) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('border-t-2', 'border-primary');
-
-    if (draggedItem && draggedItem.id !== targetItem.id && draggedItem.parent_id === targetItem.parent_id) {
-      const siblings = flatMenuItems
-        .filter(i => i.parent_id === draggedItem.parent_id)
-        .sort((a, b) => a.order_index - b.order_index);
-
-      const draggedIndex = siblings.findIndex(item => item.id === draggedItem.id);
-      const targetIndex = siblings.findIndex(item => item.id === targetItem.id);
-
-      if (draggedIndex !== -1 && targetIndex !== -1) {
-        const [removed] = siblings.splice(draggedIndex, 1);
-        siblings.splice(targetIndex, 0, removed);
-
-        const updatedSiblingsMap = new Map<string, number>();
-        siblings.forEach((sibling, index) => {
-          updatedSiblingsMap.set(sibling.id, index);
-        });
-
-        const updatedFlatItems = flatMenuItems.map(i => {
-          if (updatedSiblingsMap.has(i.id)) {
-            return { ...i, order_index: updatedSiblingsMap.get(i.id)! };
-          }
-          return i;
-        });
-
-        setFlatMenuItems(updatedFlatItems);
-        setMenuHierarchy(buildMenuHierarchy(updatedFlatItems));
-
-        const loadingToastId = showLoading('Reordenando itens...');
-        try {
-          await saveAllMenuItems(updatedFlatItems, company);
-          showSuccess('Ordem atualizada com sucesso!');
-          await loadData();
-          onMenuUpdated();
-        } catch (error) {
-          showError('Erro ao reordenar itens.');
-          await loadData();
-        } finally {
-          dismissToast(loadingToastId);
-        }
-      }
-    }
-    setDraggedItem(null);
-  };
-
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-    e.currentTarget.classList.remove('opacity-50');
-    setDraggedItem(null);
-  };
-
-  const renderMenuItem = (item: MenuItem, level: number, siblings: MenuItem[]) => {
-    const isListLink = !!item.list_id;
-    const hasChildren = item.children && item.children.length > 0;
-    const isFirst = siblings.findIndex(i => i.id === item.id) === 0;
-    const isLast = siblings.findIndex(i => i.id === item.id) === siblings.length - 1;
-    const isExpanded = expandedItems.has(item.id);
-
-    return (
-      <div 
-        key={item.id} 
-        className={cn("border-b last:border-b-0", level > 0 && 'ml-4')}
-        draggable
-        onDragStart={(e) => handleDragStart(e, item)}
-        onDragOver={handleDragOver}
-        onDrop={(e) => handleDrop(e, item)}
-        onDragLeave={handleDragLeave}
-        onDragEnd={handleDragEnd}
-      >
-        <div className={cn(
-          "flex items-center py-2 px-3 transition-colors",
-          isListLink ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-muted/20'
-        )}>
-          <div className="flex-1 flex items-center gap-2" style={{ paddingLeft: `${level * 10}px` }}>
-            <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-            {hasChildren ? (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => toggleItemExpansion(item.id)}
-                className="h-6 w-6 p-0 text-muted-foreground shrink-0"
-              >
-                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              </Button>
-            ) : (
-              <span className="h-6 w-6 shrink-0" aria-hidden="true" />
-            )}
-            {!item.isDynamic && <MenuItemIcon item={item} size="xs" />}
-            <span className={cn("font-medium", isListLink && 'text-primary')}>
-              {item.title}
-            </span>
-            {isListLink && (
-              <ListIcon className="h-4 w-4 text-primary ml-2" />
-            )}
-          </div>
-          
-          <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => handleMoveItem(item, 'up')}
-                  disabled={isFirst}
-                >
-                  <ArrowUp className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Mover para Cima</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => handleMoveItem(item, 'down')}
-                  disabled={isLast}
-                >
-                  <ArrowDown className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Mover para Baixo</TooltipContent>
-            </Tooltip>
-            
-            {!isListLink && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={() => handleAddMenuItem(item.id)}>
-                    <PlusCircle className="h-4 w-4 text-green-600" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Adicionar Submenu</TooltipContent>
-              </Tooltip>
-            )}
-            
-            <Button variant="ghost" size="icon" onClick={() => handleEditMenuItem(item)}>
-              <Edit className="h-4 w-4" />
-            </Button>
-            
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-destructive">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta ação irá remover o item "{item.title}" e todos os seus submenus/itens associados. Esta ação não pode ser desfeita.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => handleDeleteMenuItem(item.id)}>Excluir</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </div>
-        {hasChildren && isExpanded && (
-          <div className="w-full">
-            {item.children!.map(child => renderMenuItem(child, level + 1, item.children!))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const availableParents = flatMenuItems.filter(item => !item.list_id && !item.isDynamic);
-  const linkedList = getLinkedList(formListId, currentMenuItem);
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-col space-y-2 pb-2">
-        <CardTitle className="text-2xl font-bold">Estrutura do Menu de Peças</CardTitle>
-        <div className="flex flex-wrap gap-2 justify-end">
-          <Button onClick={() => handleAddMenuItem(null)} className="flex items-center gap-2">
-            <PlusCircle className="h-4 w-4" /> Adicionar Item Raiz
-          </Button>
+    <Card className="w-full" data-testid="menu-structure-editor">
+      <CardHeader className="flex flex-col gap-3 space-y-0 p-3 pb-2 sm:flex-row sm:items-center sm:justify-between sm:p-6 sm:pb-3">
+        <div className="min-w-0">
+          <CardTitle className="text-xl font-bold sm:text-2xl">Estrutura do Menu</CardTitle>
+          <p className="text-sm text-muted-foreground" data-testid="menu-item-count">
+            {plural(totalItems, 'item', 'itens')}
+          </p>
         </div>
+        <Button onClick={() => openNew(null)} className="h-11 w-full gap-2 sm:h-10 sm:w-auto" data-testid="new-menu-item">
+          <PlusCircle className="h-4 w-4" /> Novo item
+        </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-2 pt-0 sm:p-6 sm:pt-0">
         {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Carregando estrutura do menu...</p>
-        ) : menuHierarchy.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhum item de menu cadastrado para esta empresa.</p>
+          <div className="space-y-2" data-testid="menu-tree-loading">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : tree.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8 text-center">
+            <FolderTree className="h-8 w-8 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Nenhum item de menu cadastrado para esta empresa.</p>
+            <Button onClick={() => openNew(null)} className="h-11 gap-2">
+              <PlusCircle className="h-4 w-4" /> Criar o primeiro item
+            </Button>
+          </div>
         ) : (
-          <div className="border rounded-lg overflow-hidden">
-            {menuHierarchy.map(item => renderMenuItem(item, 0, menuHierarchy))}
+          <div data-testid="menu-tree">
+            <MenuTree
+              nodes={tree}
+              isCompact={isCompact}
+              expandedIds={expandedIds}
+              onToggle={toggle}
+              getMeta={getMeta}
+              onReorder={applyOrder}
+              onEdit={openEdit}
+              onAddChild={id => openNew(id)}
+              onMove={handleMove}
+              onDelete={handleDelete}
+              onEditList={handleEditList}
+            />
           </div>
         )}
       </CardContent>
 
-      {/* Sheet de Edição/Adição */}
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <ResponsiveSheetContent side="right" className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{currentMenuItem ? 'Editar Item de Menu' : 'Adicionar Novo Item de Menu'}</SheetTitle>
-          </SheetHeader>
-          <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Título do Menu/Submenu</Label>
-              <Input
-                id="title"
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Ícone</Label>
-              <ListIconEditor
-                name={formListId ? linkedList?.title || formTitle : formTitle}
-                icon={formIcon}
-                onChange={handleIconChange}
-              />
-              {formListId && linkedList && (
-                <p className="text-xs text-muted-foreground" data-testid="menu-icon-list-note">
-                  Este ícone pertence à lista "{linkedList.title || formTitle}" e também aparece em Minhas Listas.
-                </p>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="parent_id">Item Pai (Submenu de)</Label>
-              <Select
-                value={formParentId || 'root'}
-                onValueChange={(value) => setFormParentId(value === 'root' ? null : value)}
-              >
-                <SelectTrigger id="parent_id">
-                  <SelectValue placeholder="Nível Raiz" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="root">Nível Raiz</SelectItem>
-                  {availableParents.map(item => (
-                    <SelectItem key={item.id} value={item.id} disabled={item.id === currentMenuItem?.id}>
-                      {item.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="list_id">Link para Lista de Peças (Opcional)</Label>
-              <Select
-                value={formListId || 'none'}
-                onValueChange={handleListChange}
-                disabled={hasChildren(currentMenuItem)}
-              >
-                <SelectTrigger id="list_id">
-                  <SelectValue placeholder="Nenhum (É um Submenu)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum (É um Submenu)</SelectItem>
-                  {customLists.map(list => (
-                    <SelectItem key={list.id} value={list.id}>
-                      {list.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {hasChildren(currentMenuItem) && (
-                <p className="text-sm text-muted-foreground">Remova os submenus para linkar a uma lista.</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="order_index">Ordem de Exibição</Label>
-              <Input
-                id="order_index"
-                type="number"
-                value={formOrderIndex}
-                onChange={(e) => setFormOrderIndex(parseInt(e.target.value) || 0)}
-              />
-            </div>
-
-            {/* Seção de Itens Relacionados */}
-            <div className="space-y-2 border-t pt-4">
-              <Label className="flex items-center gap-2">
-                <Tag className="h-4 w-4" /> Itens Relacionados (Códigos de Peça)
-              </Label>
-              <PartSearchInput
-                onSearch={setSearchQueryRelated}
-                searchResults={searchResultsRelated}
-                onSelectPart={handleAddRelatedPart}
-                searchQuery={searchQueryRelated}
-                isLoading={isLoadingParts}
-              />
-              <div className="space-y-2">
-                <Label htmlFor="bulk-related-parts" className="text-sm text-muted-foreground">
-                  Adicionar múltiplos códigos (separados por ';')
-                </Label>
-                <div className="flex gap-2">
-                  <Textarea
-                    id="bulk-related-parts"
-                    value={bulkRelatedPartsInput}
-                    onChange={(e) => setBulkRelatedPartsInput(e.target.value)}
-                    placeholder="Ex: COD1; COD2; COD3"
-                    rows={2}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleBulkAddRelatedParts}
-                    disabled={bulkRelatedPartsInput.trim().length === 0}
-                    variant="outline"
-                    size="icon"
-                    aria-label="Adicionar em massa"
-                  >
-                    <PlusCircle className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <ScrollArea className={cn("w-full rounded-md border p-2", false ? "h-24" : "max-h-96")}>
-                {formItensRelacionados.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhum item relacionado adicionado.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {formItensRelacionados.map(item => (
-                      <div key={item.codigo} className="flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
-                        {item.codigo}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-4 w-4 p-0 text-destructive"
-                          onClick={() => handleRemoveRelatedPart(item.codigo)}
-                        >
-                          <XCircle className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-              <p className="text-sm text-muted-foreground">
-                Adicione códigos de peças que estão relacionadas a este item de menu/submenu.
-              </p>
-            </div>
-
-            <SheetFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
-              <Button type="button" variant="outline" className="h-11 w-full sm:h-10 sm:w-auto" onClick={() => setIsSheetOpen(false)}>
-                <XCircle className="h-4 w-4 mr-2" /> Cancelar
-              </Button>
-              <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto">
-                <Save className="h-4 w-4 mr-2" /> Salvar
-              </Button>
-            </SheetFooter>
-          </form>
-        </ResponsiveSheetContent>
-      </Sheet>
+      <MenuItemFormSheet
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        editingItem={editingItem}
+        initialParentId={initialParentId}
+        flatItems={flatItems}
+        customLists={customLists}
+        onSave={handleSave}
+        onEditList={handleEditList}
+      />
     </Card>
   );
-};
-
-const hasChildren = (item: MenuItem | null) => {
-  if (!item) return false;
-  return item.children && item.children.length > 0;
 };
 
 export default MenuStructureEditor;

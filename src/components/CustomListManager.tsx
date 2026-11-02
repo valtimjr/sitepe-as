@@ -1,103 +1,98 @@
-"use client";
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FileText, ListPlus, Pencil, PlusCircle, Save, Search, Trash2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Edit, Trash2, Save, XCircle, FileText } from 'lucide-react';
-import { showSuccess, showError } from '@/utils/toast';
-import { CustomList } from '@/types/supabase';
-import { getCustomLists, createCustomList, updateCustomList, deleteCustomList } from '@/services/customListService';
-import { useSession } from './SessionContextProvider';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import CustomListEditor from './CustomListEditor';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from '@/components/ui/sheet';
-import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { showError, showSuccess } from '@/utils/toast';
+import type { CustomList, Part } from '@/types/supabase';
+import { createCustomList, deleteCustomList, getCustomLists, updateCustomList } from '@/services/customListService';
 import { getParts } from '@/services/partListService';
-import { Part } from '@/types/supabase';
+import { useSession } from './SessionContextProvider';
 import { useCompany } from '@/context/CompanyContext';
+import { useIsCompact } from '@/hooks/use-compact';
+import { cn } from '@/lib/utils';
+import CustomListEditor from './CustomListEditor';
 import ListIcon from '@/components/list-icon/ListIcon';
 import ListIconEditor from '@/components/list-icon/ListIconEditor';
+import ActionMenu from '@/components/admin/ActionMenu';
 import type { ListIcon as ListIconData } from '@/types/listIcon';
 
-const CustomListManager: React.FC = () => {
+interface CustomListManagerProps {
+  /** Lista a abrir direto em "Editar nome e ícone" (vindo da Estrutura). */
+  editListId?: string | null;
+  onEditListHandled?: () => void;
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+const listSummary = (list: CustomList) => {
+  const items = list.items_data ?? [];
+  const count = items.filter(i => i.type !== 'subtitle' && i.type !== 'separator').length;
+  const subtitles = items.filter(i => i.type === 'subtitle').length;
+  const parts = [plural(count, 'item', 'itens')];
+  if (subtitles > 0) parts.push(plural(subtitles, 'subtítulo', 'subtítulos'));
+  return parts.join(' · ');
+};
+
+const CustomListManager: React.FC<CustomListManagerProps> = ({ editListId, onEditListHandled }) => {
   const { user } = useSession();
   const { company } = useCompany();
+  const isCompact = useIsCompact();
   const [lists, setLists] = useState<CustomList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [currentList, setCurrentList] = useState<CustomList | null>(null);
   const [formTitle, setFormTitle] = useState('');
   const [formIcon, setFormIcon] = useState<ListIconData | null>(null);
-  
-  const [isEditorSheetOpen, setIsEditorSheetOpen] = useState(false);
-  const [listToEditContent, setListToEditContent] = useState<CustomList | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editorList, setEditorList] = useState<CustomList | null>(null);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
 
   const loadLists = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
     try {
-      const fetchedLists = await getCustomLists(user.id, company);
-      setLists(fetchedLists);
-    } catch (error) {
+      setLists(await getCustomLists(user.id, company));
+    } catch {
       showError('Erro ao carregar listas personalizadas.');
     } finally {
       setIsLoading(false);
     }
   }, [user, company]);
 
-  const loadAllParts = useCallback(async () => {
-    try {
-      const parts = await getParts(company);
-      setAllAvailableParts(parts);
-    } catch (error) {
-      console.error("Erro ao carregar todas as peças para o editor:", error);
-    }
-  }, [company]);
-
   useEffect(() => {
     loadLists();
-    loadAllParts();
-  }, [loadLists, loadAllParts]);
+    getParts(company)
+      .then(setAllAvailableParts)
+      .catch(error => console.error('Erro ao carregar peças para o editor:', error));
+  }, [loadLists, company]);
 
-  const handleAddList = () => {
-    setCurrentList(null);
-    setFormTitle('');
-    setFormIcon(null);
-    setIsSheetOpen(true);
-  };
-
-  const handleEditListTitle = (list: CustomList) => {
+  const openForm = (list: CustomList | null) => {
     setCurrentList(list);
-    setFormTitle(list.title);
-    setFormIcon(list.icon ?? null);
-    setIsSheetOpen(true);
+    setFormTitle(list?.title ?? '');
+    setFormIcon(list?.icon ?? null);
+    setIsFormOpen(true);
   };
 
-  const handleOpenEditor = (list: CustomList) => {
-    setListToEditContent(list);
-    setIsEditorSheetOpen(true);
-  };
+  // "Editar na lista" vindo da Estrutura do Menu
+  useEffect(() => {
+    if (!editListId || isLoading) return;
+    const list = lists.find(l => l.id === editListId);
+    if (list) openForm(list);
+    else showError('Lista não encontrada.');
+    onEditListHandled?.();
+  }, [editListId, isLoading, lists, onEditListHandled]);
 
-  const handleDeleteList = async (listId: string) => {
+  const handleDelete = async (list: CustomList) => {
     try {
-      await deleteCustomList(listId);
-      showSuccess('Lista excluída com sucesso!');
+      await deleteCustomList(list.id);
+      showSuccess('Lista excluída!');
       loadLists();
-    } catch (error) {
+    } catch {
       showError('Erro ao excluir lista.');
     }
   };
@@ -108,148 +103,166 @@ const CustomListManager: React.FC = () => {
       showError('O título da lista é obrigatório.');
       return;
     }
-
+    setIsSaving(true);
     try {
       if (currentList) {
         await updateCustomList({ ...currentList, title: formTitle.trim(), icon: formIcon });
-        showSuccess('Lista atualizada com sucesso!');
+        showSuccess('Lista atualizada!');
       } else {
         await createCustomList(formTitle.trim(), user.id, company, formIcon);
-        showSuccess('Lista criada com sucesso!');
+        showSuccess('Lista criada!');
       }
-      
-      setIsSheetOpen(false);
+      setIsFormOpen(false);
       loadLists();
-    } catch (error) {
+    } catch {
       showError('Erro ao salvar lista.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleEditorClose = () => {
-    setIsEditorSheetOpen(false);
-    setListToEditContent(null);
+  const closeEditor = () => {
+    setEditorList(null);
     loadLists();
   };
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? lists.filter(l => l.title.toLowerCase().includes(q)) : lists;
+  }, [lists, search]);
+
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-col space-y-2 pb-2">
-        <CardTitle className="text-2xl font-bold">Minhas Listas Personalizadas</CardTitle>
-        <div className="flex flex-wrap gap-2 justify-end">
-          <Button onClick={handleAddList} className="flex items-center gap-2">
-            <PlusCircle className="h-4 w-4" /> Criar Nova Lista
-          </Button>
+    <Card className="w-full" data-testid="custom-list-manager">
+      <CardHeader className="flex flex-col gap-3 space-y-0 p-3 pb-2 sm:flex-row sm:items-center sm:justify-between sm:p-6 sm:pb-3">
+        <div className="min-w-0">
+          <CardTitle className="text-xl font-bold sm:text-2xl">Listas Personalizadas</CardTitle>
+          {!isLoading && <p className="text-sm text-muted-foreground">{plural(lists.length, 'lista', 'listas')}</p>}
         </div>
+        <Button onClick={() => openForm(null)} className="h-11 w-full gap-2 sm:h-10 sm:w-auto" data-testid="new-list">
+          <PlusCircle className="h-4 w-4" /> Criar lista
+        </Button>
       </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Carregando listas...</p>
-        ) : lists.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">Nenhuma lista personalizada criada para esta empresa.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Título da Lista</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {lists.map((list) => (
-                  <TableRow key={list.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <ListIcon name={list.title} icon={list.icon} size="sm" className="rounded-md" />
-                        <span>{list.title}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenEditor(list)} className="mr-2">
-                        <FileText className="h-4 w-4" /> 
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleEditListTitle(list)} className="mr-2">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Esta ação irá remover a lista "{list.title}" e todos os seus itens. Esta ação não pode ser desfeita.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteList(list.id)}>Excluir</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+      <CardContent className="space-y-3 p-2 pt-0 sm:p-6 sm:pt-0">
+        {lists.length > 8 && (
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar lista por nome"
+              aria-label="Buscar lista por nome"
+              className="h-11 pl-9"
+            />
           </div>
+        )}
+
+        {isLoading ? (
+          <div className="space-y-2" data-testid="lists-loading">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        ) : lists.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8 text-center">
+            <ListPlus className="h-8 w-8 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Nenhuma lista criada para esta empresa.</p>
+            <Button onClick={() => openForm(null)} className="h-11 gap-2">
+              <PlusCircle className="h-4 w-4" /> Criar lista
+            </Button>
+          </div>
+        ) : filtered.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma lista com esse nome.</p>
+        ) : (
+          <ul className="divide-y rounded-lg border" data-testid="custom-lists">
+            {filtered.map(list => (
+              <li key={list.id} className="group flex items-center gap-1 pr-1" data-testid="custom-list-row">
+                <button
+                  type="button"
+                  onClick={() => setEditorList(list)}
+                  className="flex min-h-16 min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <ListIcon name={list.title} icon={list.icon} size="sm" className="h-9 w-9 rounded-md" />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="line-clamp-2 break-words text-sm font-medium">{list.title}</span>
+                    <span className="text-xs text-muted-foreground">{listSummary(list)}</span>
+                  </span>
+                </button>
+                {!isCompact && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button variant="ghost" size="sm" className="h-9 gap-1.5" onClick={() => setEditorList(list)}>
+                      <FileText className="h-4 w-4" /> Itens
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-9 gap-1.5" onClick={() => openForm(list)}>
+                      <Pencil className="h-4 w-4" /> Editar
+                    </Button>
+                  </div>
+                )}
+                <ActionMenu
+                  title={list.title}
+                  actions={[
+                    { label: 'Editar itens', icon: FileText, onSelect: () => setEditorList(list) },
+                    { label: 'Editar nome e ícone', icon: Pencil, onSelect: () => openForm(list) },
+                    {
+                      label: 'Excluir',
+                      icon: Trash2,
+                      destructive: true,
+                      onSelect: () => handleDelete(list),
+                      confirm: {
+                        title: 'Excluir lista?',
+                        description: `A lista "${list.title}" e todos os itens dela serão removidos. Esta ação não pode ser desfeita.`,
+                      },
+                    },
+                  ]}
+                />
+              </li>
+            ))}
+          </ul>
         )}
       </CardContent>
 
-      {/* Sheet de Edição/Adição de Título da Lista */}
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <ResponsiveSheetContent side="right" className="sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>{currentList ? 'Editar Lista' : 'Criar Nova Lista'}</SheetTitle>
+      {/* Nome e ícone da lista */}
+      <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <SheetContent
+          side={isCompact ? 'bottom' : 'right'}
+          className={cn('flex flex-col gap-0 p-0', isCompact ? 'max-h-[92vh] rounded-t-2xl' : 'w-full sm:max-w-md')}
+          data-testid="list-form"
+        >
+          <SheetHeader className="border-b px-4 pb-3 pt-5 text-left">
+            <SheetTitle>{currentList ? 'Editar nome e ícone' : 'Criar lista'}</SheetTitle>
+            <SheetDescription className="sr-only">Nome e ícone da lista.</SheetDescription>
           </SheetHeader>
-          <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label>Ícone</Label>
-              <ListIconEditor name={formTitle} icon={formIcon} onChange={setFormIcon} />
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="list-title">Título</Label>
+                <Input id="list-title" value={formTitle} onChange={e => setFormTitle(e.target.value)} className="h-11" required />
+              </div>
+              <div className="space-y-2">
+                <Label>Ícone</Label>
+                <ListIconEditor name={formTitle} icon={formIcon} onChange={setFormIcon} />
+                <p className="text-xs text-muted-foreground">Também usado no menu e pelos subtítulos sem ícone próprio.</p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="title">Título</Label>
-              <Input
-                id="title"
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-                required
-              />
+            <div className="grid grid-cols-2 gap-2 border-t bg-background px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+              <Button type="button" variant="outline" className="h-11" onClick={() => setIsFormOpen(false)}>
+                <XCircle className="mr-2 h-4 w-4" /> Cancelar
+              </Button>
+              <Button type="submit" className="h-11" disabled={isSaving}>
+                <Save className="mr-2 h-4 w-4" /> Salvar
+              </Button>
             </div>
-            <SheetFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
-              <Button type="button" variant="outline" className="h-11 w-full sm:h-10 sm:w-auto" onClick={() => setIsSheetOpen(false)}>
-                <XCircle className="h-4 w-4 mr-2" /> Cancelar
-              </Button>
-              <Button type="submit" className="h-11 w-full sm:h-10 sm:w-auto">
-                <Save className="h-4 w-4 mr-2" /> Salvar
-              </Button>
-            </SheetFooter>
           </form>
-        </ResponsiveSheetContent>
+        </SheetContent>
       </Sheet>
 
-      {/* NOVO: Sheet para o CustomListEditor (edição de conteúdo da lista) */}
-      <Sheet open={isEditorSheetOpen} onOpenChange={setIsEditorSheetOpen}>
-        <SheetContent 
-          side="right" 
-          className="w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl overflow-y-auto" // Aumentado o max-width para desktop
+      {/* Editor de itens: tela cheia no celular */}
+      <Sheet open={editorList !== null} onOpenChange={open => !open && closeEditor()}>
+        <SheetContent
+          side="right"
+          className={cn('flex flex-col gap-0 p-0', isCompact ? 'h-[100dvh] w-full max-w-none' : 'w-full sm:max-w-xl lg:max-w-2xl')}
+          data-testid="list-editor-sheet"
         >
-          <SheetHeader>
-            <SheetTitle>Gerenciar Itens da Lista: {listToEditContent?.title}</SheetTitle>
-            <SheetDescription>
-              Adicione, edite ou reordene os itens desta lista personalizada.
-            </SheetDescription>
-          </SheetHeader>
-          {listToEditContent && (
-            <CustomListEditor 
-              list={listToEditContent} 
-              onClose={handleEditorClose}
-              allAvailableParts={allAvailableParts}
-            />
-          )}
+          {editorList && <CustomListEditor list={editorList} onClose={closeEditor} allAvailableParts={allAvailableParts} />}
         </SheetContent>
       </Sheet>
     </Card>

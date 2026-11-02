@@ -96,8 +96,10 @@ export interface CustomListItem {
   part_code: string | null;
   description: string | null;
   quantity: number;
-  itens_relacionados: RelatedPart[]; 
+  itens_relacionados: RelatedPart[];
   mangueira_data?: MangueiraItemData;
+  /** Ícone próprio (só subtítulos). Sem ele, o subtítulo usa o ícone da lista. */
+  icon?: ListIcon | null;
 }
 
 export interface MenuItem {

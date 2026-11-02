@@ -197,7 +197,7 @@ const AppHeader: React.FC = () => {
         return (
           <DropdownMenuSub key={item.id}>
             <DropdownMenuSubTrigger>
-              {!item.isDynamic && <MenuItemIcon item={item} className="rounded mr-2" />}
+              <MenuItemIcon item={item} className="rounded mr-2" />
               {item.title}
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent sideOffset={2} alignOffset={-5}>
@@ -217,7 +217,7 @@ const AppHeader: React.FC = () => {
             key={item.id}
           >
             <DropdownMenuItem>
-              {item.isDynamic ? <span className="w-[18px] mr-2 shrink-0" aria-hidden="true" /> : <MenuItemIcon item={item} className="rounded mr-2" />}
+              <MenuItemIcon item={item} className="rounded mr-2" />
               {item.title}
             </DropdownMenuItem>
           </Link>

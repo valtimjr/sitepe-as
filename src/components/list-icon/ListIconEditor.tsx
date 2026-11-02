@@ -11,17 +11,34 @@ interface ListIconEditorProps {
   name: string;
   icon: ListIconData | null;
   onChange: (icon: ListIconData | null) => void;
+  /** Ícone mostrado na prévia quando `icon` é null (ex.: ícone herdado da lista). */
+  fallbackIcon?: ListIconData | null;
+  /** Nome usado no ícone automático do fallback (padrão: `name`). */
+  fallbackName?: string;
+  /** Texto do botão que volta ao automático. */
+  autoLabel?: string;
 }
 
 /** Bloco de pré-visualização + "Editar ícone" + cores + "Automático". */
-const ListIconEditor: React.FC<ListIconEditorProps> = ({ name, icon, onChange }) => {
+const ListIconEditor: React.FC<ListIconEditorProps> = ({
+  name,
+  icon,
+  onChange,
+  fallbackIcon = null,
+  fallbackName,
+  autoLabel = 'Automático',
+}) => {
   const [colorTarget, setColorTarget] = useState<'color' | 'background' | null>(null);
   const isEmoji = icon?.source === 'emoji';
 
-  // Ao personalizar a partir do automático, parte do ícone e da cor atuais
+  const previewName = icon ? name : fallbackName ?? name;
+  const previewIcon = icon ?? fallbackIcon;
+
+  // Ao personalizar a partir do automático (ou do herdado), parte do ícone e da cor atuais
   const base = (): ListIconData => {
     if (icon) return icon;
-    const auto = getAutoListIcon(name);
+    if (fallbackIcon) return { ...fallbackIcon };
+    const auto = getAutoListIcon(previewName);
     return { source: 'lucide', value: auto.name, color: auto.colorHex };
   };
 
@@ -49,7 +66,7 @@ const ListIconEditor: React.FC<ListIconEditorProps> = ({ name, icon, onChange })
 
   return (
     <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-muted/30 p-3" data-testid="list-icon-editor">
-      <ListIcon name={name} icon={icon} size="lg" className="border border-border shadow-sm" />
+      <ListIcon name={previewName} icon={previewIcon} size="lg" className="border border-border shadow-sm" />
 
       <IconPickerPopover icon={icon} onSelect={handleSelect}>
         <Button type="button" variant="outline" size="sm" className="gap-1.5" data-testid="edit-list-icon">
@@ -88,7 +105,7 @@ const ListIconEditor: React.FC<ListIconEditorProps> = ({ name, icon, onChange })
           data-testid="list-icon-auto"
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          Automático
+          {autoLabel}
         </Button>
       </div>
 

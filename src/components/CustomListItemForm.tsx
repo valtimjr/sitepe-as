@@ -21,6 +21,8 @@ import RelatedPartDisplay from './RelatedPartDisplay';
 import PartSearchInput from './PartSearchInput';
 import { SheetFooter } from '@/components/ui/sheet'; // Adicionado SheetFooter
 import { useCompany } from '@/context/CompanyContext';
+import ListIconEditor from '@/components/list-icon/ListIconEditor';
+import type { ListIcon as ListIconData } from '@/types/listIcon';
 
 interface CustomListItemFormProps {
   list: CustomList;
@@ -53,6 +55,7 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
   const [formQuantity, setFormQuantity] = useState<number | "">(1);
   const [formQuantityError, setFormQuantityError] = useState(false);
   const [formItensRelacionados, setFormItensRelacionados] = useState<RelatedPart[]>([]);
+  const [formIcon, setFormIcon] = useState<ListIconData | null>(null);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
@@ -92,6 +95,7 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
     setFormQuantity(1);
     setFormQuantityError(false);
     setFormItensRelacionados([]);
+    setFormIcon(null);
     setSearchQuery('');
     setSearchResults([]);
     setSelectedPartFromSearch(null);
@@ -108,6 +112,7 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
     if (editingItem) {
       setFormType(editingItem.type || 'item');
       setFormItemName(editingItem.item_name);
+      setFormIcon(editingItem.type === 'subtitle' ? editingItem.icon ?? null : null);
       
       if (editingItem.type === 'mangueira' && editingItem.mangueira_data) {
         const data = editingItem.mangueira_data;
@@ -450,6 +455,7 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
         order_index: editingItem ? editingItem.order_index : list.items_data?.length ?? 0,
         itens_relacionados: formType === 'item' ? formItensRelacionados : [],
         mangueira_data: undefined,
+        ...(formType === 'subtitle' && formIcon ? { icon: formIcon } : {}),
       };
     }
 
@@ -544,6 +550,21 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
               </Tooltip>
             )}
           </div>
+        </div>
+      )}
+
+      {formType === 'subtitle' && (
+        <div className="space-y-2" data-testid="subtitle-icon-block">
+          <Label>Ícone</Label>
+          <ListIconEditor
+            name={formItemName || list.title}
+            icon={formIcon}
+            onChange={setFormIcon}
+            fallbackIcon={list.icon ?? null}
+            fallbackName={list.title}
+            autoLabel="Usar ícone da lista"
+          />
+          <p className="text-xs text-muted-foreground">Sem ícone próprio, usa o da lista.</p>
         </div>
       )}
 
@@ -758,11 +779,11 @@ const CustomListItemForm: React.FC<CustomListItemFormProps> = ({ list, editingIt
         </>
       )}
 
-      <SheetFooter>
-        <Button type="button" variant="outline" onClick={onClose}>
+      <SheetFooter className="sticky bottom-0 -mx-1 grid grid-cols-2 gap-2 border-t bg-background px-1 pt-3 pb-[env(safe-area-inset-bottom)] sm:flex sm:space-x-0">
+        <Button type="button" variant="outline" className="h-11 sm:h-10" onClick={onClose}>
           <XCircle className="h-4 w-4 mr-2" /> Cancelar
         </Button>
-        <Button type="submit">
+        <Button type="submit" className="h-11 sm:h-10">
           <Save className="h-4 w-4 mr-2" /> {editingItem ? 'Salvar Alterações' : 'Adicionar Item'}
         </Button>
       </SheetFooter>

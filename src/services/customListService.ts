@@ -170,6 +170,9 @@ export const getMenuStructure = async (company: CompanyType): Promise<MenuItem[]
               hash: subtitle.id, // A âncora para o scroll
               itens_relacionados: [],
               isDynamic: true, // NOVO: Marca o item como dinâmico
+              icon: sanitizeListIcon(subtitle.icon) ?? null,
+              list_icon: sanitizeListIcon(list.icon) ?? null,
+              list_title: list.title,
             });
           });
         }
@@ -231,6 +234,19 @@ export const deleteMenuItem = async (itemId: string, company: CompanyType): Prom
 
 // --- Custom Lists Management ---
 
+/** Padroniza os itens: relacionados como objetos e ícone válido só em subtítulos. */
+const normalizeListItems = (items: CustomListItem[]): CustomListItem[] =>
+  items.map(item => {
+    const { icon, ...rest } = item;
+    const normalized: CustomListItem = {
+      ...rest,
+      itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem),
+    };
+    const safeIcon = item.type === 'subtitle' ? sanitizeListIcon(icon) : undefined;
+    if (safeIcon) normalized.icon = safeIcon;
+    return normalized;
+  });
+
 export const getCustomLists = async (userId: string, company: CompanyType): Promise<CustomList[]> => {
   const { data, error } = await supabase
     .from('custom_lists')
@@ -248,12 +264,7 @@ export const getCustomLists = async (userId: string, company: CompanyType): Prom
   // Garante que os itens existentes também sejam padronizados
   return lists.map(list => {
     list.icon = sanitizeListIcon(list.icon) ?? null;
-    if (list.items_data) {
-      list.items_data = list.items_data.map(item => ({
-        ...item,
-        itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem)
-      }));
-    }
+    if (list.items_data) list.items_data = normalizeListItems(list.items_data);
     return list;
   });
 };
@@ -272,12 +283,7 @@ export const getCustomListById = async (listId: string, company: CompanyType): P
 
   const list = data as CustomList | null;
   if (list) list.icon = sanitizeListIcon(list.icon) ?? null;
-  if (list && list.items_data) {
-    list.items_data = list.items_data.map(item => ({
-      ...item,
-      itens_relacionados: (item.itens_relacionados || []).map(parseRelatedItem)
-    }));
-  }
+  if (list && list.items_data) list.items_data = normalizeListItems(list.items_data);
 
   return list;
 };
@@ -319,7 +325,7 @@ export const updateCustomList = async (list: CustomList): Promise<void> => {
     .from('custom_lists')
     .update({ 
       title: list.title, 
-      items_data: list.items_data, 
+      items_data: list.items_data ? normalizeListItems(list.items_data) : list.items_data, 
       ...(list.icon !== undefined ? { icon: sanitizeListIcon(list.icon) ?? null } : {}),
       updated_at: new Date().toISOString(),
       company: list.company

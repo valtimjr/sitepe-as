@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Menu, List as ListIcon, ChevronLeft } from 'lucide-react';
@@ -6,7 +6,6 @@ import { MadeWithDyad } from '@/components/made-with-dyad';
 import MenuStructureEditor from '@/components/MenuStructureEditor';
 import CustomListManager from '@/components/CustomListManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { showSuccess } from '@/utils/toast';
 import { useSession } from '@/components/SessionContextProvider';
 import { useCompany } from '@/context/CompanyContext';
 
@@ -24,9 +23,15 @@ const MenuManagerPage: React.FC<MenuManagerPageProps> = ({ isEmbedded = false })
     }
   }, [isEmbedded, branding.name]);
 
-  const handleMenuUpdate = useCallback(() => {
-    // Força a atualização do AppHeader
-    showSuccess('Estrutura do menu atualizada. O cabeçalho será recarregado.');
+  const [tab, setTab] = useState('structure');
+  const [editListId, setEditListId] = useState<string | null>(null);
+
+  // Os toasts de sucesso já saem do editor; nada extra a fazer aqui.
+  const handleMenuUpdate = useCallback(() => {}, []);
+
+  const handleEditList = useCallback((listId: string) => {
+    setEditListId(listId);
+    setTab('lists');
   }, []);
 
   if (!checkPageAccess('/menu-manager')) {
@@ -55,20 +60,24 @@ const MenuManagerPage: React.FC<MenuManagerPageProps> = ({ isEmbedded = false })
         </h1>
       )}
 
-      <Tabs defaultValue="structure" className="w-full max-w-6xl">
-        <TabsList className="flex w-full justify-start overflow-x-auto sm:grid sm:grid-cols-2">
-          <TabsTrigger value="structure" className="flex shrink-0 items-center gap-2">
-            <Menu className="h-4 w-4" /> Estrutura do Menu
+      <Tabs value={tab} onValueChange={setTab} className="w-full max-w-6xl">
+        <TabsList className="grid h-11 w-full grid-cols-2">
+          <TabsTrigger value="structure" className="flex h-9 min-w-0 items-center gap-2">
+            <Menu className="h-4 w-4 shrink-0" />
+            <span className="sm:hidden">Estrutura</span>
+            <span className="hidden truncate sm:inline">Estrutura do Menu</span>
           </TabsTrigger>
-          <TabsTrigger value="lists" className="flex shrink-0 items-center gap-2">
-            <ListIcon className="h-4 w-4" /> Listas Personalizadas
+          <TabsTrigger value="lists" className="flex h-9 min-w-0 items-center gap-2">
+            <ListIcon className="h-4 w-4 shrink-0" />
+            <span className="sm:hidden">Listas</span>
+            <span className="hidden truncate sm:inline">Listas Personalizadas</span>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="structure">
-          <MenuStructureEditor onMenuUpdated={handleMenuUpdate} />
+          <MenuStructureEditor onMenuUpdated={handleMenuUpdate} onEditList={handleEditList} />
         </TabsContent>
         <TabsContent value="lists">
-          <CustomListManager />
+          <CustomListManager editListId={editListId} onEditListHandled={() => setEditListId(null)} />
         </TabsContent>
       </Tabs>
       {!isEmbedded && <MadeWithDyad />}
