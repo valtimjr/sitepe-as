@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Af } from '@/services/partListService';
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface AfSearchInputProps {
   value: string;
@@ -12,9 +13,11 @@ interface AfSearchInputProps {
   onSelectAf: (af: string) => void;
   readOnly?: boolean;
   availableAfs: Af[];
+  /** Atributos extras do campo (ex.: altura maior e enterKeyHint no celular). */
+  inputProps?: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onFocus' | 'onBlur'>;
 }
 
-const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelectAf, readOnly, availableAfs }) => {
+const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelectAf, readOnly, availableAfs, inputProps }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<Af[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -158,14 +161,15 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
           id="af-input"
           type="text"
           placeholder="Digite o número do AF..."
+          autoComplete="off"
+          {...inputProps}
           value={displayValue}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
-          className="w-full pr-8"
+          className={cn("w-full pr-8", inputProps?.className)}
           readOnly={readOnly}
           ref={inputRef}
-          autoComplete="off"
         />
         {isSearching && (
           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />

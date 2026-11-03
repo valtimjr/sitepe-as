@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { useAppRefresh } from '@/hooks/useAppRefresh';
 import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
 import { Link } from 'react-router-dom';
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import ServiceOrderForm from '@/components/ServiceOrderForm';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getDailyServiceOrders, ServiceOrderData, saveDailyServiceOrder } from '@/services/partListService';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -52,6 +52,18 @@ import { ServiceOrderCharts } from '@/components/ServiceOrderCharts';
 import { useCompany } from '@/context/CompanyContext';
 import { FileChartLine, Plus } from 'lucide-react';
 
+const ServiceOrderForm = lazy(() => import('@/components/ServiceOrderForm'));
+
+const FormSkeleton = () => (
+  <div className="space-y-5" aria-label="Carregando formulário">
+    <Skeleton className="h-12 w-full rounded-xl" />
+    <Skeleton className="h-11 w-full" />
+    <Skeleton className="h-11 w-full" />
+    <Skeleton className="h-11 w-2/3" />
+    <Skeleton className="h-16 w-full" />
+  </div>
+);
+
 const ServiceOrderList: React.FC = () => {
   const { user, session, profile } = useSession();
   const isCompact = useIsCompact();
@@ -72,6 +84,8 @@ const ServiceOrderList: React.FC = () => {
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [duplicateStartTime, setDuplicateStartTime] = useState<string | undefined>(undefined);
   const [slideFrom, setSlideFrom] = useState<'left' | 'right' | null>(null);
+  const [formDirty, setFormDirty] = useState(false);
+  const [confirmDiscardForm, setConfirmDiscardForm] = useState(false);
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'moderator';
 
@@ -225,7 +239,14 @@ const ServiceOrderList: React.FC = () => {
   const handleOpenForm = (os?: ServiceOrderData, startTime?: string) => {
     setEditingOs(os || null);
     setDuplicateStartTime(startTime);
+    setFormDirty(false);
     setIsFormOpen(true);
+  };
+
+  /** Fecha o formulário; com dados digitados, pede confirmação antes. */
+  const requestCloseForm = () => {
+    if (formDirty) setConfirmDiscardForm(true);
+    else setIsFormOpen(false);
   };
 
   const handleSaveOS = async (updatedOs: ServiceOrderData) => {
@@ -756,23 +777,53 @@ const ServiceOrderList: React.FC = () => {
         </>
       )}
 
-      <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <ResponsiveSheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
+      <Sheet open={isFormOpen} onOpenChange={(open) => (open ? setIsFormOpen(true) : requestCloseForm())}>
+        <ResponsiveSheetContent
+          side="right"
+          className="w-full sm:max-w-lg overflow-y-auto"
+          onOpenAutoFocus={isCompact ? (e) => e.preventDefault() : undefined}
+          data-testid="os-form-sheet"
+        >
+          <SheetHeader className={cn(isCompact && "text-left")}>
             <SheetTitle>{editingOs ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}</SheetTitle>
           </SheetHeader>
-          <div className="py-6">
-            <ServiceOrderForm
-              initialStartTime={duplicateStartTime}
-              initialData={editingOs}
-              onSave={handleSaveOS}
-              onCancel={() => setIsFormOpen(false)}
-              existingOsList={osList}
-              selectedDate={selectedDate}
-            />
+          <div className={isCompact ? "pt-4" : "py-6"}>
+            {/* O conteúdo da gaveta só é montado aberto; o formulário é baixado na 1ª abertura. */}
+            <Suspense fallback={<FormSkeleton />}>
+              <ServiceOrderForm
+                initialStartTime={duplicateStartTime}
+                initialData={editingOs}
+                onSave={handleSaveOS}
+                onCancel={requestCloseForm}
+                existingOsList={osList}
+                selectedDate={selectedDate}
+                onDirtyChange={setFormDirty}
+              />
+            </Suspense>
           </div>
         </ResponsiveSheetContent>
       </Sheet>
+
+      <AlertDialog open={confirmDiscardForm} onOpenChange={setConfirmDiscardForm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Descartar alterações?</AlertDialogTitle>
+            <AlertDialogDescription>Os dados digitados nesta OS serão perdidos.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar editando</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                setFormDirty(false);
+                setIsFormOpen(false);
+              }}
+            >
+              Descartar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!invalidTimesDialog} onOpenChange={(open) => { if (!open) setInvalidTimesDialog(null); }}>
         <AlertDialogContent data-testid="invalid-times-dialog">

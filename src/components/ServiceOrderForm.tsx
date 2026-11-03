@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useReducer, useRef, useLayoutEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,10 +16,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useCompany } from '@/context/CompanyContext';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { useSession } from '@/components/SessionContextProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { validateTimesAgainstShift } from '@/services/shiftService';
 import { useIsCompact } from '@/hooks/use-compact';
+import { useKeyboardOpen } from '@/hooks/useKeyboardOpen';
+import OsTypeToggle from '@/components/service-orders/OsTypeToggle';
+import OsPartsSection, { partsReducer } from '@/components/service-orders/OsPartsSection';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +43,40 @@ interface ServiceOrderFormProps {
   selectedDate: Date;
   /** Hora de início sugerida para uma OS nova (ação "Nova OS a partir de..."). */
   initialStartTime?: string;
+  /** Avisa se há alterações não salvas (para pedir confirmação ao fechar). */
+  onDirtyChange?: (dirty: boolean) => void;
 }
+
+const TIME_REGEX = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+
+const toMinutes = (time: string) => {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+};
+
+/** Duração entre dois horários (passa da meia-noite), ex.: "2h30" ou "45min". */
+const formatSpan = (start: string, end: string) => {
+  if (!TIME_REGEX.test(start) || !TIME_REGEX.test(end)) return '';
+  let minutes = toMinutes(end) - toMinutes(start);
+  if (minutes < 0) minutes += 24 * 60;
+  if (minutes === 0) return '';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `${m}min`;
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+};
+
+/** Rola até o campo e dá foco nele (ou no primeiro campo dentro do bloco). */
+const focusField = (el: HTMLElement | null) => {
+  if (!el) return;
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  const target = el.matches('input, textarea') ? el : el.querySelector<HTMLElement>('input, textarea');
+  target?.focus({ preventScroll: true });
+};
+
+const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{children}</h3>
+);
 
 const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   initialData,
@@ -47,19 +84,19 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   onCancel,
   existingOsList,
   selectedDate,
-  initialStartTime
+  initialStartTime,
+  onDirtyChange,
 }) => {
   const isCompact = useIsCompact();
+  const keyboardOpen = useKeyboardOpen();
   const { company } = useCompany();
-  const { user, profile } = useSession();
+  const { profile } = useSession();
   
   const [userShift, setUserShift] = useState<any>(null);
-  const [isLoadingShift, setIsLoadingShift] = useState(false);
 
   useEffect(() => {
     const fetchUserShift = async () => {
       if (!profile?.shift_code || !company) return;
-      setIsLoadingShift(true);
       try {
         const { data, error } = await supabase
           .from('shifts')
@@ -72,8 +109,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         }
       } catch (err) {
         console.error('Error fetching user shift in ServiceOrderForm:', err);
-      } finally {
-        setIsLoadingShift(false);
       }
     };
     fetchUserShift();
@@ -87,18 +122,25 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFinal, setHoraFinal] = useState('');
   const [servicoExecutado, setServicoExecutado] = useState('');
-  const [parts, setParts] = useState<{codigo_peca: string, descricao: string, quantidade: number}[]>([]);
+  const [parts, dispatchParts] = useReducer(partsReducer, []);
   const [isPercurso, setIsPercurso] = useState(false);
   const [isAgregado, setIsAgregado] = useState(false);
   const [numeroAgregado, setNumeroAgregado] = useState('');
   const [agregadoError, setAgregadoError] = useState(false);
+  const [partsError, setPartsError] = useState(false);
+
+  // Refs para rolar até o campo com erro
+  const afFieldRef = useRef<HTMLDivElement>(null);
+  const agregadoInputRef = useRef<HTMLInputElement>(null);
+  const horaInicioRef = useRef<HTMLInputElement>(null);
+  const horaFinalRef = useRef<HTMLInputElement>(null);
+  const partsRef = useRef<HTMLDivElement>(null);
+  const servicoRef = useRef<HTMLTextAreaElement>(null);
   
-  // Estados para busca e edição de peças
+  // Estados para busca e edição de peças (desktop)
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(false);
-  
-  // Novos estados para edição manual da peça antes de adicionar
   const [partCode, setPartCode] = useState('');
   const [partDescription, setPartDescription] = useState('');
   const [partQuantity, setPartQuantity] = useState<number | "">(1);
@@ -119,7 +161,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       setHoraInicio(initialData.hora_inicio || '');
       setHoraFinal(initialData.hora_final || '');
       setServicoExecutado(initialData.servico_executado || '');
-      setParts(initialData.parts || []);
+      dispatchParts({ type: 'reset', parts: initialData.parts || [] });
       setIsPercurso(!!initialData.is_percurso);
       setIsAgregado(!initialData.is_percurso && !!initialData.agregado);
       setNumeroAgregado(!initialData.is_percurso ? (initialData.numero_agregado || '') : '');
@@ -139,7 +181,39 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     }
   }, [isPercurso]);
 
+  // Alterações não salvas: compara com o estado inicial
+  const initialSnapshot = useMemo(() => {
+    const p = !!initialData?.is_percurso;
+    return JSON.stringify([
+      initialData?.af || '',
+      initialData?.os || '',
+      initialData ? initialData.hora_inicio || '' : initialStartTime || '',
+      initialData?.hora_final || '',
+      initialData?.servico_executado || '',
+      initialData?.parts || [],
+      p,
+      !p && !!initialData?.agregado,
+      !p ? initialData?.numero_agregado || '' : '',
+    ]);
+  }, [initialData, initialStartTime]);
+  const currentSnapshot = JSON.stringify([
+    af, os, horaInicio, horaFinal, servicoExecutado, parts, isPercurso, isAgregado, numeroAgregado,
+  ]);
+  const isDirty = currentSnapshot !== initialSnapshot;
   useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  // Caixa do serviço cresce com o texto (celular)
+  useLayoutEffect(() => {
+    const el = servicoRef.current;
+    if (!el || !isCompact) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [servicoExecutado, isCompact, isPercurso]);
+
+  useEffect(() => {
+    if (isCompact) return;
     const handler = setTimeout(async () => {
       if (searchQuery.length > 1) {
         setIsLoadingParts(true);
@@ -151,7 +225,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       }
     }, 300);
     return () => clearTimeout(handler);
-  }, [searchQuery, company]);
+  }, [searchQuery, company, isCompact]);
 
   const handleSelectPartFromSearch = (part: Part) => {
     setPartCode(part.codigo);
@@ -173,13 +247,12 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       return;
     }
 
-    setParts(prev => [...prev, {
-      codigo_peca: partCode.trim(),
-      descricao: partDescription.trim(),
-      quantidade: qtyNum
-    }]);
+    dispatchParts({
+      type: 'insert',
+      index: parts.length,
+      part: { codigo_peca: partCode.trim(), descricao: partDescription.trim(), quantidade: qtyNum },
+    });
 
-    // Limpa os campos após adicionar
     setPartCode('');
     setPartDescription('');
     setPartQuantity(1);
@@ -188,7 +261,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
   };
 
   const handleRemovePart = (index: number) => {
-    setParts(prev => prev.filter((_, i) => i !== index));
+    dispatchParts({ type: 'remove', index });
   };
 
   const checkTimeOverlap = (
@@ -198,11 +271,6 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     horaFinalB: string
   ): boolean => {
     if (!horaInicioA || !horaFinalA || !horaInicioB || !horaFinalB) return false;
-
-    const toMinutes = (time: string) => {
-      const [h, m] = time.split(':').map(Number);
-      return h * 60 + m;
-    };
 
     let startA = toMinutes(horaInicioA);
     let endA = toMinutes(horaFinalA);
@@ -260,23 +328,33 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     if (!isPercurso && isAgregado && !numeroAgregado.trim()) {
       setAgregadoError(true);
       showError('Informe o Nº Agregado para continuar.');
+      focusField(agregadoInputRef.current);
       return;
     }
 
     if (!isPercurso && !af) {
       showError('O número do AF é obrigatório.');
+      focusField(afFieldRef.current);
       return;
     }
 
+    if (!isPercurso && parts.some(p => !(p.quantidade > 0))) {
+      setPartsError(true);
+      showError('Informe a quantidade de todas as peças.');
+      focusField(partsRef.current);
+      return;
+    }
+    setPartsError(false);
 
     // 2. Validar formato das horas
-    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    if (horaInicio && !timeRegex.test(horaInicio)) {
+    if (horaInicio && !TIME_REGEX.test(horaInicio)) {
       showError('O horário de início deve estar no formato de horas válido (HH:MM).');
+      focusField(horaInicioRef.current);
       return;
     }
-    if (horaFinal && !timeRegex.test(horaFinal)) {
+    if (horaFinal && !TIME_REGEX.test(horaFinal)) {
       showError('O horário de término deve estar no formato de horas válido (HH:MM).');
+      focusField(horaFinalRef.current);
       return;
     }
 
@@ -288,6 +366,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       });
       if (hasConflict) {
         showError('Há uma sobreposição de horários com outra Ordem de Serviço ou Percurso já existente nesta data.');
+        focusField(horaInicioRef.current);
         return;
       }
     }
@@ -311,8 +390,191 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
     onSave(buildServiceOrderObject());
   };
 
-  return (
-    <>
+  /** Enter num campo (celular) vai para o próximo campo em vez de enviar o formulário. */
+  const handleEnterNext = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    const target = e.target as HTMLElement;
+    if (e.key !== 'Enter' || target.tagName !== 'INPUT' || !e.currentTarget.contains(target)) return;
+    e.preventDefault();
+    const fields = Array.from(
+      e.currentTarget.querySelectorAll<HTMLElement>('input:not([type="hidden"]):not([disabled]), textarea'),
+    ).filter(el => el.offsetParent !== null);
+    const next = fields[fields.indexOf(target) + 1];
+    if (next) next.focus();
+    else target.blur();
+  };
+
+  const duration = formatSpan(horaInicio, horaFinal);
+  const partsSubtitle = af ? `AF ${af}${os ? ` · OS ${os}` : ''}` : 'Nova OS';
+
+  const footer = (
+    <div
+      className={cn(
+        "flex gap-3",
+        isCompact
+          ? cn(
+              "sticky bottom-0 z-10 -mx-6 border-t bg-background px-6 pt-3",
+              keyboardOpen ? "pb-3" : "pb-[calc(0.75rem+env(safe-area-inset-bottom))]",
+            )
+          : "pt-4"
+      )}
+      data-testid="os-form-footer"
+    >
+      <Button type="button" variant="outline" className={cn("flex-1", isCompact && "h-12 text-base")} onClick={onCancel}>
+        <XCircle className="h-4 w-4 mr-2" /> Cancelar
+      </Button>
+      <Button type="submit" className={cn("flex-1", isCompact && "h-12 text-base")}>
+        <Save className="h-4 w-4 mr-2" /> Salvar OS
+      </Button>
+    </div>
+  );
+
+  const compactForm = (
+    <form onSubmit={handleSubmit} onKeyDown={handleEnterNext} className="space-y-6" noValidate>
+      <div className="space-y-3">
+        <OsTypeToggle isPercurso={isPercurso} onChange={setIsPercurso} />
+        {!isPercurso && (
+          <div className="rounded-lg border px-3 bg-blue-50/40 dark:bg-blue-950/10 border-blue-100 dark:border-blue-900/30">
+            <div className="flex items-center justify-between min-h-12">
+              <Label htmlFor="is-agregado" className="flex items-center gap-2 text-base font-medium cursor-pointer">
+                <Truck className="h-4 w-4 text-blue-600" /> Agregado
+              </Label>
+              <Switch
+                id="is-agregado"
+                checked={isAgregado}
+                onCheckedChange={(checked) => {
+                  setIsAgregado(checked);
+                  setAgregadoError(false);
+                }}
+                className="data-[state=checked]:bg-blue-600"
+              />
+            </div>
+            {isAgregado && (
+              <div className="pb-3 space-y-1.5 animate-in fade-in duration-200">
+                <Label htmlFor="numero-agregado">
+                  Nº Agregado <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="numero-agregado"
+                  ref={agregadoInputRef}
+                  value={numeroAgregado}
+                  inputMode="numeric"
+                  enterKeyHint="next"
+                  autoComplete="off"
+                  aria-invalid={agregadoError}
+                  aria-describedby={agregadoError ? 'numero-agregado-error' : undefined}
+                  onChange={(e) => {
+                    setNumeroAgregado(e.target.value);
+                    setAgregadoError(false);
+                  }}
+                  placeholder="Ex: 123456"
+                  className={cn("h-11 text-base", agregadoError && "border-destructive focus-visible:ring-destructive")}
+                />
+                {agregadoError && (
+                  <p id="numero-agregado-error" className="text-sm text-destructive">
+                    Informe o Nº Agregado para continuar.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <section className="space-y-3">
+        <SectionTitle>Identificação</SectionTitle>
+        <div ref={afFieldRef} className="space-y-1.5">
+          <Label htmlFor="af-input">
+            AF {!isPercurso && <span className="text-destructive">*</span>}
+          </Label>
+          <AfSearchInput
+            value={af}
+            onChange={setAf}
+            onSelectAf={setAf}
+            availableAfs={availableAfs}
+            inputProps={{ className: 'h-11 text-base', enterKeyHint: 'next' }}
+          />
+        </div>
+        {!isPercurso && (
+          <div className="space-y-1.5">
+            <Label htmlFor="os-number">Nº OS</Label>
+            <Input
+              id="os-number"
+              value={os}
+              onChange={e => setOs(e.target.value)}
+              placeholder="Ex: 45001"
+              inputMode="numeric"
+              enterKeyHint="next"
+              autoComplete="off"
+              className="h-11 text-base"
+            />
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <SectionTitle>Horário</SectionTitle>
+        <div className="flex items-end gap-2">
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <Label htmlFor="hora-inicio">Início</Label>
+            <Input
+              id="hora-inicio"
+              ref={horaInicioRef}
+              type="time"
+              value={horaInicio}
+              onChange={e => setHoraInicio(e.target.value)}
+              className="h-11 text-base"
+            />
+          </div>
+          <span className="pb-3 text-muted-foreground" aria-hidden="true">→</span>
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <Label htmlFor="hora-final">Fim</Label>
+            <Input
+              id="hora-final"
+              ref={horaFinalRef}
+              type="time"
+              value={horaFinal}
+              onChange={e => setHoraFinal(e.target.value)}
+              className="h-11 text-base"
+            />
+          </div>
+          <div
+            className="w-14 shrink-0 pb-3 text-right text-sm font-semibold tabular-nums text-muted-foreground"
+            data-testid="os-duration"
+            aria-label={duration ? `Duração ${duration}` : undefined}
+          >
+            {duration || '—'}
+          </div>
+        </div>
+      </section>
+
+      {!isPercurso && (
+        <>
+          <section className="space-y-3">
+            <SectionTitle>
+              <label htmlFor="servico-executado">Serviço</label>
+            </SectionTitle>
+            <Textarea
+              id="servico-executado"
+              ref={servicoRef}
+              value={servicoExecutado}
+              onChange={e => setServicoExecutado(e.target.value)}
+              placeholder="Descreva o trabalho realizado..."
+              rows={2}
+              className="min-h-0 resize-none overflow-hidden text-base"
+            />
+          </section>
+
+          <div ref={partsRef}>
+            <OsPartsSection parts={parts} dispatch={dispatchParts} subtitle={partsSubtitle} hasError={partsError} />
+          </div>
+        </>
+      )}
+
+      {footer}
+    </form>
+  );
+
+  const desktopForm = (
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Checkbox Percurso */}
       <div className="flex items-center space-x-2 p-3 bg-red-50/50 dark:bg-red-950/10 border border-red-100 dark:border-red-900/30 rounded-md">
@@ -376,6 +638,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
             </Label>
             <Input
               id="numero-agregado"
+              ref={agregadoInputRef}
               value={numeroAgregado}
               onChange={(e) => {
                 setNumeroAgregado(e.target.value);
@@ -397,7 +660,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
+        <div className="space-y-2" ref={afFieldRef}>
           <Label>
             AF (Número de Frota) {!isPercurso && <span className="text-destructive">*</span>}
           </Label>
@@ -423,11 +686,11 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Hora Início</Label>
-          <Input type="time" value={horaInicio} onChange={e => setHoraInicio(e.target.value)} className={cn(isCompact && "h-11 text-base")} />
+          <Input ref={horaInicioRef} type="time" value={horaInicio} onChange={e => setHoraInicio(e.target.value)} />
         </div>
         <div className="space-y-2">
           <Label>Hora Final</Label>
-          <Input type="time" value={horaFinal} onChange={e => setHoraFinal(e.target.value)} className={cn(isCompact && "h-11 text-base")} />
+          <Input ref={horaFinalRef} type="time" value={horaFinal} onChange={e => setHoraFinal(e.target.value)} />
         </div>
       </div>
 
@@ -529,7 +792,7 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
                         </TableCell>
                         <TableCell className="text-center">{p.quantidade}</TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemovePart(i)}>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemovePart(i)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -543,23 +806,13 @@ const ServiceOrderForm: React.FC<ServiceOrderFormProps> = ({
         </>
       )}
 
-      <div
-        className={cn(
-          "flex gap-3",
-          isCompact
-            ? "sticky bottom-0 z-10 -mx-6 border-t bg-background px-6 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
-            : "pt-4"
-        )}
-        data-testid="os-form-footer"
-      >
-        <Button type="button" variant="outline" className={cn("flex-1", isCompact && "h-11")} onClick={onCancel}>
-          <XCircle className="h-4 w-4 mr-2" /> Cancelar
-        </Button>
-        <Button type="submit" className={cn("flex-1", isCompact && "h-11")}>
-          <Save className="h-4 w-4 mr-2" /> Salvar OS
-        </Button>
-      </div>
+      {footer}
     </form>
+  );
+
+  return (
+    <>
+    {isCompact ? compactForm : desktopForm}
 
     <AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
       <AlertDialogContent className="max-w-md">

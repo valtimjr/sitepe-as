@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { Button } from '@/components/ui/button';
 import { ServiceOrderData } from '@/types/supabase';
 import {
@@ -36,8 +36,11 @@ import { useCompany } from '@/context/CompanyContext';
 import { cn } from '@/lib/utils';
 import { tap } from '@/lib/haptics';
 import { Checkbox } from '@/components/ui/checkbox';
-import ServiceOrderPartPicker, { PickedPart } from '@/components/service-orders/ServiceOrderPartPicker';
+import ServiceOrderPartPicker from '@/components/service-orders/ServiceOrderPartPicker';
 import QuantityStepper from '@/components/service-orders/QuantityStepper';
+import { mergeParts, type PickedPart } from '@/components/service-orders/mergeParts';
+
+const PartPickerSheet = lazy(() => import('@/components/service-orders/PartPickerSheet'));
 
 interface ServiceOrderListDisplayProps {
   group: ServiceOrderData;
@@ -349,11 +352,12 @@ const PartEditSheet: React.FC<{
   onSave: (part: OsPart) => void;
   onDelete: () => void;
 }> = ({ part, onClose, onSave, onDelete }) => {
-  const [code, setCode] = useState('');
-  const [desc, setDesc] = useState('');
-  const [qty, setQty] = useState<number | ''>(1);
+  const [code, setCode] = useState(part?.codigo_peca ?? '');
+  const [desc, setDesc] = useState(part?.descricao ?? '');
+  const [qty, setQty] = useState<number | ''>(part?.quantidade ?? 1);
   const [qtyError, setQtyError] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const qtyInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (part) {
@@ -376,7 +380,14 @@ const PartEditSheet: React.FC<{
   return (
     <>
       <Sheet open={!!part} onOpenChange={(open) => { if (!open) onClose(); }}>
-        <ResponsiveSheetContent className="w-full sm:max-w-lg" data-testid="part-edit-sheet">
+        <ResponsiveSheetContent
+          className="w-full sm:max-w-lg"
+          data-testid="part-edit-sheet"
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            qtyInputRef.current?.focus();
+          }}
+        >
           <SheetHeader className="text-left">
             <SheetTitle>Editar peça</SheetTitle>
             <SheetDescription className="sr-only">Altere o código, a descrição ou a quantidade.</SheetDescription>
@@ -392,7 +403,12 @@ const PartEditSheet: React.FC<{
             </div>
             <div className="space-y-1.5">
               <Label>Quantidade</Label>
-              <QuantityStepper value={qty} onChange={(v) => { setQty(v); setQtyError(false); }} error={qtyError} />
+              <QuantityStepper
+                value={qty}
+                onChange={(v) => { setQty(v); setQtyError(false); }}
+                error={qtyError}
+                inputRef={qtyInputRef}
+              />
               {qtyError && <p className="text-xs text-destructive">O valor tem que ser maior que "0"</p>}
             </div>
             <Button
@@ -458,6 +474,12 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
   const handleAddPartConfirm = (newPart: PickedPart) => {
     if (!onSave) return;
     onSave({ ...group, parts: [...(group.parts || []), newPart] });
+    setIsAddingPart(false);
+  };
+
+  const handleAddPartsConfirm = (newParts: PickedPart[]) => {
+    if (!onSave || newParts.length === 0) return;
+    onSave({ ...group, parts: mergeParts(group.parts || [], newParts) });
     setIsAddingPart(false);
   };
 
@@ -632,30 +654,31 @@ const ServiceOrderListDisplay: React.FC<ServiceOrderListDisplayProps> = ({
 
         {!readOnly && onSave && (
           <>
-            <Sheet open={isAddingPart} onOpenChange={setIsAddingPart}>
-              <ResponsiveSheetContent className="w-full sm:max-w-lg" data-testid="add-part-sheet">
-                <SheetHeader className="text-left">
-                  <SheetTitle>Adicionar peça</SheetTitle>
-                  <SheetDescription>AF {group.af}{group.os ? ` · OS ${group.os}` : ''}</SheetDescription>
-                </SheetHeader>
-                <div className="mt-4">
-                  <ServiceOrderPartPicker large onConfirm={handleAddPartConfirm} onCancel={() => setIsAddingPart(false)} />
-                </div>
-              </ResponsiveSheetContent>
-            </Sheet>
+            {isAddingPart && (
+              <Suspense fallback={null}>
+                <PartPickerSheet
+                  open
+                  onOpenChange={setIsAddingPart}
+                  subtitle={`AF ${group.af}${group.os ? ` · OS ${group.os}` : ''}`}
+                  onConfirm={handleAddPartsConfirm}
+                />
+              </Suspense>
+            )}
 
-            <PartEditSheet
-              part={editingPart}
-              onClose={() => setEditingPartIndex(null)}
-              onSave={(p) => {
-                if (editingPartIndex !== null) handleUpdatePart(editingPartIndex, p);
-                setEditingPartIndex(null);
-              }}
-              onDelete={() => {
-                if (editingPartIndex !== null) handleDeletePart(editingPartIndex);
-                setEditingPartIndex(null);
-              }}
-            />
+            {editingPart && (
+              <PartEditSheet
+                part={editingPart}
+                onClose={() => setEditingPartIndex(null)}
+                onSave={(p) => {
+                  if (editingPartIndex !== null) handleUpdatePart(editingPartIndex, p);
+                  setEditingPartIndex(null);
+                }}
+                onDelete={() => {
+                  if (editingPartIndex !== null) handleDeletePart(editingPartIndex);
+                  setEditingPartIndex(null);
+                }}
+              />
+            )}
 
             <AlertDialog open={confirmDeleteOs} onOpenChange={setConfirmDeleteOs}>
               <AlertDialogContent>
