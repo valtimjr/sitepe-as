@@ -17,17 +17,21 @@ import { useAfs } from './useAfs';
 
 interface PartEditSheetProps {
   item: SimplePartItem;
+  /** Nome atual (do item ou do catálogo), usado como valor inicial. */
+  name?: string;
   related: RelatedPart[];
   onOpenChange: (open: boolean) => void;
   onSave: (item: SimplePartItem) => void;
-  onDelete: (id: string) => void;
+  /** Abre a confirmação de exclusão (a gaveta fecha se confirmar). */
+  onRequestDelete: (id: string) => void;
 }
 
 /** Gaveta "Editar peça" (montada só quando aberta). */
-const PartEditSheet: React.FC<PartEditSheetProps> = ({ item, related, onOpenChange, onSave, onDelete }) => {
+const PartEditSheet: React.FC<PartEditSheetProps> = ({ item, name, related, onOpenChange, onSave, onRequestDelete }) => {
   const keyboardOpen = useKeyboardOpen();
   const afs = useAfs();
   const [code, setCode] = useState(item.codigo_peca || '');
+  const [partName, setPartName] = useState(name || '');
   const [desc, setDesc] = useState(item.descricao || '');
   const [af, setAf] = useState(item.af || '');
   const [qty, setQty] = useState<number | ''>(item.quantidade ?? 1);
@@ -42,7 +46,7 @@ const PartEditSheet: React.FC<PartEditSheetProps> = ({ item, related, onOpenChan
       setError('O valor da quantidade tem que ser maior que "0"');
       return;
     }
-    onSave({ ...item, codigo_peca: code.trim(), descricao: desc.trim(), af: af.trim() || undefined, quantidade: qty });
+    onSave({ ...item, codigo_peca: code.trim(), name: partName.trim() || undefined, descricao: desc.trim(), af: af.trim() || undefined, quantidade: qty });
     onOpenChange(false);
   };
 
@@ -70,6 +74,16 @@ const PartEditSheet: React.FC<PartEditSheetProps> = ({ item, related, onOpenChan
               onChange={(e) => { setCode(e.target.value); setError(null); }}
               autoComplete="off"
               className="h-11 text-base font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-part-name">Nome (opcional)</Label>
+            <Input
+              id="edit-part-name"
+              value={partName}
+              onChange={(e) => setPartName(e.target.value)}
+              autoComplete="off"
+              className="h-11 text-base"
             />
           </div>
           <div className="space-y-1.5">
@@ -125,10 +139,7 @@ const PartEditSheet: React.FC<PartEditSheetProps> = ({ item, related, onOpenChan
               type="button"
               variant="ghost"
               className="w-full h-11 mb-2 text-destructive hover:text-destructive"
-              onClick={() => {
-                onDelete(item.id);
-                onOpenChange(false);
-              }}
+              onClick={() => onRequestDelete(item.id)}
             >
               <Trash2 className="h-4 w-4 mr-2" /> Excluir peça
             </Button>

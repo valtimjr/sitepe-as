@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { mockCatalog } from './fixtures/catalog';
 
 const ITEMS = [
-  { id: 'i1', codigo_peca: 'AAA-1', descricao: 'Rolamento dianteiro', quantidade: 2, af: '42032', company: 'usina_vale' },
+  { id: 'i1', codigo_peca: 'AAA-1', name: 'Rolamento 6205', descricao: 'Rolamento dianteiro', quantidade: 2, af: '42032', company: 'usina_vale' },
   { id: 'i2', codigo_peca: 'BBB-2', descricao: 'Filtro de óleo', quantidade: 1, company: 'usina_vale' },
   { id: 'i3', codigo_peca: 'CCC-3', descricao: 'Correia', quantidade: 1, af: '42032', company: 'usina_vale' },
   { id: 'i4', codigo_peca: 'DDD-4', descricao: 'Válvula', quantidade: 3, company: 'usina_vale' },
@@ -26,7 +26,18 @@ const seedLists = async (page: Page, items = ITEMS) => {
   }, items);
 };
 
-const rowCodes = (page: Page) => page.getByTestId('parts-list-row').locator('span.font-bold');
+const rowCodes = (page: Page) => page.getByTestId('parts-list-row-code');
+
+/** Desliza o dedo na horizontal (eventos de toque reais, via CDP). */
+const touchSwipe = async (page: Page, x: number, y: number, dx: number) => {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  for (let i = 1; i <= 12; i++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + (dx * i) / 12, y }] });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+};
 
 test.describe('Minha Lista no celular', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
@@ -35,7 +46,7 @@ test.describe('Minha Lista no celular', () => {
     await mockCatalog(page);
   });
 
-  test('cabeçalho fixo, chips e troca de lista', async ({ page }) => {
+  test('cabeçalho fixo com o carrossel infinito das listas', async ({ page }) => {
     const catalogRequests: string[] = [];
     page.on('request', (req) => {
       const url = decodeURIComponent(req.url());
@@ -46,32 +57,70 @@ test.describe('Minha Lista no celular', () => {
     await page.goto('/usina_vale/parts-list');
 
     const header = page.getByTestId('parts-list-mobile-header');
+    const title = header.getByTestId('parts-list-mobile-title');
     await expect(header).toBeVisible({ timeout: 15000 });
-    await expect(header.getByTestId('parts-list-mobile-title')).toHaveText('Caminhão 42032');
+    await expect(title).toHaveText('Caminhão 42032');
     await expect(header.getByTestId('parts-list-mobile-summary')).toContainText('4 peças');
     await expect(page.getByTestId('parts-list-row')).toHaveCount(4);
-    await expect(page.getByText('Título da Lista')).toHaveCount(0);
     await expect(page.getByRole('table')).toHaveCount(0);
-    await expect(page.getByRole('region', { name: 'Navegação de Listas de Peças' })).toHaveCount(0);
+    await expect(page.getByTestId('list-chip-new')).toHaveCount(0);
 
-    await header.getByRole('button', { name: 'Preventiva' }).click();
-    await expect(header.getByTestId('parts-list-mobile-title')).toHaveText('Preventiva');
-    await expect(header.getByTestId('parts-list-mobile-summary')).toContainText('0 peças');
+    // O carrossel fica dentro do cabeçalho fixo e os cartões são 4x3
+    const region = header.getByRole('region', { name: 'Navegação de Listas de Peças' });
+    await expect(region).toBeVisible();
+    const card = (await region.getByTestId('list-carousel-card').first().boundingBox())!;
+    expect(card.width / card.height).toBeCloseTo(4 / 3, 1);
+
+    const box = (await region.boundingBox())!;
+    const y = box.y + box.height - 24;
+    const x = box.x + box.width / 2;
+
+    // Arrastar com o mouse: próxima lista
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x - 20, y, { steps: 4 });
+    await page.mouse.move(x - card.width * 0.8, y, { steps: 12 });
+    await page.mouse.up();
+    await expect(title).toHaveText('Preventiva');
     await expect(page.getByTestId('parts-list-empty')).toContainText('Sua lista está vazia');
 
-    await page.getByTestId('list-chip-new').click();
+    // Deslizar o dedo a partir da última lista volta para a primeira
+    await touchSwipe(page, x, y, -card.width * 0.8);
+    await expect(title).toHaveText('Caminhão 42032');
+
+    // Setas do teclado
+    await region.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(title).toHaveText('Preventiva');
+    await page.keyboard.press('ArrowLeft');
+    await expect(title).toHaveText('Caminhão 42032');
+
+    // Nova Lista pelo carrossel
+    await header.getByRole('button', { name: 'Nova Lista' }).click();
     const dialog = page.getByRole('dialog', { name: 'Criar Nova Lista' });
     await dialog.getByLabel('Nome da Lista').fill('Nova E2E');
     await dialog.getByRole('button', { name: 'Criar Lista' }).click();
-    await expect(header.getByTestId('parts-list-mobile-title')).toHaveText('Nova E2E');
-    await expect(header.getByRole('button', { name: 'Nova E2E' })).toHaveAttribute('aria-pressed', 'true');
-
-    // Tocar no chip ativo abre as opções da lista
-    await header.getByRole('button', { name: 'Nova E2E' }).click();
-    await expect(page.getByTestId('list-options-sheet')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Renomear / Ícone' })).toBeVisible();
+    await expect(title).toHaveText('Nova E2E');
 
     expect(catalogRequests).toEqual([]);
+  });
+
+  test('Limpar lista pelo cabeçalho pede confirmação', async ({ page }) => {
+    await seedLists(page);
+    await page.goto('/usina_vale/parts-list');
+    await expect(page.getByTestId('parts-list-row')).toHaveCount(4, { timeout: 15000 });
+
+    const clear = page.getByTestId('parts-list-clear-button');
+    await clear.click();
+    const confirm = page.getByRole('alertdialog');
+    await expect(confirm).toContainText('Todas as 4 peças de "Caminhão 42032" serão removidas');
+    await confirm.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByTestId('parts-list-row')).toHaveCount(4);
+
+    await clear.click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Limpar' }).click();
+    await expect(page.getByTestId('parts-list-empty')).toBeVisible();
+    await expect(clear).toBeDisabled();
   });
 
   test('FAB adiciona várias peças com AF', async ({ page }) => {
@@ -96,9 +145,11 @@ test.describe('Minha Lista no celular', () => {
     await expect(sheet).toBeHidden();
     await expect(page.getByTestId('parts-list-row')).toHaveCount(2);
     await expect(page.getByTestId('parts-list-row-af')).toHaveText(['AF 7788', 'AF 7788']);
+    // Digitadas à mão sem nome: só o código
+    await expect(page.getByTestId('parts-list-row-name')).toHaveCount(0);
   });
 
-  test('"Uma peça detalhada" abre o formulário na gaveta', async ({ page }) => {
+  test('"Uma peça detalhada" abre o formulário e guarda o nome', async ({ page }) => {
     await seedLists(page, []);
     await page.goto('/usina_vale/parts-list');
     await expect(page.getByTestId('parts-list-empty')).toBeVisible({ timeout: 15000 });
@@ -108,14 +159,28 @@ test.describe('Minha Lista no celular', () => {
     const detailed = page.getByTestId('add-part-detailed-sheet');
     await expect(detailed).toBeVisible();
     await detailed.getByLabel('Cód. Peça').fill('DET-1');
+    await detailed.getByLabel('Nome da Peça').fill('Mancal');
     await detailed.getByLabel('Descrição').fill('Peça detalhada');
     await detailed.getByRole('button', { name: 'Adicionar à Lista' }).click();
 
     await expect(detailed).toBeHidden();
-    await expect(page.getByTestId('parts-list-row')).toContainText('DET-1');
+    await expect(page.getByTestId('parts-list-row-title')).toHaveText('DET-1 · Mancal');
+    await expect(page.getByTestId('parts-list-row-desc')).toHaveText('Peça detalhada');
   });
 
-  test('quantidade persiste e remover tem Desfazer', async ({ page }) => {
+  test('cartão mostra código · nome e a descrição embaixo', async ({ page }) => {
+    await seedLists(page);
+    await page.goto('/usina_vale/parts-list');
+    const rows = page.getByTestId('parts-list-row');
+    await expect(rows).toHaveCount(4, { timeout: 15000 });
+
+    await expect(rows.nth(0).getByTestId('parts-list-row-title')).toHaveText('AAA-1 · Rolamento 6205');
+    await expect(rows.nth(0).getByTestId('parts-list-row-desc')).toHaveText('Rolamento dianteiro');
+    await expect(rows.nth(1).getByTestId('parts-list-row-title')).toHaveText('BBB-2');
+    await expect(rows.nth(1).getByTestId('parts-list-row-name')).toHaveCount(0);
+  });
+
+  test('quantidade persiste e remover pede confirmação', async ({ page }) => {
     await seedLists(page);
     await page.goto('/usina_vale/parts-list');
     await expect(page.getByTestId('parts-list-row')).toHaveCount(4, { timeout: 15000 });
@@ -127,15 +192,31 @@ test.describe('Minha Lista no celular', () => {
     await expect(page.getByRole('spinbutton', { name: 'Quantidade de BBB-2' })).toHaveValue('2', { timeout: 15000 });
 
     await page.getByRole('button', { name: 'Remover BBB-2' }).click();
-    await expect(page.getByTestId('parts-list-row')).toHaveCount(3);
-    await page.getByTestId('part-removed-notice').getByRole('button', { name: 'Desfazer' }).click();
-    await expect(rowCodes(page)).toHaveText(['AAA-1', 'BBB-2', 'CCC-3', 'DDD-4']);
+    const confirm = page.getByRole('alertdialog');
+    await expect(confirm).toContainText('A peça "BBB-2" será removida desta lista.');
+    await confirm.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByTestId('parts-list-row')).toHaveCount(4);
+
+    await page.getByRole('button', { name: 'Remover BBB-2' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Remover' }).click();
+    await expect(rowCodes(page)).toHaveText(['AAA-1', 'CCC-3', 'DDD-4']);
+    await expect(page.getByTestId('part-removed-notice')).toHaveCount(0);
+
+    // "Excluir peça" na edição também pede confirmação
+    await page.getByRole('button', { name: 'Editar CCC-3' }).click();
+    const edit = page.getByTestId('part-edit-sheet');
+    await expect(edit).toBeVisible();
+    await edit.getByRole('button', { name: 'Excluir peça' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Remover' }).click();
+    await expect(edit).toBeHidden();
+    await expect(rowCodes(page)).toHaveText(['AAA-1', 'DDD-4']);
   });
 
-  test('arrastar pela alça, filtro e agrupar por AF', async ({ page }) => {
+  test('arrastar pela alça, sem filtro e agrupar por AF no Ordenar', async ({ page }) => {
     await seedLists(page);
     await page.goto('/usina_vale/parts-list');
     await expect(page.getByTestId('parts-list-row')).toHaveCount(4, { timeout: 15000 });
+    await expect(page.getByLabel('Filtrar nesta lista')).toHaveCount(0);
 
     // Arrasta a 1ª peça pela alça até abaixo da 2ª
     const handleBox = (await page.getByRole('button', { name: 'Arrastar AAA-1' }).boundingBox())!;
@@ -147,21 +228,18 @@ test.describe('Minha Lista no celular', () => {
     await page.mouse.up();
     await expect(rowCodes(page)).toHaveText(['BBB-2', 'AAA-1', 'CCC-3', 'DDD-4']);
 
-    await page.getByLabel('Filtrar nesta lista').fill('valvula');
-    await expect(page.getByTestId('parts-list-row')).toHaveCount(1);
-    await expect(page.getByTestId('parts-list-row')).toContainText('DDD-4');
-    await expect(page.getByTestId('drag-handle-disabled')).toHaveCount(1);
-    await expect(page.getByTestId('drag-handle')).toHaveCount(0);
+    await page.getByTestId('parts-list-sort-button').click();
+    const sortSheet = page.getByTestId('parts-list-sort-sheet');
+    await expect(sortSheet).toBeVisible();
+    await sortSheet.getByTestId('parts-list-group-af').click();
+    await page.keyboard.press('Escape');
+    await expect(sortSheet).toBeHidden();
 
-    await page.getByLabel('Filtrar nesta lista').fill('xyz');
-    await expect(page.getByTestId('parts-list-no-results')).toContainText('Nenhuma peça com "xyz"');
-    await page.getByRole('button', { name: 'Limpar filtro' }).last().click();
-
-    await page.getByTestId('parts-list-group-af').click();
     const groups = page.getByTestId('parts-list-af-group');
     await expect(groups).toHaveCount(2);
     await expect(groups.nth(0).locator('h2')).toHaveText('AF 42032 (2)');
     await expect(groups.nth(1).locator('h2')).toHaveText('Sem AF (2)');
+    await expect(page.getByTestId('drag-handle-disabled')).toHaveCount(4);
   });
 
   test('Compartilhar mostra as ações e desativa as de envio com a lista vazia', async ({ page }) => {

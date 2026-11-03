@@ -173,7 +173,7 @@ export const getSimplePartsListItems = async (company: CompanyType) => {
   return activeList.items;
 };
 
-export const addSimplePartItem = async (item: { codigo_peca: string; descricao: string; quantidade: number; af?: string }, company: CompanyType) => {
+export const addSimplePartItem = async (item: { codigo_peca: string; name?: string; descricao: string; quantidade: number; af?: string }, company: CompanyType) => {
   return addItemToActiveList(company, item);
 };
 

@@ -40,6 +40,9 @@ interface ListCarouselProps {
   onDeleteList: (id: string) => void;
   onReorderLists: (orderedIds: string[]) => void;
   onListChanged: () => void;
+  /** Esconde o menu Salvar/Exportar (no celular ele fica no botão Compartilhar). */
+  hideSaveMenu?: boolean;
+  className?: string;
 }
 
 export const ListCarousel: React.FC<ListCarouselProps> = ({
@@ -53,6 +56,8 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
   onDuplicateList,
   onDeleteList,
   onListChanged,
+  hideSaveMenu = false,
+  className,
 }) => {
   const {
     openCreate,
@@ -130,7 +135,13 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
 
     updateDimensions();
     window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+    // O contêiner pode mudar de tamanho sem disparar 'resize' (ex.: dentro do cabeçalho fixo)
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateDimensions) : null;
+    if (observer && containerRef.current) observer.observe(containerRef.current);
+    return () => {
+      window.removeEventListener('resize', updateDimensions);
+      observer?.disconnect();
+    };
   }, []);
 
   const gap = 12; // 12px gap between cards
@@ -350,7 +361,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
   const currentTranslateX = translateFor(Math.max(virtualIndex, 0));
 
   return (
-    <div className="w-full max-w-6xl mx-auto mb-6 px-1 select-none">
+    <div className={cn("w-full max-w-6xl mx-auto mb-6 px-1 select-none", className)}>
       {/* Header bar: Title & Quick Actions */}
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
@@ -394,12 +405,14 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
             Nova Lista
           </Button>
 
-          <ListSaveMenu
-            variant="compact"
-            items={lists.find(l => l.id === activeListId)?.items ?? []}
-            listTitle={lists.find(l => l.id === activeListId)?.name ?? ''}
-            onListChanged={onListChanged}
-          />
+          {!hideSaveMenu && (
+            <ListSaveMenu
+              variant="compact"
+              items={lists.find(l => l.id === activeListId)?.items ?? []}
+              listTitle={lists.find(l => l.id === activeListId)?.name ?? ''}
+              onListChanged={onListChanged}
+            />
+          )}
         </div>
       </div>
 

@@ -111,7 +111,14 @@ const PartPickerSheet: React.FC<PartPickerSheetProps> = ({
   const handleAddResult = useCallback(
     (part: DisplayPart) => {
       tap();
-      addToSelection({ codigo_peca: part.codigo || '', descricao: part.descricao || part.name || '' }, 1);
+      addToSelection(
+        {
+          codigo_peca: part.codigo || '',
+          descricao: part.descricao || part.name || '',
+          ...(part.name && part.descricao ? { name: part.name } : {}),
+        },
+        1,
+      );
     },
     [addToSelection],
   );

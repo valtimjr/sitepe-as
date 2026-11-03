@@ -11,22 +11,26 @@ import { cn } from '@/lib/utils';
 
 interface PartsListMobileRowProps {
   item: SimplePartItem;
+  /** Nome da peça (do item ou do catálogo). */
+  name?: string;
   related: RelatedPart[];
   dragEnabled: boolean;
   flash: boolean;
   onQuantity: (id: string, quantidade: number) => void;
-  onRemove: (id: string) => void;
+  /** Abre a confirmação de remoção. */
+  onRequestRemove: (id: string) => void;
   onEdit: (item: SimplePartItem) => void;
 }
 
-/** Cartão de uma peça da lista: alça, código/descrição, AF, relacionados, − / + e lixeira. */
+/** Cartão de uma peça da lista: alça, código · nome, descrição, AF, relacionados, − / + e lixeira. */
 const PartsListMobileRow: React.FC<PartsListMobileRowProps> = ({
   item,
+  name,
   related,
   dragEnabled,
   flash,
   onQuantity,
-  onRemove,
+  onRequestRemove,
   onEdit,
 }) => {
   const label = item.codigo_peca || item.descricao || 'peça';
@@ -51,8 +55,8 @@ const PartsListMobileRow: React.FC<PartsListMobileRowProps> = ({
       ) : (
         <span
           className="flex h-11 w-9 shrink-0 items-center justify-center text-muted-foreground/30"
-          title="Limpe o filtro para arrastar"
-          aria-label="Limpe o filtro para arrastar"
+          title="Desligue o agrupamento por AF para arrastar"
+          aria-label="Desligue o agrupamento por AF para arrastar"
           role="img"
           data-testid="drag-handle-disabled"
         >
@@ -67,10 +71,11 @@ const PartsListMobileRow: React.FC<PartsListMobileRowProps> = ({
           onClick={() => onEdit(item)}
           aria-label={`Editar ${label}`}
         >
-          <span className="block text-sm font-bold text-blue-600 dark:text-blue-400 truncate">
-            {item.codigo_peca || 'S/ Cód'}
+          <span className="block text-sm font-bold text-blue-600 dark:text-blue-400 line-clamp-2" data-testid="parts-list-row-title">
+            <span data-testid="parts-list-row-code">{item.codigo_peca || 'S/ Cód'}</span>
+            {name && <span data-testid="parts-list-row-name"> · {name}</span>}
           </span>
-          <span className="block text-xs text-muted-foreground uppercase line-clamp-2">{item.descricao || 'S/ Desc'}</span>
+          <span className="block text-xs text-muted-foreground uppercase line-clamp-2" data-testid="parts-list-row-desc">{item.descricao || 'S/ Desc'}</span>
         </button>
         {(item.af || related.length > 0) && (
           <div className="flex flex-wrap items-center gap-x-2 text-xs">
@@ -121,7 +126,7 @@ const PartsListMobileRow: React.FC<PartsListMobileRowProps> = ({
           size="icon"
           className="h-10 w-10 text-destructive"
           aria-label={`Remover ${label}`}
-          onClick={() => onRemove(item.id)}
+          onClick={() => onRequestRemove(item.id)}
         >
           <Trash2 className="h-4 w-4" />
         </Button>

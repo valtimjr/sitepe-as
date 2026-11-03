@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Package, Plus, SearchX } from 'lucide-react';
+import { Package, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -21,17 +21,14 @@ import { addItemsToList, getActiveList, type LocalList } from '@/services/localL
 import type { SimplePartItem } from '@/services/partListService';
 import type { PickedPart } from '@/components/service-orders/mergeParts';
 import type { ListIcon as ListIconData } from '@/types/listIcon';
-import { matchesQuery } from '@/lib/textNormalize';
 import { success, tap } from '@/lib/haptics';
 import { showSuccess } from '@/utils/toast';
 import PartsListMobileHeader from './PartsListMobileHeader';
-import PartsListToolbar from './PartsListToolbar';
 import PartsListMobileRow from './PartsListMobileRow';
-import ListOptionsSheet from './ListOptionsSheet';
 import PartsListSortSheet, { sortItems, type SortDirection, type SortField } from './PartsListSortSheet';
 import { useListManagement } from './useListManagement';
 import { useListActions } from './useListActions';
-import { relatedFor, useRelatedParts } from './useRelatedParts';
+import { nameFor, relatedFor, useRelatedParts } from './useRelatedParts';
 
 const AddPartsSheet = lazy(() => import('./AddPartsSheet'));
 const PartEditSheet = lazy(() => import('./PartEditSheet'));
@@ -40,7 +37,6 @@ const ImportWizardDialog = lazy(() => import('@/components/list-import/ImportWiz
 const CloudListsDialog = lazy(() => import('@/components/CloudListsDialog'));
 
 const PAGE_SIZE = 60;
-const TOOLBAR_MIN_ITEMS = 4;
 
 export interface PartsListMobileProps {
   lists: LocalList[];
@@ -55,6 +51,7 @@ export interface PartsListMobileProps {
   onRenameList: (id: string, newName: string, icon?: ListIconData | null) => void;
   onDuplicateList: (id: string) => void;
   onDeleteList: (id: string) => void;
+  onReorderLists: (orderedIds: string[]) => void;
 }
 
 /** Minha Lista de Peças no celular. */
@@ -70,6 +67,7 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
   onRenameList,
   onDuplicateList,
   onDeleteList,
+  onReorderLists,
 }) => {
   const { company, branding } = useCompany();
   const { user } = useSession();
@@ -92,36 +90,27 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
   const actions = useListActions({ items, title: listName, icon: activeList?.icon });
   const relatedMap = useRelatedParts(items);
 
-  const [query, setQuery] = useState('');
   const [groupByAf, setGroupByAf] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [addOpen, setAddOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
-  const [optionsList, setOptionsList] = useState<LocalList | null>(null);
   const [editingItem, setEditingItem] = useState<SimplePartItem | null>(null);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [cloudOpen, setCloudOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
-  const [removed, setRemoved] = useState<{ index: number; item: SimplePartItem } | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<SimplePartItem | null>(null);
   const [flashIds, setFlashIds] = useState<Set<string>>(() => new Set());
 
-  // Ao trocar de lista, limpa filtro, aviso de desfazer e paginação
+  // Ao trocar de lista, desfaz o agrupamento e a paginação
   useEffect(() => {
-    setQuery('');
     setGroupByAf(false);
-    setRemoved(null);
+    setPendingRemove(null);
     setVisibleCount(PAGE_SIZE);
   }, [activeList?.id]);
 
-  useEffect(() => setVisibleCount(PAGE_SIZE), [query, groupByAf]);
-
-  useEffect(() => {
-    if (!removed) return;
-    const t = setTimeout(() => setRemoved(null), 6000);
-    return () => clearTimeout(t);
-  }, [removed]);
+  useEffect(() => setVisibleCount(PAGE_SIZE), [groupByAf]);
 
   useEffect(() => {
     if (flashIds.size === 0) return;
@@ -145,24 +134,19 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
     [onItemsChange],
   );
 
-  const handleRemove = useCallback(
-    (id: string) => {
-      const current = itemsRef.current;
-      const index = current.findIndex((i) => i.id === id);
-      if (index === -1) return;
-      tap();
-      setRemoved({ index, item: current[index] });
-      onItemsChange(current.filter((i) => i.id !== id));
-    },
-    [onItemsChange],
-  );
+  // A lixeira só pede confirmação; a remoção acontece no diálogo
+  const handleRequestRemove = useCallback((id: string) => {
+    const item = itemsRef.current.find((i) => i.id === id);
+    if (!item) return;
+    tap();
+    setPendingRemove(item);
+  }, []);
 
-  const handleUndo = () => {
-    if (!removed) return;
-    const next = [...itemsRef.current];
-    next.splice(Math.min(removed.index, next.length), 0, removed.item);
-    onItemsChange(next);
-    setRemoved(null);
+  const confirmRemove = () => {
+    if (!pendingRemove) return;
+    onItemsChange(itemsRef.current.filter((i) => i.id !== pendingRemove.id));
+    if (editingItem?.id === pendingRemove.id) setEditingItem(null);
+    setPendingRemove(null);
   };
 
   const handleEdit = useCallback((item: SimplePartItem) => {
@@ -216,17 +200,11 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
     else setLoginOpen(true);
   };
 
-  // Filtro e agrupamento
-  const trimmedQuery = query.trim();
-  const filtered = useMemo(
-    () => (trimmedQuery ? items.filter((i) => matchesQuery([i.codigo_peca, i.descricao, i.af], trimmedQuery)) : items),
-    [items, trimmedQuery],
-  );
-
+  // Agrupamento por AF
   const groups = useMemo(() => {
     if (!groupByAf) return null;
     const map = new Map<string, SimplePartItem[]>();
-    filtered.forEach((i) => {
+    items.forEach((i) => {
       const key = (i.af || '').trim();
       const arr = map.get(key);
       if (arr) arr.push(i);
@@ -237,19 +215,19 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
       if (!b) return -1;
       return a.localeCompare(b, undefined, { numeric: true });
     });
-  }, [filtered, groupByAf]);
+  }, [items, groupByAf]);
 
-  const dragEnabled = !trimmedQuery && !groupByAf;
-  const showToolbar = items.length >= TOOLBAR_MIN_ITEMS || !!trimmedQuery || groupByAf;
+  const dragEnabled = !groupByAf;
 
   const renderRow = (item: SimplePartItem) => (
     <PartsListMobileRow
       item={item}
+      name={nameFor(relatedMap, item)}
       related={relatedFor(relatedMap, item.codigo_peca)}
       dragEnabled={dragEnabled}
       flash={flashIds.has(item.id)}
       onQuantity={handleQuantity}
-      onRemove={handleRemove}
+      onRequestRemove={handleRequestRemove}
       onEdit={handleEdit}
     />
   );
@@ -280,18 +258,6 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
           <p className="text-sm text-muted-foreground">Adicione as peças que você precisa e envie quando quiser.</p>
           <Button className="h-11 mt-1" onClick={() => setAddOpen(true)}>
             <Plus className="h-4 w-4 mr-2" /> Adicionar peças
-          </Button>
-        </div>
-      );
-    }
-
-    if (filtered.length === 0) {
-      return (
-        <div className="flex flex-col items-center text-center gap-3 px-6 py-10" data-testid="parts-list-no-results">
-          <SearchX className="h-10 w-10 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">Nenhuma peça com "{trimmedQuery}"</p>
-          <Button variant="outline" className="h-11" onClick={() => setQuery('')}>
-            Limpar filtro
           </Button>
         </div>
       );
@@ -334,20 +300,14 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
       );
     }
 
-    return (
-      <div className="space-y-2">
-        {filtered.slice(0, visibleCount).map((item) => (
-          <React.Fragment key={item.id}>{renderRow(item)}</React.Fragment>
-        ))}
-      </div>
-    );
+    return null;
   };
 
   const anySheetOpen =
     addOpen ||
     shareOpen ||
     sortOpen ||
-    !!optionsList ||
+    !!pendingRemove ||
     !!editingItem ||
     clearConfirm ||
     importOpen ||
@@ -361,47 +321,26 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
         lists={lists}
         activeList={activeList}
         itemCount={items.length}
+        company={company}
+        companyName={branding.name}
         onSelectList={onSelectList}
-        onCreateList={management.openCreate}
-        onOpenOptions={setOptionsList}
+        onCreateList={onCreateList}
+        onRenameList={onRenameList}
+        onDuplicateList={onDuplicateList}
+        onDeleteList={onDeleteList}
+        onReorderLists={onReorderLists}
+        onListChanged={reloadVoid}
         onSort={() => setSortOpen(true)}
+        onClear={() => setClearConfirm(true)}
         onShare={() => setShareOpen(true)}
       />
 
-      {showToolbar && !isLoading && (
-        <PartsListToolbar
-          query={query}
-          onQueryChange={setQuery}
-          groupByAf={groupByAf}
-          onToggleGroupByAf={() => setGroupByAf((v) => !v)}
-        />
-      )}
-
       {renderBody()}
 
-      {!dragEnabled && filtered.length > visibleCount && (
+      {!dragEnabled && items.length > visibleCount && (
         <Button variant="ghost" className="w-full h-11 mt-2" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
-          Mostrar mais ({filtered.length - visibleCount})
+          Mostrar mais ({items.length - visibleCount})
         </Button>
-      )}
-
-      {removed && (
-        <div
-          role="status"
-          className="fixed left-4 right-[5.5rem] z-40 flex items-center justify-between rounded-lg bg-foreground text-background pl-4 pr-1 py-1 text-sm shadow-lg animate-in fade-in duration-150"
-          style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom) + 20px)' }}
-          data-testid="part-removed-notice"
-        >
-          Peça removida
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-10 text-amber-300 hover:text-amber-200 hover:bg-transparent font-semibold"
-            onClick={handleUndo}
-          >
-            Desfazer
-          </Button>
-        </div>
       )}
 
       {!keyboardOpen && !anySheetOpen && !isLoading && (
@@ -419,20 +358,13 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
         </Button>
       )}
 
-      <ListOptionsSheet
-        list={optionsList}
-        canDelete={lists.length > 1}
-        saving={!!optionsList && management.savingListId === optionsList.id}
-        onOpenChange={(open) => !open && setOptionsList(null)}
-        onRename={management.openRename}
-        onDuplicate={(l) => onDuplicateList(l.id)}
-        onCloudSave={(l) => management.requestCloudAction('save', l.id)}
-        onCloudUpdate={(l) => management.requestCloudAction('update', l.id)}
-        onCopy={management.copyListText}
-        onDelete={management.openDelete}
+      <PartsListSortSheet
+        open={sortOpen}
+        onOpenChange={setSortOpen}
+        onSort={handleSort}
+        groupByAf={groupByAf}
+        onToggleGroupByAf={() => setGroupByAf((v) => !v)}
       />
-
-      <PartsListSortSheet open={sortOpen} onOpenChange={setSortOpen} onSort={handleSort} />
 
       {management.dialogs}
 
@@ -450,10 +382,11 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
           <PartEditSheet
             key={editingItem.id}
             item={editingItem}
+            name={nameFor(relatedMap, editingItem)}
             related={relatedFor(relatedMap, editingItem.codigo_peca)}
             onOpenChange={(open) => !open && setEditingItem(null)}
             onSave={handleSaveEdit}
-            onDelete={handleRemove}
+            onRequestDelete={handleRequestRemove}
           />
         )}
 
@@ -492,6 +425,23 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
         }}
       />
 
+      <AlertDialog open={!!pendingRemove} onOpenChange={(open) => !open && setPendingRemove(null)}>
+        <AlertDialogContent data-testid="part-remove-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover peça?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A peça "{pendingRemove?.codigo_peca || pendingRemove?.descricao || 'S/ Cód'}" será removida desta lista.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={confirmRemove}>
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={clearConfirm} onOpenChange={setClearConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -506,7 +456,6 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
               className="bg-red-600 hover:bg-red-700"
               onClick={() => {
                 onItemsChange([]);
-                setRemoved(null);
                 showSuccess('Lista limpa.');
               }}
             >

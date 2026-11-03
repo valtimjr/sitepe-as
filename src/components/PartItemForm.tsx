@@ -61,13 +61,13 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
           const partFromEdit = results.find(p => p.codigo === editingItem.codigo_peca);
           setSelectedPart(partFromEdit || null);
           setEditedTags(partFromEdit?.tags || '');
-          setCustomName(partFromEdit?.name || '');
+          setCustomName(editingItem.name ?? partFromEdit?.name ?? '');
           setSearchQuery(editingItem.codigo_peca || ''); 
           setIsLoadingParts(false);
         } else {
           setSelectedPart(null);
           setEditedTags('');
-          setCustomName('');
+          setCustomName(editingItem.name || '');
           setSearchQuery('');
         }
       } else {
@@ -166,6 +166,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
     try {
       const itemData = {
         codigo_peca: customCodigo,
+        name: customName.trim() || undefined,
         descricao: customDescricao,
         quantidade: qtyNum,
         af: af.trim() !== '' ? af : undefined,

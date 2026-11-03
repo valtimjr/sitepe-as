@@ -1,20 +1,29 @@
 import React from 'react';
-import { ArrowUpDown, Share2 } from 'lucide-react';
+import { ArrowUpDown, Share2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ListIcon from '@/components/list-icon/ListIcon';
+import { ListCarousel } from '@/components/ListCarousel';
 import type { LocalList } from '@/services/localListStorage';
+import type { CompanyType } from '@/types/company';
+import type { ListIcon as ListIconData } from '@/types/listIcon';
 import { useHideOnScroll } from '@/hooks/useScrollDirection';
 import { tap } from '@/lib/haptics';
-import ListChips from './ListChips';
 
 interface PartsListMobileHeaderProps {
   lists: LocalList[];
   activeList: LocalList | null;
   itemCount: number;
+  company: CompanyType;
+  companyName: string;
   onSelectList: (id: string) => void;
-  onCreateList: () => void;
-  onOpenOptions: (list: LocalList) => void;
+  onCreateList: (name: string, icon?: ListIconData | null) => void;
+  onRenameList: (id: string, newName: string, icon?: ListIconData | null) => void;
+  onDuplicateList: (id: string) => void;
+  onDeleteList: (id: string) => void;
+  onReorderLists: (orderedIds: string[]) => void;
+  onListChanged: () => void;
   onSort: () => void;
+  onClear: () => void;
   onShare: () => void;
 }
 
@@ -28,15 +37,22 @@ const formatUpdated = (iso?: string) => {
   return `alterada ${date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${time}`;
 };
 
-/** Cabeçalho fixo da Minha Lista no celular: título, Ordenar, Compartilhar e chips das listas. */
+/** Cabeçalho fixo da Minha Lista no celular: título, Ordenar, Limpar, Compartilhar e o carrossel das listas. */
 const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
   lists,
   activeList,
   itemCount,
+  company,
+  companyName,
   onSelectList,
   onCreateList,
-  onOpenOptions,
+  onRenameList,
+  onDuplicateList,
+  onDeleteList,
+  onReorderLists,
+  onListChanged,
   onSort,
+  onClear,
   onShare,
 }) => {
   // Acompanha o header do app, que se esconde ao rolar
@@ -46,11 +62,11 @@ const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
 
   return (
     <div
-      className="sticky z-30 -mx-4 -mt-4 mb-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 pt-2 pb-2 transition-[top] duration-300 ease-out"
+      className="sticky z-30 -mx-4 -mt-4 mb-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 pt-2 pb-1 transition-[top] duration-300 ease-out"
       style={{ top: appHeaderHidden ? 'env(safe-area-inset-top)' : 'calc(env(safe-area-inset-top) + 3.5rem)' }}
       data-testid="parts-list-mobile-header"
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 mb-2">
         <ListIcon name={name} icon={activeList?.icon} size="sm" className="rounded-md p-1.5" />
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-primary line-clamp-1" data-testid="parts-list-mobile-title">
@@ -78,6 +94,20 @@ const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
         <Button
           variant="outline"
           size="icon"
+          className="h-11 w-11 shrink-0 text-destructive border-destructive/30 hover:text-destructive"
+          onClick={() => {
+            tap();
+            onClear();
+          }}
+          disabled={itemCount === 0}
+          aria-label="Limpar lista"
+          data-testid="parts-list-clear-button"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
           className="relative h-11 w-11 shrink-0 text-primary border-primary/30"
           onClick={() => {
             tap();
@@ -95,13 +125,23 @@ const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
         </Button>
       </div>
 
-      <ListChips
-        lists={lists}
-        activeListId={activeList?.id ?? ''}
-        onSelect={onSelectList}
-        onOpenOptions={onOpenOptions}
-        onCreate={onCreateList}
-      />
+      {lists.length > 0 && (
+        <ListCarousel
+          lists={lists}
+          activeListId={activeList?.id ?? ''}
+          company={company}
+          companyName={companyName}
+          onSelectList={onSelectList}
+          onCreateList={onCreateList}
+          onRenameList={onRenameList}
+          onDuplicateList={onDuplicateList}
+          onDeleteList={onDeleteList}
+          onReorderLists={onReorderLists}
+          onListChanged={onListChanged}
+          hideSaveMenu
+          className="mb-0 px-0"
+        />
+      )}
     </div>
   );
 };

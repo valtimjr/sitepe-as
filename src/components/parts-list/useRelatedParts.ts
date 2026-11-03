@@ -6,7 +6,14 @@ import type { RelatedPart } from '@/types/supabase';
 
 const EMPTY: RelatedPart[] = [];
 
-/** Itens relacionados de cada código, buscando só os códigos que estão na lista. */
+export interface CatalogInfo {
+  related: RelatedPart[];
+  name?: string;
+}
+
+export type CatalogInfoMap = Map<string, CatalogInfo>;
+
+/** Itens relacionados e nome de cada código, buscando só os códigos que estão na lista. */
 export const useRelatedParts = (items: SimplePartItem[]) => {
   const { company } = useCompany();
   const codesKey = useMemo(
@@ -16,7 +23,7 @@ export const useRelatedParts = (items: SimplePartItem[]) => {
         .join('\n'),
     [items],
   );
-  const [map, setMap] = useState<Map<string, RelatedPart[]>>(() => new Map());
+  const [map, setMap] = useState<CatalogInfoMap>(() => new Map());
 
   useEffect(() => {
     if (!codesKey) {
@@ -27,9 +34,11 @@ export const useRelatedParts = (items: SimplePartItem[]) => {
     getPartsByCodes(codesKey.split('\n'), company)
       .then((parts) => {
         if (cancelled) return;
-        const next = new Map<string, RelatedPart[]>();
+        const next: CatalogInfoMap = new Map();
         parts.forEach((part, code) => {
-          if (part.itens_relacionados && part.itens_relacionados.length > 0) next.set(code, part.itens_relacionados);
+          const related = part.itens_relacionados && part.itens_relacionados.length > 0 ? part.itens_relacionados : EMPTY;
+          const name = (part.name || '').trim() || undefined;
+          if (related.length > 0 || name) next.set(code, { related, name });
         });
         setMap(next);
       })
@@ -42,6 +51,14 @@ export const useRelatedParts = (items: SimplePartItem[]) => {
   return map;
 };
 
+const infoFor = (map: CatalogInfoMap, code: string | undefined) => map.get((code || '').trim().toLowerCase());
+
 /** Itens relacionados de um código (lista vazia estável quando não há). */
-export const relatedFor = (map: Map<string, RelatedPart[]>, code: string | undefined) =>
-  map.get((code || '').trim().toLowerCase()) ?? EMPTY;
+export const relatedFor = (map: CatalogInfoMap, code: string | undefined) => infoFor(map, code)?.related ?? EMPTY;
+
+/** Nome da peça: o salvo no item ou, para peças antigas, o do catálogo. */
+export const nameFor = (map: CatalogInfoMap, item: Pick<SimplePartItem, 'codigo_peca' | 'name'>) => {
+  const own = (item.name || '').trim();
+  if (own) return own;
+  return infoFor(map, item.codigo_peca)?.name;
+};

@@ -21,7 +21,7 @@ import {
 } from '@/components/responsive/ResponsiveDialog';
 import { tap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
-import { optionRowClass } from './ListOptionsSheet';
+import { optionRowClass } from './optionRow';
 import type { ExportFormat } from './useListActions';
 
 interface PartsListShareSheetProps {

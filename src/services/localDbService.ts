@@ -16,9 +16,11 @@ export interface Af extends SupabaseAf {
 export interface SimplePartItem {
   id: string;
   codigo_peca: string;
+  /** Nome da peça no catálogo (opcional; peças antigas não têm). */
+  name?: string;
   descricao: string;
   quantidade: number;
-  af?: string; 
+  af?: string;
   created_at?: Date;
   company?: CompanyType;
 }

@@ -1,5 +1,6 @@
 import React from 'react';
-import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
+import { ArrowDown, ArrowUp, GripVertical, Layers } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -9,7 +10,7 @@ import {
 } from '@/components/responsive/ResponsiveDialog';
 import type { SimplePartItem } from '@/services/partListService';
 import { tap } from '@/lib/haptics';
-import { optionRowClass } from './ListOptionsSheet';
+import { optionRowClass } from './optionRow';
 
 export type SortField = 'codigo' | 'descricao' | 'af' | 'quantidade';
 export type SortDirection = 'asc' | 'desc';
@@ -38,10 +39,12 @@ interface PartsListSortSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSort: (field: SortField, direction: SortDirection) => void;
+  groupByAf: boolean;
+  onToggleGroupByAf: () => void;
 }
 
 /** Gaveta Ordenar: ordem manual ou por campo (↑/↓). Ordenar grava a nova ordem. */
-const PartsListSortSheet: React.FC<PartsListSortSheetProps> = ({ open, onOpenChange, onSort }) => {
+const PartsListSortSheet: React.FC<PartsListSortSheetProps> = ({ open, onOpenChange, onSort, groupByAf, onToggleGroupByAf }) => {
   const pick = (field: SortField, direction: SortDirection) => {
     tap();
     onOpenChange(false);
@@ -84,6 +87,26 @@ const PartsListSortSheet: React.FC<PartsListSortSheetProps> = ({ open, onOpenCha
               </button>
             </div>
           ))}
+          <label
+            htmlFor="parts-list-group-af"
+            className="flex items-center gap-3 min-h-14 px-3 rounded-lg border-t pt-2 mt-1 cursor-pointer"
+          >
+            <Layers className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+            <span className="flex-1 min-w-0">
+              <span className="block text-base font-medium">Agrupar por AF</span>
+              <span className="block text-xs text-muted-foreground">Mostra as peças separadas por AF</span>
+            </span>
+            <Switch
+              id="parts-list-group-af"
+              checked={groupByAf}
+              onCheckedChange={() => {
+                tap();
+                onToggleGroupByAf();
+              }}
+              aria-label="Agrupar por AF"
+              data-testid="parts-list-group-af"
+            />
+          </label>
         </div>
       </ResponsiveDialogContent>
     </ResponsiveDialog>

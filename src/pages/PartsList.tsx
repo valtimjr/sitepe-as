@@ -176,6 +176,7 @@ const PartsList = () => {
           onRenameList={handleRenameList}
           onDuplicateList={handleDuplicateList}
           onDeleteList={handleDeleteList}
+          onReorderLists={handleReorderLists}
         />
       ) : (
         <PartsListDesktop

@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils'; // Importar cn
 import { ResponsivePopover, ResponsivePopoverContent, ResponsivePopoverTrigger } from '@/components/responsive/ResponsivePopover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
-import { relatedFor, useRelatedParts } from '@/components/parts-list/useRelatedParts';
+import { nameFor, relatedFor, useRelatedParts } from '@/components/parts-list/useRelatedParts';
 import { useListActions } from '@/components/parts-list/useListActions';
 import { useCompany } from '@/context/CompanyContext';
 import ListSaveMenu from './ListSaveMenu';
@@ -554,6 +554,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               <TableBody>
                 {orderedItems.map((item) => {
                   const relatedItems = relatedFor(relatedPartsCache, item.codigo_peca);
+                  const partName = nameFor(relatedPartsCache, item);
                   return (
                     <TableRow 
                       key={item.id}
@@ -661,7 +662,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
                         <>
                           <TableCell className="w-auto whitespace-normal break-words p-2">
                             <div className="flex flex-col">
-                              <span className="font-medium text-sm">{item.codigo_peca || 'N/A'}</span>
+                              <span className="font-medium text-sm">{item.codigo_peca || 'N/A'}{partName && ` · ${partName}`}</span>
                               <span className="text-xs text-muted-foreground">{item.descricao || 'N/A'}</span>
                               {item.af && (
                                 <span className="text-xs text-blue-600 dark:text-blue-400 mt-1">AF: {item.af}</span>

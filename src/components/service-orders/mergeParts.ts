@@ -2,6 +2,7 @@ export interface PickedPart {
   codigo_peca: string;
   descricao: string;
   quantidade: number;
+  name?: string;
 }
 
 /** Chave de comparação: código sem diferenciar maiúsculas; sem código, a descrição. */
