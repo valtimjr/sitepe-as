@@ -61,7 +61,7 @@ const PartsListMobileRow: React.FC<PartsListMobileRowProps> = ({
           onClick={() => onEdit(item)}
           aria-label={`Editar ${label}`}
         >
-          <span className="block text-sm font-bold text-blue-600 dark:text-blue-400 line-clamp-2" data-testid="parts-list-row-title">
+          <span className="block text-sm dark:text-blue-400 line-clamp-2" data-testid="parts-list-row-title">
             <span data-testid="parts-list-row-code">{item.codigo_peca || 'S/ Cód'}</span>
             {name && <span data-testid="parts-list-row-name"> · {name}</span>}
           </span>

@@ -486,11 +486,11 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
                   )}
                 >
                   {/* Top Row: Icon, Title & Options */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <ListIcon name={list.name} icon={list.icon} size="sm" />
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <ListIcon name={list.name} icon={list.icon} size="sm" className="shrink-0" />
                       <span className={cn(
-                        "text-sm truncate tracking-tight",
+                        "text-sm leading-tight tracking-tight break-words line-clamp-3 min-w-0",
                         isActive ? "font-extrabold text-foreground" : "font-bold text-muted-foreground"
                       )}>
                         {list.name}
