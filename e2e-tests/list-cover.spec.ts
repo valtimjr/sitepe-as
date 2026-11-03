@@ -125,6 +125,14 @@ test.describe('Capa da Minha Lista no celular', () => {
     expect(box.width).toBeGreaterThanOrEqual(pageWidth - 1);
     expect(box.height).toBeGreaterThanOrEqual(120);
     expect(box.height).toBeLessThanOrEqual(170);
+
+    // No celular, Alterar/Reposicionar ficam no menu de 3 pontos
+    await expect(cover.getByRole('button', { name: 'Alterar' })).toHaveCount(0);
+    await cover.getByTestId('cover-menu-button').click();
+    await page.getByRole('menuitem', { name: 'Alterar' }).click();
+    await expect(page.getByTestId('cover-picker')).toBeVisible();
+    await page.getByTestId('cover-picker').getByTestId('cover-remove').click();
+    await expect(page.getByTestId('list-cover')).toHaveCount(0);
   });
 });
 

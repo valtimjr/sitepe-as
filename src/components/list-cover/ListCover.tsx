@@ -1,6 +1,8 @@
 import React, { useCallback, useState } from 'react';
-import { ImageIcon, Move } from 'lucide-react';
+import { ImageIcon, MoreHorizontal, Move } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useIsCompact } from '@/hooks/use-compact';
 import { cn } from '@/lib/utils';
 import type { ListCover as ListCoverData } from '@/types/listCover';
 import { FALLBACK_COVER_BG } from '@/lib/coverPresets';
@@ -24,6 +26,7 @@ const actionClass = 'h-8 rounded-none border-border/60 bg-background/80 px-2.5 t
 /** Capa no estilo do Notion: cor, gradiente ou imagem, com trocar e reposicionar. */
 const ListCover: React.FC<ListCoverProps> = ({ cover, onChange, uploadMode = 'local', variant = 'desktop', className }) => {
   const src = useCoverSrc(cover);
+  const isCompact = useIsCompact();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [repositioning, setRepositioning] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
@@ -90,7 +93,41 @@ const ListCover: React.FC<ListCoverProps> = ({ cover, onChange, uploadMode = 'lo
             </a>
           )}
 
-          {editable && (
+          {editable && isCompact && (
+            <>
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Opções da capa"
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white/90 backdrop-blur-sm transition-colors active:bg-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    data-testid="cover-menu-button"
+                  >
+                    <MoreHorizontal className="h-5 w-5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="rounded-none">
+                  <DropdownMenuItem onSelect={() => setPickerOpen(true)} data-testid="cover-change-button">
+                    <ImageIcon className="mr-2 h-4 w-4" /> Alterar
+                  </DropdownMenuItem>
+                  {isImage && src && !imageFailed && (
+                    <DropdownMenuItem onSelect={() => setRepositioning(true)} data-testid="cover-reposition-button">
+                      <Move className="mr-2 h-4 w-4" /> Reposicionar
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <CoverPicker
+                open={pickerOpen}
+                onOpenChange={setPickerOpen}
+                cover={cover}
+                onChange={(next) => onChange!(next)}
+                uploadMode={uploadMode}
+              />
+            </>
+          )}
+
+          {editable && !isCompact && (
             <div
               className={cn(
                 'absolute right-2 top-2 flex gap-1.5 transition-opacity',

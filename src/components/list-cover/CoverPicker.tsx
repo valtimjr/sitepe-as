@@ -19,8 +19,8 @@ interface CoverPickerProps {
   cover?: ListCover | null;
   onChange: (cover: ListCover | null) => void;
   uploadMode: CoverUploadMode;
-  /** Botão que abre o seletor. */
-  children: React.ReactNode;
+  /** Botão que abre o seletor. Sem ele, o seletor é aberto só pelo `open`. */
+  children?: React.ReactNode;
 }
 
 const tabClass = 'rounded-none text-xs sm:text-sm data-[state=active]:shadow-none';
@@ -34,7 +34,7 @@ const CoverPicker: React.FC<CoverPickerProps> = ({ open, onOpenChange, cover, on
 
   return (
     <ResponsivePopover open={open} onOpenChange={onOpenChange}>
-      <ResponsivePopoverTrigger>{children}</ResponsivePopoverTrigger>
+      {children && <ResponsivePopoverTrigger>{children}</ResponsivePopoverTrigger>}
       <ResponsivePopoverContent
         title="Capa da lista"
         align="end"
