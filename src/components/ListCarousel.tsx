@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { 
   MoreVertical, 
   Pencil, 
@@ -73,15 +73,22 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
 
   // Carousel state
   const numLists = lists.length;
-  const [virtualIndex, setVirtualIndex] = useState(0);
+  const [virtualIndex, setVirtualIndex] = useState(-1);
   const [isInstantJump, setIsInstantJump] = useState(false);
-  
-  // Drag / Touch state
+  const numListsRef = useRef(numLists);
+
+  // Drag / Touch state (o deslocamento vai direto no DOM para ficar fluido)
   const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState(0);
-  const startXRef = useRef(0);
-  const currentDragOffsetRef = useRef(0);
-  const isPointerDownRef = useRef(false);
+  const gestureRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    axis: 'x' | 'y' | null;
+    dx: number;
+    samples: { x: number; t: number }[];
+  } | null>(null);
+  const justDraggedRef = useRef(false);
+  const rafRef = useRef(0);
 
   // Wheel debounce
   const lastWheelTimeRef = useRef(0);
@@ -123,18 +130,21 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  // Sync activeListId to virtualIndex
-  useEffect(() => {
+  // Sync activeListId to virtualIndex (sem pular se o cartão atual já é a lista ativa)
+  useLayoutEffect(() => {
     if (numLists === 0) return;
     const realIndex = lists.findIndex(l => l.id === activeListId);
     const validRealIndex = realIndex >= 0 ? realIndex : 0;
+    const countChanged = numListsRef.current !== numLists;
+    numListsRef.current = numLists;
 
-    if (numLists >= 2) {
+    setVirtualIndex(prev => {
+      if (numLists < 2) return validRealIndex;
+      const prevReal = ((prev % numLists) + numLists) % numLists;
+      if (!countChanged && prev >= 0 && prev < 3 * numLists && prevReal === validRealIndex) return prev;
       // Position in the middle set of the 3x virtual ring buffer
-      setVirtualIndex(numLists + validRealIndex);
-    } else {
-      setVirtualIndex(validRealIndex);
-    }
+      return numLists + validRealIndex;
+    });
   }, [activeListId, numLists, lists]);
 
   // Construct extended array for infinite ring buffer
@@ -146,7 +156,9 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
   }, [lists, numLists]);
 
   // Handle seamless wrapping when transition ends
-  const handleTransitionEnd = useCallback(() => {
+  const handleTransitionEnd = useCallback((e: React.TransitionEvent) => {
+    // Ignora as transições dos cartões (elas também sobem até aqui)
+    if (e.target !== e.currentTarget || e.propertyName !== 'transform') return;
     if (numLists < 2) return;
 
     if (virtualIndex < numLists) {
@@ -191,49 +203,99 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
     goToVirtualIndex(virtualIndex - 1);
   }, [goToVirtualIndex, virtualIndex]);
 
-  // Pointer / Touch gesture handlers
+  // Geometry calculations for exact centering
+  const gap = 12; // 12px gap between cards
+  const totalItemStep = cardWidth + gap;
+  const translateFor = (index: number) =>
+    containerWidth > 0 ? (containerWidth / 2) - (cardWidth / 2) - (index * totalItemStep) : 0;
+
+  const SNAP_TRANSITION = 'transform 320ms cubic-bezier(0.16, 1, 0.3, 1)';
+
+  const setTrackTransform = (x: number, transition: string) => {
+    const track = trackRef.current;
+    if (!track) return;
+    track.style.transition = transition;
+    track.style.transform = `translate3d(${x}px, 0, 0)`;
+  };
+
+  // Pointer / Touch gesture handlers: o cartão segue o dedo e, ao soltar, desliza com o impulso
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (numLists < 2 || (e.pointerType === 'mouse' && e.button !== 0)) return;
     // Exclude clicks on action buttons / dropdowns
     if ((e.target as HTMLElement).closest('button, [role="menuitem"], [role="dialog"]')) {
       return;
     }
-    isPointerDownRef.current = true;
-    setIsDragging(true);
-    startXRef.current = e.clientX;
-    currentDragOffsetRef.current = 0;
-    setDragOffset(0);
+    gestureRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      axis: null,
+      dx: 0,
+      samples: [{ x: e.clientX, t: e.timeStamp }],
+    };
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isPointerDownRef.current) return;
-    const deltaX = e.clientX - startXRef.current;
-    currentDragOffsetRef.current = deltaX;
-    setDragOffset(deltaX);
+    const g = gestureRef.current;
+    if (!g || g.pointerId !== e.pointerId) return;
+    const dx = e.clientX - g.startX;
+    const dy = e.clientY - g.startY;
+
+    if (!g.axis) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      g.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (g.axis === 'y') {
+        // Rolagem vertical da página: deixa com o navegador
+        gestureRef.current = null;
+        return;
+      }
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      setIsDragging(true);
+    }
+
+    g.dx = dx;
+    g.samples.push({ x: e.clientX, t: e.timeStamp });
+    if (g.samples.length > 6) g.samples.shift();
+
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      setTrackTransform(translateFor(virtualIndex) + g.dx, 'none');
+    });
   };
 
-  const handlePointerUp = () => {
-    if (!isPointerDownRef.current) return;
-    isPointerDownRef.current = false;
+  const endGesture = (e: React.PointerEvent, cancelled: boolean) => {
+    const g = gestureRef.current;
+    if (!g || g.pointerId !== e.pointerId) return;
+    gestureRef.current = null;
+    if (g.axis !== 'x') return;
+
+    cancelAnimationFrame(rafRef.current);
     setIsDragging(false);
+    justDraggedRef.current = true;
+    setTimeout(() => { justDraggedRef.current = false; }, 0);
 
-    const deltaX = currentDragOffsetRef.current;
-    setDragOffset(0);
-
-    const threshold = 40; // minimum drag pixels to trigger slide
-    if (deltaX < -threshold) {
-      handleNext();
-    } else if (deltaX > threshold) {
-      handlePrev();
+    let steps = 0;
+    if (!cancelled) {
+      // Velocidade (px/ms) nos últimos movimentos projeta até onde o carrossel vai
+      const first = g.samples[0];
+      const last = g.samples[g.samples.length - 1];
+      const dt = Math.max(last.t - first.t, 1);
+      const velocity = Math.max(-2.5, Math.min(2.5, (last.x - first.x) / dt));
+      const projected = g.dx + velocity * 220;
+      steps = Math.round(-projected / totalItemStep);
+      if (steps === 0 && Math.abs(velocity) > 0.35) steps = velocity < 0 ? 1 : -1;
+      // Nunca dá a volta completa (cairia na mesma lista)
+      const maxSteps = Math.max(1, numLists - 1);
+      steps = Math.max(-maxSteps, Math.min(maxSteps, steps));
     }
+
+    const target = Math.max(0, Math.min(virtualIndex + steps, extendedLists.length - 1));
+    setTrackTransform(translateFor(target), SNAP_TRANSITION);
+    if (target !== virtualIndex) goToVirtualIndex(target);
   };
 
-  const handlePointerCancel = () => {
-    if (isPointerDownRef.current) {
-      isPointerDownRef.current = false;
-      setIsDragging(false);
-      setDragOffset(0);
-    }
-  };
+  const handlePointerUp = (e: React.PointerEvent) => endGesture(e, false);
+  const handlePointerCancel = (e: React.PointerEvent) => endGesture(e, true);
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -262,14 +324,8 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
     }
   };
 
-  // Geometry calculations for exact centering
-  const gap = 12; // 12px gap between cards
-  const totalItemStep = cardWidth + gap;
   // Center translation: places active card exactly in the middle of container
-  const baseTranslateX = containerWidth > 0 
-    ? (containerWidth / 2) - (cardWidth / 2) - (virtualIndex * totalItemStep)
-    : 0;
-  const currentTranslateX = baseTranslateX + dragOffset;
+  const currentTranslateX = translateFor(Math.max(virtualIndex, 0));
 
   return (
     <div className="w-full max-w-6xl mx-auto mb-6 px-1 select-none">
@@ -357,9 +413,9 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
             style={{
               width: `${extendedLists.length * totalItemStep}px`,
               transform: `translate3d(${currentTranslateX}px, 0, 0)`,
-              transition: (isDragging || isInstantJump) 
-                ? 'none' 
-                : 'transform 220ms cubic-bezier(0.16, 1, 0.3, 1)',
+              transition: (isDragging || isInstantJump)
+                ? 'none'
+                : SNAP_TRANSITION,
               willChange: 'transform'
             }}
           >
@@ -373,12 +429,13 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
                   key={`${list.id}-${idx}`}
                   style={{ width: `${cardWidth}px`, marginRight: `${gap}px` }}
                   onClick={() => {
-                    if (!isDragging && Math.abs(currentDragOffsetRef.current) < 5) {
+                    if (!justDraggedRef.current) {
                       goToVirtualIndex(idx);
                     }
                   }}
+                  data-testid="list-carousel-card"
                   className={cn(
-                    "relative shrink-0 h-24 p-3.5 flex flex-col justify-between border select-none transition-all duration-200 rounded-none bg-card text-card-foreground",
+                    "relative shrink-0 aspect-[4/3] p-3.5 flex flex-col justify-between border select-none transition-[border-color,background-color,opacity,transform,box-shadow] duration-200 rounded-none bg-card text-card-foreground",
                     isActive 
                       ? "border-primary/60 bg-primary/5 dark:bg-primary/10 scale-[1.02] shadow-sm z-10" 
                       : "border-border/80 hover:border-border/100 hover:bg-accent/10 opacity-85 hover:opacity-100"

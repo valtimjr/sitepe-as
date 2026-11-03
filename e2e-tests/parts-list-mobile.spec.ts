@@ -205,4 +205,29 @@ test.describe('Minha Lista no computador', () => {
     await expect(page.getByTestId('parts-list-fab')).toHaveCount(0);
     await expect(page.getByTestId('parts-list-mobile-header')).toHaveCount(0);
   });
+
+  test('carrossel desliza arrastando e os cartões são 4x3', async ({ page }) => {
+    await mockCatalog(page);
+    await seedLists(page);
+    await page.goto('/usina_vale/parts-list');
+
+    const region = page.getByRole('region', { name: 'Navegação de Listas de Peças' });
+    await expect(region).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Lista: Caminhão 42032' })).toBeVisible();
+
+    const card = (await region.getByTestId('list-carousel-card').first().boundingBox())!;
+    expect(card.width / card.height).toBeCloseTo(4 / 3, 1);
+
+    // Arrasta para a esquerda: vai para a próxima lista
+    const box = (await region.boundingBox())!;
+    const y = box.y + box.height - 20;
+    const x = box.x + box.width / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x - 20, y, { steps: 4 });
+    await page.mouse.move(x - card.width * 0.8, y, { steps: 12 });
+    await page.mouse.up();
+
+    await expect(page.getByRole('heading', { name: 'Lista: Preventiva' })).toBeVisible();
+  });
 });
