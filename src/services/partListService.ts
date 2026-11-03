@@ -331,6 +331,49 @@ export const getParts = async (company: CompanyType): Promise<Part[]> => {
   return (data || []) as Part[];
 };
 
+// Cache por empresa|código (null = não existe no cadastro)
+const partsByCodeCache = new Map<string, Part | null>();
+const codeCacheKey = (company: CompanyType, code: string) => `${company}|${code.trim().toLowerCase()}`;
+
+/** Busca só as peças com os códigos pedidos (em vez do catálogo inteiro). Chaves em minúsculas. */
+export const getPartsByCodes = async (codes: string[], company: CompanyType): Promise<Map<string, Part>> => {
+  const unique = Array.from(new Set(codes.map(c => (c || '').trim()).filter(Boolean)));
+  const missing = unique.filter(c => !partsByCodeCache.has(codeCacheKey(company, c)));
+
+  if (missing.length > 0) {
+    try {
+      const tableName = getPartsTable(company);
+      for (let i = 0; i < missing.length; i += 100) {
+        const chunk = missing.slice(i, i + 100);
+        const { data, error } = await supabase
+          .from(tableName)
+          .select('id, codigo, descricao, name, tags, itens_relacionados')
+          .in('codigo', chunk);
+        if (error) throw error;
+        (data || []).forEach((p: any) => partsByCodeCache.set(codeCacheKey(company, p.codigo || ''), p as Part));
+        chunk.forEach(c => {
+          const key = codeCacheKey(company, c);
+          if (!partsByCodeCache.has(key)) partsByCodeCache.set(key, null);
+        });
+      }
+    } catch {
+      // Sem conexão: usa o catálogo local, se já foi baixado (sem gravar "não existe" no cache)
+      const wanted = new Set(missing.map(c => c.toLowerCase()));
+      const local = await getLocalParts(company);
+      local.forEach(p => {
+        if (wanted.has((p.codigo || '').trim().toLowerCase())) partsByCodeCache.set(codeCacheKey(company, p.codigo), p as Part);
+      });
+    }
+  }
+
+  const result = new Map<string, Part>();
+  unique.forEach(c => {
+    const part = partsByCodeCache.get(codeCacheKey(company, c));
+    if (part) result.set(c.toLowerCase(), part);
+  });
+  return result;
+};
+
 export const addPart = async (part: Omit<Part, 'id'>, company: CompanyType): Promise<void> => {
   const tableName = getPartsTable(company);
   const { data, error } = await supabase.from(tableName).insert([part]).select().single();

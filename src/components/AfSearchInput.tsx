@@ -15,9 +15,11 @@ interface AfSearchInputProps {
   availableAfs: Af[];
   /** Atributos extras do campo (ex.: altura maior e enterKeyHint no celular). */
   inputProps?: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onFocus' | 'onBlur'>;
+  /** Abre a lista de sugestões para cima (campo no rodapé de uma gaveta). */
+  dropUp?: boolean;
 }
 
-const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelectAf, readOnly, availableAfs, inputProps }) => {
+const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelectAf, readOnly, availableAfs, inputProps, dropUp }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<Af[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -177,7 +179,7 @@ const AfSearchInput: React.FC<AfSearchInputProps> = ({ value, onChange, onSelect
       </div>
       
       {isDropdownOpen && searchResults.length > 0 && (
-        <ul className="absolute z-[100] w-full bg-popover text-popover-foreground border rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto top-full">
+        <ul className={cn("absolute z-[100] w-full bg-popover text-popover-foreground border rounded-md shadow-lg max-h-60 overflow-y-auto", dropUp ? "bottom-full mb-1" : "top-full mt-1")}>
           {searchResults.map((afItem) => (
             <li
               key={afItem.id}

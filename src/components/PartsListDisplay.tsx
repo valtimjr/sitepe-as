@@ -4,8 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem, updateSimplePartItem, getParts, getAfsFromService, Part, Af, addSimplePartItem, searchParts as searchPartsService } from '@/services/partListService';
-import { lazyGeneratePartsListPdf } from '@/utils/pdfExportUtils'; // Importar a função lazy
+import { SimplePartItem, clearSimplePartsList, deleteSimplePartItem, updateSimplePartItem, getAfsFromService, Part, Af, addSimplePartItem, searchParts as searchPartsService } from '@/services/partListService';
 import { showSuccess, showError } from '@/utils/toast';
 import { Trash2, Download, Copy, GripVertical, MoreHorizontal, Edit, Save, XCircle, Loader2, PlusCircle, FileDown, Tag } from 'lucide-react';
 import {
@@ -35,7 +34,8 @@ import { cn } from '@/lib/utils'; // Importar cn
 import { ResponsivePopover, ResponsivePopoverContent, ResponsivePopoverTrigger } from '@/components/responsive/ResponsivePopover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import RelatedPartDisplay from './RelatedPartDisplay'; // Importado o novo componente
-import { RelatedPart } from '@/types/supabase';
+import { relatedFor, useRelatedParts } from '@/components/parts-list/useRelatedParts';
+import { useListActions } from '@/components/parts-list/useListActions';
 import { useCompany } from '@/context/CompanyContext';
 import ListSaveMenu from './ListSaveMenu';
 import type { ListIcon } from '@/types/listIcon';
@@ -55,6 +55,7 @@ type SortDirection = 'asc' | 'desc';
 
 const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged, onListReordered, listTitle, onTitleChange, onOpenEditForm, listIcon }) => {
   const { company, branding } = useCompany();
+  const relatedPartsCache = useRelatedParts(listItems);
   const [orderedItems, setOrderedItems] = useState<SimplePartItem[]>(listItems);
   const [draggedItem, setDraggedItem] = useState<SimplePartItem | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -84,25 +85,19 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   const [inlineSearchQuery, setInlineSearchQuery] = useState(''); // Query para o PartSearchInput
   const [inlineSearchResults, setInlineSearchResults] = useState<Part[]>([]);
 
-  // Global parts and AFs for search inputs
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
-  const [isLoadingParts, setIsLoadingParts] = useState(true);
-  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
-  
-  // Cache para itens relacionados
-  const [relatedPartsCache, setRelatedPartsCache] = useState<Map<string, RelatedPart[]>>(new Map());
+  const isLoadingParts = false;
 
   // Sincroniza o estado interno com a prop listItems quando ela muda e reaplica a ordenação
   useEffect(() => {
     if (sortField) {
-      applySort(listItems, sortField, sortDirection);
+      applySort(listItems, sortField, sortDirection, false);
     } else {
       setOrderedItems(listItems);
     }
   }, [listItems]);
 
-  const applySort = (items: SimplePartItem[], field: SortField, direction: SortDirection) => {
+  const applySort = (items: SimplePartItem[], field: SortField, direction: SortDirection, persist = true) => {
     if (!field) {
       setOrderedItems(items);
       return;
@@ -138,7 +133,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     });
 
     setOrderedItems(sorted);
-    onListReordered(sorted);
+    if (persist) onListReordered(sorted);
   };
 
   const handleSort = (field: SortField) => {
@@ -159,32 +154,10 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     return sortDirection === 'asc' ? ' ▲' : ' ▼';
   };
 
-  // Load all parts and AFs for search inputs
+  // AFs para os campos de busca (o catálogo de peças não é mais baixado inteiro)
   useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoadingParts(true);
-      const parts = await getParts(company);
-      setAllAvailableParts(parts);
-      setIsLoadingParts(false);
-
-      setIsLoadingAfs(true);
-      const afs = await getAfsFromService(company);
-      setAllAvailableAfs(afs);
-      setIsLoadingAfs(false);
-    };
-    loadInitialData();
+    getAfsFromService(company).then(setAllAvailableAfs).catch(() => setAllAvailableAfs([]));
   }, [company]);
-
-  // Effect to populate related parts cache
-  useEffect(() => {
-    const newCache = new Map<string, RelatedPart[]>();
-    allAvailableParts.forEach(part => {
-      if (part.codigo && part.itens_relacionados && part.itens_relacionados.length > 0) {
-        newCache.set(part.codigo, part.itens_relacionados);
-      }
-    });
-    setRelatedPartsCache(newCache);
-  }, [allAvailableParts]);
 
   // Effect for inline part search (edit mode)
   useEffect(() => {
@@ -219,71 +192,11 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
   }, [inlineSearchQuery, company]);
 
 
-  const handleExportPdf = async () => { // Alterado para async
-    if (orderedItems.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de exportar.');
-      return;
-    }
-    try {
-      await lazyGeneratePartsListPdf(orderedItems, {
-        title: listTitle || 'Lista de Peças',
-        listIcon,
-        companyName: branding.name,
-        logoUrl: branding.logo,
-      });
-      showSuccess('PDF gerado com sucesso!');
-    } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-      showError('Erro ao gerar o PDF.');
-    }
-  };
-
-  const formatListText = () => {
-    if (orderedItems.length === 0) return '';
-
-    let formattedText = `${listTitle} (${branding.name})\n\n`; // Adiciona o título da lista aqui
-
-    orderedItems.forEach(item => {
-      const quantidade = item.quantidade ?? 1;
-      const codigo = item.codigo_peca || '';
-      const descricao = item.descricao || '';
-      const af = item.af ? ` (AF: ${item.af})` : '';
-      
-      formattedText += `${quantidade} - ${codigo} ${descricao}${af}`.trim() + '\n';
-    });
-
-    return formattedText.trim();
-  };
-
-  const handleCopyList = async () => {
-    if (orderedItems.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de copiar.');
-      return;
-    }
-
-    const textToCopy = formatListText();
-
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-      showSuccess('Lista de peças copiada para a área de transferência!');
-    } catch (err) {
-      showError('Falha ao copiar o link.');
-    }
-  };
-
-  const handleShareOnWhatsApp = () => {
-    if (orderedItems.length === 0) {
-      showError('A lista está vazia. Adicione itens antes de compartilhar.');
-      return;
-    }
-
-    const textToShare = formatListText();
-    const encodedText = encodeURIComponent(textToShare);
-    const whatsappUrl = `https://wa.me/?text=${encodedText}`;
-
-    window.open(whatsappUrl, '_blank');
-    showSuccess('Lista de peças pronta para compartilhar no WhatsApp!');
-  };
+  const { copy: handleCopyList, whatsApp: handleShareOnWhatsApp, pdf: handleExportPdf } = useListActions({
+    items: orderedItems,
+    title: listTitle,
+    icon: listIcon,
+  });
 
   const handleClearList = async () => {
     try {
@@ -640,7 +553,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
               </TableHeader>
               <TableBody>
                 {orderedItems.map((item) => {
-                  const relatedItems = relatedPartsCache.get(item.codigo_peca) || [];
+                  const relatedItems = relatedFor(relatedPartsCache, item.codigo_peca);
                   return (
                     <TableRow 
                       key={item.id}

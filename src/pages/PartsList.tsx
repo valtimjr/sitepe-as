@@ -1,57 +1,58 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react';
 import { useAppRefresh } from '@/hooks/useAppRefresh';
-import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
-import { MadeWithDyad } from "@/components/made-with-dyad";
-import PartItemForm from '@/components/PartItemForm';
-import PartsListDisplay from '@/components/PartsListDisplay';
 import { SimplePartItem } from '@/services/partListService';
-import { 
-  getListsData, 
-  setActiveListId, 
-  createList, 
-  renameList, 
-  duplicateList, 
-  deleteList, 
-  reorderLists, 
-  LocalList 
+import {
+  getListsData,
+  setActiveListId,
+  createList,
+  renameList,
+  duplicateList,
+  deleteList,
+  reorderLists,
+  replaceListItems,
+  LocalList,
 } from '@/services/localListStorage';
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, Clock } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
-import { Sheet, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useCompany } from '@/context/CompanyContext';
-import { ListCarousel } from '@/components/ListCarousel';
-import ListIcon from '@/components/list-icon/ListIcon';
+import { useIsCompact } from '@/hooks/use-compact';
 import type { ListIcon as ListIconData } from '@/types/listIcon';
+
+// Celular e computador em pedaços separados: cada um baixa só o seu código
+const PartsListMobile = lazy(() => import('@/components/parts-list/PartsListMobile'));
+const PartsListDesktop = lazy(() => import('@/components/parts-list/PartsListDesktop'));
+
+const SAVE_DELAY_MS = 400;
 
 const PartsList = () => {
   const { company, branding } = useCompany();
+  const isCompact = useIsCompact();
   const [lists, setLists] = useState<LocalList[]>([]);
-  const [activeListId, setActiveListIdState] = useState<string>('');
   const [activeList, setActiveList] = useState<LocalList | null>(null);
   const [listItems, setListItems] = useState<SimplePartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [listTitle, setListTitle] = useState('Lista de Peças Simples');
-  
-  // Estados para o formulário de edição em mobile
-  const [editingItem, setEditingItem] = useState<SimplePartItem | null>(null);
-  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
 
-  const isMobile = useIsMobile();
+  // Gravação pendente (quantidade com espera de 400 ms)
+  const pendingRef = useRef<{ listId: string; items: SimplePartItem[] } | null>(null);
+  const timerRef = useRef<number>();
+
+  const flushPending = useCallback(async () => {
+    window.clearTimeout(timerRef.current);
+    const pending = pendingRef.current;
+    pendingRef.current = null;
+    if (pending) await replaceListItems(company, pending.listId, pending.items);
+  }, [company]);
 
   useEffect(() => {
     document.title = `Minha Lista de Peças - AutoBoard (${branding.name})`;
   }, [branding.name]);
 
-  // Só a primeira carga mostra "carregando"; recargas não desmontam o carrossel nem os modais abertos
+  // Só a primeira carga mostra "carregando"; recargas não desmontam a tela nem os modais abertos
   const loadListsAndItems = useCallback(async () => {
     try {
+      await flushPending();
       const data = await getListsData(company);
       setLists(data.lists);
-      setActiveListIdState(data.activeListId);
-      
       const active = data.lists.find(l => l.id === data.activeListId) || data.lists[0];
       if (active) {
         setActiveList(active);
@@ -63,11 +64,21 @@ const PartsList = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [company]);
+  }, [company, flushPending]);
 
   useEffect(() => {
     loadListsAndItems();
   }, [loadListsAndItems]);
+
+  // Grava o que ficou pendente ao sair da página
+  useEffect(() => {
+    const onHide = () => { flushPending(); };
+    window.addEventListener('pagehide', onHide);
+    return () => {
+      window.removeEventListener('pagehide', onHide);
+      flushPending();
+    };
+  }, [flushPending]);
 
   useAppRefresh(loadListsAndItems);
 
@@ -81,7 +92,25 @@ const PartsList = () => {
     };
   }, [loadListsAndItems]);
 
+  /** Atualiza a tela na hora (otimista) e grava agora ou com espera. */
+  const handleItemsChange = useCallback(
+    (items: SimplePartItem[], opts?: { debounce?: boolean }) => {
+      if (!activeList) return;
+      const listId = activeList.id;
+      const updatedAt = new Date().toISOString();
+      setListItems(items);
+      setActiveList(prev => (prev && prev.id === listId ? { ...prev, items, updatedAt } : prev));
+      setLists(prev => prev.map(l => (l.id === listId ? { ...l, items, updatedAt } : l)));
+      pendingRef.current = { listId, items };
+      window.clearTimeout(timerRef.current);
+      if (opts?.debounce) timerRef.current = window.setTimeout(flushPending, SAVE_DELAY_MS);
+      else flushPending();
+    },
+    [activeList, flushPending],
+  );
+
   const handleSelectList = async (id: string) => {
+    await flushPending();
     await setActiveListId(company, id);
     await loadListsAndItems();
   };
@@ -100,6 +129,7 @@ const PartsList = () => {
   };
 
   const handleDuplicateList = async (id: string) => {
+    await flushPending();
     await duplicateList(company, id);
     await loadListsAndItems();
     showSuccess('Lista duplicada com sucesso!');
@@ -107,6 +137,7 @@ const PartsList = () => {
 
   const handleDeleteList = async (id: string) => {
     try {
+      await flushPending();
       await deleteList(company, id);
       await loadListsAndItems();
       showSuccess('Lista excluída com sucesso!');
@@ -122,151 +153,49 @@ const PartsList = () => {
 
   const handleTitleChange = async (newTitle: string) => {
     setListTitle(newTitle);
-    if (activeListId) {
-      await renameList(company, activeListId, newTitle);
+    if (activeList) {
+      await renameList(company, activeList.id, newTitle);
       // Atualiza apenas o estado local das listas para evitar re-renderização pesada
       const data = await getListsData(company);
       setLists(data.lists);
     }
   };
 
-  const handleListReordered = (reorderedItems: SimplePartItem[]) => {
-    setListItems(reorderedItems);
-    // Salva a nova ordem dos itens na lista ativa
-    if (activeList) {
-      const updatedList = { ...activeList, items: reorderedItems };
-      setActiveList(updatedList);
-      // Atualiza no localStorage
-      const updatedLists = lists.map(l => l.id === activeList.id ? updatedList : l);
-      const data = { activeListId, lists: updatedLists };
-      localStorage.setItem(`autoboard_lists_v2_${company}`, JSON.stringify(data));
-    }
-  };
-
-  // Função para abrir o formulário de edição com um item específico
-  const handleOpenEditForm = useCallback((item: SimplePartItem) => {
-    setEditingItem(item);
-    setIsEditFormOpen(true);
-  }, []);
-
-  // Função para fechar o formulário de edição
-  const handleCloseEditForm = useCallback(() => {
-    setEditingItem(null);
-    setIsEditFormOpen(false);
-    loadListsAndItems();
-  }, [loadListsAndItems]);
-
-  const formatLastUpdated = (isoString: string) => {
-    if (!isoString) return '';
-    const date = new Date(isoString);
-    const now = new Date();
-    
-    const isToday = date.getDate() === now.getDate() &&
-                    date.getMonth() === now.getMonth() &&
-                    date.getFullYear() === now.getFullYear();
-                    
-    const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    
-    if (isToday) {
-      return `Hoje às ${timeStr}`;
-    }
-    
-    const dateStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    return `${dateStr} às ${timeStr}`;
-  };
-
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
-      <h1 className="text-4xl font-extrabold mb-6 mt-8 text-center text-primary dark:text-primary flex flex-col items-center gap-2">
-        <div className="flex items-center gap-3">
-          <img src="/icons/tela_inicial/8.png" alt="" className="h-16 w-auto object-contain" />
-          Minha Lista de Peças
-        </div>
-        <span className="text-2xl font-bold opacity-80">{branding.name}</span>
-      </h1>
-
-      {/* List Carousel */}
-      {!isLoading && (
-        <ListCarousel
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      {isCompact ? (
+        <PartsListMobile
           lists={lists}
-          activeListId={activeListId}
-          company={company}
-          companyName={branding.name}
+          activeList={activeList}
+          items={listItems}
+          isLoading={isLoading}
+          onItemsChange={handleItemsChange}
+          onReload={loadListsAndItems}
+          onSelectList={handleSelectList}
+          onCreateList={handleCreateList}
+          onRenameList={handleRenameList}
+          onDuplicateList={handleDuplicateList}
+          onDeleteList={handleDeleteList}
+        />
+      ) : (
+        <PartsListDesktop
+          lists={lists}
+          activeList={activeList}
+          items={listItems}
+          isLoading={isLoading}
+          listTitle={listTitle}
+          onReload={loadListsAndItems}
+          onItemsReordered={handleItemsChange}
+          onTitleChange={handleTitleChange}
           onSelectList={handleSelectList}
           onCreateList={handleCreateList}
           onRenameList={handleRenameList}
           onDuplicateList={handleDuplicateList}
           onDeleteList={handleDeleteList}
           onReorderLists={handleReorderLists}
-          onListChanged={loadListsAndItems}
         />
       )}
-
-      {/* Active List Header Info */}
-      {activeList && (
-        <div className="w-full max-w-6xl mx-auto mb-6 px-4 py-3 bg-card border border-border/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <ListIcon name={activeList.name} icon={activeList.icon} size="md" className="p-2" />
-            <div>
-              <h2 className="font-bold text-lg text-foreground">Lista: {activeList.name}</h2>
-              <p className="text-xs text-muted-foreground">
-                {listItems.length} {listItems.length === 1 ? 'peça cadastrada' : 'peças cadastradas'}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Clock className="h-4 w-4 text-primary/70" />
-            <span>Última alteração: {formatLastUpdated(activeList.updatedAt)}</span>
-          </div>
-        </div>
-      )}
-
-      {isLoading ? (
-        <p className="text-center text-muted-foreground py-8">Carregando sua lista de peças...</p>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
-          {/* O formulário de adição permanece no lado esquerdo */}
-          <PartItemForm onItemAdded={loadListsAndItems} /> 
-          <PartsListDisplay 
-            listItems={listItems} 
-            onListChanged={loadListsAndItems} 
-            onListReordered={handleListReordered}
-            listTitle={listTitle} 
-            onTitleChange={handleTitleChange} 
-            onOpenEditForm={handleOpenEditForm}
-            listIcon={activeList?.icon}
-          />
-        </div>
-      )}
-      
-      <div className="flex justify-center mt-8 mb-8">
-        <Link to={`/${company}`}>
-          <Button variant="outline" className="flex items-center gap-2">
-            <ChevronLeft className="h-4 w-4" /> Voltar ao Início
-          </Button>
-        </Link>
-      </div>
-
-      <MadeWithDyad />
-
-      {/* Sheet para o formulário de edição em mobile */}
-      {isMobile && (
-        <Sheet open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
-          <ResponsiveSheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle>{editingItem ? 'Editar Item' : 'Adicionar Item'}</SheetTitle>
-            </SheetHeader>
-            <div className="py-4">
-              <PartItemForm 
-                editingItem={editingItem} 
-                onItemAdded={handleCloseEditForm}
-                onCloseEdit={handleCloseEditForm}
-              />
-            </div>
-          </ResponsiveSheetContent>
-        </Sheet>
-      )}
-    </div>
+    </Suspense>
   );
 };
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Pencil, Search, Star, X } from 'lucide-react';
+import { Check, ListPlus, Pencil, Search, Star, X } from 'lucide-react';
 import { Sheet, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,12 @@ export interface PartPickerSheetProps {
   subtitle?: string;
   /** Recebe a seleção; quem recebe soma as repetidas com `mergeParts`. */
   onConfirm: (parts: PickedPart[]) => void;
+  /** Título da gaveta (padrão: "Adicionar peças"). */
+  title?: string;
+  /** Conteúdo extra acima do Concluir (ex.: campo AF). */
+  footerExtra?: React.ReactNode;
+  /** Ação extra no fim da lista (ex.: abrir o formulário detalhado). */
+  detailedAction?: { label: string; onClick: () => void };
 }
 
 type SelectionItem = Omit<PickedPart, 'quantidade'> & { quantidade: number | '' };
@@ -54,7 +60,15 @@ const SECTION_HEADERS: Record<PartItemType, React.ReactNode> = {
 };
 
 /** Gaveta para escolher várias peças de uma vez (celular). */
-const PartPickerSheet: React.FC<PartPickerSheetProps> = ({ open, onOpenChange, subtitle, onConfirm }) => {
+const PartPickerSheet: React.FC<PartPickerSheetProps> = ({
+  open,
+  onOpenChange,
+  subtitle,
+  onConfirm,
+  title,
+  footerExtra,
+  detailedAction,
+}) => {
   const keyboardOpen = useKeyboardOpen();
   const { query, setQuery, results, isSearching, listsLoading, favoriteCodes, frequentCodes, toggleFavorite } =
     usePartSearch({ enabled: open });
@@ -221,7 +235,7 @@ const PartPickerSheet: React.FC<PartPickerSheetProps> = ({ open, onOpenChange, s
         >
           <div className="px-5 pt-5 pb-3 border-b space-y-3 shrink-0">
             <SheetHeader className="text-left space-y-0.5 pr-8">
-              <SheetTitle>Adicionar peças</SheetTitle>
+              <SheetTitle>{title || 'Adicionar peças'}</SheetTitle>
               <SheetDescription>{subtitle || 'Escolha uma ou mais peças.'}</SheetDescription>
             </SheetHeader>
             {!manualMode && (
@@ -306,6 +320,16 @@ const PartPickerSheet: React.FC<PartPickerSheetProps> = ({ open, onOpenChange, s
                 >
                   <Pencil className="h-4 w-4 mr-2" /> Não achou? Digitar à mão
                 </Button>
+                {detailedAction && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full h-12 justify-start px-4 text-primary border-t rounded-none"
+                    onClick={detailedAction.onClick}
+                  >
+                    <ListPlus className="h-4 w-4 mr-2" /> {detailedAction.label}
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -314,6 +338,7 @@ const PartPickerSheet: React.FC<PartPickerSheetProps> = ({ open, onOpenChange, s
             {!keyboardOpen && (
               <PartSelectionTray items={selection} onSetQuantity={setQuantityByKey} onRemove={removeByKey} />
             )}
+            {footerExtra}
             <div
               className={cn(
                 'flex gap-3 px-4 pt-3',

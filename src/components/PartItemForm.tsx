@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Part, addSimplePartItem, getParts, searchParts as searchPartsService, updatePart, getAfsFromService, Af, updateSimplePartItem } from '@/services/partListService';
+import { Part, addSimplePartItem, searchParts as searchPartsService, updatePart, getAfsFromService, Af, updateSimplePartItem } from '@/services/partListService';
 import PartSearchInput from './PartSearchInput';
 import AfSearchInput from './AfSearchInput';
 import { showSuccess, showError } from '@/utils/toast';
@@ -23,9 +23,11 @@ interface PartItemFormProps {
   onItemAdded: () => void;
   editingItem?: SimplePartItem | null;
   onCloseEdit?: () => void;
+  /** Sem o Card em volta (dentro de uma gaveta). */
+  bare?: boolean;
 }
 
-const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, onCloseEdit }) => {
+const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, onCloseEdit, bare }) => {
   const { checkPageAccess } = useSession();
   const { company } = useCompany();
   const [selectedPart, setSelectedPart] = useState<Part | null>(null);
@@ -34,12 +36,10 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const [af, setAf] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Part[]>([]);
-  const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
   const [isLoadingParts, setIsLoadingParts] = useState(false);
   const [editedTags, setEditedTags] = useState<string>('');
   const isMobile = useIsMobile();
   const [allAvailableAfs, setAllAvailableAfs] = useState<Af[]>([]);
-  const [isLoadingAfs, setIsLoadingAfs] = useState(true);
 
   // Estados para permitir edição manual
   const [customCodigo, setCustomCodigo] = useState('');
@@ -88,18 +88,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   }, [editingItem, company]);
 
   useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoadingParts(true);
-      const parts = await getParts(company);
-      setAllAvailableParts(parts);
-      setIsLoadingParts(false);
-
-      setIsLoadingAfs(true);
-      const afs = await getAfsFromService(company);
-      setAllAvailableAfs(afs);
-      setIsLoadingAfs(false);
-    };
-    loadInitialData();
+    getAfsFromService(company).then(setAllAvailableAfs).catch(() => setAllAvailableAfs([]));
   }, [company]);
 
   useEffect(() => {
@@ -214,12 +203,7 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
   const isUpdateTagsDisabled = !selectedPart || selectedPart.tags === editedTags || !canEditTags;
   const isSubmitDisabled = isLoadingParts || (!customCodigo && !customDescricao);
 
-  return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>{editingItem ? 'Editar Item' : 'Adicionar Item à Lista de Peças'}</CardTitle>
-      </CardHeader>
-      <CardContent>
+  const form = (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="search-part">Buscar Peça</Label>
@@ -346,7 +330,16 @@ const PartItemForm: React.FC<PartItemFormProps> = ({ onItemAdded, editingItem, o
             </Button>
           </div>
         </form>
-      </CardContent>
+  );
+
+  if (bare) return form;
+
+  return (
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle>{editingItem ? 'Editar Item' : 'Adicionar Item à Lista de Peças'}</CardTitle>
+      </CardHeader>
+      <CardContent>{form}</CardContent>
     </Card>
   );
 };

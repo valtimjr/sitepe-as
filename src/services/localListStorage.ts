@@ -336,6 +336,23 @@ export const setListCloudId = async (
 };
 
 /**
+ * Replaces all items of a list (new order, quantities, removals) in a single save.
+ */
+export const replaceListItems = async (
+  company: CompanyType,
+  listId: string,
+  items: SimplePartItem[]
+): Promise<void> => {
+  const data = await getListsData(company);
+  const list = data.lists.find(l => l.id === listId);
+  if (list) {
+    list.items = items;
+    list.updatedAt = new Date().toISOString();
+    saveListsData(company, data);
+  }
+};
+
+/**
  * Adds an item to the active list.
  */
 export const addItemToActiveList = async (

@@ -20,26 +20,13 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import {
-  ResponsiveDialog as Dialog,
-  ResponsiveDialogContent as DialogContent,
-  ResponsiveDialogHeader as DialogHeader,
-  ResponsiveDialogTitle as DialogTitle,
-  ResponsiveDialogFooter as DialogFooter,
-  ResponsiveDialogDescription as DialogDescription,
-} from '@/components/responsive/ResponsiveDialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { LocalList, formatListText } from '@/services/localListStorage';
+import { LocalList } from '@/services/localListStorage';
 import { CompanyType } from '@/types/company';
-import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import type { ListIcon as ListIconData } from '@/types/listIcon';
 import ListIcon from '@/components/list-icon/ListIcon';
-import ListIconEditor from '@/components/list-icon/ListIconEditor';
 import ListSaveMenu from '@/components/ListSaveMenu';
-import LoginModal from '@/components/LoginModal';
-import { useCloudListActions } from '@/hooks/use-cloud-list-actions';
+import { useListManagement } from '@/components/parts-list/useListManagement';
 
 interface ListCarouselProps {
   lists: LocalList[];
@@ -67,21 +54,15 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
   onDeleteList,
   onListChanged,
 }) => {
-  const { requestCloudAction, savingListId, loginModalProps } = useCloudListActions(company, onListChanged);
-
-  // Dialog states
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [newListName, setNewListName] = useState('');
-  const [newListIcon, setNewListIcon] = useState<ListIconData | null>(null);
-  
-  const [isRenameOpen, setIsRenameOpen] = useState(false);
-  const [renameListId, setRenameListId] = useState('');
-  const [renameListName, setRenameListName] = useState('');
-  const [renameListIcon, setRenameListIcon] = useState<ListIconData | null>(null);
-
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [deleteListId, setDeleteListId] = useState('');
-  const [deleteListName, setDeleteListName] = useState('');
+  const {
+    openCreate,
+    openRename,
+    openDelete,
+    copyListText,
+    requestCloudAction,
+    savingListId,
+    dialogs,
+  } = useListManagement({ lists, company, companyName, onCreateList, onRenameList, onDeleteList, onListChanged });
 
   // Container and sizing refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -281,52 +262,6 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
     }
   };
 
-  // Dialog actions
-  const handleCreateSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newListName.trim()) {
-      showError('O nome da lista não pode ser vazio.');
-      return;
-    }
-    onCreateList(newListName.trim(), newListIcon);
-    setNewListName('');
-    setNewListIcon(null);
-    setIsCreateOpen(false);
-  };
-
-  const handleRenameSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!renameListName.trim()) {
-      showError('O nome da lista não pode ser vazio.');
-      return;
-    }
-    onRenameList(renameListId, renameListName.trim(), renameListIcon);
-    setIsRenameOpen(false);
-  };
-
-  const handleCopyListText = async (list: LocalList) => {
-    const text = formatListText(list, companyName);
-    if (!text) {
-      showError('A lista está vazia.');
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      showSuccess(`Lista "${list.name}" copiada para a área de transferência!`);
-    } catch (err) {
-      showError('Erro ao copiar lista.');
-    }
-  };
-
-  const handleDeleteConfirm = () => {
-    if (lists.length <= 1) {
-      showError('Não é possível excluir a única lista existente.');
-      return;
-    }
-    onDeleteList(deleteListId);
-    setIsDeleteOpen(false);
-  };
-
   // Geometry calculations for exact centering
   const gap = 12; // 12px gap between cards
   const totalItemStep = cardWidth + gap;
@@ -374,7 +309,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
 
           <Button
             size="sm"
-            onClick={() => setIsCreateOpen(true)}
+            onClick={openCreate}
             className="h-7 text-xs font-bold gap-1.5 rounded-none shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -410,7 +345,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
           <div className="w-full py-8 text-center border border-dashed border-border flex flex-col items-center justify-center gap-3 bg-card">
             <Package className="h-8 w-8 text-muted-foreground/50" />
             <p className="text-sm font-medium text-muted-foreground">Você ainda não tem listas de peças.</p>
-            <Button size="sm" onClick={() => setIsCreateOpen(true)} className="rounded-none">
+            <Button size="sm" onClick={openCreate} className="rounded-none">
               <Plus className="h-4 w-4 mr-1.5" /> Criar Primeira Lista
             </Button>
           </div>
@@ -470,12 +405,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-44 rounded-none border-border">
-                          <DropdownMenuItem onClick={() => {
-                            setRenameListId(list.id);
-                            setRenameListName(list.name);
-                            setRenameListIcon(list.icon ?? null);
-                            setIsRenameOpen(true);
-                          }}>
+                          <DropdownMenuItem onClick={() => openRename(list)}>
                             <Pencil className="mr-2 h-4 w-4" />
                             <span>Renomear / Ícone</span>
                           </DropdownMenuItem>
@@ -502,17 +432,13 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
                             <Copy className="mr-2 h-4 w-4" />
                             <span>Duplicar Lista</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleCopyListText(list)}>
+                          <DropdownMenuItem onClick={() => copyListText(list)}>
                             <Clipboard className="mr-2 h-4 w-4" />
                             <span>Copiar Lista</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             disabled={numLists <= 1}
-                            onClick={() => {
-                              setDeleteListId(list.id);
-                              setDeleteListName(list.name);
-                              setIsDeleteOpen(true);
-                            }}
+                            onClick={() => openDelete(list)}
                             className="text-destructive focus:text-destructive"
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
@@ -540,96 +466,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
         )}
       </div>
 
-      {/* Create List Dialog */}
-      <Dialog
-        open={isCreateOpen}
-        onOpenChange={(open) => {
-          setIsCreateOpen(open);
-          if (!open) setNewListIcon(null);
-        }}
-      >
-        <DialogContent dialogClassName="sm:max-w-md rounded-none max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-extrabold text-lg">Criar Nova Lista</DialogTitle>
-            <DialogDescription className="text-xs">
-              Insira o nome para a sua nova lista de peças.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCreateSubmit} className="space-y-4">
-            <ListIconEditor name={newListName} icon={newListIcon} onChange={setNewListIcon} />
-            <div className="space-y-2">
-              <Label htmlFor="new-list-name" className="text-xs font-bold uppercase">Nome da Lista</Label>
-              <Input
-                id="new-list-name"
-                placeholder="Ex: Caminhão 42032, Preventiva..."
-                value={newListName}
-                onChange={(e) => setNewListName(e.target.value)}
-                className="rounded-none text-xs"
-                autoFocus
-              />
-            </div>
-            <DialogFooter className="flex gap-2 sm:justify-end">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsCreateOpen(false)} className="rounded-none text-xs">
-                Cancelar
-              </Button>
-              <Button type="submit" size="sm" className="rounded-none text-xs font-bold">Criar Lista</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rename List Dialog */}
-      <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
-        <DialogContent dialogClassName="sm:max-w-md rounded-none max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-extrabold text-lg">Editar Lista</DialogTitle>
-            <DialogDescription className="text-xs">
-              Altere o nome e o ícone desta lista de peças.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleRenameSubmit} className="space-y-4">
-            <ListIconEditor name={renameListName} icon={renameListIcon} onChange={setRenameListIcon} />
-            <div className="space-y-2">
-              <Label htmlFor="rename-list-name" className="text-xs font-bold uppercase">Novo Nome</Label>
-              <Input
-                id="rename-list-name"
-                value={renameListName}
-                onChange={(e) => setRenameListName(e.target.value)}
-                className="rounded-none text-xs"
-                autoFocus
-              />
-            </div>
-            <DialogFooter className="flex gap-2 sm:justify-end">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsRenameOpen(false)} className="rounded-none text-xs">
-                Cancelar
-              </Button>
-              <Button type="submit" size="sm" className="rounded-none text-xs font-bold">Salvar</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <LoginModal {...loginModalProps} />
-
-      {/* Delete List Dialog */}
-      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent dialogClassName="sm:max-w-md rounded-none">
-          <DialogHeader>
-            <DialogTitle className="font-extrabold text-lg text-destructive">Excluir Lista</DialogTitle>
-            <DialogDescription className="text-xs">
-              Tem certeza que deseja excluir a lista <strong className="text-foreground">"{deleteListName}"</strong>? Esta ação não pode ser desfeita.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex gap-2 sm:justify-end">
-            <Button type="button" variant="outline" size="sm" onClick={() => setIsDeleteOpen(false)} className="rounded-none text-xs">
-              Cancelar
-            </Button>
-            <Button type="button" variant="destructive" size="sm" onClick={handleDeleteConfirm} className="rounded-none text-xs font-bold">
-              Excluir
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {dialogs}
     </div>
   );
 };
