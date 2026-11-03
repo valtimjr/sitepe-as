@@ -42,6 +42,8 @@ interface ListCarouselProps {
   onListChanged: () => void;
   /** Esconde o menu Salvar/Exportar (no celular ele fica no botão Compartilhar). */
   hideSaveMenu?: boolean;
+  /** Substitui o botão Nova Lista e o menu Salvar ao lado de "Suas Listas". */
+  headerActions?: React.ReactNode;
   className?: string;
 }
 
@@ -57,6 +59,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
   onDeleteList,
   onListChanged,
   hideSaveMenu = false,
+  headerActions,
   className,
 }) => {
   const {
@@ -396,22 +399,26 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
             </div>
           )}
 
-          <Button
-            size="sm"
-            onClick={openCreate}
-            className="h-7 text-xs font-bold gap-1.5 rounded-none shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Nova Lista
-          </Button>
+          {headerActions ?? (
+            <>
+              <Button
+                size="sm"
+                onClick={openCreate}
+                className="h-7 text-xs font-bold gap-1.5 rounded-none shadow-none bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Nova Lista
+              </Button>
 
-          {!hideSaveMenu && (
-            <ListSaveMenu
-              variant="compact"
-              items={lists.find(l => l.id === activeListId)?.items ?? []}
-              listTitle={lists.find(l => l.id === activeListId)?.name ?? ''}
-              onListChanged={onListChanged}
-            />
+              {!hideSaveMenu && (
+                <ListSaveMenu
+                  variant="compact"
+                  items={lists.find(l => l.id === activeListId)?.items ?? []}
+                  listTitle={lists.find(l => l.id === activeListId)?.name ?? ''}
+                  onListChanged={onListChanged}
+                />
+              )}
+            </>
           )}
         </div>
       </div>

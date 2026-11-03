@@ -12,29 +12,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import SortableList from '@/components/sortable/SortableList';
-import LoginModal from '@/components/LoginModal';
-import { useSession } from '@/components/SessionContextProvider';
 import { useCompany } from '@/context/CompanyContext';
 import { useKeyboardOpen } from '@/hooks/useKeyboardOpen';
-import { addItemsToList, getActiveList, type LocalList } from '@/services/localListStorage';
+import { addItemsToList, type LocalList } from '@/services/localListStorage';
 import type { SimplePartItem } from '@/services/partListService';
 import type { PickedPart } from '@/components/service-orders/mergeParts';
 import type { ListIcon as ListIconData } from '@/types/listIcon';
 import { success, tap } from '@/lib/haptics';
 import { showSuccess } from '@/utils/toast';
 import PartsListMobileHeader from './PartsListMobileHeader';
-import PartsListMobileRow from './PartsListMobileRow';
+import PartsListTable from './PartsListTable';
 import PartsListSortSheet, { sortItems, type SortDirection, type SortField } from './PartsListSortSheet';
 import { useListManagement } from './useListManagement';
-import { useListActions } from './useListActions';
+import { useListShareSheet } from './useListShareSheet';
+import { useFlashNewItems } from './useFlashNewItems';
 import { nameFor, relatedFor, useRelatedParts } from './useRelatedParts';
 
 const AddPartsSheet = lazy(() => import('./AddPartsSheet'));
 const PartEditSheet = lazy(() => import('./PartEditSheet'));
-const PartsListShareSheet = lazy(() => import('./PartsListShareSheet'));
-const ImportWizardDialog = lazy(() => import('@/components/list-import/ImportWizardDialog'));
-const CloudListsDialog = lazy(() => import('@/components/CloudListsDialog'));
 
 const PAGE_SIZE = 60;
 
@@ -70,7 +65,6 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
   onReorderLists,
 }) => {
   const { company, branding } = useCompany();
-  const { user } = useSession();
   const keyboardOpen = useKeyboardOpen();
   const listName = activeList?.name ?? 'Minha Lista';
 
@@ -87,21 +81,25 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
     onDeleteList,
     onListChanged: reloadVoid,
   });
-  const actions = useListActions({ items, title: listName, icon: activeList?.icon });
   const relatedMap = useRelatedParts(items);
+  const flashIds = useFlashNewItems(items, activeList?.id);
 
   const [groupByAf, setGroupByAf] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [addOpen, setAddOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SimplePartItem | null>(null);
   const [clearConfirm, setClearConfirm] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
-  const [cloudOpen, setCloudOpen] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
   const [pendingRemove, setPendingRemove] = useState<SimplePartItem | null>(null);
-  const [flashIds, setFlashIds] = useState<Set<string>>(() => new Set());
+
+  const share = useListShareSheet({
+    items,
+    title: listName,
+    icon: activeList?.icon,
+    listId: activeList?.id,
+    onClear: () => setClearConfirm(true),
+    onReload: reloadVoid,
+  });
 
   // Ao trocar de lista, desfaz o agrupamento e a paginação
   useEffect(() => {
@@ -112,27 +110,9 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
 
   useEffect(() => setVisibleCount(PAGE_SIZE), [groupByAf]);
 
-  useEffect(() => {
-    if (flashIds.size === 0) return;
-    const first = document.querySelector(`[data-item-id="${Array.from(flashIds)[0]}"]`);
-    first?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    const t = setTimeout(() => setFlashIds(new Set()), 1600);
-    return () => clearTimeout(t);
-  }, [flashIds]);
-
-  // Handlers estáveis para o React.memo dos cartões
+  // Handlers estáveis para o React.memo das linhas
   const itemsRef = useRef(items);
   itemsRef.current = items;
-
-  const handleQuantity = useCallback(
-    (id: string, quantidade: number) => {
-      onItemsChange(
-        itemsRef.current.map((i) => (i.id === id ? { ...i, quantidade } : i)),
-        { debounce: true },
-      );
-    },
-    [onItemsChange],
-  );
 
   // A lixeira só pede confirmação; a remoção acontece no diálogo
   const handleRequestRemove = useCallback((id: string) => {
@@ -158,24 +138,20 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
     onItemsChange(itemsRef.current.map((i) => (i.id === updated.id ? updated : i)));
   };
 
-  const handleReorder = (ids: string[]) => {
-    const byId = new Map(itemsRef.current.map((i) => [i.id, i]));
-    onItemsChange(ids.map((id) => byId.get(id)!).filter(Boolean));
-  };
+  const handleReorder = useCallback(
+    (ids: string[]) => {
+      const byId = new Map(itemsRef.current.map((i) => [i.id, i]));
+      onItemsChange(ids.map((id) => byId.get(id)!).filter(Boolean));
+    },
+    [onItemsChange],
+  );
 
   const handleSort = (field: SortField, direction: SortDirection) => {
     onItemsChange(sortItems(itemsRef.current, field, direction));
   };
 
-  const flashNewItems = async (previousIds: Set<string>) => {
-    const fresh = await getActiveList(company);
-    const ids = fresh.items.filter((i) => !previousIds.has(i.id)).map((i) => i.id);
-    if (ids.length > 0) setFlashIds(new Set(ids));
-  };
-
   const handleAddParts = async (parts: PickedPart[], af: string) => {
     if (!activeList || parts.length === 0) return;
-    const previousIds = new Set(itemsRef.current.map((i) => i.id));
     await onReload(); // grava pendências antes de somar
     await addItemsToList(
       company,
@@ -186,18 +162,6 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
     await onReload();
     success();
     showSuccess(parts.length === 1 ? '1 peça adicionada' : `${parts.length} peças adicionadas`);
-    flashNewItems(previousIds);
-  };
-
-  const handleDetailedAdded = async () => {
-    const previousIds = new Set(itemsRef.current.map((i) => i.id));
-    await onReload();
-    flashNewItems(previousIds);
-  };
-
-  const handleCloudLoad = () => {
-    if (user) setCloudOpen(true);
-    else setLoginOpen(true);
   };
 
   // Agrupamento por AF
@@ -217,33 +181,22 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
     });
   }, [items, groupByAf]);
 
-  const dragEnabled = !groupByAf;
-
-  const renderRow = (item: SimplePartItem) => (
-    <PartsListMobileRow
-      item={item}
-      name={nameFor(relatedMap, item)}
-      related={relatedFor(relatedMap, item.codigo_peca)}
-      dragEnabled={dragEnabled}
-      flash={flashIds.has(item.id)}
-      onQuantity={handleQuantity}
-      onRequestRemove={handleRequestRemove}
-      onEdit={handleEdit}
-    />
-  );
+  const nameOf = useCallback((item: SimplePartItem) => nameFor(relatedMap, item), [relatedMap]);
+  const relatedOf = useCallback((item: SimplePartItem) => relatedFor(relatedMap, item.codigo_peca), [relatedMap]);
 
   const renderBody = () => {
     if (isLoading) {
       return (
-        <div className="space-y-2" aria-label="Carregando lista">
+        <div className="divide-y border-y" aria-label="Carregando lista">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-3 rounded-lg border bg-card p-3">
+            <div key={i} className="flex items-center gap-3 py-3 pr-2">
               <Skeleton className="h-8 w-6" />
               <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-3 w-3/4" />
               </div>
-              <Skeleton className="h-9 w-24" />
+              <Skeleton className="h-5 w-6" />
+              <Skeleton className="h-8 w-8" />
             </div>
           ))}
         </div>
@@ -263,56 +216,30 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
       );
     }
 
-    if (dragEnabled) {
-      return (
-        <SortableList
+    return (
+      <div className="-mx-4">
+        <PartsListTable
           items={items}
-          getId={(i) => i.id}
-          renderItem={renderRow}
+          groups={groups}
+          visibleCount={visibleCount}
+          flashIds={flashIds}
+          nameOf={nameOf}
+          relatedOf={relatedOf}
           onReorder={handleReorder}
-          className="space-y-2"
+          onRequestRemove={handleRequestRemove}
+          onEdit={handleEdit}
         />
-      );
-    }
-
-    if (groups) {
-      let shown = 0;
-      return (
-        <div className="space-y-4">
-          {groups.map(([af, groupItems]) => {
-            if (shown >= visibleCount) return null;
-            const slice = groupItems.slice(0, visibleCount - shown);
-            shown += slice.length;
-            return (
-              <section key={af || '__none'} data-testid="parts-list-af-group">
-                <h2 className="px-1 pb-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                  {af ? `AF ${af}` : 'Sem AF'} ({groupItems.length})
-                </h2>
-                <div className="space-y-2">
-                  {slice.map((item) => (
-                    <React.Fragment key={item.id}>{renderRow(item)}</React.Fragment>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      );
-    }
-
-    return null;
+      </div>
+    );
   };
 
   const anySheetOpen =
     addOpen ||
-    shareOpen ||
     sortOpen ||
     !!pendingRemove ||
     !!editingItem ||
     clearConfirm ||
-    importOpen ||
-    cloudOpen ||
-    loginOpen ||
+    share.anyOpen ||
     management.anyDialogOpen;
 
   return (
@@ -330,14 +257,15 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
         onDeleteList={onDeleteList}
         onReorderLists={onReorderLists}
         onListChanged={reloadVoid}
+        onNewList={management.openCreate}
         onSort={() => setSortOpen(true)}
         onClear={() => setClearConfirm(true)}
-        onShare={() => setShareOpen(true)}
+        onShare={share.open}
       />
 
       {renderBody()}
 
-      {!dragEnabled && items.length > visibleCount && (
+      {groups && items.length > visibleCount && (
         <Button variant="ghost" className="w-full h-11 mt-2" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
           Mostrar mais ({items.length - visibleCount})
         </Button>
@@ -367,6 +295,7 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
       />
 
       {management.dialogs}
+      {share.element}
 
       <Suspense fallback={null}>
         {addOpen && (
@@ -374,7 +303,7 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
             onOpenChange={setAddOpen}
             listName={listName}
             onConfirm={handleAddParts}
-            onDetailedAdded={handleDetailedAdded}
+            onDetailedAdded={reloadVoid}
           />
         )}
 
@@ -389,41 +318,7 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
             onRequestDelete={handleRequestRemove}
           />
         )}
-
-        {shareOpen && (
-          <PartsListShareSheet
-            open
-            onOpenChange={setShareOpen}
-            isEmpty={actions.isEmpty}
-            onCopy={actions.copy}
-            onWhatsApp={actions.whatsApp}
-            onPdf={actions.pdf}
-            onNativeShare={actions.nativeShare}
-            onExport={actions.exportFile}
-            onImport={() => setImportOpen(true)}
-            onCloudSave={() => activeList && management.requestCloudAction('save', activeList.id)}
-            onCloudLoad={handleCloudLoad}
-            onClear={() => setClearConfirm(true)}
-          />
-        )}
-
-        {importOpen && (
-          <ImportWizardDialog open onOpenChange={setImportOpen} company={company} onImported={reloadVoid} />
-        )}
-
-        {cloudOpen && user && (
-          <CloudListsDialog open onOpenChange={setCloudOpen} userId={user.id} company={company} onListOpened={reloadVoid} />
-        )}
       </Suspense>
-
-      <LoginModal
-        isOpen={loginOpen}
-        onOpenChange={setLoginOpen}
-        onSuccess={() => {
-          setLoginOpen(false);
-          setCloudOpen(true);
-        }}
-      />
 
       <AlertDialog open={!!pendingRemove} onOpenChange={(open) => !open && setPendingRemove(null)}>
         <AlertDialogContent data-testid="part-remove-confirm">

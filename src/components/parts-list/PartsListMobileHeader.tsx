@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpDown, Share2, Trash2 } from 'lucide-react';
+import { ArrowUpDown, FilePlus, Share2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ListIcon from '@/components/list-icon/ListIcon';
 import { ListCarousel } from '@/components/ListCarousel';
@@ -22,6 +22,8 @@ interface PartsListMobileHeaderProps {
   onDeleteList: (id: string) => void;
   onReorderLists: (orderedIds: string[]) => void;
   onListChanged: () => void;
+  /** Abre o diálogo "Criar Nova Lista". */
+  onNewList: () => void;
   onSort: () => void;
   onClear: () => void;
   onShare: () => void;
@@ -37,7 +39,7 @@ const formatUpdated = (iso?: string) => {
   return `alterada ${date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${time}`;
 };
 
-/** Cabeçalho fixo da Minha Lista no celular: título, Ordenar, Limpar, Compartilhar e o carrossel das listas. */
+/** Cabeçalho fixo da Minha Lista no celular: título e Nova Lista; Ordenar, Limpar e Compartilhar ao lado de "Suas Listas". */
 const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
   lists,
   activeList,
@@ -51,6 +53,7 @@ const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
   onDeleteList,
   onReorderLists,
   onListChanged,
+  onNewList,
   onSort,
   onClear,
   onShare,
@@ -59,6 +62,57 @@ const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
   const appHeaderHidden = useHideOnScroll();
   const name = activeList?.name ?? 'Minha Lista';
   const updated = formatUpdated(activeList?.updatedAt);
+
+  const headerActions = (
+    <div className="flex items-center gap-1.5">
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-10 w-10 shrink-0"
+        onClick={() => {
+          tap();
+          onSort();
+        }}
+        disabled={itemCount < 2}
+        aria-label="Ordenar"
+        data-testid="parts-list-sort-button"
+      >
+        <ArrowUpDown className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-10 w-10 shrink-0 text-destructive border-destructive/30 hover:text-destructive"
+        onClick={() => {
+          tap();
+          onClear();
+        }}
+        disabled={itemCount === 0}
+        aria-label="Limpar lista"
+        data-testid="parts-list-clear-button"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="outline"
+        size="icon"
+        className="relative h-10 w-10 shrink-0 text-primary border-primary/30"
+        onClick={() => {
+          tap();
+          onShare();
+        }}
+        aria-label="Compartilhar"
+        data-testid="parts-list-share-button"
+      >
+        <Share2 className="h-4 w-4" />
+        {itemCount > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center shadow">
+            {itemCount}
+          </span>
+        )}
+      </Button>
+    </div>
+  );
 
   return (
     <div
@@ -78,50 +132,16 @@ const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
           </p>
         </div>
         <Button
-          variant="outline"
-          size="icon"
-          className="h-11 w-11 shrink-0"
+          size="sm"
+          className="h-10 shrink-0 gap-1.5 font-bold"
           onClick={() => {
             tap();
-            onSort();
+            onNewList();
           }}
-          disabled={itemCount < 2}
-          aria-label="Ordenar"
-          data-testid="parts-list-sort-button"
+          data-testid="parts-list-new-list-button"
         >
-          <ArrowUpDown className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-11 w-11 shrink-0 text-destructive border-destructive/30 hover:text-destructive"
-          onClick={() => {
-            tap();
-            onClear();
-          }}
-          disabled={itemCount === 0}
-          aria-label="Limpar lista"
-          data-testid="parts-list-clear-button"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="relative h-11 w-11 shrink-0 text-primary border-primary/30"
-          onClick={() => {
-            tap();
-            onShare();
-          }}
-          aria-label="Compartilhar"
-          data-testid="parts-list-share-button"
-        >
-          <Share2 className="h-4 w-4" />
-          {itemCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center shadow">
-              {itemCount}
-            </span>
-          )}
+          <FilePlus className="h-4 w-4" />
+          Nova Lista
         </Button>
       </div>
 
@@ -139,6 +159,7 @@ const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
           onReorderLists={onReorderLists}
           onListChanged={onListChanged}
           hideSaveMenu
+          headerActions={headerActions}
           className="mb-0 px-0"
         />
       )}

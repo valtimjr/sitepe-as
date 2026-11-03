@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import ResponsiveSheetContent from '@/components/responsive/ResponsiveSheetContent';
 import { MadeWithDyad } from '@/components/made-with-dyad';
@@ -121,7 +122,40 @@ const PartsListDesktop: React.FC<PartsListDesktopProps> = ({
       )}
 
       {isLoading ? (
-        <p className="text-center text-muted-foreground py-8">Carregando sua lista de peças...</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl" aria-label="Carregando lista" data-testid="parts-list-desktop-skeleton">
+          <div className="rounded-lg border bg-card p-6 space-y-4">
+            <Skeleton className="h-7 w-2/3" />
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ))}
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="rounded-lg border bg-card p-6 space-y-4">
+            <Skeleton className="h-7 w-1/2" />
+            <Skeleton className="h-10 w-full" />
+            <div className="flex justify-end gap-2">
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-28" />
+              <Skeleton className="h-10 w-32" />
+            </div>
+            <div className="divide-y border-y">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-3 py-3">
+                  <Skeleton className="h-6 w-6" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-3/4" />
+                  </div>
+                  <Skeleton className="h-5 w-8" />
+                  <Skeleton className="h-8 w-16" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl">
           <PartItemForm onItemAdded={onReload} />
@@ -133,6 +167,7 @@ const PartsListDesktop: React.FC<PartsListDesktopProps> = ({
             onTitleChange={onTitleChange}
             onOpenEditForm={handleOpenEditForm}
             listIcon={activeList?.icon}
+            listId={activeList?.id}
           />
         </div>
       )}

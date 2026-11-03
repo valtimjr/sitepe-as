@@ -62,8 +62,24 @@ test.describe('Minha Lista no celular', () => {
     await expect(title).toHaveText('Caminhão 42032');
     await expect(header.getByTestId('parts-list-mobile-summary')).toContainText('4 peças');
     await expect(page.getByTestId('parts-list-row')).toHaveCount(4);
-    await expect(page.getByRole('table')).toHaveCount(0);
     await expect(page.getByTestId('list-chip-new')).toHaveCount(0);
+
+    // Lista em tabela: Qtd só como número, sem − / + na linha
+    const table = page.getByRole('table');
+    await expect(table).toHaveCount(1);
+    await expect(table.getByRole('columnheader', { name: 'Qtd' })).toBeVisible();
+    await expect(page.getByTestId('parts-list-row-qty')).toHaveText(['2', '1', '1', '3']);
+    await expect(page.getByRole('button', { name: /^(Aumentar|Diminuir) quantidade/ })).toHaveCount(0);
+
+    // Nova Lista na linha do título; Ordenar, Limpar e Compartilhar na linha "Suas Listas"
+    const titleBox = (await title.boundingBox())!;
+    const newListBox = (await header.getByTestId('parts-list-new-list-button').boundingBox())!;
+    expect(Math.abs(newListBox.y + newListBox.height / 2 - (titleBox.y + titleBox.height / 2))).toBeLessThan(24);
+    const yourListsBox = (await header.getByText(/Suas Listas/).boundingBox())!;
+    for (const id of ['parts-list-sort-button', 'parts-list-clear-button', 'parts-list-share-button']) {
+      const b = (await header.getByTestId(id).boundingBox())!;
+      expect(Math.abs(b.y + b.height / 2 - (yourListsBox.y + yourListsBox.height / 2))).toBeLessThan(16);
+    }
 
     // O carrossel fica dentro do cabeçalho fixo e os cartões são 4x3
     const region = header.getByRole('region', { name: 'Navegação de Listas de Peças' });
@@ -95,8 +111,9 @@ test.describe('Minha Lista no celular', () => {
     await page.keyboard.press('ArrowLeft');
     await expect(title).toHaveText('Caminhão 42032');
 
-    // Nova Lista pelo carrossel
-    await header.getByRole('button', { name: 'Nova Lista' }).click();
+    // Nova Lista pelo cabeçalho (o carrossel não tem outro botão)
+    await expect(header.getByRole('button', { name: 'Nova Lista' })).toHaveCount(1);
+    await header.getByTestId('parts-list-new-list-button').click();
     const dialog = page.getByRole('dialog', { name: 'Criar Nova Lista' });
     await dialog.getByLabel('Nome da Lista').fill('Nova E2E');
     await dialog.getByRole('button', { name: 'Criar Lista' }).click();
@@ -180,16 +197,23 @@ test.describe('Minha Lista no celular', () => {
     await expect(rows.nth(1).getByTestId('parts-list-row-name')).toHaveCount(0);
   });
 
-  test('quantidade persiste e remover pede confirmação', async ({ page }) => {
+  test('quantidade muda em Editar peça, persiste e remover pede confirmação', async ({ page }) => {
     await seedLists(page);
     await page.goto('/usina_vale/parts-list');
     await expect(page.getByTestId('parts-list-row')).toHaveCount(4, { timeout: 15000 });
 
-    await page.getByRole('button', { name: 'Aumentar quantidade de BBB-2' }).click();
-    await expect(page.getByRole('spinbutton', { name: 'Quantidade de BBB-2' })).toHaveValue('2');
-    await page.waitForTimeout(600); // espera de 400 ms da gravação
+    const qtyOf = (code: string) =>
+      page.getByTestId('parts-list-row').filter({ has: page.getByTestId('parts-list-row-code').getByText(code, { exact: true }) }).getByTestId('parts-list-row-qty');
+
+    await page.getByRole('button', { name: 'Editar BBB-2' }).click();
+    const editSheet = page.getByTestId('part-edit-sheet');
+    await expect(editSheet).toBeVisible();
+    await editSheet.getByRole('button', { name: 'Aumentar quantidade' }).click();
+    await editSheet.getByRole('button', { name: 'Salvar' }).click();
+    await expect(editSheet).toBeHidden();
+    await expect(qtyOf('BBB-2')).toHaveText('2');
     await page.reload();
-    await expect(page.getByRole('spinbutton', { name: 'Quantidade de BBB-2' })).toHaveValue('2', { timeout: 15000 });
+    await expect(qtyOf('BBB-2')).toHaveText('2', { timeout: 15000 });
 
     await page.getByRole('button', { name: 'Remover BBB-2' }).click();
     const confirm = page.getByRole('alertdialog');
@@ -237,8 +261,8 @@ test.describe('Minha Lista no celular', () => {
 
     const groups = page.getByTestId('parts-list-af-group');
     await expect(groups).toHaveCount(2);
-    await expect(groups.nth(0).locator('h2')).toHaveText('AF 42032 (2)');
-    await expect(groups.nth(1).locator('h2')).toHaveText('Sem AF (2)');
+    await expect(groups.nth(0)).toHaveText('AF 42032 (2)');
+    await expect(groups.nth(1)).toHaveText('Sem AF (2)');
     await expect(page.getByTestId('drag-handle-disabled')).toHaveCount(4);
   });
 
@@ -270,7 +294,7 @@ test.describe('Minha Lista no celular', () => {
 test.describe('Minha Lista no computador', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test('mantém o layout atual', async ({ page }) => {
+  test('layout com Ordenar, Limpar Lista e Compartilhar', async ({ page }) => {
     await mockCatalog(page);
     await seedLists(page);
     await page.goto('/usina_vale/parts-list');
@@ -278,10 +302,71 @@ test.describe('Minha Lista no computador', () => {
     await expect(page.getByRole('region', { name: 'Navegação de Listas de Peças' })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('Adicionar Item à Lista de Peças')).toBeVisible();
     await expect(page.getByRole('table')).toBeVisible();
-    await expect(page.getByRole('button', { name: /Copiar Lista/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Limpar Lista/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ordenar', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Limpar Lista', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Compartilhar', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Copiar Lista/ })).toHaveCount(0);
     await expect(page.getByTestId('parts-list-fab')).toHaveCount(0);
     await expect(page.getByTestId('parts-list-mobile-header')).toHaveCount(0);
+
+    // Compartilhar abre a mesma gaveta do celular
+    await page.getByRole('button', { name: 'Compartilhar', exact: true }).click();
+    const share = page.getByTestId('parts-list-share-sheet');
+    await expect(share).toBeVisible();
+    for (const name of ['Copiar texto', 'Enviar no WhatsApp', 'Exportar PDF']) {
+      await expect(share.getByRole('button', { name, exact: true })).toBeEnabled();
+    }
+    await page.keyboard.press('Escape');
+    await expect(share).toBeHidden();
+
+    // Ordenar → Agrupar por AF agrupa a tabela e desliga o arrastar
+    await page.getByRole('button', { name: 'Ordenar', exact: true }).click();
+    const sortSheet = page.getByTestId('parts-list-sort-sheet');
+    await sortSheet.getByTestId('parts-list-group-af').click();
+    await page.keyboard.press('Escape');
+    await expect(sortSheet).toBeHidden();
+    const groups = page.getByTestId('parts-list-af-group');
+    await expect(groups).toHaveCount(2);
+    await expect(groups.nth(0)).toHaveText('AF 42032 (2)');
+    await expect(page.getByTestId('drag-handle')).toHaveCount(0);
+  });
+
+  test('arrastar pela alça reordena as linhas', async ({ page }) => {
+    await mockCatalog(page);
+    await seedLists(page);
+    await page.goto('/usina_vale/parts-list');
+    const rows = page.getByTestId('parts-list-row');
+    await expect(rows).toHaveCount(4, { timeout: 15000 });
+
+    // As linhas ficam abaixo da dobra no computador: rola antes de medir
+    await rows.nth(2).scrollIntoViewIfNeeded();
+    const handleBox = (await page.getByRole('button', { name: 'Arrastar AAA-1' }).boundingBox())!;
+    const targetBox = (await rows.nth(1).boundingBox())!;
+    const x = handleBox.x + handleBox.width / 2;
+    await page.mouse.move(x, handleBox.y + handleBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, handleBox.y + handleBox.height / 2 + 10, { steps: 5 });
+    await page.mouse.move(x, targetBox.y + targetBox.height * 0.8, { steps: 15 });
+    await page.mouse.up();
+    await expect(rowCodes(page)).toHaveText(['BBB-2', 'AAA-1', 'CCC-3', 'DDD-4']);
+
+    await page.reload();
+    await expect(rowCodes(page)).toHaveText(['BBB-2', 'AAA-1', 'CCC-3', 'DDD-4'], { timeout: 15000 });
+  });
+
+  test('peça adicionada pelo formulário fica destacada', async ({ page }) => {
+    await mockCatalog(page);
+    await seedLists(page);
+    await page.goto('/usina_vale/parts-list');
+    await expect(page.getByTestId('parts-list-row')).toHaveCount(4, { timeout: 15000 });
+
+    await page.getByLabel('Cód. Peça').fill('WEB-9');
+    await page.getByLabel('Descrição', { exact: true }).fill('Peça da web');
+    await page.getByRole('button', { name: 'Adicionar à Lista' }).click();
+
+    const fresh = page.getByTestId('parts-list-row').filter({ hasText: 'WEB-9' });
+    await expect(fresh).toHaveAttribute('data-flash', 'true');
+    await expect(page.locator('[data-testid="parts-list-row"][data-flash]')).toHaveCount(1);
   });
 
   test('carrossel desliza arrastando e os cartões são 4x3', async ({ page }) => {
