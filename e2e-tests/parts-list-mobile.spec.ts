@@ -229,5 +229,23 @@ test.describe('Minha Lista no computador', () => {
     await page.mouse.up();
 
     await expect(page.getByRole('heading', { name: 'Lista: Preventiva' })).toBeVisible();
+
+    // Infinito: depois da última vem a primeira, e as bordas sempre têm cartões
+    await page.getByRole('button', { name: 'Próxima lista' }).click();
+    await expect(page.getByRole('heading', { name: 'Lista: Caminhão 42032' })).toBeVisible();
+    // Da primeira, voltar leva à última
+    await page.getByRole('button', { name: 'Lista anterior' }).click();
+    await expect(page.getByRole('heading', { name: 'Lista: Preventiva' })).toBeVisible();
+
+    const edgeCovered = await region.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const cards = Array.from(el.querySelectorAll('[data-testid="list-carousel-card"]')).map((c) => c.getBoundingClientRect());
+      return {
+        // tolerância do espaço de 12 px entre cartões
+        left: cards.some((c) => c.left <= r.left + 13 && c.right > r.left),
+        right: cards.some((c) => c.right >= r.right - 13 && c.left < r.right),
+      };
+    });
+    expect(edgeCovered).toEqual({ left: true, right: true });
   });
 });

@@ -76,11 +76,13 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
   const [virtualIndex, setVirtualIndex] = useState(-1);
   const [isInstantJump, setIsInstantJump] = useState(false);
   const numListsRef = useRef(numLists);
+  const ringKeyRef = useRef('');
 
   // Drag / Touch state (o deslocamento vai direto no DOM para ficar fluido)
   const [isDragging, setIsDragging] = useState(false);
   const gestureRef = useRef<{
     pointerId: number;
+    baseIndex: number;
     startX: number;
     startY: number;
     axis: 'x' | 'y' | null;
@@ -88,6 +90,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
     samples: { x: number; t: number }[];
   } | null>(null);
   const justDraggedRef = useRef(false);
+  const pressShiftRef = useRef(0);
   const rafRef = useRef(0);
 
   // Wheel debounce
@@ -130,55 +133,71 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
+  const gap = 12; // 12px gap between cards
+  const totalItemStep = cardWidth + gap;
+
+  // Anel infinito: cópias suficientes de cada lado para nunca aparecer o fim,
+  // mesmo arrastando uma tela inteira ou dando um impulso longo.
+  const isLooping = numLists >= 2;
+  const setsPerSide = React.useMemo(() => {
+    if (!isLooping) return 0;
+    const sideCards = Math.ceil((containerWidth * 1.5) / totalItemStep) + numLists + 2;
+    return Math.max(1, Math.ceil(sideCards / numLists));
+  }, [isLooping, containerWidth, totalItemStep, numLists]);
+  const middleStart = setsPerSide * numLists;
+  const ringKey = `${numLists}-${setsPerSide}`;
+
+  const realIndexOf = useCallback(
+    (virtual: number) => (numLists ? ((virtual % numLists) + numLists) % numLists : 0),
+    [numLists],
+  );
+
   // Sync activeListId to virtualIndex (sem pular se o cartão atual já é a lista ativa)
   useLayoutEffect(() => {
     if (numLists === 0) return;
     const realIndex = lists.findIndex(l => l.id === activeListId);
     const validRealIndex = realIndex >= 0 ? realIndex : 0;
-    const countChanged = numListsRef.current !== numLists;
+    const ringChanged = numListsRef.current !== numLists || ringKeyRef.current !== ringKey;
     numListsRef.current = numLists;
+    ringKeyRef.current = ringKey;
 
     setVirtualIndex(prev => {
-      if (numLists < 2) return validRealIndex;
-      const prevReal = ((prev % numLists) + numLists) % numLists;
-      if (!countChanged && prev >= 0 && prev < 3 * numLists && prevReal === validRealIndex) return prev;
-      // Position in the middle set of the 3x virtual ring buffer
-      return numLists + validRealIndex;
+      if (!isLooping) return validRealIndex;
+      const total = (setsPerSide * 2 + 1) * numLists;
+      if (!ringChanged && prev >= 0 && prev < total && realIndexOf(prev) === validRealIndex) return prev;
+      // Position in the middle set of the virtual ring
+      return middleStart + validRealIndex;
     });
-  }, [activeListId, numLists, lists]);
+  }, [activeListId, numLists, lists, ringKey, isLooping, setsPerSide, middleStart, realIndexOf]);
 
   // Construct extended array for infinite ring buffer
   const extendedLists = React.useMemo(() => {
-    if (numLists >= 2) {
-      return [...lists, ...lists, ...lists];
-    }
-    return lists;
-  }, [lists, numLists]);
+    if (!isLooping) return lists;
+    const copies = setsPerSide * 2 + 1;
+    const out: LocalList[] = [];
+    for (let c = 0; c < copies; c++) out.push(...lists);
+    return out;
+  }, [lists, isLooping, setsPerSide]);
+
+  /** Volta para a cópia do meio sem animação (o usuário não percebe: o cartão é igual). */
+  const recenter = useCallback((virtual: number) => {
+    if (!isLooping) return virtual;
+    if (virtual >= middleStart && virtual < middleStart + numLists) return virtual;
+    const normalized = middleStart + realIndexOf(virtual);
+    setIsInstantJump(true);
+    setVirtualIndex(normalized);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setIsInstantJump(false));
+    });
+    return normalized;
+  }, [isLooping, middleStart, numLists, realIndexOf]);
 
   // Handle seamless wrapping when transition ends
   const handleTransitionEnd = useCallback((e: React.TransitionEvent) => {
     // Ignora as transições dos cartões (elas também sobem até aqui)
     if (e.target !== e.currentTarget || e.propertyName !== 'transform') return;
-    if (numLists < 2) return;
-
-    if (virtualIndex < numLists) {
-      // User moved left into set 0 -> jump to set 1
-      const normalizedReal = ((virtualIndex % numLists) + numLists) % numLists;
-      setIsInstantJump(true);
-      setVirtualIndex(numLists + normalizedReal);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setIsInstantJump(false));
-      });
-    } else if (virtualIndex >= 2 * numLists) {
-      // User moved right into set 2 -> jump to set 1
-      const normalizedReal = ((virtualIndex % numLists) + numLists) % numLists;
-      setIsInstantJump(true);
-      setVirtualIndex(numLists + normalizedReal);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setIsInstantJump(false));
-      });
-    }
-  }, [virtualIndex, numLists]);
+    recenter(virtualIndex);
+  }, [virtualIndex, recenter]);
 
   // Navigate to a specific virtual index
   const goToVirtualIndex = useCallback((targetIndex: number) => {
@@ -204,8 +223,6 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
   }, [goToVirtualIndex, virtualIndex]);
 
   // Geometry calculations for exact centering
-  const gap = 12; // 12px gap between cards
-  const totalItemStep = cardWidth + gap;
   const translateFor = (index: number) =>
     containerWidth > 0 ? (containerWidth / 2) - (cardWidth / 2) - (index * totalItemStep) : 0;
 
@@ -225,8 +242,13 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
     if ((e.target as HTMLElement).closest('button, [role="menuitem"], [role="dialog"]')) {
       return;
     }
+    // Se parou no meio de uma animação fora da cópia do meio, reposiciona antes de arrastar
+    const baseIndex = recenter(virtualIndex);
+    pressShiftRef.current = baseIndex - virtualIndex;
+    if (baseIndex !== virtualIndex) setTrackTransform(translateFor(baseIndex), 'none');
     gestureRef.current = {
       pointerId: e.pointerId,
+      baseIndex,
       startX: e.clientX,
       startY: e.clientY,
       axis: null,
@@ -259,7 +281,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
 
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
-      setTrackTransform(translateFor(virtualIndex) + g.dx, 'none');
+      setTrackTransform(translateFor(g.baseIndex) + g.dx, 'none');
     });
   };
 
@@ -289,9 +311,9 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
       steps = Math.max(-maxSteps, Math.min(maxSteps, steps));
     }
 
-    const target = Math.max(0, Math.min(virtualIndex + steps, extendedLists.length - 1));
+    const target = Math.max(0, Math.min(g.baseIndex + steps, extendedLists.length - 1));
     setTrackTransform(translateFor(target), SNAP_TRANSITION);
-    if (target !== virtualIndex) goToVirtualIndex(target);
+    if (target !== g.baseIndex) goToVirtualIndex(target);
   };
 
   const handlePointerUp = (e: React.PointerEvent) => endGesture(e, false);
@@ -420,7 +442,6 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
             }}
           >
             {extendedLists.map((list, idx) => {
-              const realIndex = ((idx % numLists) + numLists) % numLists;
               const isActive = idx === virtualIndex;
               const itemCount = list.items?.length || 0;
 
@@ -429,8 +450,11 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
                   key={`${list.id}-${idx}`}
                   style={{ width: `${cardWidth}px`, marginRight: `${gap}px` }}
                   onClick={() => {
+                    // Se o anel foi reposicionado ao tocar, o cartão equivalente está deslocado
+                    const shift = pressShiftRef.current;
+                    pressShiftRef.current = 0;
                     if (!justDraggedRef.current) {
-                      goToVirtualIndex(idx);
+                      goToVirtualIndex(idx + shift);
                     }
                   }}
                   data-testid="list-carousel-card"
