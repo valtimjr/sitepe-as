@@ -28,7 +28,7 @@ const ResponsiveSheetContent = React.forwardRef<React.ElementRef<typeof SheetCon
         side="bottom"
         className={cn(
           className,
-          'w-full max-w-none sm:max-w-none rounded-t-2xl',
+          'w-full max-w-none sm:max-w-none rounded-none',
           fixedHeight
             ? 'h-[85dvh] max-h-[85dvh] flex flex-col gap-0 p-0 overflow-hidden'
             : 'h-auto max-h-[90dvh] overflow-y-auto overscroll-contain pb-[calc(1.5rem+env(safe-area-inset-bottom))]',

@@ -184,7 +184,7 @@ const MenuItemFormSheet: React.FC<MenuItemFormSheetProps> = ({
         side={isCompact ? 'bottom' : 'right'}
         className={cn(
           'flex flex-col gap-0 p-0',
-          isCompact ? 'max-h-[92vh] rounded-t-2xl' : 'w-full sm:max-w-md',
+          isCompact ? 'max-h-[92vh] rounded-none' : 'w-full sm:max-w-md',
         )}
         data-testid="menu-item-form"
       >

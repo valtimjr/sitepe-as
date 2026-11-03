@@ -224,7 +224,7 @@ const CustomListManager: React.FC<CustomListManagerProps> = ({ editListId, onEdi
       <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
         <SheetContent
           side={isCompact ? 'bottom' : 'right'}
-          className={cn('flex flex-col gap-0 p-0', isCompact ? 'max-h-[92vh] rounded-t-2xl' : 'w-full sm:max-w-md')}
+          className={cn('flex flex-col gap-0 p-0', isCompact ? 'max-h-[92vh] rounded-none' : 'w-full sm:max-w-md')}
           data-testid="list-form"
         >
           <SheetHeader className="border-b px-4 pb-3 pt-5 text-left">

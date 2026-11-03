@@ -26,7 +26,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onOpenChange, onSuccess
   if (isCompact) {
     return (
       <Drawer open={isOpen} onOpenChange={onOpenChange} shouldScaleBackground={false}>
-        <DrawerContent className="max-h-[92vh] pb-safe">
+        <DrawerContent className="max-h-[92vh] pb-safe rounded-none">
           <div className="overflow-y-auto overscroll-contain">
             <DrawerHeader className="flex flex-col items-center gap-2 pb-0">
               {icon}
