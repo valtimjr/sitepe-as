@@ -128,7 +128,7 @@ export const ListCarousel: React.FC<ListCarouselProps> = ({
         const cWidth = containerRef.current.clientWidth;
         setContainerWidth(cWidth);
         // Card takes ~78% of mobile screen width or max 280px
-        const calculatedCardWidth = Math.min(Math.max(cWidth * 0.6, 120), 180);
+        const calculatedCardWidth = Math.min(Math.max(cWidth * 0.6, 120), 150);
         setCardWidth(calculatedCardWidth);
       }
     };
