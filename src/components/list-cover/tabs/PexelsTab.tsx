@@ -17,7 +17,7 @@ const PexelsTab: React.FC<PexelsTabProps> = ({ onSelect }) => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const requestRef = useRef(0);
 
   useEffect(() => {
@@ -28,15 +28,20 @@ const PexelsTab: React.FC<PexelsTabProps> = ({ onSelect }) => {
   const load = async (q: string, p: number) => {
     const id = ++requestRef.current;
     setLoading(true);
-    setError(false);
+    setError(null);
     try {
       const res = await searchPexels(q, p);
       if (id !== requestRef.current) return;
       setPhotos((prev) => (p === 1 ? res.photos : [...prev, ...res.photos]));
       setHasMore(res.hasMore);
       setPage(p);
-    } catch {
-      if (id === requestRef.current) setError(true);
+    } catch (e) {
+      if (id !== requestRef.current) return;
+      setError(
+        (e as { status?: number }).status === 503
+          ? 'A busca do Pexels ainda não foi configurada no servidor.'
+          : 'Busca indisponível no momento.',
+      );
     } finally {
       if (id === requestRef.current) setLoading(false);
     }
@@ -68,7 +73,7 @@ const PexelsTab: React.FC<PexelsTabProps> = ({ onSelect }) => {
       </div>
 
       {error ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">Busca indisponível no momento.</p>
+        <p className="py-6 text-center text-sm text-muted-foreground" data-testid="cover-pexels-error">{error}</p>
       ) : loading && photos.length === 0 ? (
         <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (

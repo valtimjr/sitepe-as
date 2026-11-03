@@ -25,7 +25,7 @@ export interface PexelsPhoto {
 
 const getJson = async <T,>(params: string): Promise<T> => {
   const res = await fetch(`${FUNCTION_URL}?${params}`, { headers: { apikey: ANON_KEY } });
-  if (!res.ok) throw new Error(`Falha (${res.status})`);
+  if (!res.ok) throw Object.assign(new Error(`Falha (${res.status})`), { status: res.status });
   return res.json() as Promise<T>;
 };
 
