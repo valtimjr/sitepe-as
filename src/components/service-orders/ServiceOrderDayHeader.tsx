@@ -127,14 +127,14 @@ const ServiceOrderDayHeader: React.FC<ServiceOrderDayHeaderProps> = ({
 
       {showSummary && (
         <div
-          className="mt-1.5 -mx-4 px-4 flex gap-4 overflow-x-auto no-scrollbar text-sm whitespace-nowrap"
+          className="mt-1.5 grid grid-cols-4 gap-1 w-full min-w-0 text-sm"
           data-no-swipe
           data-testid="os-day-summary"
         >
           {summary.map(item => (
-            <span key={item.label} className="shrink-0">
-              <span className="text-muted-foreground text-xs uppercase font-semibold mr-1">{item.label}</span>
-              <span className={cn('font-extrabold tabular-nums', item.className)}>{formatDuration(item.value)}</span>
+            <span key={item.label} className="min-w-0 flex flex-col items-center text-center leading-tight">
+              <span className="text-muted-foreground text-[10px] uppercase font-semibold truncate max-w-full">{item.label}</span>
+              <span className={cn('font-extrabold tabular-nums truncate max-w-full', item.className)}>{formatDuration(item.value)}</span>
             </span>
           ))}
         </div>
