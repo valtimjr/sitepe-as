@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CompanyType } from '@/types/company';
 import { getParts, getAfsFromService, Part, Af } from '@/services/partListService';
-import { LocalList, addItemsToList, createList, getActiveList, setActiveListId } from '@/services/localListStorage';
+import { LocalList, addItemsToList, createList, getActiveList, setActiveListId, setListCover } from '@/services/localListStorage';
 import {
   ListJsonFile, MappingConfig, SpreadsheetData, ValidatedRow,
   applyFieldMapping, autoMapFields, isJsonFile, isSpreadsheetFile, parseListJson,
@@ -12,6 +12,7 @@ import {
 } from '@/lib/listFileIO';
 import { showError, showSuccess } from '@/utils/toast';
 import { sanitizeListIcon } from '@/types/listIcon';
+import { syncableCover } from '@/types/listCover';
 import ImportStepper from './ImportStepper';
 import FileDropStep from './FileDropStep';
 import FieldMappingStep from './FieldMappingStep';
@@ -185,6 +186,8 @@ const ImportWizardDialog: React.FC<ImportWizardDialogProps> = ({ open, onOpenCha
       let listName = activeList.name;
       if (target === 'new') {
         const created = await createList(company, newListName, sanitizeListIcon(appJson?.icon));
+        const importedCover = syncableCover(appJson?.cover);
+        if (importedCover) await setListCover(company, created.id, importedCover);
         listId = created.id;
         listName = created.name;
       }

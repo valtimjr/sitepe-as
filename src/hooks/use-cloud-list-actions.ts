@@ -5,6 +5,7 @@ import { getListsData } from '@/services/localListStorage';
 import { pushListToCloud, syncListWithCloud, type SyncResult } from '@/services/cloudListService';
 import { CompanyType } from '@/types/company';
 import { showError, showSuccess } from '@/utils/toast';
+import { toast } from 'sonner';
 
 export type CloudListAction = 'save' | 'update';
 
@@ -18,7 +19,8 @@ export const useCloudListActions = (company: CompanyType, onDone: () => void) =>
   const run = async (action: CloudListAction, listId: string, userId: string) => {
     setSavingListId(listId);
     try {
-      const name = (await getListsData(company)).lists.find(l => l.id === listId)?.name ?? '';
+      const list = (await getListsData(company)).lists.find(l => l.id === listId);
+      const name = list?.name ?? '';
       if (action === 'save') {
         await pushListToCloud(userId, company, listId);
         showSuccess(`Lista "${name}" salva na nuvem!`);
@@ -31,6 +33,9 @@ export const useCloudListActions = (company: CompanyType, onDone: () => void) =>
           'in-sync': `Lista "${name}" já está atualizada.`,
         };
         showSuccess(messages[result]);
+      }
+      if (list?.cover?.source === 'upload-local') {
+        toast.warning('A capa enviada do aparelho não foi sincronizada.');
       }
       onDone();
     } catch (error: any) {

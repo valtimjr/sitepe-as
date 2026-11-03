@@ -6,6 +6,7 @@ import ListIconView from '@/components/list-icon/ListIcon';
 import type { ListIcon } from '@/types/listIcon';
 import { useHideOnScroll } from '@/hooks/useScrollDirection';
 import { tap } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
 
 interface CustomListMobileHeaderProps {
   company: string;
@@ -15,6 +16,10 @@ interface CustomListMobileHeaderProps {
   selectedCount: number;
   onShare: () => void;
   onClearSelection: () => void;
+  /** Com capa, o cabeçalho encosta nela em vez de subir sobre o padding. */
+  hasCover?: boolean;
+  /** Botão "Adicionar capa" (só admin/moderador). */
+  coverAction?: React.ReactNode;
 }
 
 /** Cabeçalho fixo da lista no celular: voltar, título, Compartilhar e resumo da seleção. */
@@ -26,13 +31,18 @@ const CustomListMobileHeader: React.FC<CustomListMobileHeaderProps> = ({
   selectedCount,
   onShare,
   onClearSelection,
+  hasCover,
+  coverAction,
 }) => {
   // Acompanha o header do app, que se esconde ao rolar
   const appHeaderHidden = useHideOnScroll();
 
   return (
     <div
-      className="sticky z-30 -mx-4 -mt-4 mb-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 pt-2 pb-2 transition-[top] duration-300 ease-out"
+      className={cn(
+        'sticky z-30 -mx-4 mb-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 pt-2 pb-2 transition-[top] duration-300 ease-out',
+        hasCover ? 'mt-0' : '-mt-4',
+      )}
       style={{ top: appHeaderHidden ? 'env(safe-area-inset-top)' : 'calc(env(safe-area-inset-top) + 3.5rem)' }}
       data-testid="custom-list-mobile-header"
     >
@@ -85,6 +95,7 @@ const CustomListMobileHeader: React.FC<CustomListMobileHeaderProps> = ({
             </Button>
           </span>
         )}
+        {coverAction && <div className="ml-auto">{coverAction}</div>}
       </div>
     </div>
   );

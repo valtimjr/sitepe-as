@@ -19,6 +19,9 @@ import ListIcon from '@/components/list-icon/ListIcon';
 import ListIconEditor from '@/components/list-icon/ListIconEditor';
 import ActionMenu from '@/components/admin/ActionMenu';
 import type { ListIcon as ListIconData } from '@/types/listIcon';
+import type { ListCover as ListCoverData } from '@/types/listCover';
+import ListCover from '@/components/list-cover/ListCover';
+import AddCoverButton from '@/components/list-cover/AddCoverButton';
 
 interface CustomListManagerProps {
   /** Lista a abrir direto em "Editar nome e ícone" (vindo da Estrutura). */
@@ -48,6 +51,7 @@ const CustomListManager: React.FC<CustomListManagerProps> = ({ editListId, onEdi
   const [currentList, setCurrentList] = useState<CustomList | null>(null);
   const [formTitle, setFormTitle] = useState('');
   const [formIcon, setFormIcon] = useState<ListIconData | null>(null);
+  const [formCover, setFormCover] = useState<ListCoverData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editorList, setEditorList] = useState<CustomList | null>(null);
   const [allAvailableParts, setAllAvailableParts] = useState<Part[]>([]);
@@ -75,6 +79,7 @@ const CustomListManager: React.FC<CustomListManagerProps> = ({ editListId, onEdi
     setCurrentList(list);
     setFormTitle(list?.title ?? '');
     setFormIcon(list?.icon ?? null);
+    setFormCover(list?.cover ?? null);
     setIsFormOpen(true);
   };
 
@@ -106,10 +111,10 @@ const CustomListManager: React.FC<CustomListManagerProps> = ({ editListId, onEdi
     setIsSaving(true);
     try {
       if (currentList) {
-        await updateCustomList({ ...currentList, title: formTitle.trim(), icon: formIcon });
+        await updateCustomList({ ...currentList, title: formTitle.trim(), icon: formIcon, cover: formCover });
         showSuccess('Lista atualizada!');
       } else {
-        await createCustomList(formTitle.trim(), user.id, company, formIcon);
+        await createCustomList(formTitle.trim(), user.id, company, formIcon, formCover);
         showSuccess('Lista criada!');
       }
       setIsFormOpen(false);
@@ -241,6 +246,17 @@ const CustomListManager: React.FC<CustomListManagerProps> = ({ editListId, onEdi
                 <Label>Ícone</Label>
                 <ListIconEditor name={formTitle} icon={formIcon} onChange={setFormIcon} />
                 <p className="text-xs text-muted-foreground">Também usado no menu e pelos subtítulos sem ícone próprio.</p>
+              </div>
+              <div className="space-y-2" data-testid="list-form-cover">
+                <Label>Capa</Label>
+                {formCover ? (
+                  <ListCover cover={formCover} onChange={setFormCover} uploadMode="remote" variant="mobile" className="h-28 border" />
+                ) : (
+                  <div className="flex h-16 items-center justify-center border border-dashed">
+                    <AddCoverButton onChange={setFormCover} uploadMode="remote" />
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">Aparece no topo da lista para todos os visitantes.</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 border-t bg-background px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">

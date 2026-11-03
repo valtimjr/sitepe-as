@@ -2,6 +2,7 @@ import Papa from 'papaparse';
 import { CompanyType } from '@/types/company';
 import type { SimplePartItem, Part, Af } from '@/services/partListService';
 import type { ListIcon } from '@/types/listIcon';
+import { syncableCover, type ListCover } from '@/types/listCover';
 import { normalizeSearch, stripAccents } from './textNormalize';
 
 // ---------- Types ----------
@@ -48,6 +49,7 @@ export interface ListJsonFile {
   name: string;
   exportedAt: string;
   icon?: ListIcon;
+  cover?: ListCover;
   items: { codigo_peca: string; descricao: string; quantidade: number; af: string }[];
 }
 
@@ -341,7 +343,8 @@ export const buildListJson = (
   name: string,
   items: SimplePartItem[],
   company: CompanyType,
-  icon?: ListIcon
+  icon?: ListIcon,
+  cover?: ListCover
 ): ListJsonFile => ({
   app: 'autoboard',
   type: 'parts_list',
@@ -350,6 +353,7 @@ export const buildListJson = (
   name,
   exportedAt: new Date().toISOString(),
   ...(icon ? { icon } : {}),
+  ...(syncableCover(cover) ? { cover: syncableCover(cover)! } : {}),
   items: items.map(item => ({
     codigo_peca: item.codigo_peca || '',
     descricao: item.descricao || '',

@@ -40,6 +40,12 @@ export interface ServiceOrderItem {
   numero_agregado?: string | null;
 }
 
+export interface CoverImage {
+  id: string;
+  blob: Blob;
+  created_at: Date;
+}
+
 export type Apontamento = DailyApontamento;
 
 // Helper function to check network status
@@ -59,6 +65,7 @@ class LocalDexieDb extends Dexie {
   afs!: Table<Af>;
   monthlyApontamentos!: Table<MonthlyApontamento>;
   dailyServiceOrders!: Table<DailyServiceOrder>;
+  coverImages!: Table<CoverImage>;
 
   constructor() {
     super('PartsListDatabase');
@@ -70,6 +77,10 @@ class LocalDexieDb extends Dexie {
       afs: '++id, af_number, descricao, company',
       monthlyApontamentos: 'id, user_id, month_year, company, [user_id+month_year+company]',
       dailyServiceOrders: 'id, user_id, date, company, [user_id+date+company]',
+    });
+    // Versão 10: imagens de capa enviadas do aparelho
+    this.version(10).stores({
+      coverImages: 'id',
     });
   }
 }

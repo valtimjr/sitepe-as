@@ -11,6 +11,7 @@ import {
 } from '@/services/localListStorage';
 import { v4 as uuidv4 } from 'uuid';
 import { sanitizeListIcon } from '@/types/listIcon';
+import { sanitizeListCover, syncableCover } from '@/types/listCover';
 
 const OFFLINE_MESSAGE = 'Sem conexão com a internet. Tente novamente quando estiver online.';
 
@@ -49,6 +50,7 @@ export const saveListToCloud = async (userId: string, company: CompanyType, list
       local_list_id: list.id,
       items: toCloudItems(list),
       icon: list.icon ?? null,
+      cover: syncableCover(list.cover),
     })
     .select()
     .single();
@@ -60,7 +62,7 @@ export const updateCloudList = async (cloudId: string, list: LocalList): Promise
   await ensureOnline();
   const { data, error } = await supabase
     .from('saved_part_lists')
-    .update({ name: list.name, local_list_id: list.id, items: toCloudItems(list), icon: list.icon ?? null })
+    .update({ name: list.name, local_list_id: list.id, items: toCloudItems(list), icon: list.icon ?? null, cover: syncableCover(list.cover) })
     .eq('id', cloudId)
     .select()
     .maybeSingle();
@@ -164,6 +166,10 @@ export const loadCloudListToLocal = async (
   const icon = sanitizeListIcon(cloudList.icon);
   if (icon) target.icon = icon;
   else delete target.icon;
+  // Capas enviadas do aparelho não vão para a nuvem: mantém a local se a nuvem não tiver capa
+  const cover = sanitizeListCover(cloudList.cover);
+  if (cover) target.cover = cover;
+  else if (target.cover?.source !== 'upload-local') delete target.cover;
   target.items = (cloudList.items || []).map(item => ({
     id: uuidv4(),
     codigo_peca: item.codigo_peca || '',

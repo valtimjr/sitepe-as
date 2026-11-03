@@ -10,7 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { List as ListIcon, Tag, Loader2, Check, PlusCircle, XCircle, ChevronLeft, Plus } from 'lucide-react';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { getCustomListItems, getCustomListById } from '@/services/customListService';
+import { getCustomListItems, getCustomListById, updateCustomListCover } from '@/services/customListService';
+import type { ListCover as ListCoverData } from '@/types/listCover';
+import ListCover from '@/components/list-cover/ListCover';
+import AddCoverButton from '@/components/list-cover/AddCoverButton';
+import { useSession } from '@/components/SessionContextProvider';
 import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts } from '@/services/partListService';
 import { getListsData, addItemToList, createList, LocalList } from '@/services/localListStorage';
@@ -50,6 +54,9 @@ const CustomListPage: React.FC = () => {
   const [items, setItems] = useState<CustomListItem[]>([]);
   const [listTitle, setListTitle] = useState('Carregando Lista...');
   const [listIconData, setListIconData] = useState<CustomListIcon | null>(null);
+  const [listCover, setListCover] = useState<ListCoverData | null>(null);
+  const { profile } = useSession();
+  const canEditCover = profile?.role === 'admin' || profile?.role === 'moderator';
   const [isLoading, setIsLoading] = useState(true);
 
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
@@ -110,6 +117,7 @@ const CustomListPage: React.FC = () => {
       if (listData) {
         setListTitle(listData.title);
         setListIconData(listData.icon ?? null);
+        setListCover(listData.cover ?? null);
       } else {
         setListTitle('Lista Não Encontrada');
         showError('Lista não encontrada ou você não tem permissão para acessá-la.');
@@ -126,6 +134,19 @@ const CustomListPage: React.FC = () => {
       setIsLoading(false);
     }
   }, [listId, company]);
+
+  const handleCoverChange = async (cover: ListCoverData | null) => {
+    if (!listId) return;
+    const previous = listCover;
+    setListCover(cover);
+    try {
+      await updateCustomListCover(listId, cover);
+    } catch (error) {
+      setListCover(previous);
+      showError((error as Error).message || 'Erro ao salvar a capa.');
+    }
+  };
+  const coverOnChange = canEditCover ? handleCoverChange : undefined;
 
   const loadAfsAndParts = useCallback(async () => {
     setIsLoadingAfs(true);
@@ -694,7 +715,18 @@ const CustomListPage: React.FC = () => {
     >
       {isCompact ? (
         <>
+          {listCover && (
+            <div className="-mx-4 -mt-4">
+              <ListCover cover={listCover} onChange={coverOnChange} uploadMode="remote" variant="mobile" />
+            </div>
+          )}
           <CustomListMobileHeader
+            hasCover={!!listCover}
+            coverAction={
+              canEditCover && !listCover ? (
+                <AddCoverButton onChange={handleCoverChange} uploadMode="remote" className="h-6" />
+              ) : undefined
+            }
             company={company}
             title={listTitle}
             icon={listIconData}
@@ -730,13 +762,29 @@ const CustomListPage: React.FC = () => {
             </Button>
           </div>
 
-          <div className="w-full max-w-4xl flex items-center gap-3 mb-6">
-            <ListIconView name={listTitle} icon={listIconData} size="md" className="rounded-lg" />
-            <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-primary leading-tight" data-testid="custom-list-title">
-                {listTitle}
-              </h1>
-              <p className="text-sm text-muted-foreground">{branding.name}</p>
+          <div className="w-full max-w-4xl mb-6">
+            {listCover && (
+              <ListCover cover={listCover} onChange={coverOnChange} uploadMode="remote" className="border border-border/60" />
+            )}
+            <div className={cn('group relative flex items-center gap-3', listCover && 'px-4 pt-12')}>
+              <div className={cn(listCover && 'absolute -top-8 left-4 border-4 border-background bg-background shadow-sm')}>
+                <ListIconView name={listTitle} icon={listIconData} size={listCover ? 'lg' : 'md'} className={listCover ? undefined : 'rounded-lg'} />
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2">
+                  <h1 className="text-2xl sm:text-3xl font-extrabold text-primary leading-tight" data-testid="custom-list-title">
+                    {listTitle}
+                  </h1>
+                  {canEditCover && !listCover && (
+                    <AddCoverButton
+                      onChange={handleCoverChange}
+                      uploadMode="remote"
+                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                    />
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">{branding.name}</p>
+              </div>
             </div>
           </div>
         </>

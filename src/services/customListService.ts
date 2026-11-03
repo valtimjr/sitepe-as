@@ -4,6 +4,7 @@ import { CustomList, CustomListItem, MenuItem, RelatedPart, RelatedItem, Manguei
 import { updatePart as updatePartService } from '@/services/partListService'; // Importa a função de update de peça
 import { CompanyType } from '@/types/company';
 import { ListIcon, sanitizeListIcon } from '@/types/listIcon';
+import { ListCover, syncableCover, sanitizeListCover } from '@/types/listCover';
 
 // Re-exporta updatePart para uso no formulário de item de lista
 export const updatePart = updatePartService;
@@ -264,6 +265,7 @@ export const getCustomLists = async (userId: string, company: CompanyType): Prom
   // Garante que os itens existentes também sejam padronizados
   return lists.map(list => {
     list.icon = sanitizeListIcon(list.icon) ?? null;
+    list.cover = sanitizeListCover(list.cover) ?? null;
     if (list.items_data) list.items_data = normalizeListItems(list.items_data);
     return list;
   });
@@ -282,7 +284,10 @@ export const getCustomListById = async (listId: string, company: CompanyType): P
   }
 
   const list = data as CustomList | null;
-  if (list) list.icon = sanitizeListIcon(list.icon) ?? null;
+  if (list) {
+    list.icon = sanitizeListIcon(list.icon) ?? null;
+    list.cover = sanitizeListCover(list.cover) ?? null;
+  }
   if (list && list.items_data) list.items_data = normalizeListItems(list.items_data);
 
   return list;
@@ -302,10 +307,16 @@ export const getCustomListItems = async (listId: string, company: CompanyType): 
     .sort((a, b) => a.order_index - b.order_index);
 };
 
-export const createCustomList = async (title: string, userId: string, company: CompanyType, icon?: ListIcon | null): Promise<CustomList> => {
+export const createCustomList = async (
+  title: string,
+  userId: string,
+  company: CompanyType,
+  icon?: ListIcon | null,
+  cover?: ListCover | null,
+): Promise<CustomList> => {
   const { data, error } = await supabase
     .from('custom_lists')
-    .insert({ title, user_id: userId, items_data: [], company: company, icon: sanitizeListIcon(icon) ?? null }) // Inicializa items_data vazio
+    .insert({ title, user_id: userId, items_data: [], company: company, icon: sanitizeListIcon(icon) ?? null, cover: syncableCover(cover) }) // Inicializa items_data vazio
     .select()
     .single();
 
@@ -327,6 +338,7 @@ export const updateCustomList = async (list: CustomList): Promise<void> => {
       title: list.title, 
       items_data: list.items_data ? normalizeListItems(list.items_data) : list.items_data, 
       ...(list.icon !== undefined ? { icon: sanitizeListIcon(list.icon) ?? null } : {}),
+      ...(list.cover !== undefined ? { cover: syncableCover(list.cover) } : {}),
       updated_at: new Date().toISOString(),
       company: list.company
     })
@@ -346,6 +358,22 @@ export const updateCustomListIcon = async (listId: string, icon: ListIcon | null
 
   if (error) {
     throw new Error(`Erro ao atualizar ícone da lista: ${error.message}`);
+  }
+};
+
+/** Atualiza apenas a capa de uma lista (null = sem capa). Capas locais não vão para o banco. */
+export const updateCustomListCover = async (listId: string, cover: ListCover | null): Promise<void> => {
+  const { data, error } = await supabase
+    .from('custom_lists')
+    .update({ cover: syncableCover(cover), updated_at: new Date().toISOString() })
+    .eq('id', listId)
+    .select('id');
+
+  if (error) {
+    throw new Error(`Erro ao atualizar capa da lista: ${error.message}`);
+  }
+  if (!data || data.length === 0) {
+    throw new Error('Sem permissão para alterar a capa desta lista.');
   }
 };
 

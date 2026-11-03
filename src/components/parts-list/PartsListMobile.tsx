@@ -18,6 +18,9 @@ import { addItemsToList, type LocalList } from '@/services/localListStorage';
 import type { SimplePartItem } from '@/services/partListService';
 import type { PickedPart } from '@/components/service-orders/mergeParts';
 import type { ListIcon as ListIconData } from '@/types/listIcon';
+import type { ListCover as ListCoverData } from '@/types/listCover';
+import ListCover from '@/components/list-cover/ListCover';
+import type { CoverUploadMode } from '@/components/list-cover/tabs/UploadTab';
 import { success, tap } from '@/lib/haptics';
 import { showSuccess } from '@/utils/toast';
 import PartsListMobileHeader from './PartsListMobileHeader';
@@ -47,6 +50,8 @@ export interface PartsListMobileProps {
   onDuplicateList: (id: string) => void;
   onDeleteList: (id: string) => void;
   onReorderLists: (orderedIds: string[]) => void;
+  onCoverChange: (cover: ListCoverData | null) => void;
+  coverUploadMode: CoverUploadMode;
 }
 
 /** Minha Lista de Peças no celular. */
@@ -63,6 +68,8 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
   onDuplicateList,
   onDeleteList,
   onReorderLists,
+  onCoverChange,
+  coverUploadMode,
 }) => {
   const { company, branding } = useCompany();
   const keyboardOpen = useKeyboardOpen();
@@ -244,7 +251,21 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
 
   return (
     <div className="min-h-screen p-4 pb-28 bg-background text-foreground">
+      {activeList?.cover && (
+        <div className="-mx-4 -mt-4">
+          <ListCover
+            key={activeList.id}
+            cover={activeList.cover}
+            onChange={onCoverChange}
+            uploadMode={coverUploadMode}
+            variant="mobile"
+          />
+        </div>
+      )}
       <PartsListMobileHeader
+        hasCover={!!activeList?.cover}
+        onCoverChange={onCoverChange}
+        coverUploadMode={coverUploadMode}
         lists={lists}
         activeList={activeList}
         itemCount={items.length}

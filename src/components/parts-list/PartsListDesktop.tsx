@@ -15,6 +15,11 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import type { LocalList } from '@/services/localListStorage';
 import type { SimplePartItem } from '@/services/partListService';
 import type { ListIcon as ListIconData } from '@/types/listIcon';
+import type { ListCover as ListCoverData } from '@/types/listCover';
+import ListCover from '@/components/list-cover/ListCover';
+import AddCoverButton from '@/components/list-cover/AddCoverButton';
+import type { CoverUploadMode } from '@/components/list-cover/tabs/UploadTab';
+import { cn } from '@/lib/utils';
 
 export interface PartsListDesktopProps {
   lists: LocalList[];
@@ -31,6 +36,8 @@ export interface PartsListDesktopProps {
   onDuplicateList: (id: string) => void;
   onDeleteList: (id: string) => void;
   onReorderLists: (orderedIds: string[]) => void;
+  onCoverChange: (cover: ListCoverData | null) => void;
+  coverUploadMode: CoverUploadMode;
 }
 
 const formatLastUpdated = (isoString: string) => {
@@ -60,6 +67,8 @@ const PartsListDesktop: React.FC<PartsListDesktopProps> = ({
   onDuplicateList,
   onDeleteList,
   onReorderLists,
+  onCoverChange,
+  coverUploadMode,
 }) => {
   const { company, branding } = useCompany();
   const isMobile = useIsMobile();
@@ -104,11 +113,32 @@ const PartsListDesktop: React.FC<PartsListDesktopProps> = ({
       )}
 
       {activeList && (
-        <div className="w-full max-w-6xl mx-auto mb-6 px-4 py-3 bg-card border border-border/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="w-full max-w-6xl mx-auto mb-6" data-testid="parts-list-cover-area">
+          {activeList.cover && (
+            <ListCover
+              key={activeList.id}
+              cover={activeList.cover}
+              onChange={onCoverChange}
+              uploadMode={coverUploadMode}
+              className="border border-b-0 border-border/60"
+            />
+          )}
+        <div className={cn('group relative px-4 py-3 bg-card border border-border/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3', activeList.cover && 'pt-10')}>
           <div className="flex items-center gap-3">
-            <ListIcon name={activeList.name} icon={activeList.icon} size="md" className="p-2" />
+            <div className={cn(activeList.cover && 'absolute -top-8 left-4 border-4 border-card bg-card shadow-sm')}>
+              <ListIcon name={activeList.name} icon={activeList.icon} size={activeList.cover ? 'lg' : 'md'} className={activeList.cover ? undefined : 'p-2'} />
+            </div>
             <div>
-              <h2 className="font-bold text-lg text-foreground">Lista: {activeList.name}</h2>
+              <div className="flex flex-wrap items-center gap-x-2">
+                <h2 className="font-bold text-lg text-foreground">Lista: {activeList.name}</h2>
+                {!activeList.cover && (
+                  <AddCoverButton
+                    onChange={onCoverChange}
+                    uploadMode={coverUploadMode}
+                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                  />
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {items.length} {items.length === 1 ? 'peça cadastrada' : 'peças cadastradas'}
               </p>
@@ -118,6 +148,7 @@ const PartsListDesktop: React.FC<PartsListDesktopProps> = ({
             <Clock className="h-4 w-4 text-primary/70" />
             <span>Última alteração: {formatLastUpdated(activeList.updatedAt)}</span>
           </div>
+        </div>
         </div>
       )}
 

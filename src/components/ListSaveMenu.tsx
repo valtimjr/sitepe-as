@@ -109,7 +109,7 @@ const ListSaveMenu: React.FC<ListSaveMenuProps> = ({ items, listTitle, onListCha
     try {
       if (format === 'json') {
         const active = await getActiveList(company);
-        exportDataAsJson(buildListJson(listTitle, items, company, active?.icon), `${baseName}.json`);
+        exportDataAsJson(buildListJson(listTitle, items, company, active?.icon, active?.cover), `${baseName}.json`);
       }
       else if (format === 'csv') exportDataAsCsv(listItemsForExport(items), `${baseName}.csv`);
       else await exportListAsXlsx(items, `${baseName}.xlsx`);

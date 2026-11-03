@@ -1,4 +1,5 @@
 import type { ListIcon } from './listIcon';
+import type { ListCover } from './listCover';
 
 export interface PageAccessRule {
   page_path: string;
@@ -86,6 +87,7 @@ export interface CustomList {
   updated_at?: string;
   items_data?: CustomListItem[];
   icon?: ListIcon | null;
+  cover?: ListCover | null;
 }
 
 export interface CustomListItem {
@@ -156,6 +158,7 @@ export interface SavedPartList {
   items: SavedPartListItem[];
   item_count: number;
   icon?: ListIcon | null;
+  cover?: ListCover | null;
   created_at?: string;
   updated_at?: string;
 }

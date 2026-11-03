@@ -10,12 +10,15 @@ import {
   deleteList,
   reorderLists,
   replaceListItems,
+  setListCover,
   LocalList,
 } from '@/services/localListStorage';
 import { showSuccess, showError } from '@/utils/toast';
 import { useCompany } from '@/context/CompanyContext';
 import { useIsCompact } from '@/hooks/use-compact';
 import type { ListIcon as ListIconData } from '@/types/listIcon';
+import type { ListCover } from '@/types/listCover';
+import { useSession } from '@/components/SessionContextProvider';
 
 // Celular e computador em pedaços separados: cada um baixa só o seu código
 const PartsListMobile = lazy(() => import('@/components/parts-list/PartsListMobile'));
@@ -26,6 +29,9 @@ const SAVE_DELAY_MS = 400;
 const PartsList = () => {
   const { company, branding } = useCompany();
   const isCompact = useIsCompact();
+  const { profile } = useSession();
+  // Admin/moderador envia ao servidor; os demais guardam a imagem no aparelho
+  const coverUploadMode = profile?.role === 'admin' || profile?.role === 'moderator' ? 'remote' : 'local';
   const [lists, setLists] = useState<LocalList[]>([]);
   const [activeList, setActiveList] = useState<LocalList | null>(null);
   const [listItems, setListItems] = useState<SimplePartItem[]>([]);
@@ -151,6 +157,17 @@ const PartsList = () => {
     await loadListsAndItems();
   };
 
+  const handleCoverChange = async (cover: ListCover | null) => {
+    if (!activeList) return;
+    try {
+      await flushPending();
+      await setListCover(company, activeList.id, cover);
+      await loadListsAndItems();
+    } catch {
+      showError('Erro ao salvar a capa.');
+    }
+  };
+
   const handleTitleChange = async (newTitle: string) => {
     setListTitle(newTitle);
     if (activeList) {
@@ -177,6 +194,8 @@ const PartsList = () => {
           onDuplicateList={handleDuplicateList}
           onDeleteList={handleDeleteList}
           onReorderLists={handleReorderLists}
+          onCoverChange={handleCoverChange}
+          coverUploadMode={coverUploadMode}
         />
       ) : (
         <PartsListDesktop
@@ -194,6 +213,8 @@ const PartsList = () => {
           onDuplicateList={handleDuplicateList}
           onDeleteList={handleDeleteList}
           onReorderLists={handleReorderLists}
+          onCoverChange={handleCoverChange}
+          coverUploadMode={coverUploadMode}
         />
       )}
     </Suspense>

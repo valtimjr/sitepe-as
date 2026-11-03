@@ -8,6 +8,10 @@ import type { CompanyType } from '@/types/company';
 import type { ListIcon as ListIconData } from '@/types/listIcon';
 import { useHideOnScroll } from '@/hooks/useScrollDirection';
 import { tap } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
+import AddCoverButton from '@/components/list-cover/AddCoverButton';
+import type { CoverUploadMode } from '@/components/list-cover/tabs/UploadTab';
+import type { ListCover } from '@/types/listCover';
 
 interface PartsListMobileHeaderProps {
   lists: LocalList[];
@@ -27,6 +31,10 @@ interface PartsListMobileHeaderProps {
   onSort: () => void;
   onClear: () => void;
   onShare: () => void;
+  /** Com capa, o cabeçalho encosta nela em vez de subir sobre o padding. */
+  hasCover?: boolean;
+  onCoverChange: (cover: ListCover | null) => void;
+  coverUploadMode: CoverUploadMode;
 }
 
 const formatUpdated = (iso?: string) => {
@@ -57,6 +65,9 @@ const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
   onSort,
   onClear,
   onShare,
+  hasCover,
+  onCoverChange,
+  coverUploadMode,
 }) => {
   // Acompanha o header do app, que se esconde ao rolar
   const appHeaderHidden = useHideOnScroll();
@@ -116,7 +127,10 @@ const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
 
   return (
     <div
-      className="sticky z-30 -mx-4 -mt-4 mb-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 pt-2 pb-1 transition-[top] duration-300 ease-out"
+      className={cn(
+        'sticky z-30 -mx-4 mb-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 pt-2 pb-1 transition-[top] duration-300 ease-out',
+        hasCover ? 'mt-0' : '-mt-4',
+      )}
       style={{ top: appHeaderHidden ? 'env(safe-area-inset-top)' : 'calc(env(safe-area-inset-top) + 3.5rem)' }}
       data-testid="parts-list-mobile-header"
     >
@@ -130,6 +144,9 @@ const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
             {itemCount} {itemCount === 1 ? 'peça' : 'peças'}
             {updated && ` · ${updated}`}
           </p>
+          {!hasCover && (
+            <AddCoverButton onChange={onCoverChange} uploadMode={coverUploadMode} className="-ml-2 h-6" />
+          )}
         </div>
         <Button
           size="sm"

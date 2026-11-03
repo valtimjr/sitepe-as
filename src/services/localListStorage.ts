@@ -3,6 +3,7 @@ import { SimplePartItem, localDb } from './localDbService';
 import { CompanyType } from '@/types/company';
 import { itemKey } from '@/lib/listFileIO';
 import { ListIcon } from '@/types/listIcon';
+import { ListCover, LOCAL_COVER_PREFIX } from '@/types/listCover';
 
 export interface LocalList {
   id: string;
@@ -16,6 +17,7 @@ export interface LocalList {
   /** updated_at da cópia na nuvem na última sincronização */
   cloudUpdatedAt?: string;
   icon?: ListIcon;
+  cover?: ListCover;
 }
 
 export interface LocalListsData {
@@ -176,6 +178,47 @@ export const renameList = async (
   }
 };
 
+/** Apaga a imagem local de uma capa, se houver. */
+const deleteLocalCoverOf = async (cover?: ListCover) => {
+  if (cover?.source !== 'upload-local' || !cover.value.startsWith(LOCAL_COVER_PREFIX)) return;
+  try {
+    await localDb.coverImages.delete(cover.value.slice(LOCAL_COVER_PREFIX.length));
+  } catch (e) {
+    console.error('Erro ao apagar imagem de capa local:', e);
+  }
+};
+
+/** Copia a imagem local de uma capa e devolve a capa apontando para a cópia. */
+const cloneCover = async (cover?: ListCover): Promise<ListCover | undefined> => {
+  if (!cover) return undefined;
+  if (cover.source !== 'upload-local') return { ...cover };
+  try {
+    const original = await localDb.coverImages.get(cover.value.slice(LOCAL_COVER_PREFIX.length));
+    if (!original) return undefined;
+    const id = uuidv4();
+    await localDb.coverImages.put({ id, blob: original.blob, created_at: new Date() });
+    return { ...cover, value: `${LOCAL_COVER_PREFIX}${id}` };
+  } catch (e) {
+    console.error('Erro ao copiar imagem de capa local:', e);
+    return undefined;
+  }
+};
+
+/**
+ * Sets (or clears with null) the cover of a list. Removes the old local image when replaced.
+ */
+export const setListCover = async (company: CompanyType, listId: string, cover: ListCover | null): Promise<void> => {
+  const data = await getListsData(company);
+  const list = data.lists.find(l => l.id === listId);
+  if (!list) return;
+  const previous = list.cover;
+  if (cover) list.cover = cover;
+  else delete list.cover;
+  list.updatedAt = new Date().toISOString();
+  saveListsData(company, data);
+  if (previous && previous.value !== cover?.value) await deleteLocalCoverOf(previous);
+};
+
 /**
  * Duplicates a list.
  */
@@ -183,12 +226,14 @@ export const duplicateList = async (company: CompanyType, id: string): Promise<v
   const data = await getListsData(company);
   const list = data.lists.find(l => l.id === id);
   if (list) {
+    const cover = await cloneCover(list.cover);
     const duplicated: LocalList = {
       id: uuidv4(),
       name: `${list.name} (Cópia)`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       ...(list.icon ? { icon: { ...list.icon } } : {}),
+      ...(cover ? { cover } : {}),
       items: list.items.map(item => ({
         ...item,
         id: uuidv4() // New ID for each item
@@ -210,12 +255,13 @@ export const deleteList = async (company: CompanyType, id: string): Promise<void
 
   const index = data.lists.findIndex(l => l.id === id);
   if (index !== -1) {
-    data.lists.splice(index, 1);
+    const [removed] = data.lists.splice(index, 1);
     // If we deleted the active list, set active to the first available list
     if (data.activeListId === id) {
       data.activeListId = data.lists[0].id;
     }
     saveListsData(company, data);
+    await deleteLocalCoverOf(removed.cover);
   }
 };
 

@@ -4,6 +4,7 @@ import { lazyGeneratePartsListPdf } from '@/utils/pdfExportUtils';
 import { buildListJson, exportListAsXlsx, listItemsForExport, safeFileName } from '@/lib/listFileIO';
 import { showError, showSuccess } from '@/utils/toast';
 import type { ListIcon } from '@/types/listIcon';
+import { getActiveList } from '@/services/localListStorage';
 
 /** Texto da lista para copiar ou enviar: "2 - CÓDIGO DESCRIÇÃO (AF: 123)". */
 export const formatItemsText = (title: string, companyName: string, items: SimplePartItem[]) => {
@@ -75,7 +76,10 @@ export const useListActions = ({ items, title, icon }: ListActionsOptions) => {
     if (isEmpty) return;
     const baseName = safeFileName(listTitle);
     try {
-      if (format === 'json') exportDataAsJson(buildListJson(listTitle, items, company, icon ?? undefined), `${baseName}.json`);
+      if (format === 'json') {
+        const active = await getActiveList(company);
+        exportDataAsJson(buildListJson(listTitle, items, company, icon ?? undefined, active?.cover), `${baseName}.json`);
+      }
       else if (format === 'csv') exportDataAsCsv(listItemsForExport(items), `${baseName}.csv`);
       else await exportListAsXlsx(items, `${baseName}.xlsx`);
       showSuccess('Lista exportada com sucesso!');
