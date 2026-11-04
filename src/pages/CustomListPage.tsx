@@ -14,6 +14,7 @@ import { getCustomListItems, getCustomListById, updateCustomListCover } from '@/
 import type { ListCover as ListCoverData } from '@/types/listCover';
 import ListCover from '@/components/list-cover/ListCover';
 import AddCoverButton from '@/components/list-cover/AddCoverButton';
+import CoverIconOverlap from '@/components/list-cover/CoverIconOverlap';
 import { useSession } from '@/components/SessionContextProvider';
 import { CustomList, CustomListItem, Part, RelatedPart, MangueiraItemData } from '@/types/supabase';
 import { exportDataAsCsv, exportDataAsJson, addSimplePartItem, getAfsFromService, Af, getParts } from '@/services/partListService';
@@ -55,6 +56,7 @@ const CustomListPage: React.FC = () => {
   const [listTitle, setListTitle] = useState('Carregando Lista...');
   const [listIconData, setListIconData] = useState<CustomListIcon | null>(null);
   const [listCover, setListCover] = useState<ListCoverData | null>(null);
+  const [bigIconVisible, setBigIconVisible] = useState(true);
   const { profile } = useSession();
   const canEditCover = profile?.role === 'admin' || profile?.role === 'moderator';
   const [isLoading, setIsLoading] = useState(true);
@@ -278,6 +280,7 @@ const CustomListPage: React.FC = () => {
       await lazyGenerateCustomListPdf(itemsToProcess, {
         title: listTitle,
         listIcon: listIconData,
+        cover: listCover,
         companyName: branding.name,
         logoUrl: branding.logo,
       });
@@ -720,8 +723,10 @@ const CustomListPage: React.FC = () => {
               <ListCover cover={listCover} onChange={coverOnChange} uploadMode="remote" variant="mobile" />
             </div>
           )}
+          {listCover && <CoverIconOverlap name={listTitle} icon={listIconData} onVisibleChange={setBigIconVisible} />}
           <CustomListMobileHeader
             hasCover={!!listCover}
+            hideIcon={!!listCover && bigIconVisible}
             coverAction={
               canEditCover && !listCover ? (
                 <AddCoverButton onChange={handleCoverChange} uploadMode="remote" className="h-6" />
@@ -767,8 +772,14 @@ const CustomListPage: React.FC = () => {
               <ListCover cover={listCover} onChange={coverOnChange} uploadMode="remote" className="border border-border/60" />
             )}
             <div className={cn('group relative flex items-center gap-3', listCover && 'px-4 pt-12')}>
-              <div className={cn(listCover && 'absolute -top-8 left-4 border-4 border-background bg-background shadow-sm')}>
-                <ListIconView name={listTitle} icon={listIconData} size={listCover ? 'lg' : 'md'} className={listCover ? undefined : 'rounded-lg'} />
+              <div className={cn(listCover && 'absolute -top-8 left-4')} data-testid={listCover ? 'list-cover-icon' : undefined}>
+                <ListIconView
+                  name={listTitle}
+                  icon={listIconData}
+                  size={listCover ? 'lg' : 'md'}
+                  elevated={!!listCover}
+                  className={listCover ? undefined : 'rounded-lg'}
+                />
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2">

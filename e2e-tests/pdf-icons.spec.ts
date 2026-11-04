@@ -64,8 +64,10 @@ test.describe('PDF com ícones e logo', () => {
 
     await expect(page.getByText('PDF-001').first()).toBeVisible({ timeout: 15000 });
 
+    // O PDF fica na janela Compartilhar
+    await page.getByTestId('parts-list-share-button').click();
     const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Exportar PDF', exact: true }).first().click();
+    await page.getByTestId('parts-list-share-sheet').getByRole('button', { name: 'Exportar PDF', exact: true }).click();
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toMatch(/^Caminhao_42_\d{4}-\d{2}-\d{2}\.pdf$/);

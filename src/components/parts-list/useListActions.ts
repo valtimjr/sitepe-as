@@ -4,6 +4,7 @@ import { lazyGeneratePartsListPdf } from '@/utils/pdfExportUtils';
 import { buildListJson, exportListAsXlsx, listItemsForExport, safeFileName } from '@/lib/listFileIO';
 import { showError, showSuccess } from '@/utils/toast';
 import type { ListIcon } from '@/types/listIcon';
+import type { ListCover } from '@/types/listCover';
 import { getActiveList } from '@/services/localListStorage';
 
 /** Texto da lista para copiar ou enviar: "2 - CÓDIGO DESCRIÇÃO (AF: 123)". */
@@ -22,10 +23,11 @@ interface ListActionsOptions {
   items: SimplePartItem[];
   title: string;
   icon?: ListIcon | null;
+  cover?: ListCover | null;
 }
 
 /** Copiar, WhatsApp, PDF, compartilhamento nativo e exportação de arquivos da lista. */
-export const useListActions = ({ items, title, icon }: ListActionsOptions) => {
+export const useListActions = ({ items, title, icon, cover }: ListActionsOptions) => {
   const { company, branding } = useCompany();
   const isEmpty = items.length === 0;
   const listTitle = title || 'Lista de Peças';
@@ -62,6 +64,7 @@ export const useListActions = ({ items, title, icon }: ListActionsOptions) => {
       await lazyGeneratePartsListPdf(items, {
         title: listTitle,
         listIcon: icon,
+        cover,
         companyName: branding.name,
         logoUrl: branding.logo,
       });

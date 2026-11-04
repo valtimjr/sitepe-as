@@ -44,6 +44,8 @@ interface ResponsivePopoverContentProps extends React.HTMLAttributes<HTMLDivElem
   align?: 'start' | 'center' | 'end';
   /** Classes aplicadas só no desktop (popover). */
   popoverClassName?: string;
+  /** Chame `e.preventDefault()` para não fechar por clique/foco fora. */
+  onInteractOutside?: (e: Event) => void;
 }
 
 export const ResponsivePopoverContent: React.FC<ResponsivePopoverContentProps> = ({

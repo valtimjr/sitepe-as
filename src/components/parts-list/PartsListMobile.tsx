@@ -20,6 +20,7 @@ import type { PickedPart } from '@/components/service-orders/mergeParts';
 import type { ListIcon as ListIconData } from '@/types/listIcon';
 import type { ListCover as ListCoverData } from '@/types/listCover';
 import ListCover from '@/components/list-cover/ListCover';
+import CoverIconOverlap from '@/components/list-cover/CoverIconOverlap';
 import type { CoverUploadMode } from '@/components/list-cover/tabs/UploadTab';
 import { success, tap } from '@/lib/haptics';
 import { showSuccess } from '@/utils/toast';
@@ -98,11 +99,13 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
   const [editingItem, setEditingItem] = useState<SimplePartItem | null>(null);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [pendingRemove, setPendingRemove] = useState<SimplePartItem | null>(null);
+  const [bigIconVisible, setBigIconVisible] = useState(true);
 
   const share = useListShareSheet({
     items,
     title: listName,
     icon: activeList?.icon,
+    cover: activeList?.cover,
     listId: activeList?.id,
     onClear: () => setClearConfirm(true),
     onReload: reloadVoid,
@@ -262,8 +265,12 @@ const PartsListMobile: React.FC<PartsListMobileProps> = ({
           />
         </div>
       )}
+      {activeList?.cover && (
+        <CoverIconOverlap name={listName} icon={activeList.icon} onVisibleChange={setBigIconVisible} />
+      )}
       <PartsListMobileHeader
         hasCover={!!activeList?.cover}
+        hideIcon={!!activeList?.cover && bigIconVisible}
         onCoverChange={onCoverChange}
         coverUploadMode={coverUploadMode}
         lists={lists}

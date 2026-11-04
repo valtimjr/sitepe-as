@@ -5,6 +5,7 @@ import { useCompany } from '@/context/CompanyContext';
 import { useCloudListActions } from '@/hooks/use-cloud-list-actions';
 import type { SimplePartItem } from '@/services/partListService';
 import type { ListIcon } from '@/types/listIcon';
+import type { ListCover } from '@/types/listCover';
 import { useListActions } from './useListActions';
 
 const PartsListShareSheet = lazy(() => import('./PartsListShareSheet'));
@@ -15,6 +16,7 @@ interface ListShareSheetOptions {
   items: SimplePartItem[];
   title: string;
   icon?: ListIcon | null;
+  cover?: ListCover | null;
   /** Lista ativa (para salvar na nuvem). */
   listId?: string;
   /** Abre a confirmação de limpar a lista. */
@@ -23,10 +25,10 @@ interface ListShareSheetOptions {
 }
 
 /** Gaveta Compartilhar com Importar, Nuvem e Login (celular e computador). */
-export const useListShareSheet = ({ items, title, icon, listId, onClear, onReload }: ListShareSheetOptions) => {
+export const useListShareSheet = ({ items, title, icon, cover, listId, onClear, onReload }: ListShareSheetOptions) => {
   const { company } = useCompany();
   const { user } = useSession();
-  const actions = useListActions({ items, title, icon });
+  const actions = useListActions({ items, title, icon, cover });
   const cloud = useCloudListActions(company, onReload);
 
   const [shareOpen, setShareOpen] = useState(false);

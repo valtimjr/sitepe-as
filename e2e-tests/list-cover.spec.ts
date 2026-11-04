@@ -41,6 +41,8 @@ test.describe('Capa da Minha Lista no computador', () => {
 
     const cover = page.getByTestId('list-cover');
     await expect(cover).toHaveAttribute('data-cover-kind', 'gradient');
+    // O ícone sobre a capa não tem mais a moldura branca
+    await expect(page.getByTestId('list-cover-icon')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 
     await page.reload();
     await expect(page.getByTestId('list-cover')).toHaveAttribute('data-cover-kind', 'gradient', { timeout: 15000 });
@@ -99,6 +101,65 @@ test.describe('Capa da Minha Lista no computador', () => {
     await expect(page.getByTestId('list-cover')).toHaveCount(0);
     await expect(area.getByTestId('add-cover-button')).toHaveCount(1);
   });
+
+  test('cor e degradê personalizados pelo seletor de cores', async ({ page }) => {
+    test.setTimeout(90000);
+    await setup(page);
+    await page.goto('/usina_vale/parts-list');
+
+    const area = page.getByTestId('parts-list-cover-area');
+    await area.hover({ timeout: 15000 });
+    await area.getByTestId('add-cover-button').click();
+    const picker = page.getByTestId('cover-picker');
+    await picker.getByTestId('cover-custom-color').click();
+
+    const colorDialog = page.getByTestId('color-picker-dialog');
+    await expect(colorDialog).toBeVisible();
+    await colorDialog.getByLabel('Cor HEX').fill('#123456');
+    // Mexer no seletor não fecha o popover da capa
+    await expect(picker).toBeVisible();
+    await colorDialog.getByTestId('color-picker-apply').click();
+    await expect(picker).toBeHidden();
+
+    const cover = page.getByTestId('list-cover');
+    await expect(cover).toHaveAttribute('data-cover-kind', 'color');
+    await expect(cover).toHaveCSS('background-color', 'rgb(18, 52, 86)');
+
+    await page.reload();
+    await expect(page.getByTestId('list-cover')).toHaveCSS('background-color', 'rgb(18, 52, 86)', { timeout: 15000 });
+
+    // Degradê personalizado
+    await page.getByTestId('list-cover').hover();
+    await page.getByTestId('cover-change-button').click();
+    await expect(picker.getByTestId('cover-custom-color')).toHaveAttribute('aria-pressed', 'true');
+    await picker.getByTestId('cover-custom-gradient').click();
+    await expect(colorDialog.getByRole('tab', { name: 'Degradê' })).toHaveAttribute('data-state', 'active');
+    await colorDialog.getByTestId('color-picker-apply').click();
+    await expect(picker).toBeHidden();
+    await expect(page.getByTestId('list-cover')).toHaveAttribute('data-cover-kind', 'gradient');
+
+    await page.getByTestId('list-cover').hover();
+    await page.getByTestId('cover-change-button').click();
+    await expect(picker.getByTestId('cover-custom-gradient')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('capa é desenhada para o PDF (cor, degradê, imagem) e falha sem erro', async ({ page }) => {
+    await setup(page);
+    await page.goto('/usina_vale/parts-list');
+    await expect(page.getByTestId('parts-list-cover-area')).toBeVisible({ timeout: 15000 });
+
+    const results = await page.evaluate(`import('/src/lib/pdfCover.ts').then(async (m) => [
+      await m.renderCoverToPng({ kind: 'color', source: 'gallery', value: 'hsl(var(--primary))' }),
+      await m.renderCoverToPng({ kind: 'gradient', source: 'gallery', value: 'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)' }),
+      await m.renderCoverToPng({ kind: 'image', source: 'link', value: '${GOOD_IMAGE}', posX: 20, posY: 80 }),
+      await m.renderCoverToPng({ kind: 'image', source: 'link', value: '${BROKEN_IMAGE}' }),
+    ])`) as (string | null)[];
+
+    expect(results[0]).toMatch(/^data:image\/jpeg/);
+    expect(results[1]).toMatch(/^data:image\/jpeg/);
+    expect(results[2]).toMatch(/^data:image\/jpeg/);
+    expect(results[3]).toBeNull();
+  });
 });
 
 test.describe('Capa da Minha Lista no celular', () => {
@@ -125,6 +186,12 @@ test.describe('Capa da Minha Lista no celular', () => {
     expect(box.width).toBeGreaterThanOrEqual(pageWidth - 1);
     expect(box.height).toBeGreaterThanOrEqual(120);
     expect(box.height).toBeLessThanOrEqual(170);
+
+    // Ícone grande sobreposto à borda de baixo da capa
+    const iconBox = (await page.getByTestId('list-cover-icon').boundingBox())!;
+    expect(iconBox.height).toBeGreaterThanOrEqual(60);
+    expect(iconBox.y).toBeLessThan(box.y + box.height);
+    expect(iconBox.y + iconBox.height).toBeGreaterThan(box.y + box.height);
 
     // No celular, Alterar/Reposicionar ficam no menu de 3 pontos
     await expect(cover.getByRole('button', { name: 'Alterar' })).toHaveCount(0);

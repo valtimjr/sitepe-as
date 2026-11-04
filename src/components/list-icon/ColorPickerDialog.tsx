@@ -84,10 +84,12 @@ interface ColorPickerDialogProps {
   onChange: (color: string) => void;
   title?: string;
   allowTransparent?: boolean;
+  /** Aba inicial quando não há valor. */
+  initialTab?: 'solid' | 'gradient';
 }
 
 export function ColorPickerDialog({
-  open, onOpenChange, value, onChange, title = 'Seletor de Cores', allowTransparent = true,
+  open, onOpenChange, value, onChange, title = 'Seletor de Cores', allowTransparent = true, initialTab = 'solid',
 }: ColorPickerDialogProps) {
   const [activeTab, setActiveTab] = useState<'solid' | 'gradient'>('solid');
   const [isAdvanced, setIsAdvanced] = useState(false);
@@ -116,7 +118,7 @@ export function ColorPickerDialog({
       setSolid(primaryHex);
       setHexInput(primaryHex);
     } else {
-      setActiveTab('solid');
+      setActiveTab(value ? 'solid' : initialTab);
       const base = value || primaryHex;
       setSolid(base);
       setHexInput(base === 'transparent' ? 'TRANSPARENTE' : base.toUpperCase());

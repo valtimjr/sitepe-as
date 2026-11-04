@@ -18,6 +18,8 @@ interface CustomListMobileHeaderProps {
   onClearSelection: () => void;
   /** Com capa, o cabeçalho encosta nela em vez de subir sobre o padding. */
   hasCover?: boolean;
+  /** Esconde o ícone pequeno enquanto o ícone grande da capa está visível. */
+  hideIcon?: boolean;
   /** Botão "Adicionar capa" (só admin/moderador). */
   coverAction?: React.ReactNode;
 }
@@ -32,6 +34,7 @@ const CustomListMobileHeader: React.FC<CustomListMobileHeaderProps> = ({
   onShare,
   onClearSelection,
   hasCover,
+  hideIcon,
   coverAction,
 }) => {
   // Acompanha o header do app, que se esconde ao rolar
@@ -52,7 +55,7 @@ const CustomListMobileHeader: React.FC<CustomListMobileHeaderProps> = ({
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <ListIconView name={title} icon={icon} size="sm" className="rounded-md" />
+        {!hideIcon && <ListIconView name={title} icon={icon} size="sm" className="rounded-md" />}
         <h1 className="flex-1 min-w-0 text-lg font-bold text-primary line-clamp-1" data-testid="custom-list-title">
           {title}
         </h1>

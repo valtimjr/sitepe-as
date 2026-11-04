@@ -125,8 +125,17 @@ const PartsListDesktop: React.FC<PartsListDesktopProps> = ({
           )}
         <div className={cn('group relative px-4 py-3 bg-card border border-border/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3', activeList.cover && 'pt-10')}>
           <div className="flex items-center gap-3">
-            <div className={cn(activeList.cover && 'absolute -top-8 left-4 border-4 border-card bg-card shadow-sm')}>
-              <ListIcon name={activeList.name} icon={activeList.icon} size={activeList.cover ? 'lg' : 'md'} className={activeList.cover ? undefined : 'p-2'} />
+            <div
+              className={cn(activeList.cover && 'absolute -top-8 left-4')}
+              data-testid={activeList.cover ? 'list-cover-icon' : undefined}
+            >
+              <ListIcon
+                name={activeList.name}
+                icon={activeList.icon}
+                size={activeList.cover ? 'lg' : 'md'}
+                elevated={!!activeList.cover}
+                className={activeList.cover ? undefined : 'p-2'}
+              />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-x-2">
@@ -198,6 +207,7 @@ const PartsListDesktop: React.FC<PartsListDesktopProps> = ({
             onTitleChange={onTitleChange}
             onOpenEditForm={handleOpenEditForm}
             listIcon={activeList?.icon}
+            listCover={activeList?.cover}
             listId={activeList?.id}
           />
         </div>

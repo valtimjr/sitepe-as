@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,13 +27,25 @@ const tabClass = 'rounded-none text-xs sm:text-sm data-[state=active]:shadow-non
 
 /** Popover no desktop e gaveta no celular com Galeria · Upload · Link · Pexels. */
 const CoverPicker: React.FC<CoverPickerProps> = ({ open, onOpenChange, cover, onChange, uploadMode, children }) => {
+  // Seletor de cor aberto por cima: o popover/gaveta não pode fechar por clique fora
+  const [nestedOpen, setNestedOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) setNestedOpen(false);
+  }, [open]);
+
   const select = (next: ListCover | null) => {
     onChange(next);
     onOpenChange(false);
   };
 
+  const handleOpenChange = (next: boolean) => {
+    if (!next && nestedOpen) return;
+    onOpenChange(next);
+  };
+
   return (
-    <ResponsivePopover open={open} onOpenChange={onOpenChange}>
+    <ResponsivePopover open={open} onOpenChange={handleOpenChange}>
       {children && <ResponsivePopoverTrigger>{children}</ResponsivePopoverTrigger>}
       <ResponsivePopoverContent
         title="Capa da lista"
@@ -41,6 +53,9 @@ const CoverPicker: React.FC<CoverPickerProps> = ({ open, onOpenChange, cover, on
         className="rounded-none"
         popoverClassName="w-[520px] max-w-[calc(100vw-2rem)] p-3"
         data-testid="cover-picker"
+        onInteractOutside={(e) => {
+          if (nestedOpen) e.preventDefault();
+        }}
       >
         <Tabs defaultValue="gallery">
           <div className="mb-3 flex items-center gap-2">
@@ -67,7 +82,7 @@ const CoverPicker: React.FC<CoverPickerProps> = ({ open, onOpenChange, cover, on
           {/* No desktop, cabe no espaço livre da tela (o popover não passa da borda) */}
           <div className="max-h-[55vh] overflow-y-auto overscroll-contain pr-0.5 lg:max-h-[min(420px,calc(var(--radix-popover-content-available-height)_-_80px))]">
             <TabsContent value="gallery" className="mt-0">
-              <GalleryTab current={cover} onSelect={select} />
+              <GalleryTab current={cover} onSelect={select} onNestedDialogChange={setNestedOpen} />
             </TabsContent>
             <TabsContent value="upload" className="mt-0">
               <UploadTab mode={uploadMode} onSelect={select} />

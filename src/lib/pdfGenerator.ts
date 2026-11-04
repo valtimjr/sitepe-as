@@ -7,7 +7,9 @@ import { CustomListItem, MangueiraPartDetails } from '@/types/supabase';
 import { localDb } from '@/services/localDbService';
 import { calculateDailyTimesAndGaps } from '@/services/shiftService';
 import type { ListIcon } from '@/types/listIcon';
+import type { ListCover } from '@/types/listCover';
 import { renderListIconToPng, loadImageAsDataUrl, type LoadedImage } from '@/lib/pdfIcons';
+import { renderCoverToPng } from '@/lib/pdfCover';
 
 // Aplica o plugin explicitamente ao jsPDF
 applyPlugin(jsPDF);
@@ -101,6 +103,7 @@ const PAGE_BOTTOM_MARGIN = 14;
 export interface ListPdfOptions {
   title: string;
   listIcon?: ListIcon | null;
+  cover?: ListCover | null;
   companyName: string;
   logoUrl?: string;
 }
@@ -189,6 +192,30 @@ const drawListTitle = (doc: jsPDF, y: number, { title, iconPng }: { title: strin
   return y + Math.max(iconSize, textHeight) + 5;
 };
 
+const COVER_TOP = 26;
+const COVER_HEIGHT = 40;
+const COVER_ICON_SIZE = 16;
+
+/** Com capa: faixa de largura total + ícone sobreposto à borda de baixo + título. Sem capa: layout normal. */
+const drawListCoverAndTitle = (
+  doc: jsPDF,
+  { title, iconPng, coverJpg }: { title: string; iconPng: string | null; coverJpg: string | null },
+) => {
+  if (!coverJpg) return drawListTitle(doc, CONTENT_TOP, { title, iconPng });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  try {
+    doc.addImage(coverJpg, 'JPEG', 0, COVER_TOP, pageWidth, COVER_HEIGHT, 'list-cover');
+  } catch (error) {
+    console.warn('Não foi possível adicionar a capa ao PDF:', error);
+    return drawListTitle(doc, CONTENT_TOP, { title, iconPng });
+  }
+  const coverBottom = COVER_TOP + COVER_HEIGHT;
+  if (iconPng) {
+    doc.addImage(iconPng, 'PNG', PAGE_MARGIN_X, coverBottom - COVER_ICON_SIZE / 2, COVER_ICON_SIZE, COVER_ICON_SIZE, imageAlias(iconPng));
+  }
+  return drawListTitle(doc, coverBottom + (iconPng ? COVER_ICON_SIZE / 2 + 2 : 4), { title, iconPng: null });
+};
+
 /** Se não couber `needed` mm na página, cria uma nova (com cabeçalho) e devolve o novo Y. */
 const ensureSpace = (doc: jsPDF, y: number, needed: number, drawHeader: () => void) => {
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -224,14 +251,15 @@ const tableBaseOptions = (drawHeader: () => void) => ({
 
 export const generatePartsListPdf = async (listItems: SimplePartItem[], opts: ListPdfOptions): Promise<void> => {
   const doc = new jsPDF();
-  const [header, iconPng] = await Promise.all([
+  const [header, iconPng, coverJpg] = await Promise.all([
     loadHeader(opts),
-    renderListIconToPng(opts.listIcon ?? null, opts.title),
+    renderListIconToPng(opts.listIcon ?? null, opts.title, opts.cover ? 192 : 96),
+    renderCoverToPng(opts.cover),
   ]);
   const drawHeader = createHeaderDrawer(doc, header);
   drawHeader();
 
-  const currentY = drawListTitle(doc, CONTENT_TOP, { title: opts.title, iconPng });
+  const currentY = drawListCoverAndTitle(doc, { title: opts.title, iconPng, coverJpg });
 
   const tableColumn = ["Cód. Peça", "Nome", "Quantidade", "Descrição", "AF"];
   const tableRows: (string | number | undefined)[][] = [];
@@ -268,9 +296,10 @@ export const generateCustomListPdf = async (listItems: CustomListItem[], opts: L
     item.icon ? { icon: item.icon, name: item.item_name } : { icon: listIcon, name: opts.title };
 
   const subtitleItems = listItems.filter(item => item.type === 'subtitle');
-  const [header, titleIconPng, subtitleIconPngs] = await Promise.all([
+  const [header, titleIconPng, coverJpg, subtitleIconPngs] = await Promise.all([
     loadHeader(opts),
-    renderListIconToPng(listIcon, opts.title),
+    renderListIconToPng(listIcon, opts.title, opts.cover ? 192 : 96),
+    renderCoverToPng(opts.cover),
     Promise.all(subtitleItems.map(item => {
       const { icon, name } = subtitleIconArgs(item);
       return renderListIconToPng(icon, name);
@@ -281,7 +310,7 @@ export const generateCustomListPdf = async (listItems: CustomListItem[], opts: L
   const drawHeader = createHeaderDrawer(doc, header);
   drawHeader();
 
-  let currentY = drawListTitle(doc, CONTENT_TOP, { title: opts.title, iconPng: titleIconPng });
+  let currentY = drawListCoverAndTitle(doc, { title: opts.title, iconPng: titleIconPng, coverJpg });
 
   let currentGroupType: 'item' | 'mangueira' | null = null;
   let currentGroupRows: any[] = [];

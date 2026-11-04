@@ -33,6 +33,8 @@ interface PartsListMobileHeaderProps {
   onShare: () => void;
   /** Com capa, o cabeçalho encosta nela em vez de subir sobre o padding. */
   hasCover?: boolean;
+  /** Esconde o ícone pequeno enquanto o ícone grande da capa está visível. */
+  hideIcon?: boolean;
   onCoverChange: (cover: ListCover | null) => void;
   coverUploadMode: CoverUploadMode;
 }
@@ -66,6 +68,7 @@ const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
   onClear,
   onShare,
   hasCover,
+  hideIcon,
   onCoverChange,
   coverUploadMode,
 }) => {
@@ -135,7 +138,7 @@ const PartsListMobileHeader: React.FC<PartsListMobileHeaderProps> = ({
       data-testid="parts-list-mobile-header"
     >
       <div className="flex items-center gap-2 mb-2">
-        <ListIcon name={name} icon={activeList?.icon} size="sm" className="rounded-md p-1.5" />
+        {!hideIcon && <ListIcon name={name} icon={activeList?.icon} size="sm" className="rounded-md p-1.5" />}
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-primary line-clamp-1" data-testid="parts-list-mobile-title">
             {name}

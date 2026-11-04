@@ -36,6 +36,7 @@ import DragHandle from '@/components/sortable/DragHandle';
 import { SortableTableBody, SortableTableRow } from '@/components/sortable/SortableList';
 import { useCompany } from '@/context/CompanyContext';
 import type { ListIcon } from '@/types/listIcon';
+import type { ListCover } from '@/types/listCover';
 
 interface PartsListDisplayProps {
   listItems: SimplePartItem[];
@@ -45,6 +46,7 @@ interface PartsListDisplayProps {
   onTitleChange: (title: string) => void;
   onOpenEditForm: (item: SimplePartItem) => void; // Nova prop para abrir o formulário de edição
   listIcon?: ListIcon | null;
+  listCover?: ListCover | null;
   /** Lista ativa (destaque das peças novas e nuvem). */
   listId?: string;
 }
@@ -52,7 +54,7 @@ interface PartsListDisplayProps {
 type SortField = 'codigo' | 'descricao' | 'af' | 'quantidade' | null;
 type SortDirection = 'asc' | 'desc';
 
-const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged, onListReordered, listTitle, onTitleChange, onOpenEditForm, listIcon, listId }) => {
+const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListChanged, onListReordered, listTitle, onTitleChange, onOpenEditForm, listIcon, listCover, listId }) => {
   const { company, branding } = useCompany();
   const relatedPartsCache = useRelatedParts(listItems);
   const [orderedItems, setOrderedItems] = useState<SimplePartItem[]>(listItems);
@@ -198,6 +200,7 @@ const PartsListDisplay: React.FC<PartsListDisplayProps> = ({ listItems, onListCh
     items: orderedItems,
     title: listTitle,
     icon: listIcon,
+    cover: listCover,
     listId,
     onClear: () => setClearConfirm(true),
     onReload: onListChanged,

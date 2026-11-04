@@ -51,10 +51,12 @@ interface ListIconProps {
   icon?: ListIconData | null;
   size?: ListIconSize;
   className?: string;
+  /** Sombra para ficar legível sobre uma capa (segue o formato do ícone quando o fundo é transparente). */
+  elevated?: boolean;
 }
 
 /** Ícone de uma lista (personalizado ou automático) com fundo e cor. */
-export const ListIcon: React.FC<ListIconProps> = ({ name, icon, size = 'sm', className }) => {
+export const ListIcon: React.FC<ListIconProps> = ({ name, icon, size = 'sm', className, elevated }) => {
   const s = SIZES[size];
   const needsRegistry = !!icon && icon.source !== 'emoji';
   const registry = useIconRegistry(needsRegistry);
@@ -121,6 +123,7 @@ export const ListIcon: React.FC<ListIconProps> = ({ name, icon, size = 'sm', cla
         'shrink-0 flex items-center justify-center overflow-hidden',
         s.box,
         !background && 'bg-muted/80',
+        elevated && 'drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)]',
         className
       )}
       style={boxStyle}
