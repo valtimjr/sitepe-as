@@ -118,7 +118,7 @@ const SearchPartsMobile: React.FC = () => {
               onChange={e => updateQuery(e.target.value)}
               placeholder="Código, descrição ou tags"
               aria-label="Buscar peça"
-              className="h-11 w-full rounded-none border bg-muted/40 pl-9 pr-10 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="h-11 w-full appearance-none rounded-none border bg-muted/40 pl-9 pr-10 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
               data-testid="search-parts-input"
             />
             {input && (

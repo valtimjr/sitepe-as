@@ -87,7 +87,7 @@ const MobileSearchOverlay: React.FC = () => {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Código, descrição ou tags"
-            className="h-11 w-full rounded-none border bg-muted/40 pl-9 pr-10 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            className="h-11 w-full appearance-none rounded-none border bg-muted/40 pl-9 pr-10 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
             autoComplete="off"
             aria-label="Buscar peça"
             data-testid="mobile-search-input"
