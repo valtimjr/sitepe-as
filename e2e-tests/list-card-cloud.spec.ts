@@ -21,7 +21,7 @@ test.describe('Minha Lista: nuvem pelo menu do cartão', () => {
 
     // Entra pela página de login
     await page.goto('/login', { timeout: 15000 });
-    await page.getByLabel('Email').fill(process.env.DYAD_TEST_USER_EMAIL!);
+    await page.getByLabel('E-mail ou crachá').fill(process.env.DYAD_TEST_USER_EMAIL!);
     await page.getByPlaceholder('Sua senha').fill(process.env.DYAD_TEST_USER_PASSWORD!);
     await page.getByRole('button', { name: 'Entrar', exact: true }).click();
     await expect(page).toHaveURL(/\/usina_vale$/, { timeout: 20000 });

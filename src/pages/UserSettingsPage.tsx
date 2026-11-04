@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Save, Loader2, ChevronLeft, User as UserIcon } from 'lucide-react';
+import { Save, Loader2, ChevronLeft, Lock, User as UserIcon } from 'lucide-react';
+import { normalizeBadge } from '@/lib/badge';
 import { MadeWithDyad } from '@/components/made-with-dyad';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
@@ -19,6 +20,8 @@ import { useCompany } from '@/context/CompanyContext';
 import { Checkbox } from '@/components/ui/checkbox';
 
 type AttributeItem = { name: string; ref_code: number | null };
+
+const BADGE_TAKEN_MESSAGE = 'Este crachá já está cadastrado. Fale com o administrador.';
 
 const UserSettingsPage: React.FC = () => {
   const { user, isLoading: isSessionLoading, profile: sessionProfile, refreshProfile } = useSession();
@@ -37,6 +40,8 @@ const UserSettingsPage: React.FC = () => {
   const [availableShifts, setAvailableShifts] = useState<AttributeItem[]>([]);
 
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [badgeError, setBadgeError] = useState('');
+  const badgeLocked = !!sessionProfile?.badge?.trim();
 
   useEffect(() => {
     document.title = `Configurações do Usuário - AutoBoard (${branding.name})`;
@@ -78,14 +83,25 @@ const UserSettingsPage: React.FC = () => {
       return;
     }
 
+    const sendBadge = !badgeLocked && normalizeBadge(badge) !== '';
+
     setIsSavingProfile(true);
     try {
+      if (sendBadge) {
+        const { data: available, error: rpcError } = await supabase.rpc('is_badge_available', { p_badge: badge });
+        if (rpcError) throw rpcError;
+        if (!available) {
+          setBadgeError(BADGE_TAKEN_MESSAGE);
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update({
           first_name: firstName,
           last_name: lastName,
-          badge: badge,
+          ...(sendBadge ? { badge: badge.trim() } : {}),
           avatar_url: avatarUrl,
           suggest_parts: suggestParts,
           profession_code: professionCode ? parseInt(professionCode) : null,
@@ -101,6 +117,10 @@ const UserSettingsPage: React.FC = () => {
       await refreshProfile();
       showSuccess('Perfil atualizado com sucesso!');
     } catch (error: any) {
+      if (error?.message?.includes('badge_taken')) {
+        setBadgeError(BADGE_TAKEN_MESSAGE);
+        return;
+      }
       showError(`Erro ao atualizar perfil: ${error.message}`);
     } finally {
       setIsSavingProfile(false);
@@ -225,14 +245,47 @@ const UserSettingsPage: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="badge">Crachá (Opcional)</Label>
-                  <Input
-                    id="badge"
-                    type="text"
-                    value={badge}
-                    onChange={(e) => setBadge(e.target.value)}
-                    disabled={isSavingProfile}
-                  />
+                  <Label htmlFor="badge">Crachá{badgeLocked ? '' : ' (Opcional)'}</Label>
+                  {badgeLocked ? (
+                    <>
+                      <div className="relative">
+                        <Input
+                          id="badge"
+                          type="text"
+                          value={badge}
+                          readOnly
+                          aria-describedby="badge-hint"
+                          className="pr-9 bg-muted/50 cursor-not-allowed"
+                        />
+                        <Lock className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                      </div>
+                      <p id="badge-hint" className="text-xs text-muted-foreground mt-1">Para alterar, fale com o administrador.</p>
+                    </>
+                  ) : (
+                    <>
+                      <Input
+                        id="badge"
+                        type="text"
+                        inputMode="numeric"
+                        value={badge}
+                        onChange={(e) => {
+                          setBadge(e.target.value);
+                          if (badgeError) setBadgeError('');
+                        }}
+                        disabled={isSavingProfile}
+                        aria-invalid={!!badgeError}
+                        aria-describedby="badge-hint"
+                        className={badgeError ? 'border-destructive focus-visible:ring-destructive' : ''}
+                      />
+                      {badgeError ? (
+                        <p id="badge-hint" className="text-sm text-destructive mt-1">{badgeError}</p>
+                      ) : (
+                        <p id="badge-hint" className="text-xs text-muted-foreground mt-1">
+                          Usado para entrar no app. Só números. Depois de salvo, só o administrador poderá alterar.
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
                 
                 <div className="flex items-start space-x-2.5 p-3.5 bg-muted/40 rounded-lg border">

@@ -10,6 +10,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PasswordInput } from './PasswordInput';
+import { normalizeBadge } from '@/lib/badge';
 
 interface CustomSignupFormProps {
   uuid: string; // O UUID do convite
@@ -17,6 +18,8 @@ interface CustomSignupFormProps {
 }
 
 type AttributeItem = { name: string; ref_code: number | null };
+
+const BADGE_TAKEN_MESSAGE = 'Este crachá já está cadastrado. Fale com o administrador.';
 
 const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid, onSuccess }) => {
   const navigate = useNavigate();
@@ -31,6 +34,22 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid, onSuccess }) 
   
   const [isLoading, setIsLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [badgeError, setBadgeError] = useState('');
+
+  /** true = pode usar; também mostra o erro no campo. */
+  const checkBadge = async (value: string) => {
+    if (!normalizeBadge(value)) {
+      setBadgeError('');
+      return true;
+    }
+    const { data, error } = await supabase.rpc('is_badge_available', { p_badge: value });
+    if (error) {
+      console.error('Erro ao conferir crachá:', error);
+      return true;
+    }
+    setBadgeError(data ? '' : BADGE_TAKEN_MESSAGE);
+    return data === true;
+  };
 
   const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
   const [availableShifts, setAvailableShifts] = useState<AttributeItem[]>([]);
@@ -76,6 +95,8 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid, onSuccess }) 
 
     setIsLoading(true);
     try {
+      if (!(await checkBadge(badge))) return;
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -88,7 +109,7 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid, onSuccess }) 
             shift_code: shiftCode,
             invite_code: uuid,
           },
-          emailRedirectTo: window.location.origin + '/admin',
+          emailRedirectTo: new URL('/admin', window.location.origin).href,
         },
       });
 
@@ -176,11 +197,24 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid, onSuccess }) 
         <Input
           id="badge"
           type="text"
+          inputMode="numeric"
           value={badge}
-          onChange={(e) => setBadge(e.target.value)}
+          onChange={(e) => {
+            setBadge(e.target.value);
+            if (badgeError) setBadgeError('');
+          }}
+          onBlur={() => void checkBadge(badge)}
           placeholder="Número do crachá"
           disabled={isLoading}
+          aria-invalid={!!badgeError}
+          aria-describedby="badge-hint"
+          className={badgeError ? 'border-destructive focus-visible:ring-destructive' : ''}
         />
+        {badgeError ? (
+          <p id="badge-hint" className="text-sm text-destructive mt-1">{badgeError}</p>
+        ) : (
+          <p id="badge-hint" className="text-xs text-muted-foreground mt-1">Usado para entrar no app. Só números.</p>
+        )}
       </div>
       <div>
         <Label htmlFor="email">Email</Label>
@@ -208,7 +242,7 @@ const CustomSignupForm: React.FC<CustomSignupFormProps> = ({ uuid, onSuccess }) 
           <p className="text-sm text-destructive mt-1">{passwordError}</p>
         )}
       </div>
-      <Button type="submit" className="w-full" disabled={isLoading}>
+      <Button type="submit" className="w-full" disabled={isLoading || !!badgeError}>
         {isLoading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

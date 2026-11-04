@@ -1,7 +1,7 @@
 import { createElement, lazy, type ComponentType, type LazyExoticComponent } from 'react';
-import { Boxes, ClipboardList, Mail, Menu, Tags, type LucideIcon } from 'lucide-react';
+import { Boxes, ClipboardList, IdCard, Mail, Menu, Tags, type LucideIcon } from 'lucide-react';
 
-export type AdminSectionKey = 'pecas' | 'afs' | 'convites' | 'atributos' | 'menus';
+export type AdminSectionKey = 'pecas' | 'afs' | 'convites' | 'crachas' | 'atributos' | 'menus';
 
 export interface AdminSection {
   key: AdminSectionKey;
@@ -41,6 +41,14 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     load: () => import('@/components/InviteManager'),
   }),
   section({
+    key: 'crachas',
+    label: 'Crachás',
+    subtitle: 'Números de crachá usados no login',
+    icon: IdCard,
+    moderator: true,
+    load: () => import('@/components/admin/BadgeManager'),
+  }),
+  section({
     key: 'atributos',
     label: 'Atributos de Usuário',
     subtitle: 'Campos extras dos perfis',
@@ -59,7 +67,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   }),
 ];
 
-/** Mesmas permissões de antes: admin vê tudo; moderador só Convites. */
+/** Admin vê tudo; moderador só Convites e Crachás. */
 export const getVisibleSections = (role: string | undefined, canAccessMenuManager: boolean) => {
   if (role === 'admin') return ADMIN_SECTIONS.filter(s => s.key !== 'menus' || canAccessMenuManager);
   if (role === 'moderator') return ADMIN_SECTIONS.filter(s => s.moderator);

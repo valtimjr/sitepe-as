@@ -8,18 +8,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/utils/toast';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { PasswordInput } from './PasswordInput'; // Importar PasswordInput
+import { PasswordInput } from './PasswordInput';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { User } from '@supabase/supabase-js';
+import { signInWithIdentifier } from '@/services/authService';
 
 interface CustomLoginFormProps {
   onSuccess?: (user: User) => void;
 }
 
+const INVALID_MESSAGE = 'Crachá/e-mail ou senha incorretos';
+
 const CustomLoginForm: React.FC<CustomLoginFormProps> = ({ onSuccess }) => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<React.ReactNode | null>(null);
@@ -31,44 +34,58 @@ const CustomLoginForm: React.FC<CustomLoginFormProps> = ({ onSuccess }) => {
     setAuthError(null);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const result = await signInWithIdentifier(identifier, password);
 
-      if (error) {
-        // Tradução de erros comuns do Supabase/Auth para o usuário
-        if (error.message.includes('Invalid login credentials')) {
-          setAuthError('E-mail ou senha incorretos. Por favor, tente novamente.');
-        } else if (error.message.includes('Email not confirmed')) {
+      if (result.ok === false) {
+        const email = identifier.trim();
+        if (result.kind === 'invalid') {
           setAuthError(
-            <div className="flex flex-col gap-2">
-              <p>E-mail ainda não confirmado.</p>
-              <Button
-                variant="link"
-                className="p-0 h-auto text-destructive underline h-auto"
-                onClick={async () => {
-                  const { error } = await supabase.auth.resend({
-                    type: 'signup',
-                    email: email,
-                  });
-                  if (error) showError(error.message);
-                  else showSuccess('E-mail de confirmação reenviado!');
-                }}
-              >
-                Reenviar link de confirmação
-              </Button>
-            </div>
+            result.method === 'badge' ? (
+              <div className="flex flex-col gap-1">
+                <p>{INVALID_MESSAGE}</p>
+                <p className="text-xs">Se o problema continuar, entre com seu e-mail.</p>
+              </div>
+            ) : (
+              INVALID_MESSAGE
+            )
+          );
+        } else if (result.kind === 'locked') {
+          setAuthError('Muitas tentativas. Aguarde alguns minutos.');
+        } else if (result.kind === 'unconfirmed') {
+          setAuthError(
+            result.method === 'badge' ? (
+              'Confirme seu e-mail antes de entrar. Procure o link na sua caixa de entrada.'
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p>E-mail ainda não confirmado.</p>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="p-0 h-auto text-destructive underline"
+                  onClick={async () => {
+                    const { error } = await supabase.auth.resend({
+                      type: 'signup',
+                      email,
+                      options: { emailRedirectTo: new URL('/admin', window.location.origin).href },
+                    });
+                    if (error) showError(error.message);
+                    else showSuccess('E-mail de confirmação reenviado!');
+                  }}
+                >
+                  Reenviar link de confirmação
+                </Button>
+              </div>
+            )
           );
         } else {
-          setAuthError(error.message);
+          setAuthError('Ocorreu um erro inesperado ao tentar entrar.');
         }
         return;
       }
 
       showSuccess('Login realizado com sucesso!');
       if (onSuccess) {
-        onSuccess(data.user);
+        onSuccess(result.user);
       } else {
         navigate('/usina_vale');
       }
@@ -92,16 +109,21 @@ const CustomLoginForm: React.FC<CustomLoginFormProps> = ({ onSuccess }) => {
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="login-identifier">E-mail ou crachá</Label>
         <Input
-          id="email"
-          type="email"
-          value={email}
+          id="login-identifier"
+          type="text"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          inputMode="email"
+          value={identifier}
           onChange={(e) => {
-            setEmail(e.target.value);
+            setIdentifier(e.target.value);
             if (authError) setAuthError(null);
           }}
-          placeholder="seu@email.com"
+          placeholder="seu@email.com ou nº do crachá"
           required
           disabled={isLoading}
           className={authError ? 'border-destructive focus-visible:ring-destructive' : ''}
