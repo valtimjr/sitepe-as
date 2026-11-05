@@ -87,6 +87,7 @@ export interface ProcessedSnapshot {
     is_waiting?: boolean;
   }>;
   monthlyChartSlices: Array<{
+    date: string; // YYYY-MM-DD
     day: string;
     minutes: number;
     percursoMinutes: number;
@@ -371,6 +372,7 @@ export function processSnapshot(rawSnapshot: RawSnapshot): ProcessedSnapshot {
   }
 
   const monthlyChartSlices = Array.from(dayTotalsMap.entries()).map(([dateStr, val]) => ({
+    date: dateStr,
     day: format(parseISO(dateStr), 'dd/MM'),
     minutes: val.minutes,
     percursoMinutes: val.percursoMinutes,

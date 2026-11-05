@@ -1,22 +1,23 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { format, startOfMonth, endOfMonth, parseISO, startOfDay, endOfDay, subDays, addDays } from 'date-fns';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { format, startOfMonth, endOfMonth, parseISO, subDays, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
+  ArrowDownUp,
+  ArrowLeft,
+  Check,
   ChevronLeft,
   ChevronRight,
-  Loader2,
-  ChevronsUpDown,
-  Check,
   Clock,
-  GripVertical,
-  FileText,
   Download,
+  FileText,
+  Filter,
+  GripVertical,
+  Loader2,
+  RefreshCw,
   X,
-  Search,
-  RefreshCw
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -26,16 +27,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,63 +45,22 @@ import { DateRange } from "react-day-picker";
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/components/SessionContextProvider';
 import { useCompany } from '@/context/CompanyContext';
+import { useIsCompact } from '@/hooks/use-compact';
+import { useHideOnScroll } from '@/hooks/useScrollDirection';
+import { tap } from '@/lib/haptics';
 import { showSuccess, showError } from '@/utils/toast';
 import { getAfsFromService, Af } from '@/services/partListService';
-import { 
-  PieChart, 
-  Pie, 
-  Cell, 
-  ResponsiveContainer, 
-  Tooltip as RechartsTooltip, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid 
-} from 'recharts';
 import ServiceOrderListDisplay from '@/components/ServiceOrderListDisplay';
+import ReportFilterPanel, { DEFAULT_REPORT_FILTERS, type ReportFilters } from '@/components/admin-report/ReportFilterPanel';
+import ReportCharts from '@/components/admin-report/ReportCharts';
 import {
   RawSnapshot,
-  ProcessedSnapshot,
   processSnapshot
 } from '@/services/adminReportSnapshotService';
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
-
-const COLORS = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#1d4ed8', '#1e40af', '#1e3a8a'];
-
-const BarChartTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    const activePayload = payload.filter((item: any) => item.value > 0);
-    if (activePayload.length === 0) return null;
-
-    return (
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-lg shadow-lg text-xs space-y-1">
-        <p className="font-semibold text-slate-500 dark:text-slate-400">Dia {label}</p>
-        {activePayload.map((item: any, idx: number) => {
-          let displayName = 'OS';
-          let textColor = 'text-blue-600 dark:text-blue-400';
-          if (item.dataKey === 'percursoMinutes') {
-            displayName = 'Percurso';
-            textColor = 'text-red-600 dark:text-red-400';
-          } else if (item.dataKey === 'waitingMinutes') {
-            displayName = 'Aguardando Serviço';
-            textColor = 'text-green-600 dark:text-green-400';
-          }
-          return (
-            <p key={idx} className={`${textColor} font-bold flex items-center gap-1`}>
-              <span>{displayName}:</span>
-              <span>{formatDuration(item.value)}</span>
-            </p>
-          );
-        })}
-      </div>
-    );
-  }
-  return null;
-};
 
 interface UserProfile {
   id: string;
@@ -125,57 +78,49 @@ const getAfDescription = (afNumber: string, availableAfs: Af[]): string => {
   return availableAfs.find(a => a.af_number === afNumber)?.descricao || '-';
 };
 
-const renderCustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, time }: any) => {
-  const RADIAN = Math.PI / 180;
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+const DIGITADO_LABELS = { sim: 'Digitadas', nao: 'Pendentes' } as const;
 
-  if (percent < 0.10) return null;
-
-  return (
-    <text x={x} y={y} fill="#1e293b" textAnchor="middle" dominantBaseline="central" className="font-semibold text-[10px] fill-slate-800 dark:fill-slate-200">
-      <tspan x={x} dy="-0.5em">{name}</tspan>
-      <tspan x={x} dy="1.2em">{time}</tspan>
-    </text>
-  );
-};
+const toSnapshotFilter = (f: ReportFilters) => ({
+  userId: f.userId,
+  professionCode: f.professionCode,
+  shiftCode: f.shiftCode,
+  digitadoFilter: f.digitado,
+  afSearchTerm: f.afSearch,
+});
 
 const AdminReportPage = () => {
   const { user, profile } = useSession();
   const { company, branding } = useCompany();
   const navigate = useNavigate();
+  const isCompact = useIsCompact();
+  const appHeaderHidden = useHideOnScroll({ enabled: isCompact });
 
-  // Estados dos Filtros
+  // Data / período
   const [dateMode, setDateMode] = useState<'single' | 'range'>('single');
   const [selectedDate, setSelectedDate] = useState<Date>(getOperationalDate(new Date()));
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(getOperationalDate(new Date())),
     to: getOperationalDate(new Date()),
   });
-  
-  const [selectedUserId, setSelectedUserId] = useState<string>('all');
-  const [selectedProfessionCode, setSelectedProfessionCode] = useState<string>('all');
-  const [selectedShiftCode, setSelectedShiftCode] = useState<string>('all');
-  const [selectedDigitadoFilter, setSelectedDigitadoFilter] = useState<'all' | 'sim' | 'nao'>('all');
-  const [sortDaysDirection, setSortDaysDirection] = useState<'asc' | 'desc'>('desc');
-  const [afSearchTerm, setAfSearchTerm] = useState<string>('');
 
-  // Atributos dinâmicos para renderização dos selects
+  // Filtros aplicados (o painel mantém o rascunho)
+  const [filters, setFilters] = useState<ReportFilters>(DEFAULT_REPORT_FILTERS);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState<boolean>(false);
+  const [sortDaysDirection, setSortDaysDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Atributos dinâmicos para os filtros
   const [availableProfessions, setAvailableProfessions] = useState<AttributeItem[]>([]);
   const [availableShifts, setAvailableShifts] = useState<any[]>([]);
   const [availableAfs, setAvailableAfs] = useState<Af[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
 
-  // Estados do Snapshot Temporário Local em Memória
+  // Snapshot bruto em memória (dados do intervalo baixado)
   const [rawSnapshot, setRawSnapshot] = useState<RawSnapshot | null>(null);
-  const [processedSnapshot, setProcessedSnapshot] = useState<ProcessedSnapshot | null>(null);
 
   // Indicadores de estado de UI
   const [isFetching, setIsFetching] = useState<boolean>(true);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [openUserSelect, setOpenUserSelect] = useState<boolean>(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
+  const fetchIdRef = useRef(0);
 
   // Estados dos diálogos de relatório e confirmação
   const [isReportDialogOpen, setIsReportDialogOpen] = useState<boolean>(false);
@@ -197,35 +142,22 @@ const AdminReportPage = () => {
     }
   }, [isFetching, isAdmin, navigate, company, profile]);
 
-  // Limpeza explícita do Snapshot ao desmontar o componente
-  useEffect(() => {
-    return () => {
-      setRawSnapshot(null);
-      setProcessedSnapshot(null);
-    };
-  }, []);
+  // Intervalo baixado: mês da data (modo Dia) ou o período escolhido
+  const fetchStart = dateMode === 'single'
+    ? format(startOfMonth(selectedDate), 'yyyy-MM-dd')
+    : format(dateRange?.from ?? startOfMonth(getOperationalDate(new Date())), 'yyyy-MM-dd');
+  const fetchEnd = dateMode === 'single'
+    ? format(endOfMonth(selectedDate), 'yyyy-MM-dd')
+    : format(dateRange?.to ?? dateRange?.from ?? getOperationalDate(new Date()), 'yyyy-MM-dd');
 
-  // Download em Lote (Etapa 1 do Fluxo Determinístico)
-  const loadBatchDataAndProcess = useCallback(async () => {
+  // Download em lote: só depende do intervalo; filtros são reprocessados em memória
+  const loadBatchData = useCallback(async () => {
     if (!user) return;
 
+    const fetchId = ++fetchIdRef.current;
     setIsFetching(true);
-    setIsProcessing(false);
 
     try {
-      let startStr: string;
-      let endStr: string;
-
-      if (dateMode === 'single') {
-        const selObj = selectedDate;
-        startStr = format(startOfMonth(selObj), 'yyyy-MM-dd');
-        endStr = format(endOfMonth(selObj), 'yyyy-MM-dd');
-      } else {
-        startStr = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : format(startOfMonth(getOperationalDate(new Date())), 'yyyy-MM-dd');
-        endStr = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : format(getOperationalDate(new Date()), 'yyyy-MM-dd');
-      }
-
-      // Download em lote paralelo via Supabase
       const [profilesRes, shiftsRes, profsRes, afsData, ordersRes] = await Promise.all([
         supabase
           .from('profiles')
@@ -245,118 +177,75 @@ const AdminReportPage = () => {
         supabase
           .from('daily_service_orders')
           .select('*')
-          .gte('date', startStr)
-          .lte('date', endStr)
+          .gte('date', fetchStart)
+          .lte('date', fetchEnd)
           .eq('company', company)
       ]);
+
+      // Uma busca mais nova já está a caminho
+      if (fetchId !== fetchIdRef.current) return;
 
       const fetchedUsers = (profilesRes.data as UserProfile[]) || [];
       const fetchedShifts = shiftsRes.data || [];
       const fetchedProfessions = profsRes.data || [];
       const fetchedAfs = afsData || [];
-      const fetchedOrders = ordersRes.data || [];
 
       setUsers(fetchedUsers);
       setAvailableShifts(fetchedShifts);
       setAvailableProfessions(fetchedProfessions);
       setAvailableAfs(fetchedAfs);
 
-      // Estruturar RawSnapshot em Memória (JSONB)
-      const newRawSnapshot: RawSnapshot = {
+      setRawSnapshot({
         meta: {
           generatedAt: new Date().toISOString(),
           filter: {
-            dateMode,
-            selectedDate: format(selectedDate, 'yyyy-MM-dd'),
-            startDate: startStr,
-            endDate: endStr,
-            userId: selectedUserId,
-            professionCode: selectedProfessionCode,
-            shiftCode: selectedShiftCode,
-            digitadoFilter: selectedDigitadoFilter,
-            afSearchTerm,
-            sortDaysDirection
+            ...toSnapshotFilter(DEFAULT_REPORT_FILTERS),
+            dateMode: 'range',
+            selectedDate: fetchStart,
+            startDate: fetchStart,
+            endDate: fetchEnd,
           },
           version: 1
         },
         profiles: fetchedUsers,
         shifts: fetchedShifts,
-        dailyServiceOrders: fetchedOrders,
+        dailyServiceOrders: ordersRes.data || [],
         professions: fetchedProfessions,
         afs: fetchedAfs
-      };
-
-      setRawSnapshot(newRawSnapshot);
-
-      // Iniciar Etapa de Processamento Determinístico Local
-      setIsFetching(false);
-      setIsProcessing(true);
-
-      const newProcessedSnapshot = processSnapshot(newRawSnapshot);
-      setProcessedSnapshot(newProcessedSnapshot);
+      });
     } catch (err) {
       console.error('[AdminReportPage] Erro ao carregar dados em lote:', err);
       showError('Erro ao carregar dados do relatório.');
     } finally {
-      setIsFetching(false);
-      setIsProcessing(false);
+      if (fetchId === fetchIdRef.current) setIsFetching(false);
     }
-  }, [
-    user,
-    company,
-    dateMode,
-    selectedDate,
-    dateRange,
-    selectedUserId,
-    selectedProfessionCode,
-    selectedShiftCode,
-    selectedDigitadoFilter,
-    sortDaysDirection,
-    afSearchTerm
-  ]);
+  }, [user, company, fetchStart, fetchEnd]);
 
-  // Recarregar dados quando os filtros primários (datas/período) mudam
   useEffect(() => {
-    loadBatchDataAndProcess();
-  }, [loadBatchDataAndProcess]);
+    loadBatchData();
+  }, [loadBatchData]);
 
-  // Se o RawSnapshot já existir e mudarem filtros locais rápidos, reprocessar em memória sem requisições Supabase
-  useEffect(() => {
-    if (!rawSnapshot) return;
-
-    setIsProcessing(true);
-    const updatedFilterRawSnapshot: RawSnapshot = {
+  // Processamento determinístico local (sem rede) para um conjunto de filtros
+  const processWith = useCallback((f: ReportFilters) => {
+    if (!rawSnapshot) return null;
+    return processSnapshot({
       ...rawSnapshot,
       meta: {
         ...rawSnapshot.meta,
         filter: {
+          ...toSnapshotFilter(f),
           dateMode,
           selectedDate: format(selectedDate, 'yyyy-MM-dd'),
-          startDate: rawSnapshot.meta.filter.startDate,
-          endDate: rawSnapshot.meta.filter.endDate,
-          userId: selectedUserId,
-          professionCode: selectedProfessionCode,
-          shiftCode: selectedShiftCode,
-          digitadoFilter: selectedDigitadoFilter,
-          afSearchTerm,
+          startDate: fetchStart,
+          endDate: fetchEnd,
           sortDaysDirection
         }
       }
-    };
+    });
+  }, [rawSnapshot, dateMode, selectedDate, fetchStart, fetchEnd, sortDaysDirection]);
 
-    const newProcessedSnapshot = processSnapshot(updatedFilterRawSnapshot);
-    setProcessedSnapshot(newProcessedSnapshot);
-    setIsProcessing(false);
-  }, [
-    selectedUserId,
-    selectedProfessionCode,
-    selectedShiftCode,
-    selectedDigitadoFilter,
-    sortDaysDirection,
-    afSearchTerm,
-    dateMode,
-    selectedDate
-  ]);
+  const processedSnapshot = useMemo(() => processWith(filters), [processWith, filters]);
+  const previewCount = useCallback((draft: ReportFilters) => processWith(draft)?.flatOSList.length ?? 0, [processWith]);
 
   // Dados derivados do ProcessedSnapshot para consumo imediato dos gráficos/tabelas
   const filteredOSList = useMemo(() => {
@@ -406,6 +295,46 @@ const AdminReportPage = () => {
     };
   }, [dailyChartData]);
 
+  // Chips dos filtros ativos (também dão a contagem do ícone)
+  const activeFilterChips = useMemo(() => {
+    const chips: Array<{ key: keyof ReportFilters; label: string }> = [];
+    if (filters.userId !== 'all') {
+      const u = users.find(x => x.id === filters.userId);
+      chips.push({ key: 'userId', label: `Usuário: ${u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Sem nome' : '—'}` });
+    }
+    if (filters.professionCode !== 'all') {
+      const p = availableProfessions.find(x => x.ref_code?.toString() === filters.professionCode);
+      chips.push({ key: 'professionCode', label: `Profissão: ${p?.name ?? filters.professionCode}` });
+    }
+    if (filters.shiftCode !== 'all') {
+      const s = availableShifts.find(x => x.ref_code?.toString() === filters.shiftCode);
+      chips.push({ key: 'shiftCode', label: `Turno: ${s?.name ?? filters.shiftCode}` });
+    }
+    if (filters.digitado !== 'all') chips.push({ key: 'digitado', label: DIGITADO_LABELS[filters.digitado] });
+    if (filters.afSearch.trim()) chips.push({ key: 'afSearch', label: `AF: ${filters.afSearch.trim()}` });
+    return chips;
+  }, [filters, users, availableProfessions, availableShifts]);
+
+  const removeFilter = (key: keyof ReportFilters) => {
+    tap();
+    setFilters(f => ({ ...f, [key]: DEFAULT_REPORT_FILTERS[key] }));
+  };
+
+  const openFilters = () => {
+    tap();
+    setIsFilterPanelOpen(true);
+  };
+
+  const openReport = () => {
+    tap();
+    setIsReportDialogOpen(true);
+  };
+
+  const showDaySummary = (date: Date) => {
+    setDateMode('single');
+    setSelectedDate(date);
+  };
+
   // Ações de Confirmação e Atualização de Status Digitado em Memória
   const confirmOrder = async (orderId: string) => {
     if (!rawSnapshot) return;
@@ -440,7 +369,6 @@ const AdminReportPage = () => {
       };
 
       setRawSnapshot(updatedRawSnapshot);
-      setProcessedSnapshot(processSnapshot(updatedRawSnapshot));
     } catch (err) {
       console.error('Erro ao confirmar ordem:', err);
       showError('Erro ao confirmar ordem.');
@@ -479,7 +407,6 @@ const AdminReportPage = () => {
       };
 
       setRawSnapshot(updatedRawSnapshot);
-      setProcessedSnapshot(processSnapshot(updatedRawSnapshot));
       setIsUnconfirmDialogOpen(false);
     } catch (err) {
       console.error('Erro ao desmarcar ordem:', err);
@@ -741,294 +668,278 @@ const AdminReportPage = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen flex flex-col p-4 bg-background max-w-7xl mx-auto w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
-      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-        <h1 className="text-3xl font-extrabold flex items-center gap-3 text-primary">
-          <img src="/icons/tela_inicial/7.png" alt="" className="h-12 w-auto object-contain" />
-          Relatório Administrativo ({branding.name})
-        </h1>
-        <div className="flex gap-2 items-center">
-          {(isFetching || isProcessing) && (
-            <div className="flex items-center gap-2 text-xs font-semibold text-primary bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20 animate-pulse">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span>{isFetching ? "Carregando dados..." : "Processando relatório..."}</span>
-            </div>
-          )}
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={loadBatchDataAndProcess}
-            disabled={isFetching || isProcessing}
-            title="Recarregar snapshot"
+  const filterCount = activeFilterChips.length;
+  const filterCountBadge = filterCount > 0 && (
+    <span
+      className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center shadow"
+      data-testid="report-filter-count"
+    >
+      {filterCount}
+    </span>
+  );
+
+  const filterChips = filterCount > 0 && (
+    <div className="flex gap-1.5 overflow-x-auto no-scrollbar" data-testid="report-filter-chips">
+      {activeFilterChips.map(chip => (
+        <span
+          key={chip.key}
+          className="flex shrink-0 items-center rounded-full bg-primary/10 pl-2.5 text-xs font-semibold text-primary"
+          data-testid="report-filter-chip"
+        >
+          <span className="max-w-[180px] truncate">{chip.label}</span>
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-primary/10"
+            aria-label={`Remover filtro ${chip.label}`}
+            onClick={() => removeFilter(chip.key)}
           >
-            <RefreshCw className={cn("h-4 w-4", (isFetching || isProcessing) && "animate-spin")} />
-          </Button>
-          <Button variant="default" onClick={() => setIsReportDialogOpen(true)} className="flex items-center gap-2">
-            <FileText className="h-4 w-4" /> Gerar Relatório
-          </Button>
-          <Button variant="outline" onClick={() => navigate(`/${company}/service-orders`)}>
-            <ChevronLeft className="mr-2 h-4 w-4" /> Voltar
-          </Button>
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+
+  const singleCalendar = (
+    <Calendar mode="single" selected={selectedDate} onSelect={(d) => d && setSelectedDate(d)} locale={ptBR} initialFocus />
+  );
+  const rangeCalendar = (
+    <Calendar mode="range" selected={dateRange} onSelect={setDateRange} locale={ptBR} initialFocus />
+  );
+
+  const reportDescription = (
+    <>
+      O relatório usará as <strong>{filteredOSList.length} Ordens de Serviço</strong> filtradas.
+      {summaryTotals.pendingOsCount > 0 && <span className="block mt-1 text-red-600 font-medium italic">({summaryTotals.pendingOsCount} OS pendentes de digitação)</span>}
+    </>
+  );
+
+  const reportOptions = (
+    <div className="grid gap-4 py-2">
+      <div className="space-y-2">
+        <Label>Agrupar por:</Label>
+        <Select value={reportGroupBy} onValueChange={setReportGroupBy}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sem Agrupamento</SelectItem>
+            <SelectItem value="date">Data</SelectItem>
+            <SelectItem value="badge">Crachá</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex items-center space-x-2 p-2 bg-muted/30 rounded border">
+        <Checkbox id="inc-typed" checked={includeTypedStatus} onCheckedChange={(c) => setIncludeTypedStatus(c === true)} />
+        <Label htmlFor="inc-typed">Incluir coluna de status "Digitado"</Label>
+      </div>
+      <div className="space-y-2 p-2 bg-muted/30 rounded border">
+        <Label className="text-xs font-bold">Incluir Gráficos no PDF:</Label>
+        <div className="flex gap-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox id="inc-donut" checked={includeDonutChart} onCheckedChange={(c) => setIncludeDonutChart(c === true)} />
+            <Label htmlFor="inc-donut" className="text-xs">Rosca</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="inc-bar" checked={includeBarChart} onCheckedChange={(c) => setIncludeBarChart(c === true)} />
+            <Label htmlFor="inc-bar" className="text-xs">Barra</Label>
+          </div>
         </div>
       </div>
+    </div>
+  );
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Seleção de Data</CardTitle></CardHeader>
-          <CardContent>
-            <Tabs value={dateMode} onValueChange={(v: any) => setDateMode(v)}>
-              <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="single">Dia Único</TabsTrigger>
-                <TabsTrigger value="range">Período</TabsTrigger>
-              </TabsList>
-              <TabsContent value="single">
-                <div className="flex items-center gap-4">
-                  <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))}><ChevronLeft className="h-4 w-4" /></Button>
-                  <Popover><PopoverTrigger asChild><Button variant="ghost" className="flex-1 font-bold">{format(selectedDate, "dd/MM/yyyy")}</Button></PopoverTrigger><PopoverContent><Calendar mode="single" selected={selectedDate} onSelect={(d) => d && setSelectedDate(d)} locale={ptBR} /></PopoverContent></Popover>
-                  <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 1))}><ChevronRight className="h-4 w-4" /></Button>
-                </div>
-              </TabsContent>
-              <TabsContent value="range">
-                <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full text-left">{dateRange?.from ? format(dateRange.from, "dd/MM/yyyy") : 'Início'} - {dateRange?.to ? format(dateRange.to, "dd/MM/yyyy") : 'Fim'}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} locale={ptBR} /></PopoverContent></Popover>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+  const reportButtons = (
+    <>
+      <Button variant="outline" className="flex-1 h-11 lg:h-10" onClick={handleGenerateCSV}>Exportar CSV</Button>
+      <Button className="flex-1 h-11 lg:h-10" onClick={handleGeneratePDF} disabled={isGeneratingPdf}>
+        {isGeneratingPdf ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Gerando...
+          </>
+        ) : (
+          <>
+            <Download className="mr-2 h-4 w-4" />
+            Salvar PDF
+          </>
+        )}
+      </Button>
+    </>
+  );
 
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Filtros</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <div className="space-y-1">
-                 <Label className="text-[10px] uppercase font-bold">Usuário</Label>
-                 <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
-                   <PopoverTrigger asChild>
-                     <Button
-                       variant="outline"
-                       role="combobox"
-                       aria-expanded={openUserSelect}
-                       className="w-full justify-between"
-                     >
-                       {selectedUserId === "all"
-                         ? "Todos os usuários"
-                         : users.find((u) => u.id === selectedUserId)
-                           ? `${users.find((u) => u.id === selectedUserId)?.first_name} ${users.find((u) => u.id === selectedUserId)?.last_name}`
-                           : "Selecionar usuário..."}
-                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                     </Button>
-                   </PopoverTrigger>
-                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                     <Command>
-                       <CommandInput placeholder="Pesquisar usuário..." />
-                       <CommandList>
-                         <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
-                         <CommandGroup>
-                           <CommandItem
-                             value="all"
-                             onSelect={() => {
-                               setSelectedUserId("all");
-                               setOpenUserSelect(false);
-                             }}
-                           >
-                             <Check
-                               className={cn(
-                                 "mr-2 h-4 w-4",
-                                 selectedUserId === "all" ? "opacity-100" : "opacity-0"
-                               )}
-                             />
-                             Todos os usuários
-                           </CommandItem>
-                           {users.map((u) => {
-                             const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
-                             const badgeStr = u.badge ? `(${u.badge})` : '';
-                             const searchValue = `${fullName} ${u.badge || ''}`.toLowerCase().trim();
-                             
-                             return (
-                               <CommandItem
-                                 key={u.id}
-                                 value={searchValue}
-                                 onSelect={() => {
-                                   setSelectedUserId(u.id);
-                                   setOpenUserSelect(false);
-                                 }}
-                               >
-                                 <Check
-                                   className={cn(
-                                     "mr-2 h-4 w-4",
-                                     selectedUserId === u.id ? "opacity-100" : "opacity-0"
-                                   )}
-                                 />
-                                 <span className="flex-1">
-                                   {fullName || 'Usuário sem nome'} {badgeStr}
-                                 </span>
-                               </CommandItem>
-                             );
-                           })}
-                         </CommandGroup>
-                       </CommandList>
-                     </Command>
-                   </PopoverContent>
-                 </Popover>
-               </div>
-               <div className="space-y-1">
-                 <Label className="text-[10px] uppercase font-bold">Pesquisar AF</Label>
-                 <div className="relative">
-                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                   <Input
-                     placeholder="Número ou descrição..."
-                     className="pl-8"
-                     value={afSearchTerm}
-                     onChange={(e) => setAfSearchTerm(e.target.value)}
-                   />
-                 </div>
-               </div>
-             </div>
-             
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase font-bold">Profissão</Label>
-                  <Select value={selectedProfessionCode} onValueChange={setSelectedProfessionCode}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      {availableProfessions.map(p => <SelectItem key={p.ref_code} value={p.ref_code!.toString()}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase font-bold">Turno</Label>
-                  <Select value={selectedShiftCode} onValueChange={setSelectedShiftCode}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {availableShifts.map(s => <SelectItem key={s.ref_code} value={s.ref_code!.toString()}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase font-bold">Status Digitado</Label>
-                  <Select value={selectedDigitadoFilter} onValueChange={(v: any) => setSelectedDigitadoFilter(v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os Status</SelectItem>
-                      <SelectItem value="sim">Apenas Digitadas</SelectItem>
-                      <SelectItem value="nao">Apenas Pendentes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <Card className="lg:col-span-1 flex flex-col">
-          <CardHeader>
-            <CardTitle className="text-base">
-              {dateMode === 'single' ? "Resumo Diário" : "Resumo do Período"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-between space-y-4">
-             <div id="print-donut-chart" className="h-48 w-full relative">
-               <ResponsiveContainer width="100%" height="100%">
-                 <PieChart>
-                   <Pie data={dailyChartData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={renderCustomPieLabel}>
-                     {dailyChartData.map((entry, i) => {
-                       const isPercurso = !!entry.is_percurso;
-                       const isWaiting = !!entry.is_waiting;
-                       const cellColor = isWaiting ? '#16a34a' : isPercurso ? '#ef4444' : COLORS[i % COLORS.length];
-                       return <Cell key={i} fill={cellColor} />;
-                     })}
-                   </Pie>
-                   <RechartsTooltip formatter={(value: number) => formatDuration(value)} />
-                 </PieChart>
-               </ResponsiveContainer>
-               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                 <span className="text-xs text-muted-foreground uppercase font-semibold">Total</span>
-                 <span className="text-base font-bold text-primary">{formatDuration(dailyTimes.totalMinutes)}</span>
-               </div>
-             </div>
-
-             <div className="w-full grid grid-cols-4 gap-1 p-2 bg-muted/30 rounded-lg border text-[10px] sm:text-xs">
-               <div className="text-center">
-                 <span className="text-[9px] text-muted-foreground uppercase font-bold">Horas OS</span>
-                 <p className="font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{formatDuration(dailyTimes.osMinutes)}</p>
-               </div>
-               <div className="text-center border-l border-r border-border px-0.5">
-                 <span className="text-[9px] text-muted-foreground uppercase font-bold">Percurso</span>
-                 <p className="font-extrabold text-red-600 dark:text-red-400 mt-0.5">{formatDuration(dailyTimes.percursoMinutes)}</p>
-               </div>
-               <div className="text-center border-r border-border pr-0.5">
-                 <span className="text-[9px] text-muted-foreground uppercase font-bold">Aguardando</span>
-                 <p className="font-extrabold text-green-600 dark:text-green-400 mt-0.5">{formatDuration(dailyTimes.waitingMinutes)}</p>
-               </div>
-               <div className="text-center">
-                 <span className="text-[9px] text-muted-foreground uppercase font-bold">Total</span>
-                 <p className="font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">{formatDuration(dailyTimes.totalMinutes)}</p>
-               </div>
-             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2 flex flex-col">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 flex-wrap gap-2">
-            <CardTitle className="text-base">Histórico do Período</CardTitle>
-            <div className="flex items-center gap-3 text-xs flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 bg-[#2563eb] rounded-sm"></span>
-                <span className="text-muted-foreground">OS: <strong className="text-foreground">{formatDuration(summaryTotals.osMinutes)}</strong></span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 bg-[#dc2626] rounded-sm"></span>
-                <span className="text-muted-foreground">Percurso: <strong className="text-foreground">{formatDuration(summaryTotals.percursoMinutes)}</strong></span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 bg-[#16a34a] rounded-sm"></span>
-                <span className="text-muted-foreground">Aguardando: <strong className="text-foreground">{formatDuration(summaryTotals.aguardandoMinutes)}</strong></span>
-              </div>
-              <div className="flex items-center gap-1.5 border-l pl-2">
-                <span className="text-muted-foreground font-semibold">Total: <strong className="text-slate-800 dark:text-slate-200 font-extrabold">{formatDuration(summaryTotals.totalMinutes)}</strong></span>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-1 min-h-[16rem]">
-             <div id="print-bar-chart" className="h-full w-full">
-               <ResponsiveContainer width="100%" height="100%">
-                 <BarChart data={monthlyChartData}>
-                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                   <XAxis dataKey="day" />
-                   <YAxis tickFormatter={v => `${Math.floor(v/60)}h`} />
-                   <RechartsTooltip content={<BarChartTooltip />} />
-                   <Bar dataKey="minutes" name="Ordem de Serviço" fill="#2563eb" stackId="a" radius={[0, 0, 0, 0]} />
-                   <Bar dataKey="percursoMinutes" name="Percurso" fill="#dc2626" stackId="a" radius={[0, 0, 0, 0]} />
-                   <Bar dataKey="waitingMinutes" name="Aguardando Serviço" fill="#16a34a" stackId="a" radius={[2, 2, 0, 0]} />
-                 </BarChart>
-               </ResponsiveContainer>
-             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
-          <CardTitle className="text-xl">Ordens de Serviço Filtradas</CardTitle>
-          <div className="flex items-center gap-3">
+  return (
+    <div className="min-h-screen flex flex-col p-4 bg-background max-w-7xl mx-auto w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+      {isCompact ? (
+        <div
+          className="sticky z-30 -mx-4 -mt-4 mb-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 pt-2 pb-2 transition-[top] duration-300 ease-out"
+          style={{ top: appHeaderHidden ? 'env(safe-area-inset-top)' : 'calc(env(safe-area-inset-top) + 3.5rem)' }}
+          data-testid="report-mobile-header"
+        >
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 -ml-2" asChild>
+              <Link to={`/${company}/service-orders`} aria-label="Voltar para Ordens de Serviço" onClick={() => tap()}>
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+            </Button>
+            <h1 className="flex-1 min-w-0 truncate text-lg font-bold text-primary">Relatório Geral</h1>
             <Button
               variant="ghost"
-              size="sm"
-              onClick={() => setSortDaysDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
-              className="h-8 px-2 text-xs font-medium flex items-center gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors"
+              size="icon"
+              className="h-10 w-10 shrink-0"
+              onClick={() => { tap(); loadBatchData(); }}
+              disabled={isFetching}
+              aria-label="Recarregar"
+              data-testid="report-refresh"
             >
-              <ChevronsUpDown className="h-3.5 w-3.5" />
-              {sortDaysDirection === 'asc' ? 'Data: Antigas' : 'Data: Recentes'}
+              <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
             </Button>
-            <div className="text-sm font-medium text-muted-foreground border-l pl-3">
-              {filteredOSList.length} OS
+            <Button
+              variant="outline"
+              size="icon"
+              className="relative h-10 w-10 shrink-0 text-primary border-primary/30"
+              onClick={openFilters}
+              aria-label="Filtros"
+              data-testid="report-filter-button"
+            >
+              <Filter className="h-4 w-4" />
+              {filterCountBadge}
+            </Button>
+            <Button
+              size="icon"
+              className="h-10 w-10 shrink-0"
+              onClick={openReport}
+              aria-label="Gerar relatório"
+              data-testid="report-generate"
+            >
+              <FileText className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="mt-1.5 flex items-center gap-1">
+            <ToggleGroup
+              type="single"
+              value={dateMode}
+              onValueChange={(v) => { if (v) { tap(); setDateMode(v as 'single' | 'range'); } }}
+              className="shrink-0 gap-0 rounded-md bg-muted p-0.5"
+              aria-label="Modo de data"
+            >
+              <ToggleGroupItem value="single" className="h-9 px-3 text-xs data-[state=on]:bg-background data-[state=on]:text-primary data-[state=on]:shadow-sm">Dia</ToggleGroupItem>
+              <ToggleGroupItem value="range" className="h-9 px-3 text-xs data-[state=on]:bg-background data-[state=on]:text-primary data-[state=on]:shadow-sm">Período</ToggleGroupItem>
+            </ToggleGroup>
+            {dateMode === 'single' ? (
+              <div className="flex flex-1 min-w-0 items-center">
+                <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0" onClick={() => setSelectedDate(subDays(selectedDate, 1))} aria-label="Dia anterior">
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" className="h-10 flex-1 min-w-0 px-1 font-bold tabular-nums" data-testid="report-date-label">
+                      {format(selectedDate, 'dd/MM/yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="center">{singleCalendar}</PopoverContent>
+                </Popover>
+                <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0" onClick={() => setSelectedDate(addDays(selectedDate, 1))} aria-label="Próximo dia">
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </div>
+            ) : (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" className="h-10 flex-1 min-w-0 px-1 font-bold tabular-nums" data-testid="report-date-label">
+                    {dateRange?.from ? format(dateRange.from, 'dd/MM') : 'Início'} – {dateRange?.to ? format(dateRange.to, 'dd/MM') : 'Fim'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">{rangeCalendar}</PopoverContent>
+              </Popover>
+            )}
+          </div>
+
+          {filterChips && <div className="mt-1.5">{filterChips}</div>}
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <h1 className="text-3xl font-extrabold flex items-center gap-3 text-primary">
+              <img src="/icons/tela_inicial/7.png" alt="" className="h-12 w-auto object-contain" />
+              Relatório Administrativo ({branding.name})
+            </h1>
+            <div className="flex gap-2 items-center">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={loadBatchData}
+                disabled={isFetching}
+                title="Recarregar snapshot"
+                aria-label="Recarregar"
+                data-testid="report-refresh"
+              >
+                <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+              </Button>
+              <Button variant="outline" onClick={openFilters} className="relative" data-testid="report-filter-button">
+                <Filter className="mr-2 h-4 w-4" /> Filtros{filterCount > 0 && ` (${filterCount})`}
+              </Button>
+              <Button variant="default" onClick={openReport} className="flex items-center gap-2" data-testid="report-generate">
+                <FileText className="h-4 w-4" /> Gerar Relatório
+              </Button>
+              <Button variant="outline" onClick={() => navigate(`/${company}/service-orders`)}>
+                <ChevronLeft className="mr-2 h-4 w-4" /> Voltar
+              </Button>
             </div>
           </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Seleção de Data</CardTitle></CardHeader>
+              <CardContent>
+                <Tabs value={dateMode} onValueChange={(v: any) => setDateMode(v)}>
+                  <TabsList className="grid w-full grid-cols-2 mb-4">
+                    <TabsTrigger value="single">Dia Único</TabsTrigger>
+                    <TabsTrigger value="range">Período</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="single">
+                    <div className="flex items-center gap-4">
+                      <Button variant="outline" size="icon" onClick={() => setSelectedDate(subDays(selectedDate, 1))} aria-label="Dia anterior"><ChevronLeft className="h-4 w-4" /></Button>
+                      <Popover><PopoverTrigger asChild><Button variant="ghost" className="flex-1 font-bold" data-testid="report-date-label">{format(selectedDate, "dd/MM/yyyy")}</Button></PopoverTrigger><PopoverContent className="w-auto p-0">{singleCalendar}</PopoverContent></Popover>
+                      <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 1))} aria-label="Próximo dia"><ChevronRight className="h-4 w-4" /></Button>
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="range">
+                    <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full text-left">{dateRange?.from ? format(dateRange.from, "dd/MM/yyyy") : 'Início'} - {dateRange?.to ? format(dateRange.to, "dd/MM/yyyy") : 'Fim'}</Button></PopoverTrigger><PopoverContent className="w-auto p-0">{rangeCalendar}</PopoverContent></Popover>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+            {filterChips && <div className="lg:col-span-2 self-end">{filterChips}</div>}
+          </div>
+        </>
+      )}
+
+      <ReportCharts
+        dateMode={dateMode}
+        selectedDate={selectedDate}
+        dailyChartData={dailyChartData}
+        monthlyChartData={monthlyChartData}
+        dailyTimes={dailyTimes}
+        summaryTotals={summaryTotals}
+        onSelectDay={showDaySummary}
+      />
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 p-4 lg:p-6">
+          <CardTitle className="text-base lg:text-xl">Ordens de Serviço ({filteredOSList.length})</CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSortDaysDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+            className="h-10 px-2 text-xs font-medium flex items-center gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors"
+            aria-label="Inverter ordem por data"
+            data-testid="report-sort"
+          >
+            <ArrowDownUp className="h-4 w-4" />
+            {sortDaysDirection === 'asc' ? 'Antigas' : 'Recentes'}
+          </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 pb-4 lg:px-6 lg:pb-6">
           <div className="mb-2 px-4 hidden md:grid grid-cols-[auto_1fr_auto_auto] gap-4 text-sm text-muted-foreground font-medium">
              <div className="flex items-center gap-4">
                 <GripVertical className="h-4 w-4 opacity-50" />
@@ -1041,7 +952,7 @@ const AdminReportPage = () => {
              <div className="text-right w-20"></div>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 lg:space-y-6">
             {filteredOSList.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <p className="text-base font-semibold">Nenhuma Ordem de Serviço encontrada.</p>
@@ -1049,19 +960,34 @@ const AdminReportPage = () => {
               </div>
             ) : (
               filteredOSList.map(os => (
-                <ServiceOrderListDisplay 
-                  key={os.id} 
-                  group={os} 
-                  readOnly={true} 
+                <ServiceOrderListDisplay
+                  key={os.id}
+                  group={os}
+                  readOnly={true}
                   additionalHeader={
-                    <div className="bg-blue-50/30 p-4 border-b border-blue-100/50 flex justify-between items-center">
-                      <span className="text-lg font-bold text-gray-900">{os.userDisplayName} | {format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
-                      {os.confirmed ? (
-                        <div className="flex items-center gap-1">
-                          <span className="text-green-600 text-xs font-bold">Digitado</span>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setUnconfirmOrderId(os.id); setIsUnconfirmDialogOpen(true); }}><X className="h-4 w-4" /></Button>
-                        </div>
-                      ) : <Button variant="outline" size="sm" onClick={() => confirmOrder(os.id)}>Marcar Digitado</Button>}
+                    <div className="bg-primary/5 px-4 py-3 border-b border-primary/10 space-y-1.5" data-testid="report-os-header">
+                      <p className="text-base font-bold text-foreground leading-tight">{os.userDisplayName}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-muted-foreground tabular-nums">{format(parseISO(os.recordDate), 'dd/MM/yyyy')}</span>
+                        {os.confirmed ? (
+                          <span className="flex items-center rounded-full bg-green-600/10 pl-3 text-xs font-bold text-green-700 dark:text-green-400">
+                            <Check className="mr-1 h-3.5 w-3.5" /> Digitado
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-10 w-10 rounded-full text-green-700 dark:text-green-400 hover:bg-green-600/10"
+                              onClick={() => { setUnconfirmOrderId(os.id); setIsUnconfirmDialogOpen(true); }}
+                              aria-label="Remover status Digitado"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </span>
+                        ) : (
+                          <Button variant="outline" className="h-10" onClick={() => { tap(); confirmOrder(os.id); }}>
+                            Marcar Digitado
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   }
                 />
@@ -1071,67 +997,42 @@ const AdminReportPage = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Gerar Relatório</DialogTitle>
-            <DialogDescription>
-              O relatório usará as <strong>{filteredOSList.length} Ordens de Serviço</strong> filtradas.
-              {summaryTotals.pendingOsCount > 0 && <span className="block mt-1 text-red-600 font-medium italic">({summaryTotals.pendingOsCount} OS pendentes de digitação)</span>}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="space-y-2">
-              <Label>Agrupar por:</Label>
-              <Select value={reportGroupBy} onValueChange={setReportGroupBy}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem Agrupamento</SelectItem>
-                  <SelectItem value="date">Data</SelectItem>
-                  <SelectItem value="badge">Crachá</SelectItem>
-                </SelectContent>
-              </Select>
+      <ReportFilterPanel
+        open={isFilterPanelOpen}
+        onOpenChange={setIsFilterPanelOpen}
+        value={filters}
+        onApply={setFilters}
+        users={users}
+        professions={availableProfessions}
+        shifts={availableShifts}
+        previewCount={previewCount}
+      />
+
+      {isCompact ? (
+        <Drawer open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen} shouldScaleBackground={false}>
+          <DrawerContent className="max-h-[92vh] rounded-none">
+            <div className="overflow-y-auto overscroll-contain">
+              <DrawerHeader className="text-left">
+                <DrawerTitle>Gerar Relatório</DrawerTitle>
+                <DrawerDescription>{reportDescription}</DrawerDescription>
+              </DrawerHeader>
+              <div className="px-4">{reportOptions}</div>
             </div>
-            <div className="flex items-center space-x-2 p-2 bg-muted/30 rounded border">
-              <Checkbox id="inc-typed" checked={includeTypedStatus} onCheckedChange={(c) => setIncludeTypedStatus(c === true)} />
-              <Label htmlFor="inc-typed">Incluir coluna de status "Digitado"</Label>
-            </div>
-            <div className="space-y-2 p-2 bg-muted/30 rounded border">
-              <Label className="text-xs font-bold">Incluir Gráficos no PDF:</Label>
-              <div className="flex gap-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="inc-donut" checked={includeDonutChart} onCheckedChange={(c) => setIncludeDonutChart(c === true)} />
-                  <Label htmlFor="inc-donut" className="text-xs">Rosca</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="inc-bar" checked={includeBarChart} onCheckedChange={(c) => setIncludeBarChart(c === true)} />
-                  <Label htmlFor="inc-bar" className="text-xs">Barra</Label>
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" className="flex-1" onClick={handleGenerateCSV}>Exportar CSV</Button>
-            <Button 
-              className="flex-1" 
-              onClick={handleGeneratePDF}
-              disabled={isGeneratingPdf}
-            >
-              {isGeneratingPdf ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Gerando...
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Salvar PDF
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DrawerFooter className="flex-row border-t pb-[calc(1rem+env(safe-area-inset-bottom))]">{reportButtons}</DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Gerar Relatório</DialogTitle>
+              <DialogDescription>{reportDescription}</DialogDescription>
+            </DialogHeader>
+            {reportOptions}
+            <DialogFooter className="gap-2">{reportButtons}</DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <AlertDialog open={isUnconfirmDialogOpen} onOpenChange={setIsUnconfirmDialogOpen}>
         <AlertDialogContent>
