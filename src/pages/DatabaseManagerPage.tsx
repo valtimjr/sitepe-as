@@ -7,7 +7,7 @@ import { useIsCompact } from '@/hooks/use-compact';
 import HomeMenuRow from '@/components/home/HomeMenuRow';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import AdminSectionHeader from '@/components/admin/AdminSectionHeader';
-import { getVisibleSections, preloadSection } from '@/components/admin/adminSections';
+import { SECTION_ALIASES, getVisibleSections, preloadSection } from '@/components/admin/adminSections';
 
 const ACTIVE_SECTION_KEY = 'database_manager_active_tab';
 
@@ -36,14 +36,15 @@ const DatabaseManagerPage: React.FC = () => {
   }, [branding.name]);
 
   // Seção ativa: URL > única seção > (web) última usada ou primeira. No celular, sem URL mostra a lista.
-  const requested = sections.find(s => s.key === searchParams.get('secao'));
+  const resolveKey = (key: string | null) => (key && SECTION_ALIASES[key]) || key;
+  const requested = sections.find(s => s.key === resolveKey(searchParams.get('secao')));
   const active =
     requested ??
     (sections.length === 1
       ? sections[0]
       : isCompact
         ? undefined
-        : sections.find(s => s.key === localStorage.getItem(ACTIVE_SECTION_KEY)) ?? sections[0]);
+        : sections.find(s => s.key === resolveKey(localStorage.getItem(ACTIVE_SECTION_KEY))) ?? sections[0]);
 
   useEffect(() => {
     if (active) localStorage.setItem(ACTIVE_SECTION_KEY, active.key);

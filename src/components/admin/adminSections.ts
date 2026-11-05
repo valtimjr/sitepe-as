@@ -1,7 +1,10 @@
 import { createElement, lazy, type ComponentType, type LazyExoticComponent } from 'react';
-import { Boxes, ClipboardList, IdCard, Mail, Menu, Tags, type LucideIcon } from 'lucide-react';
+import { Boxes, ClipboardList, Mail, Menu, Tags, Users, type LucideIcon } from 'lucide-react';
 
-export type AdminSectionKey = 'pecas' | 'afs' | 'convites' | 'crachas' | 'atributos' | 'menus';
+export type AdminSectionKey = 'pecas' | 'afs' | 'convites' | 'usuarios' | 'atributos' | 'menus';
+
+/** Chaves antigas que continuam funcionando em links e no localStorage. */
+export const SECTION_ALIASES: Record<string, AdminSectionKey> = { crachas: 'usuarios' };
 
 export interface AdminSection {
   key: AdminSectionKey;
@@ -41,12 +44,12 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     load: () => import('@/components/InviteManager'),
   }),
   section({
-    key: 'crachas',
-    label: 'Crachás',
-    subtitle: 'Números de crachá usados no login',
-    icon: IdCard,
+    key: 'usuarios',
+    label: 'Usuários',
+    subtitle: 'Perfis, crachás, funções e turnos',
+    icon: Users,
     moderator: true,
-    load: () => import('@/components/admin/BadgeManager'),
+    load: () => import('@/components/admin/UserManager'),
   }),
   section({
     key: 'atributos',
@@ -67,7 +70,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   }),
 ];
 
-/** Admin vê tudo; moderador só Convites e Crachás. */
+/** Admin vê tudo; moderador só Convites e Usuários. */
 export const getVisibleSections = (role: string | undefined, canAccessMenuManager: boolean) => {
   if (role === 'admin') return ADMIN_SECTIONS.filter(s => s.key !== 'menus' || canAccessMenuManager);
   if (role === 'moderator') return ADMIN_SECTIONS.filter(s => s.moderator);

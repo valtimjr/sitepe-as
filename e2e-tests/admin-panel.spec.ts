@@ -16,6 +16,9 @@ async function setupAdmin(page: Page) {
   await page.route(/\/rest\/v1\/parts(\?|$)/, route =>
     route.fulfill({ json: [PART], headers: { 'content-range': '0-0/1' } }),
   );
+  await page.route(/\/rest\/v1\/rpc\/search_parts_unaccent/, route =>
+    route.fulfill({ json: [{ ...PART, total_count: 1 }] }),
+  );
   await page.route(/\/rest\/v1\/afs(\?|$)/, route =>
     route.fulfill({ json: [AF], headers: { 'content-range': '0-0/1' } }),
   );
